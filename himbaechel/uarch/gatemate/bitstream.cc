@@ -117,45 +117,39 @@ struct BitstreamBackend
                     cc.tiles[loc].add_word(stringf("CPE%d.%s", id, p.first.c_str(ctx)), p.second.as_bits());
                 }
             } break;
-            case id_BUFG.index:
-                {
-                    Loc l = ctx->getBelLocation(cell.second->bel);
-                    cc.configs[0].add_word(stringf("GLBOUT.GLB%d_EN",l.z), int_to_bitvector(1,1));
+            case id_BUFG.index: {
+                Loc l = ctx->getBelLocation(cell.second->bel);
+                cc.configs[0].add_word(stringf("GLBOUT.GLB%d_EN", l.z), int_to_bitvector(1, 1));
+            } break;
+            case id_PLL.index: {
+                Loc l = ctx->getBelLocation(cell.second->bel);
+                for (auto &p : params) {
+                    cc.configs[0].add_word(stringf("PLL%d.%s", l.z - 4, p.first.c_str(ctx)), p.second.as_bits());
                 }
-            break;
-            case id_PLL.index:
-                {
-                    Loc l = ctx->getBelLocation(cell.second->bel);
-                    for (auto &p : params) {
-                        cc.configs[0].add_word(stringf("PLL%d.%s", l.z-4, p.first.c_str(ctx)), p.second.as_bits());
-                    }
+            } break;
+            case id_RAM.index: {
+                CfgLoc loc = getRAMConfigLoc(cell.second.get()->bel.tile);
+                auto &bram = cc.brams[loc];
+                for (auto &p : params) {
+                    std::string name = p.first.c_str(ctx);
+                    if (boost::starts_with(name, "RAM_cfg"))
+                        bram.add_word(name, p.second.as_bits());
                 }
-            break;
-            case id_RAM.index:
-                {
-                    CfgLoc loc = getRAMConfigLoc(cell.second.get()->bel.tile);
-                    auto &bram = cc.brams[loc];
-                    for (auto &p : params) {
-                        std::string name = p.first.c_str(ctx);
-                        if (boost::starts_with(name, "RAM_cfg"))
-                            bram.add_word(name, p.second.as_bits());
-                    }
 
-                    bool is_fifo = params.count(id_RAM_cfg_fifo_sync_enable) | params.count(id_RAM_cfg_fifo_async_enable);
-                    if (!is_fifo) {
-                        auto &bram_data = cc.bram_data[loc];
-                        bram_data = std::vector<uint8_t>(5120);
-                        for(int i=0;i<128;i++) {
-                            for(int j=0;j<40;j++) {
-                                bram_data[i*40+j] = extract_bits(params, ctx->idf("INIT_%02X",i), j*8, 8);
-                            }
+                bool is_fifo = params.count(id_RAM_cfg_fifo_sync_enable) | params.count(id_RAM_cfg_fifo_async_enable);
+                if (!is_fifo) {
+                    auto &bram_data = cc.bram_data[loc];
+                    bram_data = std::vector<uint8_t>(5120);
+                    for (int i = 0; i < 128; i++) {
+                        for (int j = 0; j < 40; j++) {
+                            bram_data[i * 40 + j] = extract_bits(params, ctx->idf("INIT_%02X", i), j * 8, 8);
                         }
                     }
                 }
-            break;
+            } break;
             case id_USR_RSTN.index:
             case id_CFG_CTRL.index:
-            break;
+                break;
             default:
                 log_error("Unhandled cell %s of type %s\n", cell.second.get()->name.c_str(ctx),
                           cell.second->type.c_str(ctx));
@@ -202,18 +196,38 @@ struct BitstreamBackend
                                 l.z = 0;
                                 BelId cpe_bel = ctx->getBelByLocation(l);
                                 // Only if switchbox is inside core (same as sharing location with CPE)
-                                if (cpe_bel != BelId() && ctx->getBelType(cpe_bel).in(id_CPE_HALF_L,id_CPE_HALF_U)) {
+                                if (cpe_bel != BelId() && ctx->getBelType(cpe_bel).in(id_CPE_HALF_L, id_CPE_HALF_U)) {
                                     // Convert coordinates into in-tile coordinates
-                                    int xt = ((l.x-2-1)+16) % 8;
-                                    int yt = ((l.y-2-1)+16) % 8;
+                                    int xt = ((l.x - 2 - 1) + 16) % 8;
+                                    int yt = ((l.y - 2 - 1) + 16) % 8;
                                     // Bitstream data for certain SB_DRIVES is located in other tiles
-                                    switch(word[14]) {
-                                        case '3' : if (xt >= 4) { loc.x -= 2; word[14] = '1'; }; break;
-                                        case '4' : if (yt >= 4) { loc.y -= 2; word[14] = '2'; }; break;
-                                        case '1' : if (xt <= 3) { loc.x += 2; word[14] = '3'; }; break;
-                                        case '2' : if (yt <= 3) { loc.y += 2; word[14] = '4'; }; break;
-                                        default:
-                                            break;
+                                    switch (word[14]) {
+                                    case '3':
+                                        if (xt >= 4) {
+                                            loc.x -= 2;
+                                            word[14] = '1';
+                                        };
+                                        break;
+                                    case '4':
+                                        if (yt >= 4) {
+                                            loc.y -= 2;
+                                            word[14] = '2';
+                                        };
+                                        break;
+                                    case '1':
+                                        if (xt <= 3) {
+                                            loc.x += 2;
+                                            word[14] = '3';
+                                        };
+                                        break;
+                                    case '2':
+                                        if (yt <= 3) {
+                                            loc.y += 2;
+                                            word[14] = '4';
+                                        };
+                                        break;
+                                    default:
+                                        break;
                                     }
                                 }
                             }

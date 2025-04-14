@@ -20,7 +20,7 @@
 #include <boost/algorithm/string.hpp>
 
 #include "pack.h"
- 
+
 #define HIMBAECHEL_CONSTIDS "uarch/gatemate/constids.inc"
 #include "himbaechel_constids.h"
 
@@ -162,11 +162,12 @@ void get_DCO_ext_feedback(double f_core, double f_ref, PllCfgRecord &setting, in
     setting.M2 = res_arr[index].M2;
     setting.f_dco = res_arr[index].f_dco;
 }
-};
+}; // namespace
 
 NEXTPNR_NAMESPACE_BEGIN
 
-PllCfgRecord GateMatePacker::get_pll_settings(double f_ref, double f_core, int mode, int low_jitter, bool pdiv0_mux, bool feedback)
+PllCfgRecord GateMatePacker::get_pll_settings(double f_ref, double f_core, int mode, int low_jitter, bool pdiv0_mux,
+                                              bool feedback)
 {
     const int MATCH_LIMIT = 10; // only for low jitter = false
     // frequency tolerance for low jitter = false, the maximum frequency deviation in MHz from f_core

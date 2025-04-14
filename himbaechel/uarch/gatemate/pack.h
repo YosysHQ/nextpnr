@@ -64,7 +64,7 @@ struct GateMatePacker
     uint8_t ram_clk_signal(CellInfo &ci, IdString port);
 
     pool<IdString> packed_cells;
-    std::map<NetInfo*, int> global_signals;
+    std::map<NetInfo *, int> global_signals;
 
     Context *ctx;
     GateMateImpl *uarch;

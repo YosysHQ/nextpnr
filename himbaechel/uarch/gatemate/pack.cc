@@ -20,8 +20,8 @@
 #include <boost/algorithm/string.hpp>
 
 #include "design_utils.h"
-#include "pack.h"
 #include "gatemate_util.h"
+#include "pack.h"
 
 #define HIMBAECHEL_CONSTIDS "uarch/gatemate/constids.inc"
 #include "himbaechel_constids.h"
@@ -295,7 +295,7 @@ void GateMatePacker::pack_io()
         ci.disconnectPort(id_O_P);
         ci.disconnectPort(id_O_N);
 
-        if (loc.empty() || loc=="UNPLACED") {
+        if (loc.empty() || loc == "UNPLACED") {
             if (uarch->available_pads.empty())
                 log_error("No more pads available.\n");
             IdString id = *(uarch->available_pads.begin());
@@ -307,11 +307,11 @@ void GateMatePacker::pack_io()
         BelId bel = ctx->get_package_pin_bel(ctx->id(loc));
         if (bel == BelId())
             log_error("Unable to constrain IO '%s', device does not have a pin named '%s'\n", ci.name.c_str(ctx),
-                        loc.c_str());
+                      loc.c_str());
         log_info("    Constraining '%s' to pad '%s'\n", ci.name.c_str(ctx), loc.c_str());
         if (!ctx->checkBelAvail(bel)) {
-            log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci),
-                        ctx->nameOfBel(bel), ctx->nameOf(ctx->getBoundBelCell(bel)));
+            log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci), ctx->nameOfBel(bel),
+                      ctx->nameOf(ctx->getBoundBelCell(bel)));
         }
         ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_FIXED);
     }
@@ -345,7 +345,7 @@ void GateMatePacker::pack_io_sel()
                     return true;
                 } else {
                     int index = global_signals[clk_net];
-                    cell->movePortTo(id_CLK, target, ctx->idf("CLOCK%d",index+1));
+                    cell->movePortTo(id_CLK, target, ctx->idf("CLOCK%d", index + 1));
                     target->params[id_OUT_CLOCK] = Property(index, 2);
                 }
             }
@@ -365,7 +365,7 @@ void GateMatePacker::pack_io_sel()
                     target->params[id_SEL_IN_CLOCK] = Property(Property::State::S1);
                 } else {
                     int index = global_signals[clk_net];
-                    cell->movePortTo(id_CLK, target, ctx->idf("CLOCK%d",index+1));
+                    cell->movePortTo(id_CLK, target, ctx->idf("CLOCK%d", index + 1));
                     target->params[id_IN_CLOCK] = Property(index, 2);
                 }
             }
@@ -378,7 +378,7 @@ void GateMatePacker::pack_io_sel()
             if (!global_signals.count(ci.getPort(id_CLK)) && use_custom_clock) {
                 log_warning("Found DFF %s cell, but not enough CLK signals.\n", dff->name.c_str(ctx));
                 return false;
-            }   
+            }
             // We configure both GPIO IN and let router decide
             ci.params[id_IN1_FF] = Property(Property::State::S1);
             ci.params[id_IN2_FF] = Property(Property::State::S1);
@@ -663,13 +663,13 @@ void GateMatePacker::dff_to_cpe(CellInfo *dff, CellInfo *cpe)
         } else {
             if (sr_val) {
                 cpe->params[id_C_CPE_RES] = Property(0b11, 2);
-                //TODO: Confirm this is inverted
-                //cpe->params[id_C_CPE_SET] = Property(invert ? 0b01 : 0b10, 2);
+                // TODO: Confirm this is inverted
+                // cpe->params[id_C_CPE_SET] = Property(invert ? 0b01 : 0b10, 2);
                 cpe->params[id_C_CPE_SET] = Property(invert ? 0b10 : 0b01, 2);
                 cpe->params[id_C_EN_SR] = Property(0b1, 1);
             } else {
-                //TODO: Confirm this is inverted
-                //cpe->params[id_C_CPE_RES] = Property(invert ? 0b01 : 0b10, 2);
+                // TODO: Confirm this is inverted
+                // cpe->params[id_C_CPE_RES] = Property(invert ? 0b01 : 0b10, 2);
                 cpe->params[id_C_CPE_RES] = Property(invert ? 0b10 : 0b01, 2);
                 cpe->params[id_C_CPE_SET] = Property(0b11, 2);
             }
@@ -859,9 +859,8 @@ void GateMatePacker::pack_cpe()
 
 static bool is_addf_ci(NetInfo *net)
 {
-    return net && net->users.entries() == 1 &&
-            (*net->users.begin()).cell->type == id_CC_ADDF &&
-            (*net->users.begin()).port == id_CI;
+    return net && net->users.entries() == 1 && (*net->users.begin()).cell->type == id_CC_ADDF &&
+           (*net->users.begin()).port == id_CI;
 }
 
 void GateMatePacker::pack_addf()
@@ -910,16 +909,16 @@ void GateMatePacker::pack_addf()
     for (size_t i = 0; i < groups.size(); i++) {
         std::vector<CellInfo *> regrouped;
         size_t pos = 0;
-        auto& grp = groups.at(i);
+        auto &grp = groups.at(i);
         while (pos < grp.size()) {
             bool merged = false;
             CellInfo *cy = grp.at(pos);
             NetInfo *co_net = cy->getPort(id_CO);
-            bool last = pos+1 == grp.size();
+            bool last = pos + 1 == grp.size();
             if (!last && is_addf_ci(co_net)) {
-                CellInfo *cy2 = grp.at(pos+1);
+                CellInfo *cy2 = grp.at(pos + 1);
                 co_net = cy2->getPort(id_CO);
-                last = pos+2 == grp.size();
+                last = pos + 2 == grp.size();
                 if (!co_net || last || is_addf_ci(co_net)) {
                     cy2->type = id_CC_ADDF2;
                     cy2->disconnectPort(id_CI);
@@ -1069,7 +1068,8 @@ void GateMatePacker::pack_addf()
             upper->params[id_C_FUNCTION] = Property(merged ? C_ADDF2 : C_ADDF, 3);
 
             if (i == grp.size() - 1) {
-                if (!cy->getPort(id_CO)) break;
+                if (!cy->getPort(id_CO))
+                    break;
                 CellInfo *co_upper = create_cell_ptr(id_CPE_HALF_U, ctx->idf("%s$co_upper", cy->name.c_str(ctx)));
                 co_upper->cluster = root->name;
                 root->constr_children.push_back(co_upper);
@@ -1158,7 +1158,7 @@ void GateMatePacker::sort_bufg()
             CellInfo *cell = bufg.at(i).cell;
             NetInfo *i_net = cell->getPort(id_I);
             NetInfo *o_net = cell->getPort(id_O);
-            for(auto s : o_net->users) {
+            for (auto s : o_net->users) {
                 s.cell->disconnectPort(s.port);
                 s.cell->connectPort(s.port, i_net);
             }
@@ -1171,7 +1171,7 @@ void GateMatePacker::sort_bufg()
 void GateMatePacker::pack_bufg()
 {
     log_info("Packing BUFGs..\n");
-    CellInfo *bufg[4] = { nullptr };
+    CellInfo *bufg[4] = {nullptr};
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_BUFG))
@@ -1188,15 +1188,18 @@ void GateMatePacker::pack_bufg()
             if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_PLL) {
                 is_cpe_source = false;
                 int pll_index = in_net->driver.cell->constr_z - 4;
-                if (bufg[pll_index]== nullptr) {
+                if (bufg[pll_index] == nullptr) {
                     bufg[pll_index] = &ci;
                 } else {
                     IdString origPort = in_net->driver.port;
                     int index = 0;
-                    if (origPort==id_CLK90) index = 1;
-                    else if (origPort==id_CLK180) index = 2;
-                    else if (origPort==id_CLK270) index = 3;
-                    if (bufg[index]== nullptr) {
+                    if (origPort == id_CLK90)
+                        index = 1;
+                    else if (origPort == id_CLK180)
+                        index = 2;
+                    else if (origPort == id_CLK270)
+                        index = 3;
+                    if (bufg[index] == nullptr) {
                         bufg[pll_index] = &ci;
                     } else {
                         log_error("Unable to place BUFG for PLL.\n");
@@ -1217,8 +1220,8 @@ void GateMatePacker::pack_bufg()
             continue;
         NetInfo *in_net = ci.getPort(id_I);
         if (in_net && ctx->getBelBucketForCellType(in_net->driver.cell->type) != id_PLL) {
-            for(int i=0;i<4; i++) {
-                if (bufg[i]==nullptr) {
+            for (int i = 0; i < 4; i++) {
+                if (bufg[i] == nullptr) {
                     bufg[i] = &ci;
                     break;
                 }
@@ -1226,7 +1229,7 @@ void GateMatePacker::pack_bufg()
         }
     }
 
-    for(int i=0;i<4; i++) {
+    for (int i = 0; i < 4; i++) {
         if (bufg[i]) {
             CellInfo &ci = *bufg[i];
             global_signals.emplace(ci.getPort(id_O), i);
@@ -1363,8 +1366,9 @@ void GateMatePacker::insert_bufg(CellInfo *cell, IdString port)
 {
     NetInfo *clk = cell->getPort(port);
     if (clk) {
-        if (!(clk->users.entries()==1 && (*clk->users.begin()).cell->type == id_CC_BUFG)) {
-            CellInfo *bufg = create_cell_ptr(id_CC_BUFG, ctx->idf("%s$BUFG_%s", cell->name.c_str(ctx), port.c_str(ctx)));
+        if (!(clk->users.entries() == 1 && (*clk->users.begin()).cell->type == id_CC_BUFG)) {
+            CellInfo *bufg =
+                    create_cell_ptr(id_CC_BUFG, ctx->idf("%s$BUFG_%s", cell->name.c_str(ctx), port.c_str(ctx)));
             cell->movePortTo(port, bufg, id_O);
             cell->ports[port].name = port;
             cell->ports[port].type = PORT_OUT;
@@ -1411,7 +1415,7 @@ void GateMatePacker::pack_pll()
         ci.constr_abs_z = true;
         ci.constr_z = 4 + pll_index; // Position to a proper Z location
 
-        Loc fixed_loc(33+2,131+2,4 + pll_index); // PLL
+        Loc fixed_loc(33 + 2, 131 + 2, 4 + pll_index); // PLL
         BelId pll_bel = ctx->getBelByLocation(fixed_loc);
         ctx->bindBel(pll_bel, &ci, PlaceStrength::STRENGTH_FIXED);
 
@@ -1654,7 +1658,7 @@ void GateMatePacker::pack_misc()
             continue;
         ci.type = id_USR_RSTN;
         ci.cluster = ci.name;
-        Loc fixed_loc(0,0,3); // USR_RSTN
+        Loc fixed_loc(0, 0, 3); // USR_RSTN
         ctx->bindBel(ctx->getBelByLocation(fixed_loc), &ci, PlaceStrength::STRENGTH_FIXED);
 
         move_ram_i_fixed(&ci, id_USR_RSTN, fixed_loc);
@@ -1665,15 +1669,15 @@ void GateMatePacker::pack_misc()
             continue;
         ci.type = id_CFG_CTRL;
         ci.cluster = ci.name;
-        Loc fixed_loc(0,0,2); // CFG_CTRL
+        Loc fixed_loc(0, 0, 2); // CFG_CTRL
         ctx->bindBel(ctx->getBelByLocation(fixed_loc), &ci, PlaceStrength::STRENGTH_FIXED);
 
         move_ram_o_fixed(&ci, id_CLK, fixed_loc);
         move_ram_o_fixed(&ci, id_EN, fixed_loc);
         move_ram_o_fixed(&ci, id_VALID, fixed_loc);
         move_ram_o_fixed(&ci, id_RECFG, fixed_loc);
-        for(int i=0;i<8;i++)
-            move_ram_o_fixed(&ci, ctx->idf("DATA[%d]",i), fixed_loc);
+        for (int i = 0; i < 8; i++)
+            move_ram_o_fixed(&ci, ctx->idf("DATA[%d]", i), fixed_loc);
     }
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
@@ -1742,13 +1746,13 @@ void GateMatePacker::ram_ctrl_signal(CellInfo &ci, IdString port, IdString cfg, 
     NetInfo *net = ci.getPort(port);
     if (net) {
         if (net->name == ctx->id("$PACKER_GND")) {
-            ci.params[cfg] = Property(0b00000011,8);
+            ci.params[cfg] = Property(0b00000011, 8);
             ci.disconnectPort(port);
         } else if (net->name == ctx->id("$PACKER_VCC")) {
-            ci.params[cfg] = Property(0b00010011,8);
+            ci.params[cfg] = Property(0b00010011, 8);
             ci.disconnectPort(port);
         } else {
-            ci.params[cfg] = Property(0b00000000,8);
+            ci.params[cfg] = Property(0b00000000, 8);
             ci.renamePort(port, renamed);
             move_ram_o(&ci, renamed);
         }
@@ -1764,11 +1768,19 @@ uint8_t GateMatePacker::ram_clk_signal(CellInfo &ci, IdString port)
     } else {
         int index = global_signals[clk_net];
         uint8_t val = 0;
-        switch(index) {
-            case 0: val = 0b00100011; break;
-            case 1: val = 0b00110011; break;
-            case 2: val = 0b00000011; break;
-            case 3: val = 0b00010011; break;
+        switch (index) {
+        case 0:
+            val = 0b00100011;
+            break;
+        case 1:
+            val = 0b00110011;
+            break;
+        case 2:
+            val = 0b00000011;
+            break;
+        case 3:
+            val = 0b00010011;
+            break;
         }
         ci.disconnectPort(port);
         return val;
@@ -1777,17 +1789,25 @@ uint8_t GateMatePacker::ram_clk_signal(CellInfo &ci, IdString port)
 
 int width_to_config(int width)
 {
-    switch(width) {
-        case 0 : return 0;
-        case 1 : return 1;
-        case 2 : return 2;
-        case 3 ... 5 : return 3;
-        case 6 ... 10 : return 4;
-        case 11 ... 20 : return 5;
-        case 21 ... 40 : return 6;
-        case 41 ... 80 : return 7;
-        default:
-            log_error("Unsupported width '%d'.\n",width);
+    switch (width) {
+    case 0:
+        return 0;
+    case 1:
+        return 1;
+    case 2:
+        return 2;
+    case 3 ... 5:
+        return 3;
+    case 6 ... 10:
+        return 4;
+    case 11 ... 20:
+        return 5;
+    case 21 ... 40:
+        return 6;
+    case 41 ... 80:
+        return 7;
+    default:
+        log_error("Unsupported width '%d'.\n", width);
     }
 }
 
@@ -1803,7 +1823,7 @@ void GateMatePacker::pack_ram()
         ci.type = id_RAM;
         ci.cluster = ci.name;
 
-	    // Location format: D(0..N-1)X(0..3)Y(0..7) or UNPLACED
+        // Location format: D(0..N-1)X(0..3)Y(0..7) or UNPLACED
         std::string loc = str_or_default(ci.params, id_LOC, "UNPLACED");
         std::string cas = str_or_default(ci.params, id_CAS, "NONE");
 
@@ -1832,16 +1852,19 @@ void GateMatePacker::pack_ram()
 
         std::string a_wr_mode_str = str_or_default(ci.params, id_A_WR_MODE, "NO_CHANGE");
         if (a_wr_mode_str != "NO_CHANGE" && a_wr_mode_str != "WRITE_THROUGH")
-            log_error("Unknown A_WR_MODE parameter value '%s' for cell %s.\n", a_wr_mode_str.c_str(), ci.name.c_str(ctx));
+            log_error("Unknown A_WR_MODE parameter value '%s' for cell %s.\n", a_wr_mode_str.c_str(),
+                      ci.name.c_str(ctx));
         int a_wr_mode = a_wr_mode_str == "NO_CHANGE" ? 0 : 1;
         std::string b_wr_mode_str = str_or_default(ci.params, id_B_WR_MODE, "NO_CHANGE");
         if (b_wr_mode_str != "NO_CHANGE" && b_wr_mode_str != "WRITE_THROUGH")
-            log_error("Unknown B_WR_MODE parameter value '%s' for cell %s.\n", b_wr_mode_str.c_str(), ci.name.c_str(ctx));
+            log_error("Unknown B_WR_MODE parameter value '%s' for cell %s.\n", b_wr_mode_str.c_str(),
+                      ci.name.c_str(ctx));
         int b_wr_mode = b_wr_mode_str == "NO_CHANGE" ? 0 : 1;
 
         std::string fifo_mode_str = str_or_default(ci.params, id_FIFO_MODE, "SYNC");
         if (fifo_mode_str != "SYNC" && fifo_mode_str != "ASYNC")
-            log_error("Unknown FIFO_MODE parameter value '%s' for cell %s.\n", fifo_mode_str.c_str(), ci.name.c_str(ctx));
+            log_error("Unknown FIFO_MODE parameter value '%s' for cell %s.\n", fifo_mode_str.c_str(),
+                      ci.name.c_str(ctx));
         int fifo_mode = fifo_mode_str == "SYNC" ? 1 : 0;
 
         // Inverting Control Pins
@@ -1859,19 +1882,19 @@ void GateMatePacker::pack_ram()
         // Error Checking and Correction
         int a_ecc_en = int_or_default(ci.params, id_A_ECC_EN, 0);
         int b_ecc_en = int_or_default(ci.params, id_B_ECC_EN, 0);
-       
-        ci.params[id_RAM_cfg_forward_a_addr] = Property(0b00000000,8);
-        ci.params[id_RAM_cfg_forward_b_addr] = Property(0b00000000,8);
-        
+
+        ci.params[id_RAM_cfg_forward_a_addr] = Property(0b00000000, 8);
+        ci.params[id_RAM_cfg_forward_b_addr] = Property(0b00000000, 8);
+
         ci.renamePort(id_A_CLK, ctx->id("CLKA[0]"));
-        uint8_t cfg_a = ram_clk_signal(ci,ctx->id("CLKA[0]"));
-        ci.params[id_RAM_cfg_forward_a0_clk] = Property(cfg_a,8);
-        ci.params[id_RAM_cfg_forward_a1_clk] = Property(cfg_a,8);
+        uint8_t cfg_a = ram_clk_signal(ci, ctx->id("CLKA[0]"));
+        ci.params[id_RAM_cfg_forward_a0_clk] = Property(cfg_a, 8);
+        ci.params[id_RAM_cfg_forward_a1_clk] = Property(cfg_a, 8);
 
         ci.renamePort(id_B_CLK, ctx->id("CLKB[0]"));
-        uint8_t cfg_b = ram_clk_signal(ci,ctx->id("CLKB[0]"));
-        ci.params[id_RAM_cfg_forward_b0_clk] = Property(cfg_b,8);
-        ci.params[id_RAM_cfg_forward_b1_clk] = Property(cfg_b,8);
+        uint8_t cfg_b = ram_clk_signal(ci, ctx->id("CLKB[0]"));
+        ci.params[id_RAM_cfg_forward_b0_clk] = Property(cfg_b, 8);
+        ci.params[id_RAM_cfg_forward_b1_clk] = Property(cfg_b, 8);
 
         ram_ctrl_signal(ci, id_A_EN, id_RAM_cfg_forward_a0_en, ctx->id("ENA[0]"));
         ram_ctrl_signal(ci, id_B_EN, id_RAM_cfg_forward_b0_en, ctx->id("ENB[0]"));
@@ -1883,7 +1906,7 @@ void GateMatePacker::pack_ram()
         // id_RAM_cfg_forward_a1_we
         // id_RAM_cfg_forward_b1_we
 
-        ci.params[id_RAM_cfg_sram_mode] = Property(ram_mode << 1 | split,2);
+        ci.params[id_RAM_cfg_sram_mode] = Property(ram_mode << 1 | split, 2);
 
         if (is_fifo) {
             a_rd_width = int_or_default(ci.params, id_A_WIDTH, 0);
@@ -1891,41 +1914,43 @@ void GateMatePacker::pack_ram()
             if (a_rd_width != b_wr_width)
                 log_error("The FIFO configuration of A_WIDTH and B_WIDTH must be equal.\n");
 
-            if (a_rd_width != 80 && ram_mode==1) 
+            if (a_rd_width != 80 && ram_mode == 1)
                 log_error("FIFO SDP is ony supported in 80 bit mode.\n");
 
             if (fifo_mode)
-                ci.params[id_RAM_cfg_fifo_sync_enable] = Property(0b1,1);
+                ci.params[id_RAM_cfg_fifo_sync_enable] = Property(0b1, 1);
             else
-                ci.params[id_RAM_cfg_fifo_async_enable] = Property(0b1,1);
+                ci.params[id_RAM_cfg_fifo_async_enable] = Property(0b1, 1);
 
             // TODO: Handle dynamic almost empty/full
             int dyn_stat_select = int_or_default(ci.params, id_DYN_STAT_SELECT, 0);
-            if (dyn_stat_select != 0 && dyn_stat_select!=1) 
+            if (dyn_stat_select != 0 && dyn_stat_select != 1)
                 log_error("DYN_STAT_SELECT must be 0 or 1.\n");
-            if (dyn_stat_select != 0 && ram_mode==1) 
+            if (dyn_stat_select != 0 && ram_mode == 1)
                 log_error("Dynamic FIFO offset configuration is not supported in SDP mode.\n");
-            ci.params[id_RAM_cfg_dyn_stat_select] = Property(dyn_stat_select << 1,2);
-            ci.params[id_RAM_cfg_almost_empty_offset] = Property(int_or_default(ci.params, id_F_ALMOST_EMPTY_OFFSET, 0),15);
-            ci.params[id_RAM_cfg_almost_full_offset] = Property(int_or_default(ci.params, id_F_ALMOST_FULL_OFFSET, 0),15);
+            ci.params[id_RAM_cfg_dyn_stat_select] = Property(dyn_stat_select << 1, 2);
+            ci.params[id_RAM_cfg_almost_empty_offset] =
+                    Property(int_or_default(ci.params, id_F_ALMOST_EMPTY_OFFSET, 0), 15);
+            ci.params[id_RAM_cfg_almost_full_offset] =
+                    Property(int_or_default(ci.params, id_F_ALMOST_FULL_OFFSET, 0), 15);
         }
 
-        ci.params[id_RAM_cfg_input_config_a0] = Property(width_to_config(a_wr_width),3);
-        ci.params[id_RAM_cfg_input_config_b0] = Property(width_to_config(b_wr_width),3);
-        ci.params[id_RAM_cfg_output_config_a0] = Property(width_to_config(a_rd_width),3);
-        ci.params[id_RAM_cfg_output_config_b0] = Property(width_to_config(b_rd_width),3);
-        ci.params[id_RAM_cfg_input_config_a1] = Property(0,3);
-        ci.params[id_RAM_cfg_input_config_b1] = Property(0,3);
-        ci.params[id_RAM_cfg_output_config_a1] = Property(0,3);
-        ci.params[id_RAM_cfg_output_config_b1] = Property(0,3);
+        ci.params[id_RAM_cfg_input_config_a0] = Property(width_to_config(a_wr_width), 3);
+        ci.params[id_RAM_cfg_input_config_b0] = Property(width_to_config(b_wr_width), 3);
+        ci.params[id_RAM_cfg_output_config_a0] = Property(width_to_config(a_rd_width), 3);
+        ci.params[id_RAM_cfg_output_config_b0] = Property(width_to_config(b_rd_width), 3);
+        ci.params[id_RAM_cfg_input_config_a1] = Property(0, 3);
+        ci.params[id_RAM_cfg_input_config_b1] = Property(0, 3);
+        ci.params[id_RAM_cfg_output_config_a1] = Property(0, 3);
+        ci.params[id_RAM_cfg_output_config_b1] = Property(0, 3);
 
-        ci.params[id_RAM_cfg_a0_writemode] = Property(a_wr_mode,1);
-        ci.params[id_RAM_cfg_b0_writemode] = Property(b_wr_mode,1);
-        //ci.params[id_RAM_cfg_a1_writemode] = Property(0,1);
-        //ci.params[id_RAM_cfg_b1_writemode] = Property(0,1);
+        ci.params[id_RAM_cfg_a0_writemode] = Property(a_wr_mode, 1);
+        ci.params[id_RAM_cfg_b0_writemode] = Property(b_wr_mode, 1);
+        // ci.params[id_RAM_cfg_a1_writemode] = Property(0,1);
+        // ci.params[id_RAM_cfg_b1_writemode] = Property(0,1);
 
-        ci.params[id_RAM_cfg_a0_set_outputreg] = Property(a_do_reg,1);
-        ci.params[id_RAM_cfg_b0_set_outputreg] = Property(b_do_reg,1);
+        ci.params[id_RAM_cfg_a0_set_outputreg] = Property(a_do_reg, 1);
+        ci.params[id_RAM_cfg_b0_set_outputreg] = Property(b_do_reg, 1);
         // id_RAM_cfg_a1_set_outputreg
         // id_RAM_cfg_b1_set_outputreg
 
@@ -1934,59 +1959,58 @@ void GateMatePacker::pack_ram()
         // id_RAM_cfg_inversion_a1
         // id_RAM_cfg_inversion_b1
 
-        ci.params[id_RAM_cfg_ecc_enable] = Property(b_ecc_en << 1 | a_ecc_en,2);
-        ci.params[id_RAM_cfg_sram_delay] = Property(0b000101,6); // Always set to default
+        ci.params[id_RAM_cfg_ecc_enable] = Property(b_ecc_en << 1 | a_ecc_en, 2);
+        ci.params[id_RAM_cfg_sram_delay] = Property(0b000101, 6); // Always set to default
         // id_RAM_cfg_datbm_sel
-        ci.params[id_RAM_cfg_cascade_enable] = Property(cascade,2);
-        
+        ci.params[id_RAM_cfg_cascade_enable] = Property(cascade, 2);
+
         if (split) {
-            for(int i=63;i>=0;i--) {
-                auto orig_init = ci.params.at(ctx->idf("INIT_%02X",i)).extract(0, 320).as_bits();
+            for (int i = 63; i >= 0; i--) {
+                auto orig_init = ci.params.at(ctx->idf("INIT_%02X", i)).extract(0, 320).as_bits();
                 std::string init[2];
 
-                for (int j=0;j<2;j++) {
-                    for (int k = 0; k <4; k++) {
-                        for (int l = 0; l <40; l++) {
+                for (int j = 0; j < 2; j++) {
+                    for (int k = 0; k < 4; k++) {
+                        for (int l = 0; l < 40; l++) {
                             init[j].push_back('0');
                         }
-                        for (int l = 0; l <40; l++) {
-                            init[j].push_back(orig_init.at(319-(l+k*40+j*160)) ? '1' : '0');
+                        for (int l = 0; l < 40; l++) {
+                            init[j].push_back(orig_init.at(319 - (l + k * 40 + j * 160)) ? '1' : '0');
                         }
                     }
-
                 }
-                ci.params[ctx->idf("INIT_%02X",i*2+1)] = Property::from_string(init[0]);
-                ci.params[ctx->idf("INIT_%02X",i*2+0)] = Property::from_string(init[1]);
+                ci.params[ctx->idf("INIT_%02X", i * 2 + 1)] = Property::from_string(init[0]);
+                ci.params[ctx->idf("INIT_%02X", i * 2 + 0)] = Property::from_string(init[1]);
             }
         }
-        for (int i=0;i<40;i++) {
-            ci.renamePort(ctx->idf("A_BM[%d]",i), ctx->idf("WEA[%d]",i));
-            move_ram_o(&ci, ctx->idf("WEA[%d]",i));
-            ci.renamePort(ctx->idf("B_BM[%d]",i), ctx->idf("WEB[%d]",i));
-            move_ram_o(&ci, ctx->idf("WEB[%d]",i));
+        for (int i = 0; i < 40; i++) {
+            ci.renamePort(ctx->idf("A_BM[%d]", i), ctx->idf("WEA[%d]", i));
+            move_ram_o(&ci, ctx->idf("WEA[%d]", i));
+            ci.renamePort(ctx->idf("B_BM[%d]", i), ctx->idf("WEB[%d]", i));
+            move_ram_o(&ci, ctx->idf("WEB[%d]", i));
         }
 
-        for (int i=0;i<16;i++) {
-            ci.renamePort(ctx->idf("A_ADDR[%d]",i), ctx->idf("ADDRA0[%d]",i));
-            move_ram_o(&ci, ctx->idf("ADDRA0[%d]",i));
-            ci.renamePort(ctx->idf("B_ADDR[%d]",i), ctx->idf("ADDRB0[%d]",i));
-            move_ram_o(&ci, ctx->idf("ADDRB0[%d]",i));
+        for (int i = 0; i < 16; i++) {
+            ci.renamePort(ctx->idf("A_ADDR[%d]", i), ctx->idf("ADDRA0[%d]", i));
+            move_ram_o(&ci, ctx->idf("ADDRA0[%d]", i));
+            ci.renamePort(ctx->idf("B_ADDR[%d]", i), ctx->idf("ADDRB0[%d]", i));
+            move_ram_o(&ci, ctx->idf("ADDRB0[%d]", i));
         }
 
-        for (int i=0;i<40;i++) {
-            ci.renamePort(ctx->idf("A_DI[%d]",i), ctx->idf("DIA[%d]",i));
-            ci.renamePort(ctx->idf("A_DO[%d]",i), ctx->idf("DOA[%d]",i));
-            ci.renamePort(ctx->idf("B_DI[%d]",i), ctx->idf("DIB[%d]",i));
-            ci.renamePort(ctx->idf("B_DO[%d]",i), ctx->idf("DOB[%d]",i));
+        for (int i = 0; i < 40; i++) {
+            ci.renamePort(ctx->idf("A_DI[%d]", i), ctx->idf("DIA[%d]", i));
+            ci.renamePort(ctx->idf("A_DO[%d]", i), ctx->idf("DOA[%d]", i));
+            ci.renamePort(ctx->idf("B_DI[%d]", i), ctx->idf("DIB[%d]", i));
+            ci.renamePort(ctx->idf("B_DO[%d]", i), ctx->idf("DOB[%d]", i));
 
-            move_ram_io(&ci, ctx->idf("DOA[%d]",i), ctx->idf("DIA[%d]",i));
-            move_ram_io(&ci, ctx->idf("DOB[%d]",i), ctx->idf("DIB[%d]",i));
+            move_ram_io(&ci, ctx->idf("DOA[%d]", i), ctx->idf("DIA[%d]", i));
+            move_ram_io(&ci, ctx->idf("DOB[%d]", i), ctx->idf("DIB[%d]", i));
         }
 
         if (is_fifo) {
-            for (int i=0;i<15;i++) {
-                ci.disconnectPort(ctx->idf("F_ALMOST_EMPTY_OFFSET[%d]",i));
-                ci.disconnectPort(ctx->idf("F_ALMOST_FULL_OFFSET[%d]",i));
+            for (int i = 0; i < 15; i++) {
+                ci.disconnectPort(ctx->idf("F_ALMOST_EMPTY_OFFSET[%d]", i));
+                ci.disconnectPort(ctx->idf("F_ALMOST_FULL_OFFSET[%d]", i));
             }
             ci.renamePort(id_F_EMPTY, ctx->id("F_EMPTY[0]"));
             move_ram_i(&ci, ctx->id("F_EMPTY[0]"));

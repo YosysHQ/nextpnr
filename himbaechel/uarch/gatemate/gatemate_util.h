@@ -82,4 +82,3 @@ std::vector<std::vector<T>> splitNestedVector(const std::vector<std::vector<T>> 
 NEXTPNR_NAMESPACE_END
 
 #endif
- 

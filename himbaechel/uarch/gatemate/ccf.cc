@@ -44,7 +44,7 @@ struct GateMateCCFReader
     int lineno;
     dict<IdString, Property> defaults;
 
-    GateMateCCFReader(Context *ctx, GateMateImpl *uarch, std::istream &in) : ctx(ctx), uarch(uarch), in(in) {};
+    GateMateCCFReader(Context *ctx, GateMateImpl *uarch, std::istream &in) : ctx(ctx), uarch(uarch), in(in){};
 
     std::string strip_quotes(const std::string &str)
     {

@@ -70,8 +70,10 @@ struct GateMateImpl : HimbaechelAPI
 
     void configurePlacerHeap(PlacerHeapCfg &cfg) override;
 
-    bool isPipInverting(PipId pip) const override {
-        const auto &extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD*>(chip_pip_info(ctx->chip_info, pip).extra_data.get());
+    bool isPipInverting(PipId pip) const override
+    {
+        const auto &extra_data =
+                *reinterpret_cast<const GateMatePipExtraDataPOD *>(chip_pip_info(ctx->chip_info, pip).extra_data.get());
         return extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_INVERT);
     }
     const GateMateTileExtraDataPOD *tile_extra_data(int tile) const;
@@ -91,8 +93,8 @@ struct GateMateImpl : HimbaechelAPI
     };
     std::vector<GateMateCellInfo> fast_cell_info;
     std::set<IdString> available_pads;
-    std::map<BelId,const PadInfoPOD*> bel_to_pad;
-    std::map<BelId,std::map<IdString, const GateMateBelPinConstraintPOD*>> pin_to_constr;
+    std::map<BelId, const PadInfoPOD *> bel_to_pad;
+    std::map<BelId, std::map<IdString, const GateMateBelPinConstraintPOD *>> pin_to_constr;
     void assign_cell_info();
 };
 

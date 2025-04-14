@@ -47,9 +47,7 @@ NPNR_PACKED_STRUCT(struct GateMateBelPinConstraintPOD {
     int16_t dummy;
 });
 
-NPNR_PACKED_STRUCT(struct GateMateBelExtraDataPOD {
-    RelSlice<GateMateBelPinConstraintPOD> constraints;
-});
+NPNR_PACKED_STRUCT(struct GateMateBelExtraDataPOD { RelSlice<GateMateBelPinConstraintPOD> constraints; });
 
 enum MuxFlags
 {
@@ -67,10 +65,10 @@ enum PipExtra
 
 enum CPEFunction
 {
-    C_ADDF   = 1,
-    C_ADDF2  = 2,
-    C_MULT   = 3,
-    C_MX4    = 4,
+    C_ADDF = 1,
+    C_ADDF2 = 2,
+    C_MULT = 3,
+    C_MX4 = 4,
     C_EN_CIN = 5,
     C_CONCAT = 6,
     C_ADDCIN = 7,

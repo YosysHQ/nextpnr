@@ -39,7 +39,8 @@ void GateMateImpl::init_database(Arch *arch)
     arch->set_speed_grade("DEFAULT");
 }
 
-void GateMateImpl::init(Context *ctx) {
+void GateMateImpl::init(Context *ctx)
+{
     HimbaechelAPI::init(ctx);
     for (const auto &pad : ctx->package_info->pads) {
         available_pads.emplace(IdString(pad.package_pin));
@@ -48,7 +49,7 @@ void GateMateImpl::init(Context *ctx) {
     }
     for (auto bel : ctx->getBels()) {
         auto *ptr = bel_extra_data(bel);
-        std::map<IdString, const GateMateBelPinConstraintPOD*> pins;
+        std::map<IdString, const GateMateBelPinConstraintPOD *> pins;
         for (const auto &p : ptr->constraints)
             pins.emplace(IdString(p.name), &p);
         pin_to_constr.emplace(bel, pins);
@@ -72,12 +73,12 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
     }
     if (ctx->getBelType(bel).in(id_CPE_HALF, id_CPE_HALF_L, id_CPE_HALF_U)) {
         Loc loc = ctx->getBelLocation(bel);
-        const CellInfo *adj_half = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x, loc.y, loc.z==1 ? 0 : 1)));
+        const CellInfo *adj_half = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x, loc.y, loc.z == 1 ? 0 : 1)));
         if (adj_half) {
             const auto &half_data = fast_cell_info.at(cell->flat_index);
-            if(half_data.dff_used) {
+            if (half_data.dff_used) {
                 const auto &adj_data = fast_cell_info.at(adj_half->flat_index);
-                if(adj_data.dff_used) {
+                if (adj_data.dff_used) {
                     if (adj_data.ff_config != half_data.ff_config)
                         return false;
                     if (adj_data.ff_en != half_data.ff_en)
@@ -97,7 +98,7 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
 Loc GateMateImpl::getRelativeConstraint(Loc &root_loc, IdString id) const
 {
     Loc child_loc;
-    BelId root_bel = ctx->getBelByLocation(root_loc);    
+    BelId root_bel = ctx->getBelByLocation(root_loc);
     if (pin_to_constr.count(root_bel)) {
         auto &constr = pin_to_constr.at(root_bel);
         if (constr.count(id)) {
@@ -115,12 +116,12 @@ Loc GateMateImpl::getRelativeConstraint(Loc &root_loc, IdString id) const
 }
 
 bool GateMateImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
-                                    std::vector<std::pair<CellInfo *, BelId>> &placement) const
+                                     std::vector<std::pair<CellInfo *, BelId>> &placement) const
 {
     for (auto child : cluster->constr_children) {
         Loc child_loc;
         if (child->constr_z >= PLACE_DB_CONSTR) {
-            child_loc = getRelativeConstraint(root_loc,IdString(child->constr_z - PLACE_DB_CONSTR));
+            child_loc = getRelativeConstraint(root_loc, IdString(child->constr_z - PLACE_DB_CONSTR));
         } else {
             child_loc.x = root_loc.x + child->constr_x;
             child_loc.y = root_loc.y + child->constr_y;
@@ -137,7 +138,7 @@ bool GateMateImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_lo
 }
 
 bool GateMateImpl::getClusterPlacement(ClusterId cluster, BelId root_bel,
-                                      std::vector<std::pair<CellInfo *, BelId>> &placement) const
+                                       std::vector<std::pair<CellInfo *, BelId>> &placement) const
 {
     CellInfo *root_cell = get_cluster_root(ctx, cluster);
     placement.clear();
@@ -161,8 +162,9 @@ bool need_inversion(Context *ctx, CellInfo *cell, IdString port)
     sink.port = port;
 
     NetInfo *net_info = cell->getPort(port);
-    if (!net_info) return false;
-    
+    if (!net_info)
+        return false;
+
     WireId src_wire = ctx->getNetinfoSourceWire(net_info);
     WireId dst_wire = ctx->getNetinfoSinkWire(net_info, sink, 0);
 
@@ -190,11 +192,12 @@ bool need_inversion(Context *ctx, CellInfo *cell, IdString port)
 
 void updateLUT(Context *ctx, CellInfo *cell, IdString port, IdString init)
 {
-    if (cell->params.count(init) == 0) return;
+    if (cell->params.count(init) == 0)
+        return;
     unsigned init_val = int_or_default(cell->params, init);
     bool invert = need_inversion(ctx, cell, port);
     if (invert) {
-        if (port.in(id_IN1,id_IN3))
+        if (port.in(id_IN1, id_IN3))
             init_val = (init_val & 0b1010) >> 1 | (init_val & 0b0101) << 1;
         else
             init_val = (init_val & 0b0011) << 2 | (init_val & 0b1100) >> 2;
@@ -204,7 +207,8 @@ void updateLUT(Context *ctx, CellInfo *cell, IdString port, IdString init)
 
 void updateINV(Context *ctx, CellInfo *cell, IdString port, IdString param)
 {
-    if (cell->params.count(param) == 0) return;
+    if (cell->params.count(param) == 0)
+        return;
     unsigned init_val = int_or_default(cell->params, param);
     bool invert = need_inversion(ctx, cell, port);
     if (invert) {
@@ -216,7 +220,7 @@ void updateMUX_INV(Context *ctx, CellInfo *cell, IdString port, IdString param, 
 {
     // Mux inversion data is contained in other CPE half
     Loc l = ctx->getBelLocation(cell->bel);
-    CellInfo *cell_l = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(l.x,l.y,1)));
+    CellInfo *cell_l = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(l.x, l.y, 1)));
     unsigned init_val = int_or_default(cell_l->params, param);
     bool invert = need_inversion(ctx, cell, port);
     if (invert) {
@@ -228,7 +232,7 @@ void updateMUX_INV(Context *ctx, CellInfo *cell, IdString port, IdString param, 
 
 void GateMateImpl::renameParam(CellInfo *cell, IdString name, IdString new_name, int width)
 {
-    if(cell->params.count(name)) {
+    if (cell->params.count(name)) {
         cell->params[new_name] = Property(int_or_default(cell->params, name, 0), width);
         cell->unsetParam(name);
     }
@@ -240,15 +244,15 @@ void GateMateImpl::postRoute()
     for (auto &cell : ctx->cells) {
         if (cell.second->type.in(id_CPE_HALF, id_CPE_HALF_U, id_CPE_HALF_L)) {
             Loc l = ctx->getBelLocation(cell.second->bel);
-            if (l.z==0) { // CPE_HALF_U
-                if(cell.second->params.count(id_C_O) && int_or_default(cell.second->params, id_C_O, 0)==0)
+            if (l.z == 0) { // CPE_HALF_U
+                if (cell.second->params.count(id_C_O) && int_or_default(cell.second->params, id_C_O, 0) == 0)
                     cell.second->params[id_C_2D_IN] = Property(1, 1);
                 renameParam(cell.second.get(), id_C_O, id_C_O2, 2);
                 renameParam(cell.second.get(), id_C_RAM_I, id_C_RAM_I2, 1);
                 renameParam(cell.second.get(), id_C_RAM_O, id_C_RAM_O2, 1);
                 cell.second->type = id_CPE_HALF_U;
-            } else {// CPE_HALF_L
-                if(!cell.second->params.count(id_INIT_L20))
+            } else { // CPE_HALF_L
+                if (!cell.second->params.count(id_INIT_L20))
                     cell.second->params[id_INIT_L20] = Property(0b1100, 4);
                 renameParam(cell.second.get(), id_C_O, id_C_O1, 2);
                 renameParam(cell.second.get(), id_INIT_L00, id_INIT_L02, 4);
@@ -284,7 +288,7 @@ void GateMateImpl::postRoute()
         }
         if (cell.second->type.in(id_CPE_HALF_U, id_CPE_HALF_L)) {
             updateINV(ctx, cell.second.get(), id_CLK, id_C_CPE_CLK);
-            updateINV(ctx, cell.second.get(), id_EN,  id_C_CPE_EN);
+            updateINV(ctx, cell.second.get(), id_EN, id_C_CPE_EN);
             bool set = int_or_default(cell.second->params, id_C_EN_SR, 0) == 1;
             if (set)
                 updateINV(ctx, cell.second.get(), id_SR, id_C_CPE_SET);
@@ -306,15 +310,9 @@ void GateMateImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
     cfg.placeAllAtOnce = true;
 }
 
-void GateMateImpl::prePlace()
-{
-    assign_cell_info();
-}
+void GateMateImpl::prePlace() { assign_cell_info(); }
 
-void GateMateImpl::postPlace()
-{
-    ctx->assignArchInfo();
-}
+void GateMateImpl::postPlace() { ctx->assignArchInfo(); }
 
 void GateMateImpl::assign_cell_info()
 {
@@ -328,7 +326,7 @@ void GateMateImpl::assign_cell_info()
             fc.ff_clk = ci->getPort(id_CLK);
             fc.ff_sr = ci->getPort(id_SR);
             fc.ff_config = 0;
-            if (fc.signal_used==0) {
+            if (fc.signal_used == 0) {
                 fc.ff_config |= int_or_default(ci->params, id_C_CPE_EN, 0);
                 fc.ff_config <<= 2;
                 fc.ff_config |= int_or_default(ci->params, id_C_CPE_CLK, 0);
