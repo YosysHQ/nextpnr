@@ -271,7 +271,6 @@ void GateMateImpl::postRoute()
     for (auto &cell : ctx->cells) {
         if (cell.second->type.in(id_CPE_HALF_U)) {
             uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
-            cell.second->unsetParam(id_C_FUNCTION);
             if (func != C_MX4) {
                 updateCPE_LT(cell.second.get(), id_IN1, id_INIT_L00);
                 updateCPE_LT(cell.second.get(), id_IN2, id_INIT_L00);
