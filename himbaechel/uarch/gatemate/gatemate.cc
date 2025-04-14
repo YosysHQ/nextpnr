@@ -155,7 +155,7 @@ bool GateMateImpl::getClusterPlacement(ClusterId cluster, BelId root_bel,
     return getChildPlacement(root_cell, root_loc, placement);
 }
 
-bool need_inversion(Context *ctx, CellInfo *cell, IdString port)
+bool GateMateImpl::need_inversion(CellInfo *cell, IdString port)
 {
     PortRef sink;
     sink.cell = cell;
@@ -190,12 +190,10 @@ bool need_inversion(Context *ctx, CellInfo *cell, IdString port)
     return invert;
 }
 
-void updateLUT(Context *ctx, CellInfo *cell, IdString port, IdString init)
+void GateMateImpl::updateCPE_LT(CellInfo *cell, IdString port, IdString init)
 {
-    if (cell->params.count(init) == 0)
-        return;
     unsigned init_val = int_or_default(cell->params, init);
-    bool invert = need_inversion(ctx, cell, port);
+    bool invert = need_inversion(cell, port);
     if (invert) {
         if (port.in(id_IN1, id_IN3))
             init_val = (init_val & 0b1010) >> 1 | (init_val & 0b0101) << 1;
@@ -205,24 +203,22 @@ void updateLUT(Context *ctx, CellInfo *cell, IdString port, IdString init)
     }
 }
 
-void updateINV(Context *ctx, CellInfo *cell, IdString port, IdString param)
+void GateMateImpl::updateCPE_INV(CellInfo *cell, IdString port, IdString param)
 {
-    if (cell->params.count(param) == 0)
-        return;
     unsigned init_val = int_or_default(cell->params, param);
-    bool invert = need_inversion(ctx, cell, port);
+    bool invert = need_inversion(cell, port);
     if (invert) {
         cell->params[param] = Property(3 - init_val, 2);
     }
 }
 
-void updateMUX_INV(Context *ctx, CellInfo *cell, IdString port, IdString param, int bit)
+void GateMateImpl::updateCPE_MUX(CellInfo *cell, IdString port, IdString param, int bit)
 {
     // Mux inversion data is contained in other CPE half
     Loc l = ctx->getBelLocation(cell->bel);
     CellInfo *cell_l = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(l.x, l.y, 1)));
     unsigned init_val = int_or_default(cell_l->params, param);
-    bool invert = need_inversion(ctx, cell, port);
+    bool invert = need_inversion(cell, port);
     if (invert) {
         int old = (init_val >> bit) & 1;
         int val = (init_val & (~(1 << bit) & 0xf)) | ((!old) << bit);
@@ -238,7 +234,9 @@ void GateMateImpl::renameParam(CellInfo *cell, IdString name, IdString new_name,
     }
 }
 
-void GateMateImpl::postRoute()
+void GateMateImpl::prePlace() { assign_cell_info(); }
+
+void GateMateImpl::postPlace()
 {
     ctx->assignArchInfo();
     for (auto &cell : ctx->cells) {
@@ -264,36 +262,42 @@ void GateMateImpl::postRoute()
             }
         }
     }
+}
+
+void GateMateImpl::postRoute()
+{
+    ctx->assignArchInfo();
+    // Update configuration bits based on signal inversion
     for (auto &cell : ctx->cells) {
         if (cell.second->type.in(id_CPE_HALF_U)) {
             uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
             cell.second->unsetParam(id_C_FUNCTION);
             if (func != C_MX4) {
-                updateLUT(ctx, cell.second.get(), id_IN1, id_INIT_L00);
-                updateLUT(ctx, cell.second.get(), id_IN2, id_INIT_L00);
-                updateLUT(ctx, cell.second.get(), id_IN3, id_INIT_L01);
-                updateLUT(ctx, cell.second.get(), id_IN4, id_INIT_L01);
+                updateCPE_LT(cell.second.get(), id_IN1, id_INIT_L00);
+                updateCPE_LT(cell.second.get(), id_IN2, id_INIT_L00);
+                updateCPE_LT(cell.second.get(), id_IN3, id_INIT_L01);
+                updateCPE_LT(cell.second.get(), id_IN4, id_INIT_L01);
             } else {
-                updateMUX_INV(ctx, cell.second.get(), id_IN1, id_INIT_L11, 0);
-                updateMUX_INV(ctx, cell.second.get(), id_IN2, id_INIT_L11, 1);
-                updateMUX_INV(ctx, cell.second.get(), id_IN3, id_INIT_L11, 2);
-                updateMUX_INV(ctx, cell.second.get(), id_IN4, id_INIT_L11, 3);
+                updateCPE_MUX(cell.second.get(), id_IN1, id_INIT_L11, 0);
+                updateCPE_MUX(cell.second.get(), id_IN2, id_INIT_L11, 1);
+                updateCPE_MUX(cell.second.get(), id_IN3, id_INIT_L11, 2);
+                updateCPE_MUX(cell.second.get(), id_IN4, id_INIT_L11, 3);
             }
         }
         if (cell.second->type.in(id_CPE_HALF_L)) {
-            updateLUT(ctx, cell.second.get(), id_IN1, id_INIT_L02);
-            updateLUT(ctx, cell.second.get(), id_IN2, id_INIT_L02);
-            updateLUT(ctx, cell.second.get(), id_IN3, id_INIT_L03);
-            updateLUT(ctx, cell.second.get(), id_IN4, id_INIT_L03);
+            updateCPE_LT(cell.second.get(), id_IN1, id_INIT_L02);
+            updateCPE_LT(cell.second.get(), id_IN2, id_INIT_L02);
+            updateCPE_LT(cell.second.get(), id_IN3, id_INIT_L03);
+            updateCPE_LT(cell.second.get(), id_IN4, id_INIT_L03);
         }
         if (cell.second->type.in(id_CPE_HALF_U, id_CPE_HALF_L)) {
-            updateINV(ctx, cell.second.get(), id_CLK, id_C_CPE_CLK);
-            updateINV(ctx, cell.second.get(), id_EN, id_C_CPE_EN);
+            updateCPE_INV(cell.second.get(), id_CLK, id_C_CPE_CLK);
+            updateCPE_INV(cell.second.get(), id_EN, id_C_CPE_EN);
             bool set = int_or_default(cell.second->params, id_C_EN_SR, 0) == 1;
             if (set)
-                updateINV(ctx, cell.second.get(), id_SR, id_C_CPE_SET);
+                updateCPE_INV(cell.second.get(), id_SR, id_C_CPE_SET);
             else
-                updateINV(ctx, cell.second.get(), id_SR, id_C_CPE_RES);
+                updateCPE_INV(cell.second.get(), id_SR, id_C_CPE_RES);
         }
     }
     print_utilisation(ctx);
@@ -309,10 +313,6 @@ void GateMateImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
     cfg.beta = 0.5;
     cfg.placeAllAtOnce = true;
 }
-
-void GateMateImpl::prePlace() { assign_cell_info(); }
-
-void GateMateImpl::postPlace() { ctx->assignArchInfo(); }
 
 void GateMateImpl::assign_cell_info()
 {
@@ -387,6 +387,13 @@ bool GateMateImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
         return cell_type.in(id_CPE_HALF_L, id_CPE_HALF);
     else
         return (bel_type == cell_type);
+}
+
+bool GateMateImpl::isPipInverting(PipId pip) const
+{
+    const auto &extra_data =
+            *reinterpret_cast<const GateMatePipExtraDataPOD *>(chip_pip_info(ctx->chip_info, pip).extra_data.get());
+    return extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_INVERT);
 }
 
 const GateMateTileExtraDataPOD *GateMateImpl::tile_extra_data(int tile) const

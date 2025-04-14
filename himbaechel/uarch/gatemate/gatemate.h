@@ -49,18 +49,8 @@ struct GateMateImpl : HimbaechelAPI
 
     void drawBel(std::vector<GraphicElement> &g, GraphicElement::style_t style, IdString bel_type, Loc loc) override;
 
-    void write_bitstream(const std::string &device, const std::string &filename);
-    bool read_bitstream(const std::string &device, const std::string &filename);
-
-    bool checkPipAvail(PipId pip) const override { return blocked_pips.count(pip) == 0; }
-    bool checkPipAvailForNet(PipId pip, const NetInfo *net) const override { return checkPipAvail(pip); };
-
     bool getClusterPlacement(ClusterId cluster, BelId root_bel,
                              std::vector<std::pair<CellInfo *, BelId>> &placement) const override;
-    bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
-                           std::vector<std::pair<CellInfo *, BelId>> &placement) const;
-
-    void parse_ccf(const std::string &filename);
 
     IdString getBelBucketForCellType(IdString cell_type) const override;
     bool isValidBelForCellType(IdString cell_type, BelId bel) const override;
@@ -70,18 +60,29 @@ struct GateMateImpl : HimbaechelAPI
 
     void configurePlacerHeap(PlacerHeapCfg &cfg) override;
 
-    bool isPipInverting(PipId pip) const override
-    {
-        const auto &extra_data =
-                *reinterpret_cast<const GateMatePipExtraDataPOD *>(chip_pip_info(ctx->chip_info, pip).extra_data.get());
-        return extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_INVERT);
-    }
+    bool isPipInverting(PipId pip) const override;
+
     const GateMateTileExtraDataPOD *tile_extra_data(int tile) const;
     const GateMateBelExtraDataPOD *bel_extra_data(BelId bel) const;
 
-    void renameParam(CellInfo *cell, IdString name, IdString new_name, int width);
+    std::set<IdString> available_pads;
+    std::map<BelId, const PadInfoPOD *> bel_to_pad;
 
-    pool<PipId> blocked_pips;
+  private:
+    bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
+                           std::vector<std::pair<CellInfo *, BelId>> &placement) const;
+
+    void write_bitstream(const std::string &device, const std::string &filename);
+    bool read_bitstream(const std::string &device, const std::string &filename);
+
+    void parse_ccf(const std::string &filename);
+
+    void assign_cell_info();
+    bool need_inversion(CellInfo *cell, IdString port);
+    void updateCPE_LT(CellInfo *cell, IdString port, IdString init);
+    void updateCPE_INV(CellInfo *cell, IdString port, IdString param);
+    void updateCPE_MUX(CellInfo *cell, IdString port, IdString param, int bit);
+    void renameParam(CellInfo *cell, IdString name, IdString new_name, int width);
 
     struct GateMateCellInfo
     {
@@ -92,10 +93,7 @@ struct GateMateImpl : HimbaechelAPI
         bool dff_used = false;
     };
     std::vector<GateMateCellInfo> fast_cell_info;
-    std::set<IdString> available_pads;
-    std::map<BelId, const PadInfoPOD *> bel_to_pad;
     std::map<BelId, std::map<IdString, const GateMateBelPinConstraintPOD *>> pin_to_constr;
-    void assign_cell_info();
 };
 
 NEXTPNR_NAMESPACE_END

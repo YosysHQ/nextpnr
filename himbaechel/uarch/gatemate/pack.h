@@ -39,14 +39,16 @@ struct GateMatePacker
     void pack_misc();
     void pack_constants();
     void pack_ram();
-    void dff_to_cpe(CellInfo *dff, CellInfo *cpe);
-    void insert_bufg(CellInfo *cell, IdString port);
 
-    void disconnect_if_gnd(CellInfo *cell, IdString input);
     void remove_constants();
     void remove_not_used();
 
+  private:
+    void dff_to_cpe(CellInfo *dff, CellInfo *cpe);
+    void insert_bufg(CellInfo *cell, IdString port);
+    void disconnect_if_gnd(CellInfo *cell, IdString input);
     void pll_out(CellInfo *cell, IdString origPort, Loc fixed);
+
     PllCfgRecord get_pll_settings(double f_ref, double f_core, int mode, int low_jitter, bool pdiv0_mux, bool feedback);
 
     CellInfo *move_ram_i(CellInfo *cell, IdString origPort, bool place = true);
@@ -54,14 +56,13 @@ struct GateMatePacker
     CellInfo *move_ram_i_fixed(CellInfo *cell, IdString origPort, Loc fixed);
     CellInfo *move_ram_o_fixed(CellInfo *cell, IdString origPort, Loc fixed);
     CellInfo *move_ram_io(CellInfo *cell, IdString iPort, IdString oPort, bool place = true);
+    void ram_ctrl_signal(CellInfo *cell, IdString port, IdString cfg, IdString renamed);
+    uint8_t ram_clk_signal(CellInfo *cell, IdString port);
     bool is_gpio_valid_dff(CellInfo *dff);
     BelId get_bank_cpe(int bank);
     // Cell creating
     CellInfo *create_cell_ptr(IdString type, IdString name);
     void flush_cells();
-
-    void ram_ctrl_signal(CellInfo &ci, IdString port, IdString cfg, IdString renamed);
-    uint8_t ram_clk_signal(CellInfo &ci, IdString port);
 
     pool<IdString> packed_cells;
     std::map<NetInfo *, int> global_signals;

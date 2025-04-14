@@ -1741,29 +1741,29 @@ void GateMatePacker::remove_not_used()
     }
 }
 
-void GateMatePacker::ram_ctrl_signal(CellInfo &ci, IdString port, IdString cfg, IdString renamed)
+void GateMatePacker::ram_ctrl_signal(CellInfo *cell, IdString port, IdString cfg, IdString renamed)
 {
-    NetInfo *net = ci.getPort(port);
+    NetInfo *net = cell->getPort(port);
     if (net) {
         if (net->name == ctx->id("$PACKER_GND")) {
-            ci.params[cfg] = Property(0b00000011, 8);
-            ci.disconnectPort(port);
+            cell->params[cfg] = Property(0b00000011, 8);
+            cell->disconnectPort(port);
         } else if (net->name == ctx->id("$PACKER_VCC")) {
-            ci.params[cfg] = Property(0b00010011, 8);
-            ci.disconnectPort(port);
+            cell->params[cfg] = Property(0b00010011, 8);
+            cell->disconnectPort(port);
         } else {
-            ci.params[cfg] = Property(0b00000000, 8);
-            ci.renamePort(port, renamed);
-            move_ram_o(&ci, renamed);
+            cell->params[cfg] = Property(0b00000000, 8);
+            cell->renamePort(port, renamed);
+            move_ram_o(cell, renamed);
         }
     }
 }
 
-uint8_t GateMatePacker::ram_clk_signal(CellInfo &ci, IdString port)
+uint8_t GateMatePacker::ram_clk_signal(CellInfo *cell, IdString port)
 {
-    NetInfo *clk_net = ci.getPort(port);
+    NetInfo *clk_net = cell->getPort(port);
     if (!global_signals.count(clk_net)) {
-        move_ram_o(&ci, port);
+        move_ram_o(cell, port);
         return 0b00000000;
     } else {
         int index = global_signals[clk_net];
@@ -1782,7 +1782,7 @@ uint8_t GateMatePacker::ram_clk_signal(CellInfo &ci, IdString port)
             val = 0b00010011;
             break;
         }
-        ci.disconnectPort(port);
+        cell->disconnectPort(port);
         return val;
     }
 }
@@ -1887,22 +1887,22 @@ void GateMatePacker::pack_ram()
         ci.params[id_RAM_cfg_forward_b_addr] = Property(0b00000000, 8);
 
         ci.renamePort(id_A_CLK, ctx->id("CLKA[0]"));
-        uint8_t cfg_a = ram_clk_signal(ci, ctx->id("CLKA[0]"));
+        uint8_t cfg_a = ram_clk_signal(&ci, ctx->id("CLKA[0]"));
         ci.params[id_RAM_cfg_forward_a0_clk] = Property(cfg_a, 8);
         ci.params[id_RAM_cfg_forward_a1_clk] = Property(cfg_a, 8);
 
         ci.renamePort(id_B_CLK, ctx->id("CLKB[0]"));
-        uint8_t cfg_b = ram_clk_signal(ci, ctx->id("CLKB[0]"));
+        uint8_t cfg_b = ram_clk_signal(&ci, ctx->id("CLKB[0]"));
         ci.params[id_RAM_cfg_forward_b0_clk] = Property(cfg_b, 8);
         ci.params[id_RAM_cfg_forward_b1_clk] = Property(cfg_b, 8);
 
-        ram_ctrl_signal(ci, id_A_EN, id_RAM_cfg_forward_a0_en, ctx->id("ENA[0]"));
-        ram_ctrl_signal(ci, id_B_EN, id_RAM_cfg_forward_b0_en, ctx->id("ENB[0]"));
+        ram_ctrl_signal(&ci, id_A_EN, id_RAM_cfg_forward_a0_en, ctx->id("ENA[0]"));
+        ram_ctrl_signal(&ci, id_B_EN, id_RAM_cfg_forward_b0_en, ctx->id("ENB[0]"));
         // id_RAM_cfg_forward_a1_en
         // id_RAM_cfg_forward_b1_en
 
-        ram_ctrl_signal(ci, id_A_WE, id_RAM_cfg_forward_a0_we, ctx->id("GLWEA[0]"));
-        ram_ctrl_signal(ci, id_B_WE, id_RAM_cfg_forward_b0_we, ctx->id("GLWEB[0]"));
+        ram_ctrl_signal(&ci, id_A_WE, id_RAM_cfg_forward_a0_we, ctx->id("GLWEA[0]"));
+        ram_ctrl_signal(&ci, id_B_WE, id_RAM_cfg_forward_b0_we, ctx->id("GLWEB[0]"));
         // id_RAM_cfg_forward_a1_we
         // id_RAM_cfg_forward_b1_we
 
