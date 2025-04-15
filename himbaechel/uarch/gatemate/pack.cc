@@ -643,37 +643,29 @@ void GateMatePacker::dff_to_cpe(CellInfo *dff, CellInfo *cpe)
 
     NetInfo *sr_net = cpe->getPort(id_SR);
     invert = int_or_default(dff->params, id_SR_INV, 0) == 1;
-    int sr_val = int_or_default(dff->params, id_SR_VAL, 0) == 1;
+    bool sr_val = int_or_default(dff->params, id_SR_VAL, 0) == 1;
     if (sr_net) {
-        if (sr_net->name == ctx->id("$PACKER_GND")) {
-            if (invert)
-                log_error("Invalid DFF configuration\n.");
-            cpe->params[id_C_CPE_RES] = Property(0b11, 2);
-            cpe->params[id_C_CPE_SET] = Property(0b11, 2);
-            cpe->disconnectPort(id_SR);
-        } else if (sr_net->name == ctx->id("$PACKER_VCC")) {
-            if (!invert)
-                log_error("Invalid DFF configuration\n.");
+        if (sr_net->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC"))) {
+            bool sr_signal = sr_net->name == ctx->id("$PACKER_VCC");
+            if (sr_signal ^ invert)
+                log_error("Invalid DFF configuration of '%s'\n.", dff->name.c_str(ctx));
             cpe->params[id_C_CPE_RES] = Property(0b11, 2);
             cpe->params[id_C_CPE_SET] = Property(0b11, 2);
             cpe->disconnectPort(id_SR);
         } else {
             if (sr_val) {
                 cpe->params[id_C_CPE_RES] = Property(0b11, 2);
-                // TODO: Confirm this is inverted
-                // cpe->params[id_C_CPE_SET] = Property(invert ? 0b01 : 0b10, 2);
                 cpe->params[id_C_CPE_SET] = Property(invert ? 0b10 : 0b01, 2);
-                cpe->params[id_C_EN_SR] = Property(0b1, 1);
+                if (is_latch)
+                    cpe->renamePort(id_SR, id_EN);
+                else
+                    cpe->params[id_C_EN_SR] = Property(0b1, 1);
             } else {
-                // TODO: Confirm this is inverted
-                // cpe->params[id_C_CPE_RES] = Property(invert ? 0b01 : 0b10, 2);
                 cpe->params[id_C_CPE_RES] = Property(invert ? 0b10 : 0b01, 2);
                 cpe->params[id_C_CPE_SET] = Property(0b11, 2);
             }
         }
     } else {
-        if (invert)
-            log_error("Invalid DFF configuration\n.");
         cpe->params[id_C_CPE_RES] = Property(0b11, 2);
         cpe->params[id_C_CPE_SET] = Property(0b11, 2);
     }
