@@ -56,13 +56,14 @@ struct GateMatePacker
     CellInfo *move_ram_i_fixed(CellInfo *cell, IdString origPort, Loc fixed);
     CellInfo *move_ram_o_fixed(CellInfo *cell, IdString origPort, Loc fixed);
     CellInfo *move_ram_io(CellInfo *cell, IdString iPort, IdString oPort, bool place = true);
-    void ram_ctrl_signal(CellInfo *cell, IdString port, IdString cfg, IdString renamed);
+    uint8_t ram_ctrl_signal(CellInfo *cell, IdString port, bool alt);
     uint8_t ram_clk_signal(CellInfo *cell, IdString port);
     bool is_gpio_valid_dff(CellInfo *dff);
     BelId get_bank_cpe(int bank);
     // Cell creating
     CellInfo *create_cell_ptr(IdString type, IdString name);
     void flush_cells();
+    void pack_ram_cell(CellInfo &ci, CellInfo *cell, int num, bool is_split);
 
     pool<IdString> packed_cells;
     std::map<NetInfo *, int> global_signals;
