@@ -39,6 +39,7 @@ std::istream &operator>>(std::istream &in, ConfigWord &cw);
 struct TileConfig
 {
     std::vector<ConfigWord> cwords;
+    std::map<std::string, std::vector<bool>> added;
 
     void add_word(const std::string &name, const std::vector<bool> &value);
 

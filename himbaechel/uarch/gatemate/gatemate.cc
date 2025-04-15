@@ -299,6 +299,18 @@ void GateMateImpl::postRoute()
                 updateCPE_INV(cell.second.get(), id_SR, id_C_CPE_RES);
         }
     }
+    // Sanity check
+    for (auto &c : ctx->cells) {
+        CellInfo *cell = c.second.get();
+        if (!cell->type.in(id_CPE_HALF_U, id_CPE_HALF_L)) {
+            for (auto port : cell->ports) {
+                if (need_inversion(cell, port.first)) {
+                    log_error("Unhandled cell '%s' of type '%s' port '%s'\n", cell->name.c_str(ctx),
+                              cell->type.c_str(ctx), port.first.c_str(ctx));
+                }
+            }
+        }
+    }
     print_utilisation(ctx);
 
     const ArchArgs &args = ctx->args;

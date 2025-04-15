@@ -134,7 +134,17 @@ std::istream &operator>>(std::istream &in, TileConfig &tc)
     return in;
 }
 
-void TileConfig::add_word(const std::string &name, const std::vector<bool> &value) { cwords.push_back({name, value}); }
+void TileConfig::add_word(const std::string &name, const std::vector<bool> &value)
+{
+    if (!added.count(name)) {
+        cwords.push_back({name, value});
+        added.emplace(name, value);
+    } else {
+        auto val = added.at(name);
+        if (val != value)
+            log_error("Trying to add value to already assigned word %s\n", name.c_str());
+    }
+}
 
 std::string TileConfig::to_string() const
 {
