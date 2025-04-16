@@ -17,47 +17,28 @@
  *
  */
 
-#include <vector>
-#include "command.h"
+#ifndef GATEMATE_TESTING_H
+#define GATEMATE_TESTING_H
+ 
 #include "gtest/gtest.h"
 #include "nextpnr.h"
 #include "uarch/gatemate/gatemate.h"
-#include "uarch/gatemate/pack.h"
-#define HIMBAECHEL_CONSTIDS "uarch/gatemate/constids.inc"
-#include "himbaechel_constids.h"
 
-USING_NEXTPNR_NAMESPACE
+NEXTPNR_NAMESPACE_BEGIN
 
-class GateMateLutDffTest : public ::testing::Test
+class GateMateTest : public ::testing::Test
 {
   protected:
-    virtual void SetUp()
-    {
-        init_share_dirname();
-        chipArgs.device = "CCGM1A1";
-        ctx = new Context(chipArgs);
-        ctx->uarch->init(ctx);
-        ctx->late_init();
-        impl = (GateMateImpl *)(ctx->uarch.get());
-    }
+    virtual void SetUp() override;
 
-    virtual void TearDown() { delete ctx; }
+    virtual void TearDown() override;
 
-    void add_port(CellInfo *cell, const std::string &name, PortType dir)
-    {
-        IdString id = ctx->id(name);
-        cell->ports[id].name = id;
-        cell->ports[id].type = dir;
-    };
+    CellInfo *create_cell_ptr(IdString type, std::string name);
 
     ArchArgs chipArgs;
     Context *ctx;
     GateMateImpl *impl;
 };
 
-TEST_F(GateMateLutDffTest, pack_constants)
-{
-    GateMatePacker packer(ctx, impl);
-    packer.pack_constants();
-    ASSERT_EQ(ctx->cells.size(), 2LU);
-}
+NEXTPNR_NAMESPACE_END
+#endif

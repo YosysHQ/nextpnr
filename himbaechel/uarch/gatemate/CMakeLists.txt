@@ -16,7 +16,8 @@ set(SOURCES
 )
 
 set(TEST_SOURCES
-    tests/lut_dff.cc
+    tests/lut.cc
+    tests/testing.cc
     tests/main.cc
 )
 
