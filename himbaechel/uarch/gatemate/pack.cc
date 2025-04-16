@@ -136,7 +136,7 @@ void GateMatePacker::pack_io()
                 top_port.cell->attrs[attrs.first] = attrs.second;
             for (auto &params : ci->params) {
                 IdString key = params.first;
-                if (top_port.cell->type.in(id_CC_LVDS_IBUF, id_CC_LVDS_OBUF, id_CC_LVDS_TOBUF, id_CC_LVDS_IOBUF)) {
+                if (key == id_LOC && top_port.cell->type.in(id_CC_LVDS_IBUF, id_CC_LVDS_OBUF, id_CC_LVDS_TOBUF, id_CC_LVDS_IOBUF)) {
                     if (top_port.port.in(id_I_P, id_O_P, id_IO_P))
                         key = id_PIN_NAME_P;
                     if (top_port.port.in(id_I_N, id_O_N, id_IO_N))
@@ -235,11 +235,11 @@ void GateMatePacker::pack_io()
             if (p_pin == "UNPLACED" || n_pin == "UNPLACED")
                 log_error("Both LVDS pins must be set to a valid locations.\n");
             if (p_pin.substr(0, 6) != n_pin.substr(0, 6) || p_pin[7] != n_pin[7])
-                log_error("Both LVDS pads '%s' and '%s' do not match.\n", p_pin.c_str(), n_pin.c_str());
+                log_error("LVDS pads '%s' and '%s' do not match.\n", p_pin.c_str(), n_pin.c_str());
             if (p_pin[6] != 'A')
-                log_error("Both LVDS positive pad must be from type A.\n");
+                log_error("LVDS positive pad must be from type A.\n");
             if (n_pin[6] != 'B')
-                log_error("Both LVDS negative pad must be from type B.\n");
+                log_error("LVDS negative pad must be from type B.\n");
         }
         for (auto key : keys)
             ci.params.erase(key);
