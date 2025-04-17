@@ -401,7 +401,7 @@ void GateMatePacker::pack_io_sel()
             }
             return true;
         } else {
-            log_warning("Found DFF %s cell, but it is not valid for merge.\n", dff->name.c_str(ctx));
+            log_warning("DFF '%s' cell for IO '%s', but unable to merge.\n", dff->name.c_str(ctx), ci.name.c_str(ctx));
         }
         return false;
     };
@@ -472,7 +472,8 @@ void GateMatePacker::pack_io_sel()
                         }
                         ff_obf_merged = true;
                     } else {
-                        log_warning("Found DFF %s cell, but it is not valid for merge.\n", dff->name.c_str(ctx));
+                        log_warning("DFF '%s' cell for IO '%s', but unable to merge.\n", dff->name.c_str(ctx),
+                                    ci.name.c_str(ctx));
                     }
                 }
                 bool oddr_merged = false;
@@ -558,13 +559,10 @@ bool GateMatePacker::is_gpio_valid_dff(CellInfo *dff)
     NetInfo *sr_net = dff->getPort(id_SR);
     invert = bool_or_default(dff->params, id_SR_INV, 0);
     if (sr_net) {
-        if (sr_net->name == ctx->id("$PACKER_GND")) {
-            if (invert)
-                log_error("Invalid DFF configuration\n.");
-            dff->disconnectPort(id_SR);
-        } else if (sr_net->name == ctx->id("$PACKER_VCC")) {
-            if (!invert)
-                log_error("Invalid DFF configuration\n.");
+        if (sr_net->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC"))) {
+            bool sr_signal = sr_net->name == ctx->id("$PACKER_VCC");
+            if (sr_signal ^ invert)
+                log_error("Currently unsupported DFF configuration for '%s'\n.", dff->name.c_str(ctx));
             dff->disconnectPort(id_SR);
         } else {
             return false;
@@ -656,7 +654,7 @@ void GateMatePacker::dff_to_cpe(CellInfo *dff, CellInfo *cpe)
         if (sr_net->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC"))) {
             bool sr_signal = sr_net->name == ctx->id("$PACKER_VCC");
             if (sr_signal ^ invert)
-                log_error("Invalid DFF configuration of '%s'\n.", dff->name.c_str(ctx));
+                log_error("Currently unsupported DFF configuration for '%s'\n.", dff->name.c_str(ctx));
             cpe->params[id_C_CPE_RES] = Property(0b11, 2);
             cpe->params[id_C_CPE_SET] = Property(0b11, 2);
             cpe->disconnectPort(id_SR);
