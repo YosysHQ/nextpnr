@@ -34,8 +34,6 @@ struct ConfigWord
 
 std::ostream &operator<<(std::ostream &out, const ConfigWord &cw);
 
-std::istream &operator>>(std::istream &in, ConfigWord &cw);
-
 struct TileConfig
 {
     std::vector<ConfigWord> cwords;
@@ -44,14 +42,11 @@ struct TileConfig
     void add_word(const std::string &name, const std::vector<bool> &value);
 
     std::string to_string() const;
-    static TileConfig from_string(const std::string &str);
 
     bool empty() const;
 };
 
 std::ostream &operator<<(std::ostream &out, const TileConfig &tc);
-
-std::istream &operator>>(std::istream &in, TileConfig &ce);
 
 struct CfgLoc
 {
@@ -84,7 +79,6 @@ class ChipConfig
 };
 
 std::ostream &operator<<(std::ostream &out, const ChipConfig &cc);
-std::istream &operator>>(std::istream &in, ChipConfig &cc);
 
 NEXTPNR_NAMESPACE_END
 

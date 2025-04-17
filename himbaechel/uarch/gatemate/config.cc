@@ -35,85 +35,10 @@ inline std::string to_string(const std::vector<bool> &bv)
     return os.str();
 }
 
-inline std::istream &operator>>(std::istream &in, std::vector<bool> &bv)
-{
-    bv.clear();
-    std::string s;
-    in >> s;
-    for (auto c : boost::adaptors::reverse(s)) {
-        assert((c == '0') || (c == '1'));
-        bv.push_back((c == '1'));
-    }
-    return in;
-}
-
-// Skip whitespace, optionally including newlines
-inline void skip_blank(std::istream &in, bool nl = false)
-{
-    int c = in.peek();
-    while (in && (((c == ' ') || (c == '\t')) || (nl && ((c == '\n') || (c == '\r'))))) {
-        in.get();
-        c = in.peek();
-    }
-}
-// Return true if end of line (or file)
-inline bool skip_check_eol(std::istream &in)
-{
-    skip_blank(in, false);
-    if (!in)
-        return false;
-    int c = in.peek();
-    // Comments count as end of line
-    if (c == '#') {
-        in.get();
-        c = in.peek();
-        while (in && c != EOF && c != '\n') {
-            in.get();
-            c = in.peek();
-        }
-        return true;
-    }
-    return (c == EOF || c == '\n');
-}
-
-// Skip past blank lines and comments
-inline void skip(std::istream &in)
-{
-    skip_blank(in, true);
-    while (in && (in.peek() == '#')) {
-        // Skip comment line
-        skip_check_eol(in);
-        skip_blank(in, true);
-    }
-}
-
-// Return true if at the end of a record (or file)
-inline bool skip_check_eor(std::istream &in)
-{
-    skip(in);
-    int c = in.peek();
-    return (c == EOF || c == '.');
-}
-
-// Return true if at the end of file
-inline bool skip_check_eof(std::istream &in)
-{
-    skip(in);
-    int c = in.peek();
-    return (c == EOF);
-}
-
 std::ostream &operator<<(std::ostream &out, const ConfigWord &cw)
 {
     out << cw.name << " " << to_string(cw.value) << std::endl;
     return out;
-}
-
-std::istream &operator>>(std::istream &in, ConfigWord &cw)
-{
-    in >> cw.name;
-    in >> cw.value;
-    return in;
 }
 
 std::ostream &operator<<(std::ostream &out, const TileConfig &tc)
@@ -121,17 +46,6 @@ std::ostream &operator<<(std::ostream &out, const TileConfig &tc)
     for (const auto &cword : tc.cwords)
         out << cword;
     return out;
-}
-
-std::istream &operator>>(std::istream &in, TileConfig &tc)
-{
-    tc.cwords.clear();
-    while (!skip_check_eor(in)) {
-        ConfigWord w;
-        in >> w;
-        tc.cwords.push_back(w);
-    }
-    return in;
 }
 
 void TileConfig::add_word(const std::string &name, const std::vector<bool> &value)
@@ -151,14 +65,6 @@ std::string TileConfig::to_string() const
     std::stringstream ss;
     ss << *this;
     return ss.str();
-}
-
-TileConfig TileConfig::from_string(const std::string &str)
-{
-    std::stringstream ss(str);
-    TileConfig tc;
-    ss >> tc;
-    return tc;
 }
 
 bool TileConfig::empty() const { return cwords.empty(); }
@@ -210,60 +116,6 @@ std::ostream &operator<<(std::ostream &out, const ChipConfig &cc)
         }
     }
     return out;
-}
-
-std::istream &operator>>(std::istream &in, ChipConfig &cc)
-{
-    while (!skip_check_eof(in)) {
-        std::string verb;
-        in >> verb;
-        if (verb == ".device") {
-            in >> cc.chip_name;
-        } else if (verb == ".config") {
-            int die;
-            in >> die;
-            TileConfig tc;
-            in >> tc;
-            cc.configs.emplace(die, tc);
-        } else if (verb == ".serdes") {
-            int die;
-            in >> die;
-            TileConfig tc;
-            in >> tc;
-            cc.serdes.emplace(die, tc);
-        } else if (verb == ".tile") {
-            CfgLoc loc;
-            in >> loc.die;
-            in >> loc.x;
-            in >> loc.y;
-            TileConfig tc;
-            in >> tc;
-            cc.tiles.emplace(loc, tc);
-        } else if (verb == ".bram") {
-            CfgLoc loc;
-            in >> loc.die;
-            in >> loc.x;
-            in >> loc.y;
-            TileConfig tc;
-            in >> tc;
-            cc.brams.emplace(loc, tc);
-        } else if (verb == ".bram_init") {
-            CfgLoc loc;
-            in >> loc.die;
-            in >> loc.x;
-            in >> loc.y;
-            std::ios_base::fmtflags f(in.flags());
-            while (!skip_check_eor(in)) {
-                uint16_t value;
-                in >> std::hex >> value;
-                cc.bram_data[loc].push_back(value);
-            }
-            in.flags(f);
-        } else {
-            log_error("unrecognised config entry %s\n", verb.c_str());
-        }
-    }
-    return in;
 }
 
 NEXTPNR_NAMESPACE_END
