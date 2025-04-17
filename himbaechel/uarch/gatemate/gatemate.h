@@ -74,10 +74,10 @@ struct GateMateImpl : HimbaechelAPI
 
     void assign_cell_info();
     bool need_inversion(CellInfo *cell, IdString port);
-    void updateCPE_LT(CellInfo *cell, IdString port, IdString init);
-    void updateCPE_INV(CellInfo *cell, IdString port, IdString param);
-    void updateCPE_MUX(CellInfo *cell, IdString port, IdString param, int bit);
-    void renameParam(CellInfo *cell, IdString name, IdString new_name, int width);
+    void update_cpe_lt(CellInfo *cell, IdString port, IdString init);
+    void update_cpe_inv(CellInfo *cell, IdString port, IdString param);
+    void update_cpe_mux(CellInfo *cell, IdString port, IdString param, int bit);
+    void rename_param(CellInfo *cell, IdString name, IdString new_name, int width);
 
     const GateMateBelExtraDataPOD *bel_extra_data(BelId bel) const;
 

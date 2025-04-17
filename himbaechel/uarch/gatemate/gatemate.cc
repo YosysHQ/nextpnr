@@ -190,7 +190,7 @@ bool GateMateImpl::need_inversion(CellInfo *cell, IdString port)
     return invert;
 }
 
-void GateMateImpl::updateCPE_LT(CellInfo *cell, IdString port, IdString init)
+void GateMateImpl::update_cpe_lt(CellInfo *cell, IdString port, IdString init)
 {
     unsigned init_val = int_or_default(cell->params, init);
     bool invert = need_inversion(cell, port);
@@ -203,7 +203,7 @@ void GateMateImpl::updateCPE_LT(CellInfo *cell, IdString port, IdString init)
     }
 }
 
-void GateMateImpl::updateCPE_INV(CellInfo *cell, IdString port, IdString param)
+void GateMateImpl::update_cpe_inv(CellInfo *cell, IdString port, IdString param)
 {
     unsigned init_val = int_or_default(cell->params, param);
     bool invert = need_inversion(cell, port);
@@ -212,7 +212,7 @@ void GateMateImpl::updateCPE_INV(CellInfo *cell, IdString port, IdString param)
     }
 }
 
-void GateMateImpl::updateCPE_MUX(CellInfo *cell, IdString port, IdString param, int bit)
+void GateMateImpl::update_cpe_mux(CellInfo *cell, IdString port, IdString param, int bit)
 {
     // Mux inversion data is contained in other CPE half
     Loc l = ctx->getBelLocation(cell->bel);
@@ -226,7 +226,7 @@ void GateMateImpl::updateCPE_MUX(CellInfo *cell, IdString port, IdString param, 
     }
 }
 
-void GateMateImpl::renameParam(CellInfo *cell, IdString name, IdString new_name, int width)
+void GateMateImpl::rename_param(CellInfo *cell, IdString name, IdString new_name, int width)
 {
     if (cell->params.count(name)) {
         cell->params[new_name] = Property(int_or_default(cell->params, name, 0), width);
@@ -245,19 +245,19 @@ void GateMateImpl::postPlace()
             if (l.z == 0) { // CPE_HALF_U
                 if (cell.second->params.count(id_C_O) && int_or_default(cell.second->params, id_C_O, 0) == 0)
                     cell.second->params[id_C_2D_IN] = Property(1, 1);
-                renameParam(cell.second.get(), id_C_O, id_C_O2, 2);
-                renameParam(cell.second.get(), id_C_RAM_I, id_C_RAM_I2, 1);
-                renameParam(cell.second.get(), id_C_RAM_O, id_C_RAM_O2, 1);
+                rename_param(cell.second.get(), id_C_O, id_C_O2, 2);
+                rename_param(cell.second.get(), id_C_RAM_I, id_C_RAM_I2, 1);
+                rename_param(cell.second.get(), id_C_RAM_O, id_C_RAM_O2, 1);
                 cell.second->type = id_CPE_HALF_U;
             } else { // CPE_HALF_L
                 if (!cell.second->params.count(id_INIT_L20))
                     cell.second->params[id_INIT_L20] = Property(0b1100, 4);
-                renameParam(cell.second.get(), id_C_O, id_C_O1, 2);
-                renameParam(cell.second.get(), id_INIT_L00, id_INIT_L02, 4);
-                renameParam(cell.second.get(), id_INIT_L01, id_INIT_L03, 4);
-                renameParam(cell.second.get(), id_INIT_L10, id_INIT_L11, 4);
-                renameParam(cell.second.get(), id_C_RAM_I, id_C_RAM_I1, 1);
-                renameParam(cell.second.get(), id_C_RAM_O, id_C_RAM_O1, 1);
+                rename_param(cell.second.get(), id_C_O, id_C_O1, 2);
+                rename_param(cell.second.get(), id_INIT_L00, id_INIT_L02, 4);
+                rename_param(cell.second.get(), id_INIT_L01, id_INIT_L03, 4);
+                rename_param(cell.second.get(), id_INIT_L10, id_INIT_L11, 4);
+                rename_param(cell.second.get(), id_C_RAM_I, id_C_RAM_I1, 1);
+                rename_param(cell.second.get(), id_C_RAM_O, id_C_RAM_O1, 1);
                 cell.second->type = id_CPE_HALF_L;
             }
         }
@@ -272,31 +272,31 @@ void GateMateImpl::postRoute()
         if (cell.second->type.in(id_CPE_HALF_U)) {
             uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
             if (func != C_MX4) {
-                updateCPE_LT(cell.second.get(), id_IN1, id_INIT_L00);
-                updateCPE_LT(cell.second.get(), id_IN2, id_INIT_L00);
-                updateCPE_LT(cell.second.get(), id_IN3, id_INIT_L01);
-                updateCPE_LT(cell.second.get(), id_IN4, id_INIT_L01);
+                update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L00);
+                update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L00);
+                update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L01);
+                update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L01);
             } else {
-                updateCPE_MUX(cell.second.get(), id_IN1, id_INIT_L11, 0);
-                updateCPE_MUX(cell.second.get(), id_IN2, id_INIT_L11, 1);
-                updateCPE_MUX(cell.second.get(), id_IN3, id_INIT_L11, 2);
-                updateCPE_MUX(cell.second.get(), id_IN4, id_INIT_L11, 3);
+                update_cpe_mux(cell.second.get(), id_IN1, id_INIT_L11, 0);
+                update_cpe_mux(cell.second.get(), id_IN2, id_INIT_L11, 1);
+                update_cpe_mux(cell.second.get(), id_IN3, id_INIT_L11, 2);
+                update_cpe_mux(cell.second.get(), id_IN4, id_INIT_L11, 3);
             }
         }
         if (cell.second->type.in(id_CPE_HALF_L)) {
-            updateCPE_LT(cell.second.get(), id_IN1, id_INIT_L02);
-            updateCPE_LT(cell.second.get(), id_IN2, id_INIT_L02);
-            updateCPE_LT(cell.second.get(), id_IN3, id_INIT_L03);
-            updateCPE_LT(cell.second.get(), id_IN4, id_INIT_L03);
+            update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L02);
+            update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L02);
+            update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L03);
+            update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L03);
         }
         if (cell.second->type.in(id_CPE_HALF_U, id_CPE_HALF_L)) {
-            updateCPE_INV(cell.second.get(), id_CLK, id_C_CPE_CLK);
-            updateCPE_INV(cell.second.get(), id_EN, id_C_CPE_EN);
+            update_cpe_inv(cell.second.get(), id_CLK, id_C_CPE_CLK);
+            update_cpe_inv(cell.second.get(), id_EN, id_C_CPE_EN);
             bool set = int_or_default(cell.second->params, id_C_EN_SR, 0) == 1;
             if (set)
-                updateCPE_INV(cell.second.get(), id_SR, id_C_CPE_SET);
+                update_cpe_inv(cell.second.get(), id_SR, id_C_CPE_SET);
             else
-                updateCPE_INV(cell.second.get(), id_SR, id_C_CPE_RES);
+                update_cpe_inv(cell.second.get(), id_SR, id_C_CPE_RES);
         }
     }
     // Sanity check
