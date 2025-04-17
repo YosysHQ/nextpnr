@@ -55,7 +55,7 @@ struct BitstreamBackend
         return bv;
     }
 
-    CfgLoc getConfigLoc(int tile)
+    CfgLoc get_config_loc(int tile)
     {
         auto ti = *tile_extra_data(tile);
         CfgLoc loc;
@@ -65,7 +65,7 @@ struct BitstreamBackend
         return loc;
     }
 
-    CfgLoc getRAMConfigLoc(int tile)
+    CfgLoc get_ram_config_loc(int tile)
     {
         auto ti = *tile_extra_data(tile);
         CfgLoc loc;
@@ -73,6 +73,81 @@ struct BitstreamBackend
         loc.x = (ti.bit_x - 17) / 16;
         loc.y = (ti.bit_y - 1) / 8;
         return loc;
+    }
+
+    void export_connection(ChipConfig &cc, PipId pip)
+    {
+        const auto extra_data =
+                *reinterpret_cast<const GateMatePipExtraDataPOD *>(chip_pip_info(ctx->chip_info, pip).extra_data.get());
+        if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_VISIBLE)) {
+            IdString name = IdString(extra_data.name);
+            CfgLoc loc = get_config_loc(pip.tile);
+            std::string word = name.c_str(ctx);
+            if (extra_data.flags & MUX_CONFIG) {
+                cc.configs[loc.die].add_word(word, int_to_bitvector(extra_data.value, extra_data.bits));
+            } else {
+                int id = tile_extra_data(pip.tile)->prim_id;
+                if (boost::starts_with(word, "IM."))
+                    boost::replace_all(word, "IM.", stringf("IM%d.", id));
+                else if (boost::starts_with(word, "OM."))
+                    boost::replace_all(word, "OM.", stringf("OM%d.", id));
+                else if (boost::starts_with(word, "CPE."))
+                    boost::replace_all(word, "CPE.", stringf("CPE%d.", id));
+                else if (boost::starts_with(word, "IOES."))
+                    boost::replace_all(word, "IOES.", stringf("IOES%d.", id));
+                else if (boost::starts_with(word, "LES."))
+                    boost::replace_all(word, "LES.", stringf("LES%d.", id));
+                else if (boost::starts_with(word, "BES."))
+                    boost::replace_all(word, "BES.", stringf("BES%d.", id));
+                else if (boost::starts_with(word, "RES."))
+                    boost::replace_all(word, "RES.", stringf("RES%d.", id));
+                else if (boost::starts_with(word, "TES."))
+                    boost::replace_all(word, "TES.", stringf("TES%d.", id));
+                if (boost::starts_with(word, "SB_DRIVE.")) {
+                    Loc l;
+                    tile_xy(ctx->chip_info, pip.tile, l.x, l.y);
+                    l.z = 0;
+                    BelId cpe_bel = ctx->getBelByLocation(l);
+                    // Only if switchbox is inside core (same as sharing location with CPE)
+                    if (cpe_bel != BelId() && ctx->getBelType(cpe_bel).in(id_CPE_HALF_L, id_CPE_HALF_U)) {
+                        // Convert coordinates into in-tile coordinates
+                        int xt = ((l.x - 2 - 1) + 16) % 8;
+                        int yt = ((l.y - 2 - 1) + 16) % 8;
+                        // Bitstream data for certain SB_DRIVES is located in other tiles
+                        switch (word[14]) {
+                        case '3':
+                            if (xt >= 4) {
+                                loc.x -= 2;
+                                word[14] = '1';
+                            };
+                            break;
+                        case '4':
+                            if (yt >= 4) {
+                                loc.y -= 2;
+                                word[14] = '2';
+                            };
+                            break;
+                        case '1':
+                            if (xt <= 3) {
+                                loc.x += 2;
+                                word[14] = '3';
+                            };
+                            break;
+                        case '2':
+                            if (yt <= 3) {
+                                loc.y += 2;
+                                word[14] = '4';
+                            };
+                            break;
+                        default:
+                            break;
+                        }
+                    }
+                }
+
+                cc.tiles[loc].add_word(word, int_to_bitvector(extra_data.value, extra_data.bits));
+            }
+        }
     }
 
     void write_bitstream()
@@ -88,7 +163,7 @@ struct BitstreamBackend
         cc.configs[0].add_word("GPIO.BANK_W1", int_to_bitvector(1, 1));
         cc.configs[0].add_word("GPIO.BANK_W2", int_to_bitvector(1, 1));
         for (auto &cell : ctx->cells) {
-            CfgLoc loc = getConfigLoc(cell.second.get()->bel.tile);
+            CfgLoc loc = get_config_loc(cell.second.get()->bel.tile);
             auto &params = cell.second.get()->params;
             switch (cell.second->type.index) {
             case id_CC_IBUF.index:
@@ -121,7 +196,7 @@ struct BitstreamBackend
                 }
             } break;
             case id_RAM.index: {
-                CfgLoc loc = getRAMConfigLoc(cell.second.get()->bel.tile);
+                CfgLoc loc = get_ram_config_loc(cell.second.get()->bel.tile);
                 auto &bram = cc.brams[loc];
                 for (auto &p : params) {
                     std::string name = p.first.c_str(ctx);
@@ -153,82 +228,9 @@ struct BitstreamBackend
             NetInfo *ni = net.second.get();
             if (ni->wires.empty())
                 continue;
-            std::set<std::string> nets;
             for (auto &w : ni->wires) {
-                if (w.second.pip != PipId()) {
-                    PipId pip = w.second.pip;
-                    const auto extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
-                            chip_pip_info(ctx->chip_info, pip).extra_data.get());
-                    if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_VISIBLE)) {
-                        IdString name = IdString(extra_data.name);
-                        CfgLoc loc = getConfigLoc(pip.tile);
-                        std::string word = name.c_str(ctx);
-                        if (extra_data.flags & MUX_CONFIG) {
-                            cc.configs[loc.die].add_word(word, int_to_bitvector(extra_data.value, extra_data.bits));
-                        } else {
-                            int id = tile_extra_data(pip.tile)->prim_id;
-                            if (boost::starts_with(word, "IM."))
-                                boost::replace_all(word, "IM.", stringf("IM%d.", id));
-                            else if (boost::starts_with(word, "OM."))
-                                boost::replace_all(word, "OM.", stringf("OM%d.", id));
-                            else if (boost::starts_with(word, "CPE."))
-                                boost::replace_all(word, "CPE.", stringf("CPE%d.", id));
-                            else if (boost::starts_with(word, "IOES."))
-                                boost::replace_all(word, "IOES.", stringf("IOES%d.", id));
-                            else if (boost::starts_with(word, "LES."))
-                                boost::replace_all(word, "LES.", stringf("LES%d.", id));
-                            else if (boost::starts_with(word, "BES."))
-                                boost::replace_all(word, "BES.", stringf("BES%d.", id));
-                            else if (boost::starts_with(word, "RES."))
-                                boost::replace_all(word, "RES.", stringf("RES%d.", id));
-                            else if (boost::starts_with(word, "TES."))
-                                boost::replace_all(word, "TES.", stringf("TES%d.", id));
-                            if (boost::starts_with(word, "SB_DRIVE.")) {
-                                Loc l;
-                                tile_xy(ctx->chip_info, pip.tile, l.x, l.y);
-                                l.z = 0;
-                                BelId cpe_bel = ctx->getBelByLocation(l);
-                                // Only if switchbox is inside core (same as sharing location with CPE)
-                                if (cpe_bel != BelId() && ctx->getBelType(cpe_bel).in(id_CPE_HALF_L, id_CPE_HALF_U)) {
-                                    // Convert coordinates into in-tile coordinates
-                                    int xt = ((l.x - 2 - 1) + 16) % 8;
-                                    int yt = ((l.y - 2 - 1) + 16) % 8;
-                                    // Bitstream data for certain SB_DRIVES is located in other tiles
-                                    switch (word[14]) {
-                                    case '3':
-                                        if (xt >= 4) {
-                                            loc.x -= 2;
-                                            word[14] = '1';
-                                        };
-                                        break;
-                                    case '4':
-                                        if (yt >= 4) {
-                                            loc.y -= 2;
-                                            word[14] = '2';
-                                        };
-                                        break;
-                                    case '1':
-                                        if (xt <= 3) {
-                                            loc.x += 2;
-                                            word[14] = '3';
-                                        };
-                                        break;
-                                    case '2':
-                                        if (yt <= 3) {
-                                            loc.y += 2;
-                                            word[14] = '4';
-                                        };
-                                        break;
-                                    default:
-                                        break;
-                                    }
-                                }
-                            }
-
-                            cc.tiles[loc].add_word(word, int_to_bitvector(extra_data.value, extra_data.bits));
-                        }
-                    }
-                }
+                if (w.second.pip != PipId())
+                    export_connection(cc, w.second.pip);
             }
         }
         out << cc;
