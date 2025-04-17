@@ -2,15 +2,15 @@ set(SOURCES
     bitstream.cc
     ccf.cc
     cells.cc
-	config.cc
-	config.h
+    config.cc
+    config.h
     constids.inc
     extra_data.h
     gatemate.cc
     gatemate.h
-	gfx.cc
+    gfx.cc
     gfxids.inc
-	pack.cc
+    pack.cc
     pack.h
     pll.cc
 )
@@ -55,7 +55,7 @@ foreach (device ${HIMBAECHEL_GATEMATE_DEVICES})
         INPUTS
             ${CMAKE_CURRENT_SOURCE_DIR}/gen/arch_gen.py
             ${CMAKE_CURRENT_SOURCE_DIR}/constids.inc
-			${CMAKE_CURRENT_SOURCE_DIR}/gfxids.inc
+            ${CMAKE_CURRENT_SOURCE_DIR}/gfxids.inc
     )
 
     add_bba_compile_command(
