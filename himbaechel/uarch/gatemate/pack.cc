@@ -180,8 +180,15 @@ void GateMatePacker::pack_io()
             loc = new_loc;
         }
 
-        if (loc == "UNPLACED")
-            log_warning("IO signal name '%s' is not defined in CCF file and will be auto-placed.\n", ctx->nameOf(&ci));
+        if (loc == "UNPLACED") {
+            const ArchArgs &args = ctx->args;
+            if (args.options.count("allow-unconstrained"))
+                log_warning("IO '%s' is unconstrained in CCF and will be automatically placed.\n", ctx->nameOf(&ci));
+            else
+                log_error("IO '%s' is unconstrained in CCF (override this error with "
+                          "--vopt allow-unconstrained).\n",
+                          ctx->nameOf(&ci));
+        }
 
         disconnect_if_gnd(&ci, id_T);
         if (ci.type == id_CC_TOBUF && !ci.getPort(id_T))
