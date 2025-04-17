@@ -47,9 +47,7 @@ TEST_F(GateMateTest, remove_lut1_zero)
 
     CellInfo *obuf = create_cell_ptr(id_CC_OBUF, "obuf");
 
-    NetInfo *net = ctx->createNet(ctx->id("conn"));
-    lut1->connectPort(id_O, net);
-    obuf->connectPort(id_A, net);
+    direct_connect(lut1, id_O, obuf, id_A);
 
     ASSERT_EQ(ctx->cells.size(), 1LU);
     ctx->uarch->pack();
@@ -63,9 +61,7 @@ TEST_F(GateMateTest, remove_lut1_one)
 
     CellInfo *obuf = create_cell_ptr(id_CC_OBUF, "obuf");
 
-    NetInfo *net = ctx->createNet(ctx->id("conn"));
-    lut1->connectPort(id_O, net);
-    obuf->connectPort(id_A, net);
+    direct_connect(lut1, id_O, obuf, id_A);
 
     ASSERT_EQ(ctx->cells.size(), 2LU);
     ctx->uarch->pack();
@@ -80,13 +76,8 @@ TEST_F(GateMateTest, remove_lut1_pass)
     CellInfo *obuf = create_cell_ptr(id_CC_OBUF, "obuf");
     CellInfo *ibuf = create_cell_ptr(id_CC_IBUF, "ibuf");
 
-    NetInfo *net_in = ctx->createNet(ctx->id("in"));
-    ibuf->connectPort(id_Y, net_in);
-    lut1->connectPort(id_I0, net_in);
-
-    NetInfo *net = ctx->createNet(ctx->id("conn"));
-    lut1->connectPort(id_O, net);
-    obuf->connectPort(id_A, net);
+    direct_connect(ibuf, id_Y, lut1, id_I0);
+    direct_connect(lut1, id_O, obuf, id_A);
 
     ASSERT_EQ(ctx->cells.size(), 3LU);
     ctx->uarch->pack();
@@ -103,13 +94,8 @@ TEST_F(GateMateTest, remove_lut1_inv)
     CellInfo *obuf = create_cell_ptr(id_CC_OBUF, "obuf");
     CellInfo *ibuf = create_cell_ptr(id_CC_IBUF, "ibuf");
 
-    NetInfo *net_in = ctx->createNet(ctx->id("in"));
-    ibuf->connectPort(id_Y, net_in);
-    lut1->connectPort(id_I0, net_in);
-
-    NetInfo *net = ctx->createNet(ctx->id("conn"));
-    lut1->connectPort(id_O, net);
-    obuf->connectPort(id_A, net);
+    direct_connect(ibuf, id_Y, lut1, id_I0);
+    direct_connect(lut1, id_O, obuf, id_A);
 
     ASSERT_EQ(ctx->cells.size(), 3LU);
     ctx->uarch->pack();
