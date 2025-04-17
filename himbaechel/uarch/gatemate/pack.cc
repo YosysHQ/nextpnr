@@ -387,7 +387,7 @@ void GateMatePacker::pack_io_sel()
             ci.disconnectPort(id_Y);
             dff->movePortTo(id_Q, &ci, id_DI);
             set_in_clk(dff, &ci);
-            bool invert = int_or_default(dff->params, id_CLK_INV, 0) == 1;
+            bool invert = bool_or_default(dff->params, id_CLK_INV, 0);
             if (invert) {
                 ci.params[id_INV_IN1_CLOCK] = Property(Property::State::S1);
                 ci.params[id_INV_IN2_CLOCK] = Property(Property::State::S1);
@@ -415,7 +415,7 @@ void GateMatePacker::pack_io_sel()
         iddr->movePortTo(id_Q1, &ci, id_IN2);
 
         set_in_clk(iddr, &ci);
-        bool invert = int_or_default(iddr->params, id_CLK_INV, 0) == 1;
+        bool invert = bool_or_default(iddr->params, id_CLK_INV, 0);
         if (invert) {
             ci.params[id_INV_IN1_CLOCK] = Property(Property::State::S1);
         } else {
@@ -426,8 +426,8 @@ void GateMatePacker::pack_io_sel()
 
     for (auto &cell : cells) {
         CellInfo &ci = *cell;
-        bool ff_obf = int_or_default(ci.params, id_FF_OBF, 0) == 1;
-        bool ff_ibf = int_or_default(ci.params, id_FF_IBF, 0) == 1;
+        bool ff_obf = bool_or_default(ci.params, id_FF_OBF, 0);
+        bool ff_ibf = bool_or_default(ci.params, id_FF_IBF, 0);
         ci.unsetParam(id_FF_OBF);
         ci.unsetParam(id_FF_IBF);
 
@@ -458,7 +458,7 @@ void GateMatePacker::pack_io_sel()
                         ci.disconnectPort(id_A);
                         dff->movePortTo(id_D, &ci, id_OUT1);
                         use_custom_clock = set_out_clk(dff, &ci);
-                        bool invert = int_or_default(dff->params, id_CLK_INV, 0) == 1;
+                        bool invert = bool_or_default(dff->params, id_CLK_INV, 0);
                         if (invert) {
                             ci.params[id_INV_OUT1_CLOCK] = Property(Property::State::S1);
                             ci.params[id_INV_OUT2_CLOCK] = Property(Property::State::S1);
@@ -494,7 +494,7 @@ void GateMatePacker::pack_io_sel()
                         ddr[pad->pad_bank] = cpe_half;
                     }
                     use_custom_clock = set_out_clk(oddr, &ci);
-                    bool invert = int_or_default(oddr->params, id_CLK_INV, 0) == 1;
+                    bool invert = bool_or_default(oddr->params, id_CLK_INV, 0);
                     if (invert) {
                         ci.params[id_INV_OUT1_CLOCK] = Property(Property::State::S1);
                     } else {
@@ -532,7 +532,7 @@ void GateMatePacker::pack_io_sel()
 bool GateMatePacker::is_gpio_valid_dff(CellInfo *dff)
 {
     NetInfo *en_net = dff->getPort(id_EN);
-    bool invert = int_or_default(dff->params, id_EN_INV, 0) == 1;
+    bool invert = bool_or_default(dff->params, id_EN_INV, 0);
     if (en_net) {
         if (en_net->name == ctx->id("$PACKER_GND")) {
             if (!invert)
@@ -549,7 +549,7 @@ bool GateMatePacker::is_gpio_valid_dff(CellInfo *dff)
     dff->unsetParam(id_EN_INV);
 
     NetInfo *sr_net = dff->getPort(id_SR);
-    invert = int_or_default(dff->params, id_SR_INV, 0) == 1;
+    invert = bool_or_default(dff->params, id_SR_INV, 0);
     if (sr_net) {
         if (sr_net->name == ctx->id("$PACKER_GND")) {
             if (invert)
@@ -587,7 +587,7 @@ void GateMatePacker::dff_to_cpe(CellInfo *dff, CellInfo *cpe)
     bool is_latch = dff->type == id_CC_DLT;
     if (is_latch) {
         NetInfo *g_net = cpe->getPort(id_G);
-        invert = int_or_default(dff->params, id_G_INV, 0) == 1;
+        invert = bool_or_default(dff->params, id_G_INV, 0);
         if (g_net) {
             if (g_net->name == ctx->id("$PACKER_GND")) {
                 cpe->params[id_C_CPE_CLK] = Property(invert ? 0b11 : 0b00, 2);
@@ -608,7 +608,7 @@ void GateMatePacker::dff_to_cpe(CellInfo *dff, CellInfo *cpe)
         cpe->params[id_C_L_D] = Property(0b1, 1);
     } else {
         NetInfo *en_net = cpe->getPort(id_EN);
-        bool invert = int_or_default(dff->params, id_EN_INV, 0) == 1;
+        bool invert = bool_or_default(dff->params, id_EN_INV, 0);
         if (en_net) {
             if (en_net->name == ctx->id("$PACKER_GND")) {
                 cpe->params[id_C_CPE_EN] = Property(invert ? 0b11 : 0b00, 2);
@@ -625,7 +625,7 @@ void GateMatePacker::dff_to_cpe(CellInfo *dff, CellInfo *cpe)
         dff->unsetParam(id_EN_INV);
 
         NetInfo *clk_net = cpe->getPort(id_CLK);
-        invert = int_or_default(dff->params, id_CLK_INV, 0) == 1;
+        invert = bool_or_default(dff->params, id_CLK_INV, 0);
         if (clk_net) {
             if (clk_net->name == ctx->id("$PACKER_GND")) {
                 cpe->params[id_C_CPE_CLK] = Property(invert ? 0b11 : 0b00, 2);
@@ -643,8 +643,8 @@ void GateMatePacker::dff_to_cpe(CellInfo *dff, CellInfo *cpe)
     }
 
     NetInfo *sr_net = cpe->getPort(id_SR);
-    invert = int_or_default(dff->params, id_SR_INV, 0) == 1;
-    bool sr_val = int_or_default(dff->params, id_SR_VAL, 0) == 1;
+    invert = bool_or_default(dff->params, id_SR_INV, 0);
+    bool sr_val = bool_or_default(dff->params, id_SR_VAL, 0);
     if (sr_net) {
         if (sr_net->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC"))) {
             bool sr_signal = sr_net->name == ctx->id("$PACKER_VCC");
@@ -674,7 +674,7 @@ void GateMatePacker::dff_to_cpe(CellInfo *dff, CellInfo *cpe)
     dff->unsetParam(id_SR_INV);
 
     if (dff->params.count(id_INIT) && dff->params[id_INIT].is_fully_def()) {
-        bool init = int_or_default(dff->params, id_INIT, 0) == 1;
+        bool init = bool_or_default(dff->params, id_INIT, 0);
         if (init)
             cpe->params[id_FF_INIT] = Property(0b11, 2);
         else
