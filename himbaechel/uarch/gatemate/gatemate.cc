@@ -357,15 +357,6 @@ void GateMateImpl::assign_cell_info()
     }
 }
 
-void GateMateImpl::setupArchContext()
-{
-    const ArchArgs &args = ctx->args;
-    if (args.options.count("read")) {
-        if (!read_bitstream(args.device, args.options.at("read")))
-            log_error("Loading bitstream failed.\n");
-    }
-}
-
 // Bel bucket functions
 IdString GateMateImpl::getBelBucketForCellType(IdString cell_type) const
 {

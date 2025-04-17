@@ -36,7 +36,6 @@ struct GateMateImpl : HimbaechelAPI
     void init_database(Arch *arch) override;
 
     void init(Context *ctx) override;
-    void setupArchContext() override;
 
     void pack() override;
 
@@ -70,7 +69,6 @@ struct GateMateImpl : HimbaechelAPI
                            std::vector<std::pair<CellInfo *, BelId>> &placement) const;
 
     void write_bitstream(const std::string &device, const std::string &filename);
-    bool read_bitstream(const std::string &device, const std::string &filename);
 
     void parse_ccf(const std::string &filename);
 

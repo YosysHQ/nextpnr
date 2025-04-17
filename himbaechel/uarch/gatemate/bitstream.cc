@@ -247,12 +247,4 @@ void GateMateImpl::write_bitstream(const std::string &device, const std::string 
     be.write_bitstream();
 }
 
-bool GateMateImpl::read_bitstream(const std::string &device, const std::string &filename)
-{
-    std::ifstream in(filename);
-    if (!in)
-        log_error("failed to open file %s for reading (%s)\n", filename.c_str(), strerror(errno));
-    return false;
-}
-
 NEXTPNR_NAMESPACE_END
