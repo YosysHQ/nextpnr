@@ -29,8 +29,10 @@ USING_NEXTPNR_NAMESPACE
 TEST_F(GateMateTest, pack_constants)
 {
     GateMatePacker packer(ctx, impl);
-    ctx->uarch->pack();
+    packer.pack_constants();
     ASSERT_EQ(ctx->cells.size(), 2LU);
+    packer.remove_constants();
+    ASSERT_EQ(ctx->cells.size(), 0LU);
 }
 
 // LUT[1:0]	Function
