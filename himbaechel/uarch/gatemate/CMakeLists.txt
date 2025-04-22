@@ -28,7 +28,7 @@ add_nextpnr_himbaechel_microarchitecture(${uarch}
 
 set(HIMBAECHEL_PEPPERCORN_PATH "" CACHE STRING
     "Path to a Project Peppercorn database")
-if (NOT HIMBAECHEL_PEPPERCORN_PATH)
+if (NOT HIMBAECHEL_PEPPERCORN_PATH AND NOT IMPORT_BBA_FILES)
     message(FATAL_ERROR "HIMBAECHEL_PEPPERCORN_PATH must be set to a Project Peppercorn checkout")
 endif()
 
@@ -36,6 +36,9 @@ endif()
 set(ALL_HIMBAECHE_GATEMATE_DEVICES CCGM1A1)
 set(HIMBAECHEL_GATEMATE_DEVICES ${ALL_HIMBAECHE_GATEMATE_DEVICES} CACHE STRING
     "Include support for these GateMate devices (available: ${ALL_HIMBAECHE_GATEMATE_DEVICES})")
+if (HIMBAECHEL_GATEMATE_DEVICES STREQUAL "all")
+	set(HIMBAECHEL_GATEMATE_DEVICES ${ALL_HIMBAECHE_GATEMATE_DEVICES})
+endif()
 message(STATUS "Enabled Himbaechel-GateMate devices: ${HIMBAECHEL_GATEMATE_DEVICES}")
 
 foreach (device ${HIMBAECHEL_GATEMATE_DEVICES})
