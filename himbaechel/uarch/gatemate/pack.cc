@@ -1206,6 +1206,14 @@ void GateMatePacker::pack_bufg()
                 ci.cluster = ci.name;
                 move_ram_o(&ci, id_I);
             }
+
+            if (in_net->clkconstr) {
+                NetInfo *o_net = ci.getPort(id_O);
+                o_net->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
+                o_net->clkconstr->low = in_net->clkconstr->low;
+                o_net->clkconstr->high = in_net->clkconstr->high;
+                o_net->clkconstr->period = in_net->clkconstr->period;
+            }
         }
         ci.type = id_BUFG;
     }
@@ -1445,17 +1453,22 @@ void GateMatePacker::pack_pll()
             log_error("CLK_REF and USR_CLK_REF are not allowed to be set in same time.\n");
 
         NetInfo *clk = ci.getPort(id_CLK_REF);
+        delay_t period = ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq"));
         if (clk) {
             if (ctx->getBelBucketForCellType(clk->driver.cell->type) != id_GPIO)
                 log_error("CLK_REF must be driven with GPIO pin.\n");
             auto pad_info = uarch->bel_to_pad[clk->driver.cell->bel];
             if (!(pad_info->flags & 1))
                 log_error("CLK_REF must be driven with CLK dedicated pin.\n");
+            if (clk->clkconstr)
+                period = clk->clkconstr->period.minDelay();
         }
 
         clk = ci.getPort(id_USR_CLK_REF);
         if (clk) {
             move_ram_o_fixed(&ci, id_USR_CLK_REF, fixed_loc);
+            if (clk->clkconstr)
+                period = clk->clkconstr->period.minDelay();
         }
         // TODO: handle CLK_FEEDBACK
         // TODO: handle CLK_REF_OUT
@@ -1467,12 +1480,15 @@ void GateMatePacker::pack_pll()
         move_ram_i_fixed(&ci, id_USR_PLL_LOCKED, fixed_loc);
         move_ram_i_fixed(&ci, id_USR_PLL_LOCKED_STDY, fixed_loc);
 
+        double out_clk_max = 0;
+        int clk270_doub = 0;
+        int clk180_doub = 0;
         if (ci.type == id_CC_PLL) {
             int low_jitter = int_or_default(ci.params, id_LOW_JITTER, 0);
             int ci_const = int_or_default(ci.params, id_CI_FILTER_CONST, 0);
             int cp_const = int_or_default(ci.params, id_CP_FILTER_CONST, 0);
-            int clk270_doub = int_or_default(ci.params, id_CLK270_DOUB, 0);
-            int clk180_doub = int_or_default(ci.params, id_CLK180_DOUB, 0);
+            clk270_doub = int_or_default(ci.params, id_CLK270_DOUB, 0);
+            clk180_doub = int_or_default(ci.params, id_CLK180_DOUB, 0);
             int lock_req = int_or_default(ci.params, id_LOCK_REQ, 0);
 
             if (!ci.getPort(id_CLK_FEEDBACK))
@@ -1564,6 +1580,7 @@ void GateMatePacker::pack_pll()
             ci.unsetParam(id_LOW_JITTER);
             ci.unsetParam(id_CI_FILTER_CONST);
             ci.unsetParam(id_CP_FILTER_CONST);
+            out_clk_max = out_clk;
         } else {
             // Handling CC_PLL_ADV
             for (int i = 0; i < 2; i++) {
@@ -1594,6 +1611,25 @@ void GateMatePacker::pack_pll()
                 ci.params[ctx->idf("CFG_%c.EN_COARSE_TUNE", cfg)] = Property(extract_bits(ci.params, id, 88, 1), 1);
                 ci.params[ctx->idf("CFG_%c.EN_USR_CFG", cfg)] = Property(extract_bits(ci.params, id, 89, 1), 1);
                 ci.params[ctx->idf("CFG_%c.PLL_EN_SEL", cfg)] = Property(extract_bits(ci.params, id, 90, 1), 1);
+                int N1 = int_or_default(ci.params, ctx->idf("CFG_%c.N1", cfg));
+                int N2 = int_or_default(ci.params, ctx->idf("CFG_%c.N2", cfg));
+                int M1 = int_or_default(ci.params, ctx->idf("CFG_%c.M1", cfg));
+                int M2 = int_or_default(ci.params, ctx->idf("CFG_%c.M2", cfg));
+                int K = int_or_default(ci.params, ctx->idf("CFG_%c.K", cfg));
+                int PDIV1 = bool_or_default(ci.params, ctx->idf("CFG_%c.PDIV1_SEL", cfg)) ? 2 : 0;
+                double out_clk;
+                double ref_clk = 1000.0f / ctx->getDelayNS(period);
+                if (!bool_or_default(ci.params, ctx->idf("CFG_%c.FB_PATH", cfg))) {
+                    if (bool_or_default(ci.params, ctx->idf("CFG_%c.PDIV0_MUX", cfg))) {
+                        out_clk = (ref_clk * N1 * N2) / (K * 2 * M1 * M2);
+                    } else {
+                        out_clk = (ref_clk / K) * N1 * N2 * PDIV1;
+                    }
+                } else {
+                    out_clk = (ref_clk / K) * N1 * N2;
+                }
+                if (out_clk > out_clk_max)
+                    out_clk_max = out_clk;
             }
             NetInfo *select_net = ci.getPort(id_USR_SEL_A_B);
             if (select_net == nullptr || select_net->name == ctx->id("$PACKER_GND")) {
@@ -1631,6 +1667,15 @@ void GateMatePacker::pack_pll()
         // CLK270_DOUB - set by CC_PLL parameter
         // bits 6 and 7 are unused
         // TODO: USR_CLK_OUT - part of routing, mux from chipdb
+
+        if (ci.getPort(id_CLK0))
+            ctx->addClock(ci.getPort(id_CLK0)->name, out_clk_max);
+        if (ci.getPort(id_CLK90))
+            ctx->addClock(ci.getPort(id_CLK90)->name, out_clk_max);
+        if (ci.getPort(id_CLK180))
+            ctx->addClock(ci.getPort(id_CLK180)->name, clk180_doub ? out_clk_max * 2 : out_clk_max);
+        if (ci.getPort(id_CLK270))
+            ctx->addClock(ci.getPort(id_CLK270)->name, clk270_doub ? out_clk_max * 2 : out_clk_max);
 
         ci.type = id_PLL;
 
