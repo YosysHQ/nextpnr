@@ -37,7 +37,54 @@ void GateMateImpl::init_database(Arch *arch)
     init_uarch_constids(arch);
     arch->load_chipdb(stringf("gatemate/chipdb-%s.bin", args.device.c_str()));
     arch->set_package("FBGA324");
-    arch->set_speed_grade("DEFAULT");
+    fpga_mode = 3;
+    timing_mode = 3;
+    if (args.options.count("fpga_mode"))
+        fpga_mode = std::stoi(args.options.at("fpga_mode"));
+    if (args.options.count("om"))
+        fpga_mode = std::stoi(args.options.at("om"));
+    if (args.options.count("time_mode"))
+        timing_mode = std::stoi(args.options.at("time_mode"));
+    if (args.options.count("tm"))
+        timing_mode = std::stoi(args.options.at("tm"));
+
+    std::string speed_grade = "";
+    switch (fpga_mode) {
+    case 1:
+        speed_grade = "best_";
+        break;
+    case 2:
+        speed_grade = "typ_";
+        break;
+    case 3:
+        speed_grade = "worst_";
+        break;
+    default:
+        log_error("timing mode valid values are {1:best, 2:typical, 3:worst}\n");
+    }
+    log_info("Using timing mode '%s'\n", fpga_mode == 1   ? "BEST"
+                                         : fpga_mode == 2 ? "TYPICAL"
+                                         : fpga_mode == 3 ? "WORST"
+                                                          : "");
+
+    switch (timing_mode) {
+    case 1:
+        speed_grade += "lpr";
+        break;
+    case 2:
+        speed_grade += "eco";
+        break;
+    case 3:
+        speed_grade += "spd";
+        break;
+    default:
+        log_error("operation mode valid values are {1:lowpower, 2:economy, 3:speed}\n");
+    }
+    log_info("Using operation mode '%s'\n", timing_mode == 1   ? "LOWPOWER"
+                                            : timing_mode == 2 ? "ECONOMY"
+                                            : timing_mode == 3 ? "SPEED"
+                                                               : "");
+    arch->set_speed_grade(speed_grade);
 }
 
 void GateMateImpl::init(Context *ctx)

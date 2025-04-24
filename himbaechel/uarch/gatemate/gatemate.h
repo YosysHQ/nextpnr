@@ -64,6 +64,8 @@ struct GateMateImpl : HimbaechelAPI
 
     std::set<IdString> available_pads;
     std::map<BelId, const PadInfoPOD *> bel_to_pad;
+    int fpga_mode;
+    int timing_mode;
 
   private:
     bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
