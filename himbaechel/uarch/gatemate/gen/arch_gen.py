@@ -108,33 +108,35 @@ class BelExtraData(BBAStruct):
         bba.slice(f"{context}_constraints", len(self.constraints))
 
 def set_timings(ch):
-    speed = "DEFAULT"
-    tmg = ch.set_speed_grades([speed])
+    speed_grades = ["best_lpr", "best_eco", "best_spd",
+                    "typ_lpr", "typ_eco", "typ_spd",
+                    "worst_lpr", "worst_eco", "worst_spd"]
+    tmg = ch.set_speed_grades(speed_grades)
+    for speed in speed_grades:
+        lut = ch.timing.add_cell_variant(speed, "CPE_HALF_L")
+        lut.add_comb_arc("IN1", "OUT", TimingValue(416, 418)) # IN5 to OUT1
+        lut.add_comb_arc("IN2", "OUT", TimingValue(413, 422)) # IN6 to OUT1
+        lut.add_comb_arc("IN3", "OUT", TimingValue(372, 374)) # IN7 to OUT1
+        lut.add_comb_arc("IN4", "OUT", TimingValue(275, 385)) # IN8 to OUT1
 
-    lut = ch.timing.add_cell_variant(speed, "CPE_HALF_L")
-    lut.add_comb_arc("IN1", "OUT", TimingValue(416, 418)) # IN5 to OUT1
-    lut.add_comb_arc("IN2", "OUT", TimingValue(413, 422)) # IN6 to OUT1
-    lut.add_comb_arc("IN3", "OUT", TimingValue(372, 374)) # IN7 to OUT1
-    lut.add_comb_arc("IN4", "OUT", TimingValue(275, 385)) # IN8 to OUT1
+        lut = ch.timing.add_cell_variant(speed, "CPE_HALF_U")
+        lut.add_comb_arc("IN1", "OUT", TimingValue(479, 484)) # to OUT2
+        lut.add_comb_arc("IN2", "OUT", TimingValue(471, 488)) # to OUT2
+        lut.add_comb_arc("IN3", "OUT", TimingValue(446, 449)) # to OUT2
+        lut.add_comb_arc("IN4", "OUT", TimingValue(443, 453)) # to OUT2
 
-    lut = ch.timing.add_cell_variant(speed, "CPE_HALF_U")
-    lut.add_comb_arc("IN1", "OUT", TimingValue(479, 484)) # to OUT2
-    lut.add_comb_arc("IN2", "OUT", TimingValue(471, 488)) # to OUT2
-    lut.add_comb_arc("IN3", "OUT", TimingValue(446, 449)) # to OUT2
-    lut.add_comb_arc("IN4", "OUT", TimingValue(443, 453)) # to OUT2
+        lut = ch.timing.add_cell_variant(speed, "CPE_HALF")
+        lut.add_comb_arc("IN1", "OUT", TimingValue(479, 484)) # to OUT2
+        lut.add_comb_arc("IN2", "OUT", TimingValue(471, 488)) # to OUT2
+        lut.add_comb_arc("IN3", "OUT", TimingValue(446, 449)) # to OUT2
+        lut.add_comb_arc("IN4", "OUT", TimingValue(443, 453)) # to OUT2
 
-    lut = ch.timing.add_cell_variant(speed, "CPE_HALF")
-    lut.add_comb_arc("IN1", "OUT", TimingValue(479, 484)) # to OUT2
-    lut.add_comb_arc("IN2", "OUT", TimingValue(471, 488)) # to OUT2
-    lut.add_comb_arc("IN3", "OUT", TimingValue(446, 449)) # to OUT2
-    lut.add_comb_arc("IN4", "OUT", TimingValue(443, 453)) # to OUT2
-
-    dff = ch.timing.add_cell_variant(speed, "CPE_DFF")
-    dff.add_setup_hold("CLK", "IN1", ClockEdge.RISING, TimingValue(60), TimingValue(50))
-    dff.add_setup_hold("CLK", "IN2", ClockEdge.RISING, TimingValue(60), TimingValue(50))
-    dff.add_setup_hold("CLK", "IN3", ClockEdge.RISING, TimingValue(60), TimingValue(50))
-    dff.add_setup_hold("CLK", "IN4", ClockEdge.RISING, TimingValue(60), TimingValue(50))
-    dff.add_clock_out("CLK", "OUT", ClockEdge.RISING, TimingValue(60))
+        dff = ch.timing.add_cell_variant(speed, "CPE_DFF")
+        dff.add_setup_hold("CLK", "IN1", ClockEdge.RISING, TimingValue(60), TimingValue(50))
+        dff.add_setup_hold("CLK", "IN2", ClockEdge.RISING, TimingValue(60), TimingValue(50))
+        dff.add_setup_hold("CLK", "IN3", ClockEdge.RISING, TimingValue(60), TimingValue(50))
+        dff.add_setup_hold("CLK", "IN4", ClockEdge.RISING, TimingValue(60), TimingValue(50))
+        dff.add_clock_out("CLK", "OUT", ClockEdge.RISING, TimingValue(60))
 
 def main():
     # Range needs to be +1, but we are adding +2 more to coordinates, since 
