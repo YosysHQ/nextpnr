@@ -1467,11 +1467,18 @@ void GateMatePacker::pack_pll()
         clk = ci.getPort(id_USR_CLK_REF);
         if (clk) {
             move_ram_o_fixed(&ci, id_USR_CLK_REF, fixed_loc);
+            ci.params[ctx->id("USR_CLK_REF")] = Property(0b1, 1);
             if (clk->clkconstr)
                 period = clk->clkconstr->period.minDelay();
         }
-        // TODO: handle CLK_FEEDBACK
-        // TODO: handle CLK_REF_OUT
+
+        NetInfo *fbk = ci.getPort(id_CLK_FEEDBACK);
+        if (fbk && !fbk->driver.cell->type.in(id_CC_BUFG))
+            move_ram_o_fixed(&ci, id_CLK_FEEDBACK, fixed_loc);
+
+        if (ci.getPort(id_CLK_REF_OUT))
+            log_error("Output CLK_REF_OUT cannot be used if PLL is used.\n");
+
         pll_out(&ci, id_CLK0, fixed_loc);
         pll_out(&ci, id_CLK90, fixed_loc);
         pll_out(&ci, id_CLK180, fixed_loc);
@@ -1479,6 +1486,7 @@ void GateMatePacker::pack_pll()
 
         move_ram_i_fixed(&ci, id_USR_PLL_LOCKED, fixed_loc);
         move_ram_i_fixed(&ci, id_USR_PLL_LOCKED_STDY, fixed_loc);
+        move_ram_o_fixed(&ci, id_USR_LOCKED_STDY_RST, fixed_loc);
 
         double out_clk_max = 0;
         int clk270_doub = 0;
@@ -1657,7 +1665,7 @@ void GateMatePacker::pack_pll()
         // PLL_AUTN - for Autonomous Mode - not set
         // SET_SEL - handled in CC_PLL_ADV
         // USR_SET - handled in CC_PLL_ADV
-        // TODO: USR_CLK_REF - based on signals used
+        // USR_CLK_REF - based on signals used
         ci.params[ctx->id("CLK_OUT_EN")] = Property(0b1, 1);
         // LOCK_REQ - set by CC_PLL parameter
 
@@ -1666,7 +1674,7 @@ void GateMatePacker::pack_pll()
         // CLK180_DOUB - set by CC_PLL parameter
         // CLK270_DOUB - set by CC_PLL parameter
         // bits 6 and 7 are unused
-        // TODO: USR_CLK_OUT - part of routing, mux from chipdb
+        // USR_CLK_OUT - part of routing, mux from chipdb
 
         if (ci.getPort(id_CLK0))
             ctx->addClock(ci.getPort(id_CLK0)->name, out_clk_max);

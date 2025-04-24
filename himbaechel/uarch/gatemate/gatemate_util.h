@@ -63,7 +63,7 @@ int extract_bits(const dict<KeyType, Property> &ct, const KeyType &key, int star
 }
 
 template <typename T>
-std::vector<std::vector<T>> splitNestedVector(const std::vector<std::vector<T>> &input, size_t maxSize = 8)
+std::vector<std::vector<T>> splitNestedVector(const std::vector<std::vector<T>> &input, size_t maxSize = 32)
 {
     std::vector<std::vector<T>> result;
 
