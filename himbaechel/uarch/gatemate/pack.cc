@@ -231,9 +231,9 @@ void GateMatePacker::pack_io()
             if (val == "UNDEFINED")
                 keys.push_back(id_SLEW);
             else if (val == "FAST")
-                ci.params[id_SLEW] = Property(Property::State::S1);
-            else if (val == "SLOW")
                 ci.params[id_SLEW] = Property(Property::State::S0);
+            else if (val == "SLOW")
+                ci.params[id_SLEW] = Property(Property::State::S1);
             else
                 log_error("Unknown value '%s' for SLEW parameter of '%s' cell.\n", val.c_str(), ci.name.c_str(ctx));
         }
@@ -252,7 +252,7 @@ void GateMatePacker::pack_io()
         for (auto key : keys)
             ci.params.erase(key);
 
-        // For output pins set SLEW to FAST if not defined
+        // For output pins set SLEW to SLOW if not defined
         if (!ci.params.count(id_SLEW) && ci.type.in(id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF))
             ci.params[id_SLEW] = Property(Property::State::S1);
 

@@ -63,12 +63,17 @@ struct GateMateCCFReader
         for (auto param : params) {
             std::vector<std::string> expr;
             boost::split(expr, param, boost::is_any_of("="));
-            if (expr.size() != 2)
-                log_error("each parameter must be in form NAME=VALUE (on line %d)\n", lineno);
-
             std::string name = expr.at(0);
             boost::algorithm::trim(name);
             boost::algorithm::to_upper(name);
+
+            if (expr.size() != 2) {
+                if (name == "LOC" || name == "DRIVE" || name == "DELAY_IBF" || name == "DELAY_OBF")
+                    log_error("Parameter must be in form NAME=VALUE (on line %d)\n", lineno);
+                log_warning("Parameter '%s' missing value, defaulting to '1' (on line %d)\n", name.c_str(), lineno);
+                expr.push_back("1");
+            }
+
             std::string value = strip_quotes(expr.at(1));
             boost::algorithm::trim(value);
             boost::algorithm::to_upper(value);
@@ -84,6 +89,10 @@ struct GateMateCCFReader
                 uarch->available_pads.erase(ctx->id(value));
             } else if (name == "SCHMITT_TRIGGER" || name == "PULLUP" || name == "PULLDOWN" || name == "KEEPER" ||
                        name == "FF_IBF" || name == "FF_OBF" || name == "LVDS_BOOST" || name == "LVDS_RTERM") {
+                if (value == "1")
+                    value = "TRUE";
+                else if (value == "0")
+                    value = "FALSE";
                 if (value == "TRUE") {
                     props->emplace(ctx->id(name), Property(Property::State::S1));
                 } else if (value == "FALSE") {
@@ -92,6 +101,10 @@ struct GateMateCCFReader
                     log_error("Uknown value '%s' for parameter '%s' in line %d, must be TRUE or FALSE.\n",
                               value.c_str(), name.c_str(), lineno);
             } else if (name == "SLEW") {
+                if (value == "1" || value == "TRUE")
+                    value = "SLOW";
+                else if (value == "0" || value == "FALSE")
+                    value = "FAST";
                 if (value == "FAST" || value == "SLOW") {
                     props->emplace(ctx->id(name), Property(value));
                 } else
