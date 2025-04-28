@@ -108,10 +108,16 @@ class BelExtraData(BBAStruct):
         bba.slice(f"{context}_constraints", len(self.constraints))
 
 def set_timings(ch):
-    speed_grades = ["best_lpr", "best_eco", "best_spd",
-                    "typ_lpr", "typ_eco", "typ_spd",
-                    "worst_lpr", "worst_eco", "worst_spd"]
+    #speed_grades = ["best_lpr", "best_eco", "best_spd",
+    #                "typ_lpr", "typ_eco", "typ_spd",
+    #                "worst_lpr", "worst_eco", "worst_spd"]
+    speed_grades = ["worst_spd"]
     tmg = ch.set_speed_grades(speed_grades)
+    for speed in speed_grades:
+        timing = dict(sorted(chip.get_timings(os.path.expanduser(args.lib), speed).items()))
+        for k,v in timing.items():
+            tmg.set_node_class(grade=speed, name=k, delay=TimingValue(v.min, v.max))
+
     for speed in speed_grades:
         lut = ch.timing.add_cell_variant(speed, "CPE_HALF_L")
         lut.add_comb_arc("IN1", "OUT", TimingValue(416, 418)) # IN5 to OUT1
