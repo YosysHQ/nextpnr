@@ -2875,14 +2875,30 @@ class Ecp5Packer
                         log_info("    Derived VCO frequency %.1f MHz of PLL '%s' is out of legal range [400MHz, "
                                  "800MHz]\n",
                                  vco_freq, ci->name.c_str(ctx));
-                    set_constraint(ci, id_CLKOP,
-                                   simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOP_DIV, 1)));
-                    set_constraint(ci, id_CLKOS,
-                                   simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS_DIV, 1)));
-                    set_constraint(ci, id_CLKOS2,
-                                   simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS2_DIV, 1)));
-                    set_constraint(ci, id_CLKOS3,
-                                   simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS3_DIV, 1)));
+
+                    if (str_or_default(ci->params, id_OUTDIVIDER_MUXA, "DIVA") == "REFCLK")
+                      copy_constraint(ci, id_CLKI, id_CLKOP, 1);
+                    else
+                      set_constraint(ci, id_CLKOP,
+                                     simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOP_DIV, 1)));
+
+                    if (str_or_default(ci->params, id_OUTDIVIDER_MUXB, "DIVB") == "REFCLK")
+                      copy_constraint(ci, id_CLKI, id_CLKOS, 1);
+                    else
+                      set_constraint(ci, id_CLKOS,
+                                     simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS_DIV, 1)));
+
+                    if (str_or_default(ci->params, id_OUTDIVIDER_MUXC, "DIVC") == "REFCLK")
+                      copy_constraint(ci, id_CLKI, id_CLKOS2, 1);
+                    else
+                      set_constraint(ci, id_CLKOS2,
+                                     simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS2_DIV, 1)));
+
+                    if (str_or_default(ci->params, id_OUTDIVIDER_MUXD, "DIVD") == "REFCLK")
+                      copy_constraint(ci, id_CLKI, id_CLKOS3, 1);
+                    else
+                      set_constraint(ci, id_CLKOS3,
+                                     simple_clk_contraint(vco_period * int_or_default(ci->params, id_CLKOS3_DIV, 1)));
                 } else if (ci->type == id_OSCG) {
                     int div = int_or_default(ci->params, id_DIV, 128);
                     set_constraint(ci, id_OSC, simple_clk_contraint(delay_t((1.0e6 / (2.0 * 155)) * div)));
