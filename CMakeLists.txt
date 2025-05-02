@@ -239,7 +239,9 @@ add_subdirectory(frontend)
 add_subdirectory(json)
 add_subdirectory(rust)
 
-add_subdirectory(tests/gui)
+if (BUILD_TESTS)
+    add_subdirectory(tests/gui)
+endif()
 
 add_custom_target(nextpnr-all-bba)
 
