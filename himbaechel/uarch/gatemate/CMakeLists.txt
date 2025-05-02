@@ -11,6 +11,11 @@ set(SOURCES
     gfx.cc
     gfxids.inc
     pack.cc
+    pack_bram.cc
+    pack_clocking.cc
+    pack_cpe.cc
+    pack_io.cc
+    pack_serdes.cc
     pack.h
     pll.cc
 )
