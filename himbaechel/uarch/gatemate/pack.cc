@@ -2170,6 +2170,273 @@ void GateMatePacker::pack_ram()
     flush_cells();
 }
 
+struct DefaultParam
+{
+    IdString name;
+    int width;
+    int value;
+};
+
+static const DefaultParam serdes_defaults[] = {
+        {id_RX_BUF_RESET_TIME, 5, 3},
+        {id_RX_PCS_RESET_TIME, 5, 3},
+        {id_RX_RESET_TIMER_PRESC, 5, 0},
+        {id_RX_RESET_DONE_GATE, 1, 0},
+        {id_RX_CDR_RESET_TIME, 5, 3},
+        {id_RX_EQA_RESET_TIME, 5, 3},
+        {id_RX_PMA_RESET_TIME, 5, 3},
+        {id_RX_WAIT_CDR_LOCK, 1, 1},
+        {id_RX_CALIB_EN, 1, 0},
+        {id_RX_CALIB_DONE, 1, 1}, // read-only but set
+        {id_RX_CALIB_OVR, 1, 0},
+        {id_RX_CALIB_VAL, 4, 0},
+        // { id_RX_CALIB_CAL, 4, 0 },
+        {id_RX_RTERM_VCMSEL, 3, 4},
+        {id_RX_RTERM_PD, 1, 0},
+        {id_RX_EQA_CKP_LF, 8, 0xA3},
+        {id_RX_EQA_CKP_HF, 8, 0xA3},
+        {id_RX_EQA_CKP_OFFSET, 8, 0x01},
+        {id_RX_EN_EQA, 1, 0},
+        {id_RX_EQA_LOCK_CFG, 4, 0},
+        // { id_RX_EQA_LOCKED, 1, 0 },
+        {id_RX_TH_MON1, 5, 8},
+        // { id_RX_EN_EQA_EXT_VALUE[0], 1, 0 }, // handled in code
+        {id_RX_TH_MON2, 5, 8},
+        // { id_RX_EN_EQA_EXT_VALUE[1], 1, 0 }, // handled in code
+        {id_RX_TAPW, 5, 8},
+        // { id_RX_EN_EQA_EXT_VALUE[2], 1, 0 }, // handled in code
+        {id_RX_AFE_OFFSET, 5, 8},
+        // { id_RX_EN_EQA_EXT_VALUE[3], 1, 0 }, // handled in code
+        {id_RX_EQA_TAPW, 5, 8}, // read-only but set
+        // { id_RX_TH_MON, 5, 0 },
+        // { id_RX_OFFSET, 4, 0 },
+        {id_RX_EQA_CONFIG, 16, 0x01C0},
+        {id_RX_AFE_PEAK, 5, 16},
+        {id_RX_AFE_GAIN, 4, 8},
+        {id_RX_AFE_VCMSEL, 3, 4},
+        {id_RX_CDR_CKP, 8, 0xF8},
+        {id_RX_CDR_CKI, 8, 0},
+        {id_RX_CDR_TRANS_TH, 9, 128},
+        {id_RX_CDR_LOCK_CFG, 6, 0x0B},
+        // { id_RX_CDR_LOCKED, 1, 0 },
+        // { id_RX_CDR_FREQ_ACC_VAL, 15, 0 },
+        // { id_RX_CDR_PHASE_ACC_VAL, 16, 0 },
+        {id_RX_CDR_FREQ_ACC, 15, 0},
+        {id_RX_CDR_PHASE_ACC, 16, 0},
+        {id_RX_CDR_SET_ACC_CONFIG, 2, 0},
+        {id_RX_CDR_FORCE_LOCK, 1, 0},
+        {id_RX_ALIGN_MCOMMA_VALUE, 10, 0x283},
+        {id_RX_MCOMMA_ALIGN_OVR, 1, 0},
+        {id_RX_MCOMMA_ALIGN, 1, 0},
+        {id_RX_ALIGN_PCOMMA_VALUE, 10, 0x17C},
+        {id_RX_PCOMMA_ALIGN_OVR, 1, 0},
+        {id_RX_PCOMMA_ALIGN, 1, 0},
+        {id_RX_ALIGN_COMMA_WORD, 2, 0},
+        {id_RX_ALIGN_COMMA_ENABLE, 10, 0x3FF},
+        {id_RX_SLIDE_MODE, 2, 0},
+        {id_RX_COMMA_DETECT_EN_OVR, 1, 0},
+        {id_RX_COMMA_DETECT_EN, 1, 0},
+        {id_RX_SLIDE, 2, 0},
+        {id_RX_EYE_MEAS_EN, 1, 0},
+        {id_RX_EYE_MEAS_CFG, 15, 0},
+        {id_RX_MON_PH_OFFSET, 6, 0},
+        // { id_RX_EYE_MEAS_CORRECT_11S, 16, 0 },
+        // { id_RX_EYE_MEAS_WRONG_11S, 16, 0 },
+        // { id_RX_EYE_MEAS_CORRECT_00S, 16, 0 },
+        // { id_RX_EYE_MEAS_WRONG_00S, 16, 0 },
+        // { id_RX_EYE_MEAS_CORRECT_001S, 16, 0 },
+        // { id_RX_EYE_MEAS_WRONG_001S, 16, 0 },
+        // { id_RX_EYE_MEAS_CORRECT_110S, 16, 0 },
+        // { id_RX_EYE_MEAS_WRONG_110S, 16, 0 },
+        {id_RX_EI_BIAS, 4, 0},
+        {id_RX_EI_BW_SEL, 4, 4},
+        {id_RX_EN_EI_DETECTOR_OVR, 1, 0},
+        {id_RX_EN_EI_DETECTOR, 1, 0},
+        // { id_RX_EI_EN, 1, 0 },
+        // { id_RX_PRBS_ERR_CNT, 15, 0 },
+        // { id_RX_PRBS_LOCKED, 1, 0 },
+        {id_RX_DATA_SEL, 1, 0},
+        // { id_RX_DATA[15:1], 15, 0 },
+        // { id_RX_DATA[31:16], 16, 0 },
+        // { id_RX_DATA[47:32], 16, 0 },
+        // { id_RX_DATA[63:48], 16, 0 },
+        // { id_RX_DATA[79:64], 16, 0 },
+        {id_RX_BUF_BYPASS, 1, 0},
+        {id_RX_CLKCOR_USE, 1, 0},
+        {id_RX_CLKCOR_MIN_LAT, 6, 32},
+        {id_RX_CLKCOR_MAX_LAT, 6, 39},
+        {id_RX_CLKCOR_SEQ_1_0, 10, 0x1F7},
+        {id_RX_CLKCOR_SEQ_1_1, 10, 0x1F7},
+        {id_RX_CLKCOR_SEQ_1_2, 10, 0x1F7},
+        {id_RX_CLKCOR_SEQ_1_3, 10, 0x1F7},
+        {id_RX_PMA_LOOPBACK, 1, 0},
+        {id_RX_PCS_LOOPBACK, 1, 0},
+        {id_RX_DATAPATH_SEL, 2, 3},
+        {id_RX_PRBS_OVR, 1, 0},
+        {id_RX_PRBS_SEL, 3, 0},
+        {id_RX_LOOPBACK_OVR, 1, 0},
+        {id_RX_PRBS_CNT_RESET, 1, 0},
+        {id_RX_POWER_DOWN_OVR, 1, 0},
+        {id_RX_POWER_DOWN_N, 1, 0},
+        // { id_RX_PRESENT, 1, 0 },
+        // { id_RX_DETECT_DONE, 1, 0 },
+        // { id_RX_BUF_ERR, 1, 0 },
+        {id_RX_RESET_OVR, 1, 0},
+        {id_RX_RESET, 1, 0},
+        {id_RX_PMA_RESET_OVR, 1, 0},
+        {id_RX_PMA_RESET, 1, 0},
+        {id_RX_EQA_RESET_OVR, 1, 0},
+        {id_RX_EQA_RESET, 1, 0},
+        {id_RX_CDR_RESET_OVR, 1, 0},
+        {id_RX_CDR_RESET, 1, 0},
+        {id_RX_PCS_RESET_OVR, 1, 0},
+        {id_RX_PCS_RESET, 1, 0},
+        {id_RX_BUF_RESET_OVR, 1, 0},
+        {id_RX_BUF_RESET, 1, 0},
+        {id_RX_POLARITY_OVR, 1, 0},
+        {id_RX_POLARITY, 1, 0},
+        {id_RX_8B10B_EN_OVR, 1, 0},
+        {id_RX_8B10B_EN, 1, 0},
+        {id_RX_8B10B_BYPASS, 8, 0},
+        // { id_RX_BYTE_IS_ALIGNED, 1, 0 },
+        {id_RX_BYTE_REALIGN, 1, 0},
+        // { id_RX_RESET_DONE, 1, 0 },
+        {id_RX_DBG_EN, 1, 0},
+        {id_RX_DBG_SEL, 4, 0},
+        {id_RX_DBG_MODE, 1, 0},
+        {id_RX_DBG_SRAM_DELAY, 6, 0x05},
+        {id_RX_DBG_ADDR, 10, 0},
+        {id_RX_DBG_RE, 1, 0},
+        {id_RX_DBG_WE, 1, 0},
+        {id_RX_DBG_DATA, 20, 0},
+        {id_TX_SEL_PRE, 5, 0},
+        {id_TX_SEL_POST, 5, 0},
+        {id_TX_AMP, 5, 15},
+        {id_TX_BRANCH_EN_PRE, 5, 0},
+        {id_TX_BRANCH_EN_MAIN, 6, 0x3F},
+        {id_TX_BRANCH_EN_POST, 5, 0},
+        {id_TX_TAIL_CASCODE, 3, 4},
+        {id_TX_DC_ENABLE, 7, 63},
+        {id_TX_DC_OFFSET, 5, 0},
+        {id_TX_CM_RAISE, 5, 0},
+        {id_TX_CM_THRESHOLD_0, 5, 14},
+        {id_TX_CM_THRESHOLD_1, 5, 16},
+        {id_TX_SEL_PRE_EI, 5, 0},
+        {id_TX_SEL_POST_EI, 5, 0},
+        {id_TX_AMP_EI, 5, 15},
+        {id_TX_BRANCH_EN_PRE_EI, 5, 0},
+        {id_TX_BRANCH_EN_MAIN_EI, 6, 0x3F},
+        {id_TX_BRANCH_EN_POST_EI, 5, 0},
+        {id_TX_TAIL_CASCODE_EI, 3, 4},
+        {id_TX_DC_ENABLE_EI, 7, 63},
+        {id_TX_DC_OFFSET_EI, 5, 0},
+        {id_TX_CM_RAISE_EI, 5, 0},
+        {id_TX_CM_THRESHOLD_0_EI, 5, 14},
+        {id_TX_CM_THRESHOLD_1_EI, 5, 16},
+        {id_TX_SEL_PRE_RXDET, 5, 0},
+        {id_TX_SEL_POST_RXDET, 5, 0},
+        {id_TX_AMP_RXDET, 5, 15},
+        {id_TX_BRANCH_EN_PRE_RXDET, 5, 0},
+        {id_TX_BRANCH_EN_MAIN_RXDET, 6, 0x3F},
+        {id_TX_BRANCH_EN_POST_RXDET, 5, 0},
+        {id_TX_TAIL_CASCODE_RXDET, 3, 4},
+        {id_TX_DC_ENABLE_RXDET, 7, 0},
+        {id_TX_DC_OFFSET_RXDET, 5, 0},
+        {id_TX_CM_RAISE_RXDET, 5, 0},
+        {id_TX_CM_THRESHOLD_0_RXDET, 5, 14},
+        {id_TX_CM_THRESHOLD_1_RXDET, 5, 16},
+        {id_TX_CALIB_EN, 1, 0},
+        {id_TX_CALIB_DONE, 1, 1}, // read-only but set
+        {id_TX_CALIB_OVR, 1, 0},
+        {id_TX_CALIB_VAL, 4, 0},
+        // { id_TX_CALIB_CAL, 4, 0 },
+        {id_TX_CM_REG_KI, 8, 0x80},
+        {id_TX_CM_SAR_EN, 1, 0},
+        {id_TX_CM_REG_EN, 1, 1},
+        // { id_TX_CM_SAR_RESULT_0, 5, 0 },
+        // { id_TX_CM_SAR_RESULT_1, 5, 0 },
+        {id_TX_PMA_RESET_TIME, 5, 3},
+        {id_TX_PCS_RESET_TIME, 5, 3},
+        {id_TX_PCS_RESET_OVR, 1, 0},
+        {id_TX_PCS_RESET, 1, 0},
+        {id_TX_PMA_RESET_OVR, 1, 0},
+        {id_TX_PMA_RESET, 1, 0},
+        {id_TX_RESET_OVR, 1, 0},
+        {id_TX_RESET, 1, 0},
+        {id_TX_PMA_LOOPBACK, 2, 0},
+        {id_TX_PCS_LOOPBACK, 1, 0},
+        {id_TX_DATAPATH_SEL, 2, 3},
+        {id_TX_PRBS_OVR, 1, 0},
+        {id_TX_PRBS_SEL, 3, 0},
+        {id_TX_PRBS_FORCE_ERR, 1, 0},
+        {id_TX_LOOPBACK_OVR, 1, 0},
+        {id_TX_POWER_DOWN_OVR, 1, 0},
+        {id_TX_POWER_DOWN_N, 1, 0},
+        {id_TX_ELEC_IDLE_OVR, 1, 0},
+        {id_TX_ELEC_IDLE, 1, 0},
+        {id_TX_DETECT_RX_OVR, 1, 0},
+        {id_TX_DETECT_RX, 1, 0},
+        {id_TX_POLARITY_OVR, 1, 0},
+        {id_TX_POLARITY, 1, 0},
+        {id_TX_8B10B_EN_OVR, 1, 0},
+        {id_TX_8B10B_EN, 1, 0},
+        {id_TX_DATA_OVR, 1, 0},
+        {id_TX_DATA_CNT, 3, 0},
+        {id_TX_DATA_VALID, 1, 0},
+        // { id_TX_BUF_ERR, 1, 0 },
+        // { id_TX_RESET_DONE, 1, 0 },
+        {id_TX_DATA, 16, 0},
+        {id_PLL_EN_ADPLL_CTRL, 1, 0},
+        {id_PLL_CONFIG_SEL, 1, 0},
+        {id_PLL_SET_OP_LOCK, 1, 0},
+        {id_PLL_ENFORCE_LOCK, 1, 0},
+        {id_PLL_DISABLE_LOCK, 1, 0},
+        {id_PLL_LOCK_WINDOW, 1, 1},
+        {id_PLL_FAST_LOCK, 1, 1},
+        {id_PLL_SYNC_BYPASS, 1, 0},
+        {id_PLL_PFD_SELECT, 1, 0},
+        {id_PLL_REF_BYPASS, 1, 0},
+        {id_PLL_REF_SEL, 1, 0},
+        {id_PLL_REF_RTERM, 1, 1},
+        {id_PLL_FCNTRL, 6, 58},
+        {id_PLL_MAIN_DIVSEL, 6, 27},
+        {id_PLL_OUT_DIVSEL, 2, 0},
+        {id_PLL_CI, 5, 3},
+        {id_PLL_CP, 10, 80},
+        {id_PLL_AO, 4, 0},
+        {id_PLL_SCAP, 3, 0},
+        {id_PLL_FILTER_SHIFT, 2, 2},
+        {id_PLL_SAR_LIMIT, 3, 2},
+        {id_PLL_FT, 11, 512},
+        {id_PLL_OPEN_LOOP, 1, 0},
+        {id_PLL_SCAP_AUTO_CAL, 1, 1},
+        // { id_PLL_LOCKED, 1, 0 },
+        // { id_PLL_CAP_FT_OF, 1, 0 },
+        // { id_PLL_CAP_FT_UF, 1, 0 },
+        // { id_PLL_CAP_FT, 10, 0 },
+        // { id_PLL_CAP_STATE, 2, 0 },
+        // { id_PLL_SYNC_VALUE, 8, 0 },
+        {id_PLL_BISC_MODE, 3, 4},
+        {id_PLL_BISC_TIMER_MAX, 4, 15},
+        {id_PLL_BISC_OPT_DET_IND, 1, 0},
+        {id_PLL_BISC_PFD_SEL, 1, 0},
+        {id_PLL_BISC_DLY_DIR, 1, 0},
+        {id_PLL_BISC_COR_DLY, 3, 1},
+        {id_PLL_BISC_CAL_SIGN, 1, 0},
+        {id_PLL_BISC_CAL_AUTO, 1, 1},
+        {id_PLL_BISC_CP_MIN, 5, 4},
+        {id_PLL_BISC_CP_MAX, 5, 18},
+        {id_PLL_BISC_CP_START, 5, 12},
+        {id_PLL_BISC_DLY_PFD_MON_REF, 5, 0},
+        {id_PLL_BISC_DLY_PFD_MON_DIV, 5, 2},
+        // { id_PLL_BISC_TIMER_DONE, 1, 0 },
+        // { id_PLL_BISC_CP, 7, 0 },
+        // { id_PLL_BISC_CO, 16, 0 },
+        {id_SERDES_ENABLE, 1, 0},
+        {id_SERDES_AUTO_INIT, 1, 0},
+        {id_SERDES_TESTMODE, 1, 0},
+};
+
 void GateMatePacker::pack_serdes()
 {
     for (auto &cell : ctx->cells) {
@@ -2249,265 +2516,13 @@ void GateMatePacker::pack_serdes()
         move_ram_i(&ci, id_PLL_CLK_O);
         move_ram_i(&ci, id_REGFILE_RDY_O);
 
-        ci.params[id_RX_BUF_RESET_TIME] = Property(int_or_default(ci.params, id_RX_BUF_RESET_TIME, 3), 5);
-        ci.params[id_RX_PCS_RESET_TIME] = Property(int_or_default(ci.params, id_RX_PCS_RESET_TIME, 3), 5);
-        ci.params[id_RX_RESET_TIMER_PRESC] = Property(int_or_default(ci.params, id_RX_RESET_TIMER_PRESC, 0), 5);
-        ci.params[id_RX_RESET_DONE_GATE] = Property(int_or_default(ci.params, id_RX_RESET_DONE_GATE, 0), 1);
-        ci.params[id_RX_CDR_RESET_TIME] = Property(int_or_default(ci.params, id_RX_CDR_RESET_TIME, 3), 5);
-        ci.params[id_RX_EQA_RESET_TIME] = Property(int_or_default(ci.params, id_RX_EQA_RESET_TIME, 3), 5);
-        ci.params[id_RX_PMA_RESET_TIME] = Property(int_or_default(ci.params, id_RX_PMA_RESET_TIME, 3), 5);
-        ci.params[id_RX_WAIT_CDR_LOCK] = Property(int_or_default(ci.params, id_RX_WAIT_CDR_LOCK, 1), 1);
-        ci.params[id_RX_CALIB_EN] = Property(int_or_default(ci.params, id_RX_CALIB_EN, 0), 1);
-        ci.params[id_RX_CALIB_DONE] = Property(int_or_default(ci.params, id_RX_CALIB_DONE, 1), 1); // read-only but set
-        ci.params[id_RX_CALIB_OVR] = Property(int_or_default(ci.params, id_RX_CALIB_OVR, 0), 1);
-        ci.params[id_RX_CALIB_VAL] = Property(int_or_default(ci.params, id_RX_CALIB_VAL, 0), 4);
-        // ci.params[id_RX_CALIB_CAL] = Property(int_or_default(ci.params, id_RX_CALIB_CAL, 0), 4);
-        ci.params[id_RX_RTERM_VCMSEL] = Property(int_or_default(ci.params, id_RX_RTERM_VCMSEL, 4), 3);
-        ci.params[id_RX_RTERM_PD] = Property(int_or_default(ci.params, id_RX_RTERM_PD, 0), 1);
-        ci.params[id_RX_EQA_CKP_LF] = Property(int_or_default(ci.params, id_RX_EQA_CKP_LF, 0xA3), 8);
-        ci.params[id_RX_EQA_CKP_HF] = Property(int_or_default(ci.params, id_RX_EQA_CKP_HF, 0xA3), 8);
-        ci.params[id_RX_EQA_CKP_OFFSET] = Property(int_or_default(ci.params, id_RX_EQA_CKP_OFFSET, 0x01), 8);
-        ci.params[id_RX_EN_EQA] = Property(int_or_default(ci.params, id_RX_EN_EQA, 0), 1);
-        ci.params[id_RX_EQA_LOCK_CFG] = Property(int_or_default(ci.params, id_RX_EQA_LOCK_CFG, 0), 4);
-        // ci.params[id_RX_EQA_LOCKED] = Property(int_or_default(ci.params, id_RX_EQA_LOCKED, 0), 1);
-        ci.params[id_RX_TH_MON1] = Property(int_or_default(ci.params, id_RX_TH_MON1, 8), 5);
+        for (auto cfg : serdes_defaults)
+            ci.params[cfg.name] = Property(int_or_default(ci.params, cfg.name, cfg.value), cfg.width);
+
         uint8_t rx_en_eqa_ext_value = int_or_default(ci.params, id_RX_EN_EQA_EXT_VALUE, 0);
+        for (int i = 0; i < 4; i++)
+            ci.params[ctx->idf("RX_EN_EQA_EXT_VALUE_%d", i)] = Property((rx_en_eqa_ext_value >> i) & 1, 1);
         ci.unsetParam(id_RX_EN_EQA_EXT_VALUE);
-        ci.params[id_RX_EN_EQA_EXT_VALUE_0] = Property((rx_en_eqa_ext_value >> 0) & 1, 1);
-        ci.params[id_RX_TH_MON2] = Property(int_or_default(ci.params, id_RX_TH_MON2, 8), 5);
-        ci.params[id_RX_EN_EQA_EXT_VALUE_1] = Property((rx_en_eqa_ext_value >> 1) & 1, 1);
-        ci.params[id_RX_TAPW] = Property(int_or_default(ci.params, id_RX_TAPW, 8), 5);
-        ci.params[id_RX_EN_EQA_EXT_VALUE_2] = Property((rx_en_eqa_ext_value >> 2) & 1, 1);
-        ci.params[id_RX_AFE_OFFSET] = Property(int_or_default(ci.params, id_RX_AFE_OFFSET, 8), 5);
-        ci.params[id_RX_EN_EQA_EXT_VALUE_3] = Property((rx_en_eqa_ext_value >> 3) & 1, 1);
-        ci.params[id_RX_EQA_TAPW] = Property(int_or_default(ci.params, id_RX_EQA_TAPW, 8), 5); // read-only but set
-        // ci.params[id_RX_TH_MON] = Property(int_or_default(ci.params, id_RX_TH_MON, 0), 5);
-        // ci.params[id_RX_OFFSET] = Property(int_or_default(ci.params, id_RX_OFFSET, 0), 4);
-        ci.params[id_RX_EQA_CONFIG] = Property(int_or_default(ci.params, id_RX_EQA_CONFIG, 0x01C0), 16);
-        ci.params[id_RX_AFE_PEAK] = Property(int_or_default(ci.params, id_RX_AFE_PEAK, 16), 5);
-        ci.params[id_RX_AFE_GAIN] = Property(int_or_default(ci.params, id_RX_AFE_GAIN, 8), 4);
-        ci.params[id_RX_AFE_VCMSEL] = Property(int_or_default(ci.params, id_RX_AFE_VCMSEL, 4), 3);
-        ci.params[id_RX_CDR_CKP] = Property(int_or_default(ci.params, id_RX_CDR_CKP, 0xF8), 8);
-        ci.params[id_RX_CDR_CKI] = Property(int_or_default(ci.params, id_RX_CDR_CKI, 0), 8);
-        ci.params[id_RX_CDR_TRANS_TH] = Property(int_or_default(ci.params, id_RX_CDR_TRANS_TH, 128), 9);
-        ci.params[id_RX_CDR_LOCK_CFG] = Property(int_or_default(ci.params, id_RX_CDR_LOCK_CFG, 0x0B), 6);
-        // ci.params[id_RX_CDR_LOCKED] = Property(int_or_default(ci.params, id_RX_CDR_LOCKED, 0), 1);
-        // ci.params[id_RX_CDR_FREQ_ACC_VAL] = Property(int_or_default(ci.params, id_RX_CDR_FREQ_ACC_VAL, 0), 15);
-        // ci.params[id_RX_CDR_PHASE_ACC_VAL] = Property(int_or_default(ci.params, id_RX_CDR_PHASE_ACC_VAL, 0), 16);
-        ci.params[id_RX_CDR_FREQ_ACC] = Property(int_or_default(ci.params, id_RX_CDR_FREQ_ACC, 0), 15);
-        ci.params[id_RX_CDR_PHASE_ACC] = Property(int_or_default(ci.params, id_RX_CDR_PHASE_ACC, 0), 16);
-        ci.params[id_RX_CDR_SET_ACC_CONFIG] = Property(int_or_default(ci.params, id_RX_CDR_SET_ACC_CONFIG, 0), 2);
-        ci.params[id_RX_CDR_FORCE_LOCK] = Property(int_or_default(ci.params, id_RX_CDR_FORCE_LOCK, 0), 1);
-        ci.params[id_RX_ALIGN_MCOMMA_VALUE] = Property(int_or_default(ci.params, id_RX_ALIGN_MCOMMA_VALUE, 0x283), 10);
-        ci.params[id_RX_MCOMMA_ALIGN_OVR] = Property(int_or_default(ci.params, id_RX_MCOMMA_ALIGN_OVR, 0), 1);
-        ci.params[id_RX_MCOMMA_ALIGN] = Property(int_or_default(ci.params, id_RX_MCOMMA_ALIGN, 0), 1);
-        ci.params[id_RX_ALIGN_PCOMMA_VALUE] = Property(int_or_default(ci.params, id_RX_ALIGN_PCOMMA_VALUE, 0), 10);
-        ci.params[id_RX_PCOMMA_ALIGN_OVR] = Property(int_or_default(ci.params, id_RX_PCOMMA_ALIGN_OVR, 0x17C), 1);
-        ci.params[id_RX_PCOMMA_ALIGN] = Property(int_or_default(ci.params, id_RX_PCOMMA_ALIGN, 0), 1);
-        ci.params[id_RX_ALIGN_COMMA_WORD] = Property(int_or_default(ci.params, id_RX_ALIGN_COMMA_WORD, 0), 2);
-        ci.params[id_RX_ALIGN_COMMA_ENABLE] = Property(int_or_default(ci.params, id_RX_ALIGN_COMMA_ENABLE, 0x3FF), 10);
-        ci.params[id_RX_SLIDE_MODE] = Property(int_or_default(ci.params, id_RX_SLIDE_MODE, 0), 2);
-        ci.params[id_RX_COMMA_DETECT_EN_OVR] = Property(int_or_default(ci.params, id_RX_COMMA_DETECT_EN_OVR, 0), 1);
-        ci.params[id_RX_COMMA_DETECT_EN] = Property(int_or_default(ci.params, id_RX_COMMA_DETECT_EN, 0), 1);
-        ci.params[id_RX_SLIDE] = Property(int_or_default(ci.params, id_RX_SLIDE, 0), 2);
-        ci.params[id_RX_EYE_MEAS_EN] = Property(int_or_default(ci.params, id_RX_EYE_MEAS_EN, 0), 1);
-        ci.params[id_RX_EYE_MEAS_CFG] = Property(int_or_default(ci.params, id_RX_EYE_MEAS_CFG, 0), 15);
-        ci.params[id_RX_MON_PH_OFFSET] = Property(int_or_default(ci.params, id_RX_MON_PH_OFFSET, 0), 6);
-        // ci.params[id_RX_EYE_MEAS_CORRECT_11S] = Property(int_or_default(ci.params, id_RX_EYE_MEAS_CORRECT_11S, 0), 16);
-        // ci.params[id_RX_EYE_MEAS_WRONG_11S] = Property(int_or_default(ci.params, id_RX_EYE_MEAS_WRONG_11S, 0), 16);
-        // ci.params[id_RX_EYE_MEAS_CORRECT_00S] = Property(int_or_default(ci.params, id_RX_EYE_MEAS_CORRECT_00S, 0), 16);
-        // ci.params[id_RX_EYE_MEAS_WRONG_00S] = Property(int_or_default(ci.params, id_RX_EYE_MEAS_WRONG_00S, 0), 16);
-        // ci.params[id_RX_EYE_MEAS_CORRECT_001S] = Property(int_or_default(ci.params, id_RX_EYE_MEAS_CORRECT_001S, 0), 16);
-        // ci.params[id_RX_EYE_MEAS_WRONG_001S] = Property(int_or_default(ci.params, id_RX_EYE_MEAS_WRONG_001S, 0), 16);
-        // ci.params[id_RX_EYE_MEAS_CORRECT_110S] = Property(int_or_default(ci.params, id_RX_EYE_MEAS_CORRECT_110S, 0), 16);
-        // ci.params[id_RX_EYE_MEAS_WRONG_110S] = Property(int_or_default(ci.params, id_RX_EYE_MEAS_WRONG_110S, 0), 16);
-        ci.params[id_RX_EI_BIAS] = Property(int_or_default(ci.params, id_RX_EI_BIAS, 0), 4);
-        ci.params[id_RX_EI_BW_SEL] = Property(int_or_default(ci.params, id_RX_EI_BW_SEL, 4), 4);
-        ci.params[id_RX_EN_EI_DETECTOR_OVR] = Property(int_or_default(ci.params, id_RX_EN_EI_DETECTOR_OVR, 0), 1);
-        ci.params[id_RX_EN_EI_DETECTOR] = Property(int_or_default(ci.params, id_RX_EN_EI_DETECTOR, 0), 1);
-        // ci.params[id_RX_EI_EN] = Property(int_or_default(ci.params, id_RX_EI_EN, 0), 1);
-        // ci.params[id_RX_PRBS_ERR_CNT] = Property(int_or_default(ci.params, id_RX_PRBS_ERR_CNT, 0), 15);
-        // ci.params[id_RX_PRBS_LOCKED] = Property(int_or_default(ci.params, id_RX_PRBS_LOCKED, 0), 1);
-        ci.params[id_RX_DATA_SEL] = Property(int_or_default(ci.params, id_RX_DATA_SEL, 0), 1);
-        // ci.params[id_RX_DATA[15:1]] = Property(int_or_default(ci.params, id_RX_DATA[15:1], 0), 15);
-        // ci.params[id_RX_DATA[31:16]] = Property(int_or_default(ci.params, id_RX_DATA[31:16], 0), 16);
-        // ci.params[id_RX_DATA[47:32]] = Property(int_or_default(ci.params, id_RX_DATA[47:32], 0), 16);
-        // ci.params[id_RX_DATA[63:48]] = Property(int_or_default(ci.params, id_RX_DATA[63:48], 0), 16);
-        // ci.params[id_RX_DATA[79:64]] = Property(int_or_default(ci.params, id_RX_DATA[79:64], 0), 16);
-        ci.params[id_RX_BUF_BYPASS] = Property(int_or_default(ci.params, id_RX_BUF_BYPASS, 0), 1);
-        ci.params[id_RX_CLKCOR_USE] = Property(int_or_default(ci.params, id_RX_CLKCOR_USE, 0), 1);
-        ci.params[id_RX_CLKCOR_MIN_LAT] = Property(int_or_default(ci.params, id_RX_CLKCOR_MIN_LAT, 32), 6);
-        ci.params[id_RX_CLKCOR_MAX_LAT] = Property(int_or_default(ci.params, id_RX_CLKCOR_MAX_LAT, 39), 6);
-        ci.params[id_RX_CLKCOR_SEQ_1_0] = Property(int_or_default(ci.params, id_RX_CLKCOR_SEQ_1_0, 0x1F7), 10);
-        ci.params[id_RX_CLKCOR_SEQ_1_1] = Property(int_or_default(ci.params, id_RX_CLKCOR_SEQ_1_1, 0x1F7), 10);
-        ci.params[id_RX_CLKCOR_SEQ_1_2] = Property(int_or_default(ci.params, id_RX_CLKCOR_SEQ_1_2, 0x1F7), 10);
-        ci.params[id_RX_CLKCOR_SEQ_1_3] = Property(int_or_default(ci.params, id_RX_CLKCOR_SEQ_1_3, 0x1F7), 10);
-        ci.params[id_RX_PMA_LOOPBACK] = Property(int_or_default(ci.params, id_RX_PMA_LOOPBACK, 0), 1);
-        ci.params[id_RX_PCS_LOOPBACK] = Property(int_or_default(ci.params, id_RX_PCS_LOOPBACK, 0), 1);
-        ci.params[id_RX_DATAPATH_SEL] = Property(int_or_default(ci.params, id_RX_DATAPATH_SEL, 3), 2);
-        ci.params[id_RX_PRBS_OVR] = Property(int_or_default(ci.params, id_RX_PRBS_OVR, 0), 1);
-        ci.params[id_RX_PRBS_SEL] = Property(int_or_default(ci.params, id_RX_PRBS_SEL, 0), 3);
-        ci.params[id_RX_LOOPBACK_OVR] = Property(int_or_default(ci.params, id_RX_LOOPBACK_OVR, 0), 1);
-        ci.params[id_RX_PRBS_CNT_RESET] = Property(int_or_default(ci.params, id_RX_PRBS_CNT_RESET, 0), 1);
-        ci.params[id_RX_POWER_DOWN_OVR] = Property(int_or_default(ci.params, id_RX_POWER_DOWN_OVR, 0), 1);
-        ci.params[id_RX_POWER_DOWN_N] = Property(int_or_default(ci.params, id_RX_POWER_DOWN_N, 0), 1);
-        // ci.params[id_RX_PRESENT] = Property(int_or_default(ci.params, id_RX_PRESENT, 0), 1);
-        // ci.params[id_RX_DETECT_DONE] = Property(int_or_default(ci.params, id_RX_DETECT_DONE, 0), 1);
-        // ci.params[id_RX_BUF_ERR] = Property(int_or_default(ci.params, id_RX_BUF_ERR, 0), 1);
-        ci.params[id_RX_RESET_OVR] = Property(int_or_default(ci.params, id_RX_RESET_OVR, 0), 1);
-        ci.params[id_RX_RESET] = Property(int_or_default(ci.params, id_RX_RESET, 0), 1);
-        ci.params[id_RX_PMA_RESET_OVR] = Property(int_or_default(ci.params, id_RX_PMA_RESET_OVR, 0), 1);
-        ci.params[id_RX_PMA_RESET] = Property(int_or_default(ci.params, id_RX_PMA_RESET, 0), 1);
-        ci.params[id_RX_EQA_RESET_OVR] = Property(int_or_default(ci.params, id_RX_EQA_RESET_OVR, 0), 1);
-        ci.params[id_RX_EQA_RESET] = Property(int_or_default(ci.params, id_RX_EQA_RESET, 0), 1);
-        ci.params[id_RX_CDR_RESET_OVR] = Property(int_or_default(ci.params, id_RX_CDR_RESET_OVR, 0), 1);
-        ci.params[id_RX_CDR_RESET] = Property(int_or_default(ci.params, id_RX_CDR_RESET, 0), 1);
-        ci.params[id_RX_PCS_RESET_OVR] = Property(int_or_default(ci.params, id_RX_PCS_RESET_OVR, 0), 1);
-        ci.params[id_RX_PCS_RESET] = Property(int_or_default(ci.params, id_RX_PCS_RESET, 0), 1);
-        ci.params[id_RX_BUF_RESET_OVR] = Property(int_or_default(ci.params, id_RX_BUF_RESET_OVR, 0), 1);
-        ci.params[id_RX_BUF_RESET] = Property(int_or_default(ci.params, id_RX_BUF_RESET, 0), 1);
-        ci.params[id_RX_POLARITY_OVR] = Property(int_or_default(ci.params, id_RX_POLARITY_OVR, 0), 1);
-        ci.params[id_RX_POLARITY] = Property(int_or_default(ci.params, id_RX_POLARITY, 0), 1);
-        ci.params[id_RX_8B10B_EN_OVR] = Property(int_or_default(ci.params, id_RX_8B10B_EN_OVR, 0), 1);
-        ci.params[id_RX_8B10B_EN] = Property(int_or_default(ci.params, id_RX_8B10B_EN, 0), 1);
-        ci.params[id_RX_8B10B_BYPASS] = Property(int_or_default(ci.params, id_RX_8B10B_BYPASS, 0), 8);
-        // ci.params[id_RX_BYTE_IS_ALIGNED] = Property(int_or_default(ci.params, id_RX_BYTE_IS_ALIGNED, 0), 1);
-        ci.params[id_RX_BYTE_REALIGN] = Property(int_or_default(ci.params, id_RX_BYTE_REALIGN, 0), 1);
-        // ci.params[id_RX_RESET_DONE] = Property(int_or_default(ci.params, id_RX_RESET_DONE, 0), 1);
-        ci.params[id_RX_DBG_EN] = Property(int_or_default(ci.params, id_RX_DBG_EN, 0), 1);
-        ci.params[id_RX_DBG_SEL] = Property(int_or_default(ci.params, id_RX_DBG_SEL, 0), 4);
-        ci.params[id_RX_DBG_MODE] = Property(int_or_default(ci.params, id_RX_DBG_MODE, 0), 1);
-        ci.params[id_RX_DBG_SRAM_DELAY] = Property(int_or_default(ci.params, id_RX_DBG_SRAM_DELAY, 0x05), 6);
-        ci.params[id_RX_DBG_ADDR] = Property(int_or_default(ci.params, id_RX_DBG_ADDR, 0), 10);
-        ci.params[id_RX_DBG_RE] = Property(int_or_default(ci.params, id_RX_DBG_RE, 0), 1);
-        ci.params[id_RX_DBG_WE] = Property(int_or_default(ci.params, id_RX_DBG_WE, 0), 1);
-        ci.params[id_RX_DBG_DATA] = Property(int_or_default(ci.params, id_RX_DBG_DATA, 0), 20);
-        ci.params[id_TX_SEL_PRE] = Property(int_or_default(ci.params, id_TX_SEL_PRE, 0), 5);
-        ci.params[id_TX_SEL_POST] = Property(int_or_default(ci.params, id_TX_SEL_POST, 0), 5);
-        ci.params[id_TX_AMP] = Property(int_or_default(ci.params, id_TX_AMP, 15), 5);
-        ci.params[id_TX_BRANCH_EN_PRE] = Property(int_or_default(ci.params, id_TX_BRANCH_EN_PRE, 0), 5);
-        ci.params[id_TX_BRANCH_EN_MAIN] = Property(int_or_default(ci.params, id_TX_BRANCH_EN_MAIN, 0x3F), 6);
-        ci.params[id_TX_BRANCH_EN_POST] = Property(int_or_default(ci.params, id_TX_BRANCH_EN_POST, 0), 5);
-        ci.params[id_TX_TAIL_CASCODE] = Property(int_or_default(ci.params, id_TX_TAIL_CASCODE, 4), 3);
-        ci.params[id_TX_DC_ENABLE] = Property(int_or_default(ci.params, id_TX_DC_ENABLE, 63), 7);
-        ci.params[id_TX_DC_OFFSET] = Property(int_or_default(ci.params, id_TX_DC_OFFSET, 0), 5);
-        ci.params[id_TX_CM_RAISE] = Property(int_or_default(ci.params, id_TX_CM_RAISE, 0), 5);
-        ci.params[id_TX_CM_THRESHOLD_0] = Property(int_or_default(ci.params, id_TX_CM_THRESHOLD_0, 14), 5);
-        ci.params[id_TX_CM_THRESHOLD_1] = Property(int_or_default(ci.params, id_TX_CM_THRESHOLD_1, 16), 5);
-        ci.params[id_TX_SEL_PRE_EI] = Property(int_or_default(ci.params, id_TX_SEL_PRE_EI, 0), 5);
-        ci.params[id_TX_SEL_POST_EI] = Property(int_or_default(ci.params, id_TX_SEL_POST_EI, 0), 5);
-        ci.params[id_TX_AMP_EI] = Property(int_or_default(ci.params, id_TX_AMP_EI, 15), 5);
-        ci.params[id_TX_BRANCH_EN_PRE_EI] = Property(int_or_default(ci.params, id_TX_BRANCH_EN_PRE_EI, 0), 5);
-        ci.params[id_TX_BRANCH_EN_MAIN_EI] = Property(int_or_default(ci.params, id_TX_BRANCH_EN_MAIN_EI, 0x3F), 6);
-        ci.params[id_TX_BRANCH_EN_POST_EI] = Property(int_or_default(ci.params, id_TX_BRANCH_EN_POST_EI, 0), 5);
-        ci.params[id_TX_TAIL_CASCODE_EI] = Property(int_or_default(ci.params, id_TX_TAIL_CASCODE_EI, 4), 3);
-        ci.params[id_TX_DC_ENABLE_EI] = Property(int_or_default(ci.params, id_TX_DC_ENABLE_EI, 63), 7);
-        ci.params[id_TX_DC_OFFSET_EI] = Property(int_or_default(ci.params, id_TX_DC_OFFSET_EI, 0), 5);
-        ci.params[id_TX_CM_RAISE_EI] = Property(int_or_default(ci.params, id_TX_CM_RAISE_EI, 0), 5);
-        ci.params[id_TX_CM_THRESHOLD_0_EI] = Property(int_or_default(ci.params, id_TX_CM_THRESHOLD_0_EI, 14), 5);
-        ci.params[id_TX_CM_THRESHOLD_1_EI] = Property(int_or_default(ci.params, id_TX_CM_THRESHOLD_1_EI, 16), 5);
-        ci.params[id_TX_SEL_PRE_RXDET] = Property(int_or_default(ci.params, id_TX_SEL_PRE_RXDET, 0), 5);
-        ci.params[id_TX_SEL_POST_RXDET] = Property(int_or_default(ci.params, id_TX_SEL_POST_RXDET, 0), 5);
-        ci.params[id_TX_AMP_RXDET] = Property(int_or_default(ci.params, id_TX_AMP_RXDET, 15), 5);
-        ci.params[id_TX_BRANCH_EN_PRE_RXDET] = Property(int_or_default(ci.params, id_TX_BRANCH_EN_PRE_RXDET, 0), 5);
-        ci.params[id_TX_BRANCH_EN_MAIN_RXDET] = Property(int_or_default(ci.params, id_TX_BRANCH_EN_MAIN_RXDET, 0x3F), 6);
-        ci.params[id_TX_BRANCH_EN_POST_RXDET] = Property(int_or_default(ci.params, id_TX_BRANCH_EN_POST_RXDET, 0), 5);
-        ci.params[id_TX_TAIL_CASCODE_RXDET] = Property(int_or_default(ci.params, id_TX_TAIL_CASCODE_RXDET, 0), 3);
-        ci.params[id_TX_DC_ENABLE_RXDET] = Property(int_or_default(ci.params, id_TX_DC_ENABLE_RXDET, 63), 7);
-        ci.params[id_TX_DC_OFFSET_RXDET] = Property(int_or_default(ci.params, id_TX_DC_OFFSET_RXDET, 0), 5);
-        ci.params[id_TX_CM_RAISE_RXDET] = Property(int_or_default(ci.params, id_TX_CM_RAISE_RXDET, 0), 5);
-        ci.params[id_TX_CM_THRESHOLD_0_RXDET] = Property(int_or_default(ci.params, id_TX_CM_THRESHOLD_0_RXDET, 14), 5);
-        ci.params[id_TX_CM_THRESHOLD_1_RXDET] = Property(int_or_default(ci.params, id_TX_CM_THRESHOLD_1_RXDET, 16), 5);
-        ci.params[id_TX_CALIB_EN] = Property(int_or_default(ci.params, id_TX_CALIB_EN, 0), 1);
-        ci.params[id_TX_CALIB_DONE] = Property(int_or_default(ci.params, id_TX_CALIB_DONE, 1), 1); // read-only but set
-        ci.params[id_TX_CALIB_OVR] = Property(int_or_default(ci.params, id_TX_CALIB_OVR, 0), 1);
-        ci.params[id_TX_CALIB_VAL] = Property(int_or_default(ci.params, id_TX_CALIB_VAL, 0), 4);
-        // ci.params[id_TX_CALIB_CAL] = Property(int_or_default(ci.params, id_TX_CALIB_CAL, 0), 4);
-        ci.params[id_TX_CM_REG_KI] = Property(int_or_default(ci.params, id_TX_CM_REG_KI, 0x80), 8);
-        ci.params[id_TX_CM_SAR_EN] = Property(int_or_default(ci.params, id_TX_CM_SAR_EN, 0), 1);
-        ci.params[id_TX_CM_REG_EN] = Property(int_or_default(ci.params, id_TX_CM_REG_EN, 1), 1);
-        // ci.params[id_TX_CM_SAR_RESULT_0] = Property(int_or_default(ci.params, id_TX_CM_SAR_RESULT_0, 0), 5);
-        // ci.params[id_TX_CM_SAR_RESULT_1] = Property(int_or_default(ci.params, id_TX_CM_SAR_RESULT_1, 0), 5);
-        ci.params[id_TX_PMA_RESET_TIME] = Property(int_or_default(ci.params, id_TX_PMA_RESET_TIME, 3), 5);
-        ci.params[id_TX_PCS_RESET_TIME] = Property(int_or_default(ci.params, id_TX_PCS_RESET_TIME, 3), 5);
-        ci.params[id_TX_PCS_RESET_OVR] = Property(int_or_default(ci.params, id_TX_PCS_RESET_OVR, 0), 1);
-        ci.params[id_TX_PCS_RESET] = Property(int_or_default(ci.params, id_TX_PCS_RESET, 0), 1);
-        ci.params[id_TX_PMA_RESET_OVR] = Property(int_or_default(ci.params, id_TX_PMA_RESET_OVR, 0), 1);
-        ci.params[id_TX_PMA_RESET] = Property(int_or_default(ci.params, id_TX_PMA_RESET, 0), 1);
-        ci.params[id_TX_RESET_OVR] = Property(int_or_default(ci.params, id_TX_RESET_OVR, 0), 1);
-        ci.params[id_TX_RESET] = Property(int_or_default(ci.params, id_TX_RESET, 0), 1);
-        ci.params[id_TX_PMA_LOOPBACK] = Property(int_or_default(ci.params, id_TX_PMA_LOOPBACK, 0), 2);
-        ci.params[id_TX_PCS_LOOPBACK] = Property(int_or_default(ci.params, id_TX_PCS_LOOPBACK, 0), 1);
-        ci.params[id_TX_DATAPATH_SEL] = Property(int_or_default(ci.params, id_TX_DATAPATH_SEL, 3), 2);
-        ci.params[id_TX_PRBS_OVR] = Property(int_or_default(ci.params, id_TX_PRBS_OVR, 0), 1);
-        ci.params[id_TX_PRBS_SEL] = Property(int_or_default(ci.params, id_TX_PRBS_SEL, 0), 3);
-        ci.params[id_TX_PRBS_FORCE_ERR] = Property(int_or_default(ci.params, id_TX_PRBS_FORCE_ERR, 0), 1);
-        ci.params[id_TX_LOOPBACK_OVR] = Property(int_or_default(ci.params, id_TX_LOOPBACK_OVR, 0), 1);
-        ci.params[id_TX_POWER_DOWN_OVR] = Property(int_or_default(ci.params, id_TX_POWER_DOWN_OVR, 0), 1);
-        ci.params[id_TX_POWER_DOWN_N] = Property(int_or_default(ci.params, id_TX_POWER_DOWN_N, 0), 1);
-        ci.params[id_TX_ELEC_IDLE_OVR] = Property(int_or_default(ci.params, id_TX_ELEC_IDLE_OVR, 0), 1);
-        ci.params[id_TX_ELEC_IDLE] = Property(int_or_default(ci.params, id_TX_ELEC_IDLE, 0), 1);
-        ci.params[id_TX_DETECT_RX_OVR] = Property(int_or_default(ci.params, id_TX_DETECT_RX_OVR, 0), 1);
-        ci.params[id_TX_DETECT_RX] = Property(int_or_default(ci.params, id_TX_DETECT_RX, 0), 1);
-        ci.params[id_TX_POLARITY_OVR] = Property(int_or_default(ci.params, id_TX_POLARITY_OVR, 0), 1);
-        ci.params[id_TX_POLARITY] = Property(int_or_default(ci.params, id_TX_POLARITY, 0), 1);
-        ci.params[id_TX_8B10B_EN_OVR] = Property(int_or_default(ci.params, id_TX_8B10B_EN_OVR, 0), 1);
-        ci.params[id_TX_8B10B_EN] = Property(int_or_default(ci.params, id_TX_8B10B_EN, 0), 1);
-        ci.params[id_TX_DATA_OVR] = Property(int_or_default(ci.params, id_TX_DATA_OVR, 0), 1);
-        ci.params[id_TX_DATA_CNT] = Property(int_or_default(ci.params, id_TX_DATA_CNT, 0), 3);
-        ci.params[id_TX_DATA_VALID] = Property(int_or_default(ci.params, id_TX_DATA_VALID, 0), 1);
-        // ci.params[id_TX_BUF_ERR] = Property(int_or_default(ci.params, id_TX_BUF_ERR, 0), 1);
-        // ci.params[id_TX_RESET_DONE] = Property(int_or_default(ci.params, id_TX_RESET_DONE, 0), 1);
-        ci.params[id_TX_DATA] = Property(int_or_default(ci.params, id_TX_DATA, 0), 16);
-        ci.params[id_PLL_EN_ADPLL_CTRL] = Property(int_or_default(ci.params, id_PLL_EN_ADPLL_CTRL, 0), 1);
-        ci.params[id_PLL_CONFIG_SEL] = Property(int_or_default(ci.params, id_PLL_CONFIG_SEL, 0), 1);
-        ci.params[id_PLL_SET_OP_LOCK] = Property(int_or_default(ci.params, id_PLL_SET_OP_LOCK, 0), 1);
-        ci.params[id_PLL_ENFORCE_LOCK] = Property(int_or_default(ci.params, id_PLL_ENFORCE_LOCK, 0), 1);
-        ci.params[id_PLL_DISABLE_LOCK] = Property(int_or_default(ci.params, id_PLL_DISABLE_LOCK, 0), 1);
-        ci.params[id_PLL_LOCK_WINDOW] = Property(int_or_default(ci.params, id_PLL_LOCK_WINDOW, 1), 1);
-        ci.params[id_PLL_FAST_LOCK] = Property(int_or_default(ci.params, id_PLL_FAST_LOCK, 1), 1);
-        ci.params[id_PLL_SYNC_BYPASS] = Property(int_or_default(ci.params, id_PLL_SYNC_BYPASS, 0), 1);
-        ci.params[id_PLL_PFD_SELECT] = Property(int_or_default(ci.params, id_PLL_PFD_SELECT, 0), 1);
-        ci.params[id_PLL_REF_BYPASS] = Property(int_or_default(ci.params, id_PLL_REF_BYPASS, 0), 1);
-        ci.params[id_PLL_REF_SEL] = Property(int_or_default(ci.params, id_PLL_REF_SEL, 0), 1);
-        ci.params[id_PLL_REF_RTERM] = Property(int_or_default(ci.params, id_PLL_REF_RTERM, 1), 1);
-        ci.params[id_PLL_FCNTRL] = Property(int_or_default(ci.params, id_PLL_FCNTRL, 58), 6);
-        ci.params[id_PLL_MAIN_DIVSEL] = Property(int_or_default(ci.params, id_PLL_MAIN_DIVSEL, 27), 6);
-        ci.params[id_PLL_OUT_DIVSEL] = Property(int_or_default(ci.params, id_PLL_OUT_DIVSEL, 0), 2);
-        ci.params[id_PLL_CI] = Property(int_or_default(ci.params, id_PLL_CI, 3), 5);
-        ci.params[id_PLL_CP] = Property(int_or_default(ci.params, id_PLL_CP, 80), 10);
-        ci.params[id_PLL_AO] = Property(int_or_default(ci.params, id_PLL_AO, 0), 4);
-        ci.params[id_PLL_SCAP] = Property(int_or_default(ci.params, id_PLL_SCAP, 0), 3);
-        ci.params[id_PLL_FILTER_SHIFT] = Property(int_or_default(ci.params, id_PLL_FILTER_SHIFT, 2), 2);
-        ci.params[id_PLL_SAR_LIMIT] = Property(int_or_default(ci.params, id_PLL_SAR_LIMIT, 2), 3);
-        ci.params[id_PLL_FT] = Property(int_or_default(ci.params, id_PLL_FT, 512), 11);
-        ci.params[id_PLL_OPEN_LOOP] = Property(int_or_default(ci.params, id_PLL_OPEN_LOOP, 0), 1);
-        ci.params[id_PLL_SCAP_AUTO_CAL] = Property(int_or_default(ci.params, id_PLL_SCAP_AUTO_CAL, 1), 1);
-        // ci.params[id_PLL_LOCKED] = Property(int_or_default(ci.params, id_PLL_LOCKED, 0), 1);
-        // ci.params[id_PLL_CAP_FT_OF] = Property(int_or_default(ci.params, id_PLL_CAP_FT_OF, 0), 1);
-        // ci.params[id_PLL_CAP_FT_UF] = Property(int_or_default(ci.params, id_PLL_CAP_FT_UF, 0), 1);
-        // ci.params[id_PLL_CAP_FT] = Property(int_or_default(ci.params, id_PLL_CAP_FT, 0), 10);
-        // ci.params[id_PLL_CAP_STATE] = Property(int_or_default(ci.params, id_PLL_CAP_STATE, 0), 2);
-        // ci.params[id_PLL_SYNC_VALUE] = Property(int_or_default(ci.params, id_PLL_SYNC_VALUE, 0), 8);
-        ci.params[id_PLL_BISC_MODE] = Property(int_or_default(ci.params, id_PLL_BISC_MODE, 4), 3);
-        ci.params[id_PLL_BISC_TIMER_MAX] = Property(int_or_default(ci.params, id_PLL_BISC_TIMER_MAX, 15), 4);
-        ci.params[id_PLL_BISC_OPT_DET_IND] = Property(int_or_default(ci.params, id_PLL_BISC_OPT_DET_IND, 0), 1);
-        ci.params[id_PLL_BISC_PFD_SEL] = Property(int_or_default(ci.params, id_PLL_BISC_PFD_SEL, 0), 1);
-        ci.params[id_PLL_BISC_DLY_DIR] = Property(int_or_default(ci.params, id_PLL_BISC_DLY_DIR, 0), 1);
-        ci.params[id_PLL_BISC_COR_DLY] = Property(int_or_default(ci.params, id_PLL_BISC_COR_DLY, 1), 3);
-        ci.params[id_PLL_BISC_CAL_SIGN] = Property(int_or_default(ci.params, id_PLL_BISC_CAL_SIGN, 0), 1);
-        ci.params[id_PLL_BISC_CAL_AUTO] = Property(int_or_default(ci.params, id_PLL_BISC_CAL_AUTO, 1), 1);
-        ci.params[id_PLL_BISC_CP_MIN] = Property(int_or_default(ci.params, id_PLL_BISC_CP_MIN, 4), 5);
-        ci.params[id_PLL_BISC_CP_MAX] = Property(int_or_default(ci.params, id_PLL_BISC_CP_MAX, 18), 5);
-        ci.params[id_PLL_BISC_CP_START] = Property(int_or_default(ci.params, id_PLL_BISC_CP_START, 12), 5);
-        ci.params[id_PLL_BISC_DLY_PFD_MON_REF] = Property(int_or_default(ci.params, id_PLL_BISC_DLY_PFD_MON_REF, 0), 5);
-        ci.params[id_PLL_BISC_DLY_PFD_MON_DIV] = Property(int_or_default(ci.params, id_PLL_BISC_DLY_PFD_MON_DIV, 2), 5);
-        // ci.params[id_PLL_BISC_TIMER_DONE] = Property(int_or_default(ci.params, id_PLL_BISC_TIMER_DONE, 0), 1);
-        // ci.params[id_PLL_BISC_CP] = Property(int_or_default(ci.params, id_PLL_BISC_CP, 0), 7);
-        // ci.params[id_PLL_BISC_CO] = Property(int_or_default(ci.params, id_PLL_BISC_CO, 0), 16);
-        ci.params[id_SERDES_ENABLE] = Property(int_or_default(ci.params, id_SERDES_ENABLE, 0), 1);
-        ci.params[id_SERDES_AUTO_INIT] = Property(int_or_default(ci.params, id_SERDES_AUTO_INIT, 0), 1);
-        ci.params[id_SERDES_TESTMODE] = Property(int_or_default(ci.params, id_SERDES_TESTMODE, 0), 1);
     }
 }
 
