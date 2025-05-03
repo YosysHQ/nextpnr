@@ -115,7 +115,6 @@ void GateMatePacker::pack_bufg()
             }
             if (is_cpe_source) {
                 ci.cluster = ci.name;
-                move_ram_o(&ci, id_I);
             }
 
             if (in_net->clkconstr) {
@@ -148,9 +147,11 @@ void GateMatePacker::pack_bufg()
         if (bufg[i]) {
             CellInfo &ci = *bufg[i];
             global_signals.emplace(ci.getPort(id_O), i);
-            ci.cluster = ci.name;
-            ci.constr_abs_z = true;
-            ci.constr_z = i;
+            Loc fixed_loc(33 + 2, 131 + 2, i); // BUFG
+            BelId bufg_bel = ctx->getBelByLocation(fixed_loc);
+            ctx->bindBel(bufg_bel, &ci, PlaceStrength::STRENGTH_FIXED);
+            if (ci.cluster != ClusterId())
+                move_ram_o_fixed(&ci, id_I, fixed_loc);
         }
     }
 }
