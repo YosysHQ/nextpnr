@@ -203,9 +203,11 @@ def main():
     # Create nodes between tiles
     for _,nodes in dev.get_connections():
         node = []
+        timing = ""
         for conn in sorted(nodes):
             node.append(NodeWire(conn.x + 2, conn.y + 2, conn.name))
-        ch.add_node(node)
+            timing = conn.delay
+        ch.add_node(node, timing)
     set_timings(ch)
 
     for package in dev.get_packages():
