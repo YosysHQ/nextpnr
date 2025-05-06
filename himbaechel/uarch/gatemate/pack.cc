@@ -55,7 +55,7 @@ CellInfo *GateMatePacker::move_ram_i(CellInfo *cell, IdString origPort, bool pla
         cpe_half = create_cell_ptr(id_CPE_HALF, ctx->idf("%s$%s_cpe_half", cell->name.c_str(ctx), origPort.c_str(ctx)));
         if (place) {
             cell->constr_children.push_back(cpe_half);
-            cpe_half->cluster = cell->name;
+            cpe_half->cluster = cell->cluster;
             cpe_half->constr_abs_z = false;
             cpe_half->constr_z = PLACE_DB_CONSTR + origPort.index;
         }
@@ -77,7 +77,7 @@ CellInfo *GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, bool pla
         cpe_half = create_cell_ptr(id_CPE_HALF, ctx->idf("%s$%s_cpe_half", cell->name.c_str(ctx), origPort.c_str(ctx)));
         if (place) {
             cell->constr_children.push_back(cpe_half);
-            cpe_half->cluster = cell->name;
+            cpe_half->cluster = cell->cluster;
             cpe_half->constr_abs_z = false;
             cpe_half->constr_z = PLACE_DB_CONSTR + origPort.index;
         }
@@ -133,7 +133,7 @@ CellInfo *GateMatePacker::move_ram_io(CellInfo *cell, IdString iPort, IdString o
     cpe_half = create_cell_ptr(id_CPE_HALF, ctx->idf("%s$%s_cpe_half", cell->name.c_str(ctx), oPort.c_str(ctx)));
     if (place) {
         cell->constr_children.push_back(cpe_half);
-        cpe_half->cluster = cell->name;
+        cpe_half->cluster = cell->cluster;
         cpe_half->constr_abs_z = false;
         cpe_half->constr_z = PLACE_DB_CONSTR + oPort.index;
     }
