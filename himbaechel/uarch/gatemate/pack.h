@@ -39,6 +39,7 @@ struct GateMatePacker
     void pack_misc();
     void pack_constants();
     void pack_ram();
+    void pack_serdes();
 
     void remove_constants();
     void remove_not_used();

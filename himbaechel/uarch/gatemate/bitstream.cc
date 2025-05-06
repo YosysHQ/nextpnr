@@ -215,6 +215,12 @@ struct BitstreamBackend
                     }
                 }
             } break;
+            case id_SERDES.index: {
+                auto &serdes = cc.serdes[0];
+                for (auto &p : params) {
+                    serdes.add_word(p.first.c_str(ctx), p.second.as_bits());
+                }
+            } break;
             case id_USR_RSTN.index:
             case id_CFG_CTRL.index:
                 break;
