@@ -1,3 +1,15 @@
+<<<<<<< Updated upstream
+=======
+# Misc
+/.direnv
+/.envrc
+
+# Bazel
+MODULE.bazel.lock
+bazel-*
+
+/generated/
+>>>>>>> Stashed changes
 /objs/
 /nextpnr-generic*
 /nextpnr-ice40*

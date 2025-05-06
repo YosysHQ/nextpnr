@@ -1,0 +1,36 @@
+module(
+    name = "nextpnr",
+    version = "0.8.0"
+)
+
+bazel_dep(name = "platforms", version = "0.0.11")
+bazel_dep(name = "rules_cc", version = "0.1.1")
+bazel_dep(name = "rules_python", version = "1.0.0")
+bazel_dep(name = "pybind11_bazel", version = "2.13.6")
+
+bazel_dep(name = "boost.filesystem", version = "1.83.0")
+bazel_dep(name = "boost.iostreams", version = "1.83.0")
+bazel_dep(name = "boost.program_options", version = "1.83.0")
+bazel_dep(name = "boost.system", version = "1.83.0")
+bazel_dep(name = "boost.thread", version = "1.83.0")
+bazel_dep(name = "boost.algorithm", version = "1.83.0")
+bazel_dep(name = "googletest", version = "1.17.0")
+bazel_dep(name = "eigen", version = "4.0.0-20241125.bcr.1")
+bazel_dep(name = "json11", version = "1.0.1-0.20200325232727-2df9473fb360")
+bazel_dep(name = "boost.functional", version = "1.83.0")
+bazel_dep(name = "boost.lexical_cast", version = "1.83.0")
+bazel_dep(name = "prjtrellis", version = "1.4.0")
+bazel_dep(name = "icestorm", version = "0.0.1")
+git_override(
+    module_name = "icestorm",
+    commit = "85fd1682b58581b82d1d14f63c089fb033177c21",
+    remote = "https://github.com/amorphic-io/icestorm.git",
+)
+git_override(
+    module_name = "prjtrellis",
+    commit = "3332d029295a8e424969126f5c61a5ea111882a8",
+    remote = "https://github.com/amorphic-io/prjtrellis.git",
+)
+
+prjtrellis_db = use_extension("@prjtrellis//:extensions.bzl", "prjtrellis_db")
+use_repo(prjtrellis_db, "prjtrellis_db")

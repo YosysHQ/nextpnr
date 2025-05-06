@@ -14,7 +14,7 @@ parser = argparse.ArgumentParser(description="import ECP5 routing and bels from 
 parser.add_argument("device", type=str, help="target device")
 parser.add_argument("-p", "--constids", type=str, help="path to constids.inc")
 parser.add_argument("-g", "--gfxh", type=str, help="path to gfx.h")
-parser.add_argument("-L", "--libdir", type=str, action="append", help="extra Python library path")
+parser.add_argument("-L", "--libdir", type=str, action="append", default=[], help="extra Python library path")
 args = parser.parse_args()
 
 sys.path += args.libdir
