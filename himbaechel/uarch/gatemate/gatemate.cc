@@ -17,6 +17,8 @@
  *
  */
 
+#include <queue>
+
 #include "gatemate.h"
 #include "design_utils.h"
 #include "placer_heap.h"
@@ -259,6 +261,71 @@ void GateMateImpl::postPlace()
                 rename_param(cell.second.get(), id_C_RAM_I, id_C_RAM_I1, 1);
                 rename_param(cell.second.get(), id_C_RAM_O, id_C_RAM_O1, 1);
                 cell.second->type = id_CPE_HALF_L;
+            }
+        }
+    }
+}
+
+void GateMateImpl::preRoute()
+{
+    log_info("Routing clock nets...\n");
+    for (auto &net : ctx->nets) {
+        NetInfo *glb_net = net.second.get();
+        if (!glb_net->driver.cell)
+            continue;
+
+        bool is_clock = false;
+        for (auto &usr : glb_net->users) {
+            if (usr.cell->type.in(id_CPE_HALF,id_CPE_HALF_L,id_CPE_HALF_U) && usr.port.in(id_CLK)) {
+                is_clock = true;
+                break;
+            }
+        }
+
+        if (!is_clock)
+            continue;
+
+        log_info("    routing net '%s'\n", glb_net->name.c_str(ctx));
+        ctx->bindWire(ctx->getNetinfoSourceWire(glb_net), glb_net, STRENGTH_LOCKED);
+
+        for (auto &usr : glb_net->users) {
+            std::queue<WireId> visit;
+            dict<WireId, PipId> backtrace;
+            WireId dest = WireId();
+            // skip nets that are not part of lowskew routing
+            if (!(usr.cell->type.in(id_CPE_HALF,id_CPE_HALF_L,id_CPE_HALF_U) && usr.port.in(id_CLK)))
+                continue;
+
+            auto sink_wire = ctx->getNetinfoSinkWire(glb_net, usr, 0);
+            if (ctx->debug) {
+                auto sink_wire_name = "(uninitialized)";
+                if (sink_wire != WireId())
+                    sink_wire_name = ctx->nameOfWire(sink_wire);
+                log_info("        routing arc to %s.%s (wire %s):\n", usr.cell->name.c_str(ctx), usr.port.c_str(ctx),
+                         sink_wire_name);
+            }
+            visit.push(sink_wire);
+            while (!visit.empty()) {
+                WireId curr = visit.front();
+                visit.pop();
+                if (ctx->getBoundWireNet(curr) == glb_net) {
+                    dest = curr;
+                    break;
+                }
+                for (auto uh : ctx->getPipsUphill(curr)) {
+                    if (!ctx->checkPipAvail(uh))
+                        continue;
+                    WireId src = ctx->getPipSrcWire(uh);
+                    if (backtrace.count(src))
+                        continue;
+                    if (!ctx->checkWireAvail(src) && ctx->getBoundWireNet(src) != glb_net)
+                        continue;
+                    backtrace[src] = uh;
+                    visit.push(src);
+                }
+            }
+            if (dest == WireId()) {
+                log_info("            failed to find a route using dedicated resources. %s -> %s\n",glb_net->driver.cell->name.c_str(ctx),usr.cell->name.c_str(ctx));
             }
         }
     }
