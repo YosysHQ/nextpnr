@@ -41,6 +41,7 @@ struct GateMateImpl : HimbaechelAPI
 
     void prePlace() override;
     void postPlace() override;
+    void preRoute() override;
     void postRoute() override;
 
     bool isBelLocationValid(BelId bel, bool explain_invalid = false) const override;
