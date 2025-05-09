@@ -1959,6 +1959,7 @@ X(C_ENSEL)
 X(FF_INIT)
 // Timing model for CPE
 X(CPE_DFF)
+X(CPE_RAMIO)
 
 // GPIO configuration parameters
 X(OPEN_DRAIN)
