@@ -166,7 +166,7 @@ CellInfo *GateMatePacker::move_ram_io(CellInfo *cell, IdString iPort, IdString o
         cpe_half->connectPort(id_RAM_I, ram_i);
     }
     // TODO: set proper timing model, without this it detects combinational loops
-    cpe_half->timing_index = ctx->get_cell_timing_idx(id_CPE_DFF);
+    cpe_half->timing_index = ctx->get_cell_timing_idx(id_CPE_RAMIO);
     return cpe_half;
 }
 

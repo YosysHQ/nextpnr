@@ -138,11 +138,20 @@ def set_timings(ch):
         lut.add_comb_arc("IN4", "OUT", TimingValue(443, 453)) # to OUT2
 
         dff = ch.timing.add_cell_variant(speed, "CPE_DFF")
-        dff.add_setup_hold("CLK", "IN1", ClockEdge.RISING, TimingValue(60), TimingValue(50))
-        dff.add_setup_hold("CLK", "IN2", ClockEdge.RISING, TimingValue(60), TimingValue(50))
-        dff.add_setup_hold("CLK", "IN3", ClockEdge.RISING, TimingValue(60), TimingValue(50))
-        dff.add_setup_hold("CLK", "IN4", ClockEdge.RISING, TimingValue(60), TimingValue(50))
-        dff.add_clock_out("CLK", "OUT", ClockEdge.RISING, TimingValue(60))
+        dff.add_setup_hold("CLK", "IN1", ClockEdge.RISING, TimingValue(100 + 479), TimingValue(100 + 484))
+        dff.add_setup_hold("CLK", "IN2", ClockEdge.RISING, TimingValue(100 + 471), TimingValue(100 + 488))
+        dff.add_setup_hold("CLK", "IN3", ClockEdge.RISING, TimingValue(100 + 446), TimingValue(100 + 449))
+        dff.add_setup_hold("CLK", "IN4", ClockEdge.RISING, TimingValue(100 + 443), TimingValue(100 + 453))
+        dff.add_setup_hold("CLK", "EN", ClockEdge.RISING, TimingValue(150), TimingValue(150))
+        dff.add_setup_hold("CLK", "SR", ClockEdge.RISING, TimingValue(150), TimingValue(150))
+        dff.add_clock_out("CLK", "OUT", ClockEdge.RISING, TimingValue(500))
+
+        lut = ch.timing.add_cell_variant(speed, "CPE_RAMIO")
+        lut.add_comb_arc("IN1", "RAM_O", TimingValue(416, 418)) # IN5 to OUT1
+        lut.add_comb_arc("IN2", "RAM_O", TimingValue(413, 422)) # IN6 to OUT1
+        lut.add_comb_arc("IN3", "RAM_O", TimingValue(372, 374)) # IN7 to OUT1
+        lut.add_comb_arc("IN4", "RAM_O", TimingValue(275, 385)) # IN8 to OUT1
+        lut.add_comb_arc("RAM_I", "OUT", TimingValue(416, 418)) # IN5 to OUT1
 
 def main():
     # Range needs to be +1, but we are adding +2 more to coordinates, since 
