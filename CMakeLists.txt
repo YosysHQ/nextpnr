@@ -217,7 +217,13 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/3rdparty/sanitizers-cmake/cmake" ${CM
 find_package(Sanitizers)
 
 if (BUILD_TESTS)
-    add_subdirectory(3rdparty/googletest/googletest EXCLUDE_FROM_ALL)
+    find_package(GTest)
+    if(GTest_FOUND)
+        add_library(gtest_main ALIAS GTest::gtest_main)
+    else()
+        add_subdirectory(3rdparty/googletest/googletest EXCLUDE_FROM_ALL)
+        set(gtest_include_dir ${CMAKE_SOURCE_DIR}/3rdparty/googletest/googletest/include)
+    endif()
     enable_testing()
 endif()
 
@@ -366,7 +372,7 @@ function(add_nextpnr_architecture target)
         add_executable(nextpnr-${target}-test ${arg_TEST_SOURCES})
         set_property(TARGET nextpnr-${target}-test PROPERTY RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-        target_include_directories(nextpnr-${target}-test PRIVATE ${CMAKE_SOURCE_DIR}/3rdparty/googletest/googletest/include)
+        target_include_directories(nextpnr-${target}-test PRIVATE gtest_include_dir)
 
         target_link_libraries(nextpnr-${target}-test PRIVATE gtest_main nextpnr-${target}-core)
         if (BUILD_GUI)
