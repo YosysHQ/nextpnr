@@ -337,11 +337,8 @@ void GateMateImpl::preRoute()
                         continue;
                     if (!ctx->checkWireAvail(src) && ctx->getBoundWireNet(src) != glb_net)
                         continue;
-                    // We need to feed the CPE clock from IM plane 9.
                     auto pip_loc = ctx->getPipLocation(uh);
-                    if (pip_loc.x == cpe_loc.x && pip_loc.y == cpe_loc.y && (pip_plane(uh) != 9))
-                        continue;
-                    // Otherwise, use only a specific plane.
+                    // Use only a specific plane to minimise congestion.
                     if ((pip_loc.x != cpe_loc.x || pip_loc.y != cpe_loc.y) && pip_plane(uh) != (9 + bufg_idx))
                         continue;
                     backtrace[src] = uh;
