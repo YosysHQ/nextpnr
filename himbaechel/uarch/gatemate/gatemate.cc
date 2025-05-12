@@ -268,23 +268,33 @@ void GateMateImpl::postPlace()
 
 void GateMateImpl::preRoute()
 {
-    log_info("Routing clock nets...\n");
+    auto clk_nets = std::vector<NetInfo*>{};
+
+    auto feeds_clk_port = [](PortRef &port) {
+        if (port.cell->type.in(id_CPE_HALF,id_CPE_HALF_L,id_CPE_HALF_U) && port.port.in(id_CLK))
+            return true;
+        if (port.cell->type.in(id_CC_IDDR, id_CC_ODDR) && port.port.in(id_CLK))
+            return true;
+        if (port.cell->type.in(id_CC_BRAM_20K, id_CC_BRAM_40K, id_CC_FIFO_40K) && port.port.in(id_A_CLK, id_B_CLK))
+            return true;
+        return false;
+    };
+
     for (auto &net : ctx->nets) {
         NetInfo *glb_net = net.second.get();
         if (!glb_net->driver.cell)
             continue;
 
-        bool is_clock = false;
         for (auto &usr : glb_net->users) {
-            if (usr.cell->type.in(id_CPE_HALF,id_CPE_HALF_L,id_CPE_HALF_U) && usr.port.in(id_CLK)) {
-                is_clock = true;
+            if (feeds_clk_port(usr)) {
+                clk_nets.push_back(glb_net);
                 break;
             }
         }
+    }
 
-        if (!is_clock)
-            continue;
-
+    log_info("Routing clock nets: pass 1...\n");
+    for (auto glb_net : clk_nets) {
         log_info("    routing net '%s'\n", glb_net->name.c_str(ctx));
         ctx->bindWire(ctx->getNetinfoSourceWire(glb_net), glb_net, STRENGTH_LOCKED);
 
@@ -292,8 +302,8 @@ void GateMateImpl::preRoute()
             std::queue<WireId> visit;
             dict<WireId, PipId> backtrace;
             WireId dest = WireId();
-            // skip nets that are not part of lowskew routing
-            if (!(usr.cell->type.in(id_CPE_HALF,id_CPE_HALF_L,id_CPE_HALF_U) && usr.port.in(id_CLK)))
+            // skip arcs that are not part of lowskew routing
+            if (!feeds_clk_port(usr))
                 continue;
 
             auto sink_wire = ctx->getNetinfoSinkWire(glb_net, usr, 0);
