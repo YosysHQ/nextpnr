@@ -282,7 +282,7 @@ void GateMateImpl::preRoute()
 
     for (auto &net : ctx->nets) {
         NetInfo *glb_net = net.second.get();
-        if (!glb_net->driver.cell)
+        if (!glb_net->driver.cell || glb_net->driver.cell->type != id_BUFG)
             continue;
 
         for (auto &usr : glb_net->users) {
