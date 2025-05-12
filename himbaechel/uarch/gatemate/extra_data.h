@@ -37,6 +37,9 @@ NPNR_PACKED_STRUCT(struct GateMatePipExtraDataPOD {
     uint8_t value;
     uint8_t flags;
     uint8_t type;
+    uint8_t plane;
+    uint8_t dummy1;
+    uint16_t dummy2;
 });
 
 NPNR_PACKED_STRUCT(struct GateMateBelPinConstraintPOD {

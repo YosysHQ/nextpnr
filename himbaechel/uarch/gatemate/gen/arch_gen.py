@@ -63,6 +63,7 @@ class PipExtraData(BBAStruct):
     bits: int = 0
     value: int = 0
     invert: int = 0
+    plane: int = 0
 
     def serialise_lists(self, context: str, bba: BBAWriter):
         pass
@@ -72,6 +73,9 @@ class PipExtraData(BBAStruct):
         bba.u8(self.value)
         bba.u8(self.invert)
         bba.u8(self.pip_type)
+        bba.u8(self.plane)
+        bba.u8(0)
+        bba.u16(0)
 
 @dataclass
 class BelPinConstraint(BBAStruct):
@@ -169,7 +173,14 @@ def main():
                 mux_flags = MUX_INVERT if mux.invert else 0
                 mux_flags |= MUX_VISIBLE if mux.visible else 0
                 mux_flags |= MUX_CONFIG if mux.config else 0
-                pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(mux.name), mux.bits, mux.value, mux_flags)
+                plane = 0
+                if mux.name.startswith("IM"):
+                    plane = int(mux.name[4:6])
+                if mux.name.startswith("SB_SML") or mux.name.startswith("SB_BIG"):
+                    plane = int(mux.name[8:10])
+                if mux.name.startswith("SB_DRIVE"):
+                    plane = int(mux.name[10:12])
+                pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(mux.name), mux.bits, mux.value, mux_flags, plane)
         if "GPIO" in type_name:
             tt.create_pip("GPIO.DI", "GPIO.IN1")
             tt.create_pip("GPIO.DI", "GPIO.IN2")
