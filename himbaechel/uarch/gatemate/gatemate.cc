@@ -327,6 +327,19 @@ void GateMateImpl::preRoute()
             if (dest == WireId()) {
                 log_info("            failed to find a route using dedicated resources. %s -> %s\n",glb_net->driver.cell->name.c_str(ctx),usr.cell->name.c_str(ctx));
             }
+            while (backtrace.count(dest)) {
+                auto uh = backtrace[dest];
+                dest = ctx->getPipDstWire(uh);
+                if (ctx->getBoundWireNet(dest) == glb_net) {
+                    NPNR_ASSERT(glb_net->wires.at(dest).pip == uh);
+                    break;
+                }
+                if (ctx->debug)
+                    log_info("            bind pip %s --> %s\n", ctx->nameOfPip(uh), ctx->nameOfWire(dest));
+                ctx->bindPip(uh, glb_net, STRENGTH_LOCKED);
+                if (dest == sink_wire)
+                    break;
+            }
         }
     }
 }
