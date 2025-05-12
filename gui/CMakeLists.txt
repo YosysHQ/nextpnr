@@ -46,12 +46,42 @@ target_include_directories(nextpnr-${target}-gui PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+# Detect whether imgui/qtimgui packages are available from the system.
+find_path(IMGUI_INCLUDE_DIR NAMES imgui.h PATH_SUFFIXES imgui)
+find_path(QTIMGUI_INCLUDE_DIR NAMES QtImGui.h PATH_SUFFIXES qtimgui)
+find_library(IMGUI_LIB NAMES imgui)
+find_library(QTIMGUI_LIB NAMES qt_imgui_widgets)
+if (IMGUI_INCLUDE_DIR AND IMGUI_LIB)
+    message("Using system imgui library:
+    IMGUI_INCLUDE_DIR=${IMGUI_INCLUDE_DIR}
+    IMGUI_LIB=${IMGUI_LIB}")
+else()
+    message("Using bundled imgui library")
+    set(IMGUI_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/3rdparty/imgui)
+    set(IMGUI_SOURCES
+        ../3rdparty/imgui/imgui_widgets.cpp
+        ../3rdparty/imgui/imgui_draw.cpp
+        ../3rdparty/imgui/imgui.cpp
+        ../3rdparty/imgui/imgui_demo.cpp)
+endif()
+if (QTIMGUI_INCLUDE_DIR AND QTIMGUI_LIB)
+    message("Using system qtimgui library:
+    QTIMGUI_INCLUDE_DIR=${QTIMGUI_INCLUDE_DIR}
+    QTIMGUI_LIB=${QTIMGUI_LIB}")
+else()
+    message("Using bundled qtimgui library")
+    set(QTIMGUI_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/3rdparty/qtimgui)
+    set(QTIMGUI_SOURCES
+        ../3rdparty/qtimgui/ImGuiRenderer.cpp
+        ../3rdparty/qtimgui/QtImGui.cpp)
+endif()
+
 target_include_directories(nextpnr-${target}-gui PRIVATE
     ${CMAKE_SOURCE_DIR}/frontend
     ${CMAKE_SOURCE_DIR}/json
     ${CMAKE_SOURCE_DIR}/3rdparty/QtPropertyBrowser/src
-    ${CMAKE_SOURCE_DIR}/3rdparty/imgui
-    ${CMAKE_SOURCE_DIR}/3rdparty/qtimgui
+    ${IMGUI_INCLUDE_DIR}
+    ${QTIMGUI_INCLUDE_DIR}
 )
 
 target_link_libraries(nextpnr-${target}-gui PUBLIC
@@ -77,13 +107,16 @@ if (BUILD_PYTHON)
         ../3rdparty/python-console/ParseMessage.cpp
         ../3rdparty/python-console/modified/pyredirector.cc
         ../3rdparty/python-console/modified/pyinterpreter.cc
-        ../3rdparty/imgui/imgui_widgets.cpp
-        ../3rdparty/imgui/imgui_draw.cpp
-        ../3rdparty/imgui/imgui.cpp
-        ../3rdparty/imgui/imgui_demo.cpp
-        ../3rdparty/qtimgui/ImGuiRenderer.cpp
-        ../3rdparty/qtimgui/QtImGui.cpp
+        ${IMGUI_SOURCES}
+        ${QTIMGUI_SOURCES}
     )
+
+    if (IMGUI_LIB)
+        target_link_libraries(nextpnr-${target}-gui PRIVATE ${IMGUI_LIB})
+    endif()
+    if (QTIMGUI_LIB)
+        target_link_libraries(nextpnr-${target}-gui PRIVATE ${QTIMGUI_LIB})
+    endif()
 
     target_include_directories(nextpnr-${target}-gui PRIVATE
         ../3rdparty/python-console
