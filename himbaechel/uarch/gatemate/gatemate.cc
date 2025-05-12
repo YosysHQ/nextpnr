@@ -271,13 +271,7 @@ void GateMateImpl::preRoute()
     auto clk_nets = std::vector<NetInfo*>{};
 
     auto feeds_clk_port = [](PortRef &port) {
-        if (port.cell->type.in(id_CPE_HALF,id_CPE_HALF_L,id_CPE_HALF_U) && port.port.in(id_CLK))
-            return true;
-        if (port.cell->type.in(id_CC_IDDR, id_CC_ODDR) && port.port.in(id_CLK))
-            return true;
-        if (port.cell->type.in(id_CC_BRAM_20K, id_CC_BRAM_40K, id_CC_FIFO_40K) && port.port.in(id_A_CLK, id_B_CLK))
-            return true;
-        return false;
+        return port.cell->type.in(id_CPE_HALF,id_CPE_HALF_L,id_CPE_HALF_U) && port.port.in(id_CLK);
     };
 
     for (auto &net : ctx->nets) {
