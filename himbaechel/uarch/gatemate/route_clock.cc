@@ -17,14 +17,33 @@
  *
  */
 
+#include <functional>
 #include <queue>
 
 #include "gatemate.h"
+#include "log.h"
 
 #define HIMBAECHEL_CONSTIDS "uarch/gatemate/constids.inc"
 #include "himbaechel_constids.h"
 
 NEXTPNR_NAMESPACE_BEGIN
+
+namespace {
+
+struct QueuedWire
+{
+    explicit QueuedWire(WireId wire, float delay = 0.0) : wire{wire}, delay{delay} {};
+
+    WireId wire;
+    float delay;
+
+    bool operator> (const QueuedWire& rhs) const
+    {
+        return this->delay > rhs.delay;
+    }
+};
+
+}
 
 void GateMateImpl::route_clock()
 {
@@ -63,7 +82,7 @@ void GateMateImpl::route_clock()
         auto bufg_idx = ctx->getBelLocation(glb_net->driver.cell->bel).z;
 
         for (auto &usr : glb_net->users) {
-            std::queue<WireId> visit;
+            std::priority_queue<QueuedWire, std::vector<QueuedWire>, std::greater<QueuedWire>> visit;
             dict<WireId, PipId> backtrace;
             WireId dest = WireId();
             // skip arcs that are not part of lowskew routing
@@ -80,15 +99,16 @@ void GateMateImpl::route_clock()
                 log_info("        routing arc to %s.%s (wire %s):\n", usr.cell->name.c_str(ctx), usr.port.c_str(ctx),
                          sink_wire_name);
             }
-            visit.push(sink_wire);
+            visit.push(QueuedWire(sink_wire));
             while (!visit.empty()) {
-                WireId curr = visit.front();
+                QueuedWire curr = visit.top();
                 visit.pop();
-                if (ctx->getBoundWireNet(curr) == glb_net) {
-                    dest = curr;
+                if (ctx->getBoundWireNet(curr.wire) == glb_net) {
+                    log_info("            (%.3fns)\n", curr.delay);
+                    dest = curr.wire;
                     break;
                 }
-                for (auto uh : ctx->getPipsUphill(curr)) {
+                for (auto uh : ctx->getPipsUphill(curr.wire)) {
                     if (!ctx->checkPipAvail(uh))
                         continue;
                     WireId src = ctx->getPipSrcWire(uh);
@@ -101,7 +121,8 @@ void GateMateImpl::route_clock()
                     if ((pip_loc.x != cpe_loc.x || pip_loc.y != cpe_loc.y) && pip_plane(uh) != (9 + bufg_idx))
                         continue;
                     backtrace[src] = uh;
-                    visit.push(src);
+                    auto delay = ctx->getDelayNS(ctx->getPipDelay(uh).maxDelay() + ctx->getWireDelay(src).maxDelay() + ctx->getDelayEpsilon());
+                    visit.push(QueuedWire(src, curr.delay + delay));
                 }
             }
             if (dest == WireId()) {
