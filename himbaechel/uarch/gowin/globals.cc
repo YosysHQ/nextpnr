@@ -62,11 +62,11 @@ struct GowinGlobalRouter
         src = ctx->getPipSrcWire(pip);
         dst = ctx->getPipDstWire(pip);
         IdString dst_name = ctx->getWireName(dst)[1];
-        bool not_dsc_pip = dst_name != id_CLKOUT;
+        bool not_dcs_pip = dst_name != id_CLKOUT;
         IdString src_type = ctx->getWireType(src);
         IdString dst_type = ctx->getWireType(dst);
-        bool src_valid = not_dsc_pip && src_type.in(id_GLOBAL_CLK, id_IO_O, id_PLL_O, id_HCLK, id_DLLDLY);
-        bool dst_valid = not_dsc_pip && dst_type.in(id_GLOBAL_CLK, id_TILE_CLK, id_PLL_I, id_IO_I, id_HCLK);
+        bool src_valid = not_dcs_pip && src_type.in(id_GLOBAL_CLK, id_IO_O, id_PLL_O, id_HCLK, id_DLLDLY);
+        bool dst_valid = not_dcs_pip && dst_type.in(id_GLOBAL_CLK, id_TILE_CLK, id_PLL_I, id_IO_I, id_HCLK);
 
         bool res;
         if (src == src_wire && (!src_type.in(id_IO_O, id_HCLK, id_DLLDLY_O))) {
@@ -101,11 +101,11 @@ struct GowinGlobalRouter
         dst = ctx->getPipDstWire(pip);
         IdString src_name = ctx->getWireName(dst)[1];
         IdString dst_name = ctx->getWireName(dst)[1];
-        bool not_dsc_pip = dst_name != id_CLKOUT && !is_dcs_input(src_name);
+        bool not_dcs_pip = dst_name != id_CLKOUT && !is_dcs_input(src_name);
         IdString src_type = ctx->getWireType(src);
         IdString dst_type = ctx->getWireType(dst);
-        bool src_valid = not_dsc_pip && src_type.in(id_GLOBAL_CLK, id_IO_O, id_PLL_O, id_HCLK);
-        bool dst_valid = not_dsc_pip && dst_type.in(id_GLOBAL_CLK, id_TILE_CLK, id_PLL_I, id_IO_I, id_HCLK);
+        bool src_valid = not_dcs_pip && src_type.in(id_GLOBAL_CLK, id_IO_O, id_PLL_O, id_HCLK);
+        bool dst_valid = not_dcs_pip && dst_type.in(id_GLOBAL_CLK, id_TILE_CLK, id_PLL_I, id_IO_I, id_HCLK);
 
         // If DQCE is used, then the source can only connect to SPINEs as only they can be switched off/on.
         bool res;
@@ -692,7 +692,7 @@ struct GowinGlobalRouter
         log_info("    '%s' net was routed.\n", ctx->nameOf(net));
     }
 
-    void route_clk_net(NetInfo *net)
+    RouteResult route_clk_net(NetInfo *net)
     {
         RouteResult route_result = route_direct_net(net, [&](PipId pip, WireId src_wire) {
             return global_pip_filter(pip, src_wire) && segment_wire_filter(pip) && dcs_input_filter(pip);
@@ -701,6 +701,7 @@ struct GowinGlobalRouter
             log_info("    '%s' net was routed using global resources %s.\n", ctx->nameOf(net),
                      route_result == ROUTED_ALL ? "only" : "partially");
         }
+        return route_result;
     }
 
     // segmented wires
@@ -1303,7 +1304,12 @@ struct GowinGlobalRouter
             if (ctx->verbose) {
                 log_info("route clock net '%s', src:%s\n", ctx->nameOf(ni), ctx->nameOf(ni->driver.cell));
             }
-            route_clk_net(ni);
+            if (route_clk_net(ni) == NOT_ROUTED) {
+                if (ctx->verbose) {
+                    log_info("  try to route as a segmented network.\n");
+                }
+                seg_nets.push_back(net_name);
+            }
         }
 
         // segmented nets
