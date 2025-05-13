@@ -143,11 +143,12 @@ void GateMateImpl::route_clock()
                 dest = ctx->getPipDstWire(uh);
                 if (ctx->getBoundWireNet(dest) == glb_net) {
                     NPNR_ASSERT(glb_net->wires.at(dest).pip == uh);
-                    break;
-                }
+                    log_info("                 pip %s --> %s (plane %hhd)\n", ctx->nameOfPip(uh), ctx->nameOfWire(dest), pip_plane(uh));
+                } else {
                 //if (ctx->debug)
                     log_info("            bind pip %s --> %s (plane %hhd)\n", ctx->nameOfPip(uh), ctx->nameOfWire(dest), pip_plane(uh));
-                ctx->bindPip(uh, glb_net, STRENGTH_LOCKED);
+                    ctx->bindPip(uh, glb_net, STRENGTH_LOCKED);
+                }
                 if (dest == sink_wire)
                     break;
             }
