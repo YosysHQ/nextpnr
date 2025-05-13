@@ -19,6 +19,7 @@
 
 #include "gatemate.h"
 #include "design_utils.h"
+#include "log.h"
 #include "placer_heap.h"
 
 #define GEN_INIT_CONSTIDS
@@ -263,6 +264,8 @@ void GateMateImpl::postPlace()
         }
     }
 }
+
+void GateMateImpl::preRoute() { route_clock(); }
 
 void GateMateImpl::postRoute()
 {
