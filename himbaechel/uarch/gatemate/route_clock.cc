@@ -75,7 +75,7 @@ void GateMateImpl::route_clock()
         }
     }
 
-    log_info("Routing clock nets: pass 1...\n");
+    log_info("Routing clock nets...\n");
     for (auto glb_net : clk_nets) {
         log_info("    routing net '%s'\n", glb_net->name.c_str(ctx));
         ctx->bindWire(ctx->getNetinfoSourceWire(glb_net), glb_net, STRENGTH_LOCKED);
@@ -93,7 +93,7 @@ void GateMateImpl::route_clock()
             auto cpe_loc = ctx->getBelLocation(usr.cell->bel);
 
             auto sink_wire = ctx->getNetinfoSinkWire(glb_net, usr, 0);
-            if (true || ctx->debug) {
+            if (ctx->debug) {
                 auto sink_wire_name = "(uninitialized)";
                 if (sink_wire != WireId())
                     sink_wire_name = ctx->nameOfWire(sink_wire);
@@ -105,7 +105,8 @@ void GateMateImpl::route_clock()
                 QueuedWire curr = visit.top();
                 visit.pop();
                 if (curr.wire == ctx->getNetinfoSourceWire(glb_net)) {
-                    log_info("            (%.3fns)\n", curr.delay);
+                    if (ctx->debug)
+                        log_info("            (%.3fns)\n", curr.delay);
                     dest = curr.wire;
                     break;
                 }
@@ -143,11 +144,12 @@ void GateMateImpl::route_clock()
                 dest = ctx->getPipDstWire(uh);
                 if (ctx->getBoundWireNet(dest) == glb_net) {
                     NPNR_ASSERT(glb_net->wires.at(dest).pip == uh);
-                    log_info("                 pip %s --> %s (plane %hhd)\n", ctx->nameOfPip(uh), ctx->nameOfWire(dest), pip_plane(uh));
+                    if (ctx->debug)
+                        log_info("                 pip %s --> %s (plane %hhd)\n", ctx->nameOfPip(uh), ctx->nameOfWire(dest), pip_plane(uh));
                 } else {
-                //if (ctx->debug)
-                    log_info("            bind pip %s --> %s (plane %hhd)\n", ctx->nameOfPip(uh), ctx->nameOfWire(dest), pip_plane(uh));
                     ctx->bindPip(uh, glb_net, STRENGTH_LOCKED);
+                    if (ctx->debug)
+                        log_info("            bind pip %s --> %s (plane %hhd)\n", ctx->nameOfPip(uh), ctx->nameOfWire(dest), pip_plane(uh));
                 }
                 if (dest == sink_wire)
                     break;
