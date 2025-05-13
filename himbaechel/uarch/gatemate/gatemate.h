@@ -79,6 +79,7 @@ struct GateMateImpl : HimbaechelAPI
     void update_cpe_inv(CellInfo *cell, IdString port, IdString param);
     void update_cpe_mux(CellInfo *cell, IdString port, IdString param, int bit);
     void rename_param(CellInfo *cell, IdString name, IdString new_name, int width);
+    void route_clock();
 
     const GateMateBelExtraDataPOD *bel_extra_data(BelId bel) const;
 

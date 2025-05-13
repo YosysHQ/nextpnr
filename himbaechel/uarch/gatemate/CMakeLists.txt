@@ -18,6 +18,7 @@ set(SOURCES
     pack_serdes.cc
     pack.h
     pll.cc
+    route_clock.cc
 )
 
 set(TEST_SOURCES
