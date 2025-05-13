@@ -38,20 +38,17 @@ struct QueuedWire
     WireId wire;
     float delay;
 
-    bool operator> (const QueuedWire& rhs) const
-    {
-        return this->delay > rhs.delay;
-    }
+    bool operator>(const QueuedWire &rhs) const { return this->delay > rhs.delay; }
 };
 
-}
+} // namespace
 
 void GateMateImpl::route_clock()
 {
-    auto clk_nets = std::vector<NetInfo*>{};
+    auto clk_nets = std::vector<NetInfo *>{};
 
     auto feeds_clk_port = [](PortRef &port) {
-        return port.cell->type.in(id_CPE_HALF,id_CPE_HALF_L,id_CPE_HALF_U) && port.port.in(id_CLK);
+        return port.cell->type.in(id_CPE_HALF, id_CPE_HALF_L, id_CPE_HALF_U) && port.port.in(id_CLK);
     };
 
     auto pip_plane = [&](PipId pip) {
@@ -132,12 +129,14 @@ void GateMateImpl::route_clock()
                     if ((pip_loc.x != cpe_loc.x || pip_loc.y != cpe_loc.y) && pip_plane(uh) != (9 + bufg_idx))
                         continue;
                     backtrace[src] = uh;
-                    auto delay = ctx->getDelayNS(ctx->getPipDelay(uh).maxDelay() + ctx->getWireDelay(src).maxDelay() + ctx->getDelayEpsilon());
+                    auto delay = ctx->getDelayNS(ctx->getPipDelay(uh).maxDelay() + ctx->getWireDelay(src).maxDelay() +
+                                                 ctx->getDelayEpsilon());
                     visit.push(QueuedWire(src, curr.delay + delay));
                 }
             }
             if (dest == WireId()) {
-                log_info("            failed to find a route using dedicated resources. %s -> %s\n",glb_net->driver.cell->name.c_str(ctx),usr.cell->name.c_str(ctx));
+                log_info("            failed to find a route using dedicated resources. %s -> %s\n",
+                         glb_net->driver.cell->name.c_str(ctx), usr.cell->name.c_str(ctx));
             }
             while (backtrace.count(dest)) {
                 auto uh = backtrace[dest];
@@ -145,11 +144,13 @@ void GateMateImpl::route_clock()
                 if (ctx->getBoundWireNet(dest) == glb_net) {
                     NPNR_ASSERT(glb_net->wires.at(dest).pip == uh);
                     if (ctx->debug)
-                        log_info("                 pip %s --> %s (plane %hhd)\n", ctx->nameOfPip(uh), ctx->nameOfWire(dest), pip_plane(uh));
+                        log_info("                 pip %s --> %s (plane %hhd)\n", ctx->nameOfPip(uh),
+                                 ctx->nameOfWire(dest), pip_plane(uh));
                 } else {
                     ctx->bindPip(uh, glb_net, STRENGTH_LOCKED);
                     if (ctx->debug)
-                        log_info("            bind pip %s --> %s (plane %hhd)\n", ctx->nameOfPip(uh), ctx->nameOfWire(dest), pip_plane(uh));
+                        log_info("            bind pip %s --> %s (plane %hhd)\n", ctx->nameOfPip(uh),
+                                 ctx->nameOfWire(dest), pip_plane(uh));
                 }
                 if (dest == sink_wire)
                     break;

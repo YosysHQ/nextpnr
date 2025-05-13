@@ -265,10 +265,7 @@ void GateMateImpl::postPlace()
     }
 }
 
-void GateMateImpl::preRoute()
-{
-    route_clock();
-}
+void GateMateImpl::preRoute() { route_clock(); }
 
 void GateMateImpl::postRoute()
 {
