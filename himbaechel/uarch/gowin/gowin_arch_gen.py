@@ -1512,15 +1512,16 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
             elif group == "fanout":
                 pass # handled in "wire"
             elif group == "glbsrc":
-                # TODO
                 # no fanout delay for clock wires
                 for name in ["CENT_SPINE_PCLK", "SPINE_TAP_PCLK", "TAP_BRANCH_PCLK"]:
                     tmg.set_pip_class(speed, name, group_to_timingvalue(arc[name]))
                 tmg.set_pip_class(speed, 'GCLK_BRANCH', group_to_timingvalue(arc['BRANCH_PCLK']))
             elif group == "hclk":
-                pass # TODO
+                for name in ['HclkInMux', 'HclkHbrgMux', 'HclkOutMux', 'HclkDivMux']:
+                    tmg.set_pip_class(speed, name, group_to_timingvalue(arc[name]))
             elif group == "iodelay":
-                pass # TODO
+                for name in ['GI_DO', 'SDTAP_DO', 'SETN_DO', 'VALUE_DO', 'SDTAP_DF', 'SETN_DF', 'VALUE_DF']:
+                    tmg.set_pip_class(speed, name, group_to_timingvalue(arc[name]))
             elif group == "wire":
                 # wires with delay and fanout delay
                 for name in ["X0", "X2", "X8"]:
@@ -1529,7 +1530,7 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
                 for name in ["X0CTL", "X0CLK", "FX1"]:
                     tmg.set_pip_class(speed, name, group_to_timingvalue(arc[name]))
                 # wires with presently-unknown delay
-                for name in ["LUT_IN", "DI", "SEL", "CIN", "COUT", "VCC", "VSS", "LW_TAP", "LW_TAP_0", "LW_BRANCH", "LW_SPAN"]:
+                for name in ["LUT_IN", "DI", "SEL", "CIN", "COUT", "VCC", "VSS", "LW_TAP", "LW_TAP_0", "LW_BRANCH", "LW_SPAN", "ISB"]:
                     tmg.set_pip_class(speed, name, TimingValue())
                 # wires with fanout-only delay; used on cell output pips
                 for name, mapping in [("LUT_OUT", "FFan"), ("FF_OUT", "QFan"), ("OF", "OFFan")]:
