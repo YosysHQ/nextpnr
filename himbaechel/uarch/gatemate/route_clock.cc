@@ -22,6 +22,7 @@
 
 #include "gatemate.h"
 #include "log.h"
+#include "nextpnr_assertions.h"
 
 #define HIMBAECHEL_CONSTIDS "uarch/gatemate/constids.inc"
 #include "himbaechel_constids.h"
@@ -103,18 +104,27 @@ void GateMateImpl::route_clock()
             while (!visit.empty()) {
                 QueuedWire curr = visit.top();
                 visit.pop();
-                if (ctx->getBoundWireNet(curr.wire) == glb_net) {
+                if (curr.wire == ctx->getNetinfoSourceWire(glb_net)) {
                     log_info("            (%.3fns)\n", curr.delay);
                     dest = curr.wire;
                     break;
                 }
+
+                PipId bound_pip;
+                auto fnd_wire = glb_net->wires.find(curr.wire);
+                if (fnd_wire != glb_net->wires.end()) {
+                    bound_pip = fnd_wire->second.pip;
+                }
+
                 for (auto uh : ctx->getPipsUphill(curr.wire)) {
-                    if (!ctx->checkPipAvail(uh))
+                    if (!ctx->checkPipAvailForNet(uh, glb_net))
                         continue;
                     WireId src = ctx->getPipSrcWire(uh);
                     if (backtrace.count(src))
                         continue;
                     if (!ctx->checkWireAvail(src) && ctx->getBoundWireNet(src) != glb_net)
+                        continue;
+                    if (bound_pip != PipId() && uh != bound_pip)
                         continue;
                     auto pip_loc = ctx->getPipLocation(uh);
                     // Use only a specific plane to minimise congestion.
