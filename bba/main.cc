@@ -19,8 +19,8 @@
  */
 
 #include <assert.h>
-#include <boost/filesystem/path.hpp>
 #include <boost/program_options.hpp>
+#include <filesystem>
 #include <iostream>
 #include <map>
 #include <stdint.h>
@@ -452,7 +452,7 @@ int main(int argc, char **argv)
             fprintf(fileOut, "%s\n", s.c_str());
 
         fprintf(fileOut, "const uint8_t %s[%d] = {\n", streams[0].name.c_str(), int(data.size()) + 1);
-        fprintf(fileOut, "#embed \"%s\"\n", boost::filesystem::path(files.at(2)).c_str());
+        fprintf(fileOut, "#embed \"%s\"\n", std::filesystem::path(files.at(2)).u8string().c_str());
         fprintf(fileOut, "};\n");
 
         for (auto &s : postText)
