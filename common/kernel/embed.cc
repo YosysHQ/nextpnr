@@ -25,7 +25,7 @@ const void *get_chipdb(const std::string &filename)
     return nullptr;
 }
 
-#elif defined(WIN32)
+#elif defined(BBAS_ARE_RESOURCES)
 
 const void *get_chipdb(const std::string &filename)
 {
