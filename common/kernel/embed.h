@@ -23,7 +23,7 @@
 #include "nextpnr.h"
 NEXTPNR_NAMESPACE_BEGIN
 
-#if !defined(EXTERNAL_CHIPDB_ROOT) && !defined(WIN32)
+#if !defined(EXTERNAL_CHIPDB_ROOT) && !defined(BBAS_ARE_RESOURCES)
 
 struct EmbeddedFile
 {
