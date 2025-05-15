@@ -17,12 +17,15 @@
  *
  */
 
+#include "design_utils.h"
 #include "pack.h"
 
 #define HIMBAECHEL_CONSTIDS "uarch/gatemate/constids.inc"
 #include "himbaechel_constids.h"
 
 NEXTPNR_NAMESPACE_BEGIN
+
+inline bool is_bram_40k(const BaseCtx *ctx, const CellInfo *cell) { return cell->type.in(id_CC_BRAM_40K); }
 
 uint8_t GateMatePacker::ram_ctrl_signal(CellInfo *cell, IdString port, bool alt)
 {
@@ -223,6 +226,7 @@ void GateMatePacker::pack_ram()
 {
     std::vector<std::pair<CellInfo *, CellInfo *>> rams;
     std::vector<std::pair<CellInfo *, CellInfo *>> rams_merged[2];
+    std::map<CellInfo *, CellInfo *> ram_cascade;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_BRAM_20K, id_CC_BRAM_40K, id_CC_FIFO_40K))
@@ -232,6 +236,9 @@ void GateMatePacker::pack_ram()
         if (ram_mode_str != "SDP" && ram_mode_str != "TDP")
             log_error("Unknown RAM_MODE parameter value '%s' for cell %s.\n", ram_mode_str.c_str(), ci.name.c_str(ctx));
         int ram_mode = ram_mode_str == "SDP" ? 1 : 0;
+        std::string cas = str_or_default(ci.params, id_CAS, "NONE");
+        if (cas != "NONE" && !ci.type.in(id_CC_BRAM_40K))
+            log_error("Cascade feature only supported for CC_BRAM_40K.\n");
         if (split) {
             bool added = false;
             if (!rams_merged[ram_mode].empty()) {
@@ -245,6 +252,33 @@ void GateMatePacker::pack_ram()
             if (!added)
                 rams_merged[ram_mode].push_back(std::make_pair(&ci, nullptr));
         } else {
+            CellInfo *upper = nullptr;
+            CellInfo *lower = nullptr;
+            if (cas != "NONE" && ram_mode_str != "TDP")
+                log_error("Cascade feature only supported in TDP mode.\n");
+            int a_rd_width = int_or_default(ci.params, id_A_WIDTH, 0);
+            int b_wr_width = int_or_default(ci.params, id_B_WIDTH, 0);
+            if (cas != "NONE" && (a_rd_width > 1 || b_wr_width > 1))
+                log_error("Cascade feature only supported in 1 bit data width mode.\n");
+            if (cas == "UPPER") {
+                if (!net_driven_by(ctx, ci.getPort(id_A_CI), is_bram_40k, id_A_CO))
+                    log_error("Port A_CI of '%s' must be driven by other CC_BRAM_40K.", ci.name.c_str(ctx));
+                if (!net_driven_by(ctx, ci.getPort(id_B_CI), is_bram_40k, id_B_CO))
+                    log_error("Port B_CI of '%s' must be driven by other CC_BRAM_40K.", ci.name.c_str(ctx));
+                upper = &ci;
+                lower = ci.getPort(id_A_CI)->driver.cell;
+            } else if (cas == "LOWER") {
+                if (!net_only_drives(ctx, ci.getPort(id_A_CO), is_bram_40k, id_A_CI, false))
+                    log_error("Port A_CO of '%s' must be driving one other CC_BRAM_40K.", ci.name.c_str(ctx));
+                if (!net_only_drives(ctx, ci.getPort(id_B_CO), is_bram_40k, id_B_CI, false))
+                    log_error("Port B_CO of '%s' must be driving one other CC_BRAM_40K.", ci.name.c_str(ctx));
+                upper = (*ci.getPort(id_A_CO)->users.begin()).cell;
+                lower = &ci;
+            }
+            if (ram_cascade.count(lower) && ram_cascade[lower] != upper)
+                log_error("RAM cell '%s' already cascaded to different RAM block.\n", ci.name.c_str(ctx));
+            ram_cascade[lower] = upper;
+
             rams.push_back(std::make_pair(&ci, nullptr));
         }
     }
@@ -264,12 +298,25 @@ void GateMatePacker::pack_ram()
         std::string cas = str_or_default(ci.params, id_CAS, "NONE");
 
         int cascade = 0;
+        // Concepts of UPPER and LOWER are different in documentation
         if (cas == "NONE") {
             cascade = 0;
         } else if (cas == "UPPER") {
-            cascade = 1;
-        } else if (cas == "LOWER") {
             cascade = 2;
+            ci.disconnectPort(id_A_CI);
+            ci.disconnectPort(id_B_CI);
+        } else if (cas == "LOWER") {
+            cascade = 1;
+            ci.disconnectPort(id_A_CO);
+            ci.disconnectPort(id_B_CO);
+            if (!ram_cascade.count(&ci))
+                log_error("Unable to find cascaded RAM for '%s'.\n", ci.name.c_str(ctx));
+            CellInfo *upper = ram_cascade[&ci];
+            ci.cluster = upper->name;
+            upper->constr_children.push_back(&ci);
+            ci.constr_abs_z = false;
+            ci.constr_y = -16;
+            ci.constr_z = 0;
         } else {
             log_error("Unknown CAS parameter value '%s' for cell %s.\n", cas.c_str(), ci.name.c_str(ctx));
         }
