@@ -128,6 +128,10 @@ bool GateMateImpl::getChildPlacement(const BaseClusterInfo *cluster, Loc root_lo
             child_loc.y = root_loc.y + child->constr_y;
             child_loc.z = child->constr_abs_z ? child->constr_z : (root_loc.z + child->constr_z);
         }
+        if (child_loc.x < 0 || child_loc.x >= ctx->getGridDimX())
+            return false;
+        if (child_loc.y < 0 || child_loc.y >= ctx->getGridDimY())
+            return false;
         BelId child_bel = ctx->getBelByLocation(child_loc);
         if (child_bel == BelId() || !this->isValidBelForCellType(child->type, child_bel))
             return false;
