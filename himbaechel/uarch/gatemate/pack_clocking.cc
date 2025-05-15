@@ -18,6 +18,7 @@
  */
 
 #include <boost/algorithm/string.hpp>
+#include "design_utils.h"
 
 #include "gatemate_util.h"
 #include "pack.h"
@@ -26,6 +27,8 @@
 #include "himbaechel_constids.h"
 
 NEXTPNR_NAMESPACE_BEGIN
+
+inline bool is_bufg(const BaseCtx *ctx, const CellInfo *cell) { return cell->type.in(id_CC_BUFG); }
 
 void GateMatePacker::sort_bufg()
 {
@@ -79,6 +82,36 @@ void GateMatePacker::pack_bufg()
 {
     log_info("Packing BUFGs..\n");
     CellInfo *bufg[4] = {nullptr};
+    CellInfo *pll[4] = {nullptr};
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_PLL))
+            continue;
+        pll[ci.constr_z - 4] = &ci;
+    }
+
+    auto update_bufg_port = [&](CellInfo *cell, int port_num, int pll_num) {
+        CellInfo *b = net_only_drives(ctx, cell->getPort(ctx->idf("CLK%d", 90 * port_num)), is_bufg, id_I, false);
+        if (b) {
+            if (bufg[port_num] == nullptr) {
+                bufg[port_num] = b;
+            } else {
+                if (bufg[pll_num] == nullptr) {
+                    bufg[pll_num] = b;
+                } else {
+                    log_error("Unable to place BUFG for PLL.\n");
+                }
+            }
+        }
+    };
+
+    for (int i = 0; i < 4; i++) {
+        if (pll[i]) {
+            for (int j = 0; j < 4; j++)
+                update_bufg_port(pll[i], j, i);
+        }
+    }
+
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_BUFG))
@@ -94,24 +127,6 @@ void GateMatePacker::pack_bufg()
             }
             if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_PLL) {
                 is_cpe_source = false;
-                int pll_index = in_net->driver.cell->constr_z - 4;
-                if (bufg[pll_index] == nullptr) {
-                    bufg[pll_index] = &ci;
-                } else {
-                    IdString origPort = in_net->driver.port;
-                    int index = 0;
-                    if (origPort == id_CLK90)
-                        index = 1;
-                    else if (origPort == id_CLK180)
-                        index = 2;
-                    else if (origPort == id_CLK270)
-                        index = 3;
-                    if (bufg[index] == nullptr) {
-                        bufg[pll_index] = &ci;
-                    } else {
-                        log_error("Unable to place BUFG for PLL.\n");
-                    }
-                }
             }
             if (is_cpe_source) {
                 ci.cluster = ci.name;
