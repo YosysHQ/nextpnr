@@ -268,9 +268,9 @@ void GateMatePacker::pack_ram()
                 upper = &ci;
                 lower = ci.getPort(id_A_CI)->driver.cell;
             } else if (cas == "LOWER") {
-                if (!net_only_drives(ctx, ci.getPort(id_A_CO), is_bram_40k, id_A_CI, false))
+                if (!net_only_drives(ctx, ci.getPort(id_A_CO), is_bram_40k, id_A_CI, true))
                     log_error("Port A_CO of '%s' must be driving one other CC_BRAM_40K.", ci.name.c_str(ctx));
-                if (!net_only_drives(ctx, ci.getPort(id_B_CO), is_bram_40k, id_B_CI, false))
+                if (!net_only_drives(ctx, ci.getPort(id_B_CO), is_bram_40k, id_B_CI, true))
                     log_error("Port B_CO of '%s' must be driving one other CC_BRAM_40K.", ci.name.c_str(ctx));
                 upper = (*ci.getPort(id_A_CO)->users.begin()).cell;
                 lower = &ci;
