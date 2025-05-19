@@ -72,40 +72,37 @@ void GateMateImpl::route_clock()
 
     log_info("Routing clock nets...\n");
 
-    for (auto &net : ctx->nets) {
-        NetInfo *glb_net = net.second.get();
-        if (!glb_net->driver.cell || glb_net->driver.cell->type != id_BUFG)
+    for (auto &net_pair : ctx->nets) {
+        NetInfo *net = net_pair.second.get();
+        if (!net->driver.cell)
             continue;
 
-        if (ctx->debug)
-            log_info("    reserving net '%s'\n", glb_net->name.c_str(ctx));
+        bool is_clk_net = false;
+        for (auto &usr : net->users) {
+            if (feeds_clk_port(usr)) {
+                is_clk_net = true;
 
-        bool is_global_clk = false;
-        for (auto &usr : glb_net->users) {
-            if (!feeds_clk_port(usr))
-                continue;
+                auto clk_sink_wire = ctx->getNetinfoSinkWire(net, usr, 0);
+                reserve(clk_sink_wire, net);
 
-            auto en_port = usr.cell->ports.at(id_EN);
-            auto sr_port = usr.cell->ports.at(id_SR);
+                auto en_port = usr.cell->ports.find(id_EN);
+                if (en_port != usr.cell->ports.end() && en_port->second.net != nullptr) {
+                    auto en_sink_wire = ctx->getNetinfoSinkWire(
+                            en_port->second.net, en_port->second.net->users.at(en_port->second.user_idx), 0);
+                    reserve(en_sink_wire, en_port->second.net);
+                }
 
-            is_global_clk = true;
-
-            auto clk_sink_wire = ctx->getNetinfoSinkWire(glb_net, usr, 0);
-            reserve(clk_sink_wire, glb_net);
-
-            if (en_port.net != nullptr) {
-                auto en_sink_wire = ctx->getNetinfoSinkWire(en_port.net, en_port.net->users.at(en_port.user_idx), 0);
-                reserve(en_sink_wire, en_port.net);
-            }
-
-            if (sr_port.net != nullptr) {
-                auto sr_sink_wire = ctx->getNetinfoSinkWire(sr_port.net, sr_port.net->users.at(sr_port.user_idx), 0);
-                reserve(sr_sink_wire, sr_port.net);
+                auto sr_port = usr.cell->ports.find(id_SR);
+                if (sr_port != usr.cell->ports.end() && sr_port->second.net != nullptr) {
+                    auto sr_sink_wire = ctx->getNetinfoSinkWire(
+                            sr_port->second.net, sr_port->second.net->users.at(sr_port->second.user_idx), 0);
+                    reserve(sr_sink_wire, sr_port->second.net);
+                }
             }
         }
 
-        if (is_global_clk)
-            clk_nets.push_back(glb_net);
+        if (net->driver.cell->type == id_BUFG && is_clk_net)
+            clk_nets.push_back(net);
     }
 
     for (auto glb_net : clk_nets) {
