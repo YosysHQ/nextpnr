@@ -503,7 +503,9 @@ void GateMatePacker::pack_io_sel()
 
         Loc root_loc = ctx->getBelLocation(ci.bel);
         for (int i = 0; i < 4; i++) {
-            move_ram_o_fixed(&ci, ctx->idf("OUT%d", i + 1), root_loc);
+            CellInfo *cpe = move_ram_o_fixed(&ci, ctx->idf("OUT%d", i + 1), root_loc);
+            if (cpe && i == 2)
+                cpe->params[id_INIT_L10] = Property(0b0101, 4); // Invert CPE out for output enable (OUT3)
         }
     }
     flush_cells();
