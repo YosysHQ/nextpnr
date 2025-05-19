@@ -46,6 +46,7 @@ struct QueuedWire
 void GateMateImpl::route_clock()
 {
     auto clk_nets = std::vector<NetInfo *>{};
+    auto reserved_wires = dict<WireId, IdString>{};
 
     auto feeds_clk_port = [](PortRef &port) {
         return port.cell->type.in(id_CPE_HALF, id_CPE_HALF_L, id_CPE_HALF_U) && port.port.in(id_CLK);
@@ -59,9 +60,17 @@ void GateMateImpl::route_clock()
         return extra_data.plane;
     };
 
-    log_info("Routing clock nets...\n");
+    auto reserve = [&](WireId wire, NetInfo *net) {
+        if (ctx->debug) {
+            auto wire_name = "(uninitialized)";
+            if (wire != WireId())
+                wire_name = ctx->nameOfWire(wire);
+            log_info("        reserving wire %s\n", wire_name);
+        }
+        reserved_wires.insert({wire, net->name});
+    };
 
-    dict<WireId, IdString> reserved_wires;
+    log_info("Routing clock nets...\n");
 
     for (auto &net : ctx->nets) {
         NetInfo *glb_net = net.second.get();
@@ -76,17 +85,23 @@ void GateMateImpl::route_clock()
             if (!feeds_clk_port(usr))
                 continue;
 
+            auto en_port = usr.cell->ports.at(id_EN);
+            auto sr_port = usr.cell->ports.at(id_SR);
+
             is_global_clk = true;
 
-            auto sink_wire = ctx->getNetinfoSinkWire(glb_net, usr, 0);
-            if (ctx->debug) {
-                auto sink_wire_name = "(uninitialized)";
-                if (sink_wire != WireId())
-                    sink_wire_name = ctx->nameOfWire(sink_wire);
-                log_info("        reserving wire %s\n", sink_wire_name);
+            auto clk_sink_wire = ctx->getNetinfoSinkWire(glb_net, usr, 0);
+            reserve(clk_sink_wire, glb_net);
+
+            if (en_port.net != nullptr) {
+                auto en_sink_wire = ctx->getNetinfoSinkWire(en_port.net, en_port.net->users.at(en_port.user_idx), 0);
+                reserve(en_sink_wire, en_port.net);
             }
 
-            reserved_wires.insert({sink_wire, glb_net->name});
+            if (sr_port.net != nullptr) {
+                auto sr_sink_wire = ctx->getNetinfoSinkWire(sr_port.net, sr_port.net->users.at(sr_port.user_idx), 0);
+                reserve(sr_sink_wire, sr_port.net);
+            }
         }
 
         if (is_global_clk)
@@ -98,6 +113,7 @@ void GateMateImpl::route_clock()
         ctx->bindWire(ctx->getNetinfoSourceWire(glb_net), glb_net, STRENGTH_LOCKED);
 
         auto bufg_idx = ctx->getBelLocation(glb_net->driver.cell->bel).z;
+        auto clk_plane = 9 + bufg_idx;
 
         for (auto &usr : glb_net->users) {
             std::priority_queue<QueuedWire, std::vector<QueuedWire>, std::greater<QueuedWire>> visit;
@@ -150,8 +166,22 @@ void GateMateImpl::route_clock()
                         continue;
                     auto pip_loc = ctx->getPipLocation(uh);
                     // Use only a specific plane to minimise congestion.
-                    if ((pip_loc.x != cpe_loc.x || pip_loc.y != cpe_loc.y) && pip_plane(uh) != (9 + bufg_idx))
-                        continue;
+                    if ((pip_loc.x != cpe_loc.x || pip_loc.y != cpe_loc.y)) {
+                        // Plane 9 is the clock plane, so it should only ever use itself.
+                        if (clk_plane == 9 && pip_plane(uh) != 9)
+                            continue;
+                        // Plane 10 is the enable plane.
+                        // When there's a set/reset, we want to use the switchbox X23 pip to change directly to plane 9.
+                        if (clk_plane == 10 && pip_plane(uh) != 9 && pip_plane(uh) != 10)
+                            continue;
+                        // Plane 11 is the set/reset plane; we want to use the switchbox X14 pip to go to plane 12, then
+                        // use the IM to switch to plane 9.
+                        if (clk_plane == 11 && pip_plane(uh) == 10)
+                            continue;
+                        // Plane 12 is the spare plane; we can use the IM to change directly to plane 9.
+                        if (clk_plane == 12 && pip_plane(uh) != 9 && pip_plane(uh) != 12)
+                            continue;
+                    }
                     backtrace[src] = uh;
                     auto delay = ctx->getDelayNS(ctx->getPipDelay(uh).maxDelay() + ctx->getWireDelay(src).maxDelay() +
                                                  ctx->getDelayEpsilon());
