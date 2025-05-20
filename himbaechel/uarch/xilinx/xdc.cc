@@ -161,8 +161,7 @@ void XilinxImpl::parse_xdc(const std::string &filename)
                 log_nonfatal_error("expected at least four arguments to 'set_property' (on line %d)\n", lineno);
                 num_errors++;
                 goto nextline;
-            }
-            else if (arguments.at(1) == "-dict") {
+            } else if (arguments.at(1) == "-dict") {
                 std::vector<std::string> dict_args = split_to_args(strip_quotes(arguments.at(2)), false);
                 if ((dict_args.size() % 2) != 0) {
                     log_nonfatal_error("expected an even number of argument for dictionary (on line %d)\n", lineno);
@@ -190,16 +189,19 @@ void XilinxImpl::parse_xdc(const std::string &filename)
             for (int cursor = 3; cursor < int(arguments.size()); cursor++) {
                 std::vector<CellInfo *> dest_loc = get_cells(arguments.at(cursor));
                 if (dest_loc.empty())
-                    log_warning("found set_property with no cells matching '%s' (on line %d)\n", arguments.at(cursor).c_str(), lineno);
+                    log_warning("found set_property with no cells matching '%s' (on line %d)\n",
+                                arguments.at(cursor).c_str(), lineno);
                 dest.insert(dest.end(), dest_loc.begin(), dest_loc.end());
             }
             for (auto c : dest) {
                 for (const auto &pair : arg_pairs) {
                     IdString id_prop = ctx->id(pair.first);
                     if (ctx->debug)
-                        log_info("applying property '%s' = '%s' to cell '%s' (on line %d)\n", pair.first.c_str(), pair.second.c_str(), c->name.c_str(ctx), lineno);
-                    if(c->attrs.find(id_prop) != c->attrs.end()) {
-                        log_nonfatal_error("found multiple properties '%s' for cell '%s' (on line %d)\n", pair.first.c_str(), c->name.c_str(ctx), lineno);
+                        log_info("applying property '%s' = '%s' to cell '%s' (on line %d)\n", pair.first.c_str(),
+                                 pair.second.c_str(), c->name.c_str(ctx), lineno);
+                    if (c->attrs.find(id_prop) != c->attrs.end()) {
+                        log_nonfatal_error("found multiple properties '%s' for cell '%s' (on line %d)\n",
+                                           pair.first.c_str(), c->name.c_str(ctx), lineno);
                         num_errors++;
                     }
                     c->attrs[id_prop] = std::string(pair.second);
@@ -213,17 +215,14 @@ void XilinxImpl::parse_xdc(const std::string &filename)
                 std::string opt = arguments.at(cursor);
                 if (opt == "-add") {
                     log_warning("ignoring unsupported XDC option '%s' (on line %d)\n", opt.c_str(), lineno);
-                }
-                else if (opt == "-name" || opt == "-waveform") {
+                } else if (opt == "-name" || opt == "-waveform") {
                     log_warning("ignoring unsupported XDC option '%s' (on line %d)\n", opt.c_str(), lineno);
                     cursor++;
-                }
-                else if (opt == "-period") {
+                } else if (opt == "-period") {
                     cursor++;
                     period = std::stod(arguments.at(cursor));
                     got_period = true;
-                }
-                else
+                } else
                     break;
             }
             if (!got_period) {
@@ -235,17 +234,19 @@ void XilinxImpl::parse_xdc(const std::string &filename)
             std::vector<NetInfo *> dest;
             if (cursor >= int(arguments.size()))
                 log_warning("found create_clock without designated nets (on line %d)\n", lineno);
-            for ( ; cursor < (int)arguments.size(); cursor++) {
+            for (; cursor < (int)arguments.size(); cursor++) {
                 std::vector<NetInfo *> dest_loc = get_nets(arguments.at(cursor));
                 if (dest_loc.empty())
-                    log_warning("found create_clock with no nets matching '%s' (on line %d)\n", arguments.at(cursor).c_str(), lineno);
+                    log_warning("found create_clock with no nets matching '%s' (on line %d)\n",
+                                arguments.at(cursor).c_str(), lineno);
                 dest.insert(dest.end(), dest_loc.begin(), dest_loc.end());
             }
             for (auto n : dest) {
                 if (ctx->debug)
                     log_info("applying clock period constraint on net '%s' (on line %d)\n", n->name.c_str(ctx), lineno);
                 if (n->clkconstr.get() != nullptr) {
-                    log_nonfatal_error("found multiple clock constraints on net '%s' (on line %d)\n", n->name.c_str(ctx), lineno);
+                    log_nonfatal_error("found multiple clock constraints on net '%s' (on line %d)\n",
+                                       n->name.c_str(ctx), lineno);
                     num_errors++;
                 }
                 n->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint);
@@ -257,8 +258,7 @@ void XilinxImpl::parse_xdc(const std::string &filename)
             log_warning("ignoring unsupported XDC command '%s' (on line %d)\n", cmd.c_str(), lineno);
         }
 
-        nextline:
-        ;  // Phony statement to have something legal after the label
+    nextline:; // Phony statement to have something legal after the label
     }
     if (!isempty(linebuf)) {
         log_nonfatal_error("unexpected end of XDC file\n");

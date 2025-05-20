@@ -55,8 +55,7 @@ static inline PipId unwrap_pip(const uint64_t pip) noexcept { return unwrap<PipI
 static inline WireId unwrap_wire(const uint64_t wire) noexcept { return unwrap<WireId>(wire); }
 } // namespace
 
-template<typename T>
-struct IterWrapper
+template <typename T> struct IterWrapper
 {
     T current;
     T end;

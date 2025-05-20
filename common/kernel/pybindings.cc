@@ -319,10 +319,7 @@ void init_python(const char *executable)
     python_sighandler = signal(SIGINT, SIG_DFL);
 }
 
-void deinit_python()
-{
-    py::finalize_interpreter();
-}
+void deinit_python() { py::finalize_interpreter(); }
 
 void execute_python_file(const char *python_file)
 {

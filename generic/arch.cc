@@ -296,7 +296,8 @@ BelId Arch::getBelByLocation(Loc loc) const
     return BelId();
 }
 
-const std::vector<BelId> &Arch::getBelsByTile(int x, int y) const {
+const std::vector<BelId> &Arch::getBelsByTile(int x, int y) const
+{
     static const std::vector<BelId> empty_list;
     return y < int(bels_by_tile.at(x).size()) ? bels_by_tile.at(x).at(y) : empty_list;
 }

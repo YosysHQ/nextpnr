@@ -151,7 +151,7 @@ struct parser_view
 
 struct CsvParser
 {
-    explicit CsvParser(std::istream &in) : in(in) {};
+    explicit CsvParser(std::istream &in) : in(in){};
     std::istream &in;
     std::string buf;
     parser_view view;

@@ -539,8 +539,9 @@ template <typename FrontendType> struct GenericFrontend
         auto type = impl.get_cell_type(cd);
         import_module(submod, name, type, mod_refs.at(type));
         // Add current cell attributes to the imported module
-        impl.foreach_attr( cd, [&](const std::string &name, const Property &value)
-              { ctx->hierarchy[submod.path].attrs[ctx->id(name)] = value; } );
+        impl.foreach_attr(cd, [&](const std::string &name, const Property &value) {
+            ctx->hierarchy[submod.path].attrs[ctx->id(name)] = value;
+        });
     }
 
     // Import the cells section of a module

@@ -30,11 +30,11 @@
 #include <boost/algorithm/string/join.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/program_options.hpp>
+#include <cinttypes>
 #include <fstream>
 #include <iostream>
 #include <random>
 #include <set>
-#include <cinttypes>
 
 #include "command.h"
 #include "design_utils.h"

@@ -293,8 +293,7 @@ PipId Arch::getPipByName(IdStringList name) const
             IdString(tdata.wires[tdata.pips[pip].src_wire].name) == name[2]) {
 
             const auto tmp_pip = PipId(tile, pip);
-            if ((name.size() == 3 && !isPipInverting(tmp_pip)) ||
-                (name.size() == 4 && isPipInverting(tmp_pip))) {
+            if ((name.size() == 3 && !isPipInverting(tmp_pip)) || (name.size() == 4 && isPipInverting(tmp_pip))) {
                 return tmp_pip;
             }
         }
@@ -307,8 +306,8 @@ IdStringList Arch::getPipName(PipId pip) const
     const auto &tdata = chip_tile_info(chip_info, pip.tile);
     const auto &pdata = tdata.pips[pip.index];
     const auto name = IdStringList::concat(tile_name.at(pip.tile),
-                                IdStringList::concat(IdString(tdata.wires[pdata.dst_wire].name),
-                                                     IdString(tdata.wires[pdata.src_wire].name)));
+                                           IdStringList::concat(IdString(tdata.wires[pdata.dst_wire].name),
+                                                                IdString(tdata.wires[pdata.src_wire].name)));
     if (isPipInverting(pip))
         return IdStringList::concat(name, id("INV"));
     return name;

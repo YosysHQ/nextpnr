@@ -1193,7 +1193,8 @@ struct Router2
 
     void write_congestion_by_coordinate_heatmap(std::ostream &out)
     {
-        auto util_by_coord = std::vector<std::vector<int>>(ctx->getGridDimX() + 1, std::vector<int>(ctx->getGridDimY() + 1, 0));
+        auto util_by_coord =
+                std::vector<std::vector<int>>(ctx->getGridDimX() + 1, std::vector<int>(ctx->getGridDimY() + 1, 0));
         for (auto &wd : flat_wires)
             if (wd.curr_cong > 1)
                 util_by_coord[wd.x][wd.y] += wd.curr_cong;
@@ -1484,7 +1485,8 @@ struct Router2
                     std::string filename(cfg.heatmap + "_congestion_by_coordinate_" + std::to_string(iter) + ".csv");
                     std::ofstream cong_map(filename);
                     if (!cong_map)
-                        log_error("Failed to open congestion-by-coordinate heatmap %s for writing.\n", filename.c_str());
+                        log_error("Failed to open congestion-by-coordinate heatmap %s for writing.\n",
+                                  filename.c_str());
                     write_congestion_by_coordinate_heatmap(cong_map);
                     log_info("        wrote congestion-by-coordinate heatmap to %s.\n", filename.c_str());
                 }

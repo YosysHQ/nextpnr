@@ -569,7 +569,8 @@ struct XilinxArch : HimbaechelArch
 {
     XilinxArch() : HimbaechelArch("xilinx") {};
     bool match_device(const std::string &device) override { return device.size() > 3 && device.substr(0, 3) == "xc7"; }
-    std::unique_ptr<HimbaechelAPI> create(const std::string &device, const dict<std::string, std::string> &args) override
+    std::unique_ptr<HimbaechelAPI> create(const std::string &device,
+                                          const dict<std::string, std::string> &args) override
     {
         return std::make_unique<XilinxImpl>();
     }
