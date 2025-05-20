@@ -215,7 +215,9 @@ def main():
         timing = ""
         for conn in sorted(nodes):
             node.append(NodeWire(conn.x + 2, conn.y + 2, conn.name))
-            timing = conn.delay
+            # for now update to last one we have defined
+            if len(conn.delay)>0:
+                timing = conn.delay
         ch.add_node(node, timing)
     set_timings(ch)
 
