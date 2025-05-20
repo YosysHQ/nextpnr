@@ -259,6 +259,12 @@ void GateMatePacker::pack_pll()
         NetInfo *clk = ci.getPort(id_CLK_REF);
         delay_t period = ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq"));
         if (clk) {
+            if (ctx->getBelBucketForCellType(clk->driver.cell->type) == id_CC_BUFG) {
+                NetInfo *in = clk->driver.cell->getPort(id_I);
+                ci.disconnectPort(id_CLK_REF);
+                ci.connectPort(id_CLK_REF, in);
+                clk = in;
+            }
             if (ctx->getBelBucketForCellType(clk->driver.cell->type) != id_GPIO)
                 log_error("CLK_REF must be driven with GPIO pin.\n");
             auto pad_info = uarch->bel_to_pad[clk->driver.cell->bel];
