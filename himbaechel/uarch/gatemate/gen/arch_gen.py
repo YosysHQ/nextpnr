@@ -41,6 +41,9 @@ sys.path += args.lib
 import chip
 import die
 
+pip_tmg_names = set()
+node_tmg_names = set()
+
 @dataclass
 class TileExtraData(BBAStruct):
     die : int = 0
@@ -119,8 +122,12 @@ def set_timings(ch):
     tmg = ch.set_speed_grades(speed_grades)
     for speed in speed_grades:
         timing = dict(sorted(chip.get_timings(os.path.expanduser(args.lib), speed).items()))
-        for k,v in timing.items():
-            tmg.set_node_class(grade=speed, name=k, delay=TimingValue(v.min, v.max))
+        for k in node_tmg_names:
+            assert k in timing, f"node class {k} not found in timing data"
+            tmg.set_node_class(grade=speed, name=k, delay=TimingValue(timing[k].min, timing[k].max))
+        for k in pip_tmg_names:
+            assert k in timing, f"pip class {k} not found in timing data"
+            tmg.set_pip_class(grade=speed, name=k, delay=TimingValue(timing[k].min, timing[k].max))
 
     for speed in speed_grades:
         lut = ch.timing.add_cell_variant(speed, "CPE_HALF_L")
@@ -185,7 +192,9 @@ def main():
             for pin in sorted(die.get_primitive_pins(prim.type)):
                 tt.add_bel_pin(bel, pin.name, die.get_pin_connection_name(prim,pin), pin.dir)
         for mux in sorted(die.get_mux_connections_for_type(type_name)):
-            pp = tt.create_pip(mux.src, mux.dst)
+            if len(mux.delay)>0:
+                pip_tmg_names.add(mux.delay)
+            pp = tt.create_pip(mux.src, mux.dst, mux.delay)
             if mux.name:
                 mux_flags = MUX_INVERT if mux.invert else 0
                 mux_flags |= MUX_VISIBLE if mux.visible else 0
@@ -199,8 +208,8 @@ def main():
                     plane = int(mux.name[10:12])
                 pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(mux.name), mux.bits, mux.value, mux_flags, plane)
         if "GPIO" in type_name:
-            tt.create_pip("GPIO.DI", "GPIO.IN1")
-            tt.create_pip("GPIO.DI", "GPIO.IN2")
+            tt.create_pip("GPIO.DI", "GPIO.IN1", "del_dummy")
+            tt.create_pip("GPIO.DI", "GPIO.IN2", "del_dummy")
 
     # Setup tile grid
     for x in range(dev.max_col() + 3):
@@ -218,6 +227,7 @@ def main():
             # for now update to last one we have defined
             if len(conn.delay)>0:
                 timing = conn.delay
+                node_tmg_names.add(conn.delay)
         ch.add_node(node, timing)
     set_timings(ch)
 
