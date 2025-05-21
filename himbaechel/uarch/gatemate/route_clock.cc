@@ -101,28 +101,29 @@ void GateMateImpl::route_clock()
             }
         }
 
-        if (net->driver.cell->type == id_BUFG && is_clk_net)
+        if (is_clk_net)
             clk_nets.push_back(net);
     }
 
-    for (auto glb_net : clk_nets) {
-        log_info("    routing net '%s'\n", glb_net->name.c_str(ctx));
-        ctx->bindWire(ctx->getNetinfoSourceWire(glb_net), glb_net, STRENGTH_LOCKED);
+    for (auto clk_net : clk_nets) {
+        log_info("    routing net '%s'\n", clk_net->name.c_str(ctx));
+        ctx->bindWire(ctx->getNetinfoSourceWire(clk_net), clk_net, STRENGTH_LOCKED);
 
-        auto bufg_idx = ctx->getBelLocation(glb_net->driver.cell->bel).z;
+        auto bufg_idx = ctx->getBelLocation(clk_net->driver.cell->bel).z;
         auto clk_plane = 9 + bufg_idx;
 
-        for (auto &usr : glb_net->users) {
+        for (auto &usr : clk_net->users) {
             std::priority_queue<QueuedWire, std::vector<QueuedWire>, std::greater<QueuedWire>> visit;
             dict<WireId, PipId> backtrace;
             WireId dest = WireId();
-            // skip arcs that are not part of lowskew routing
+
             if (!feeds_clk_port(usr))
                 continue;
 
             auto cpe_loc = ctx->getBelLocation(usr.cell->bel);
+            auto is_glb_clk = clk_net->driver.cell->type == id_BUFG;
 
-            auto sink_wire = ctx->getNetinfoSinkWire(glb_net, usr, 0);
+            auto sink_wire = ctx->getNetinfoSinkWire(clk_net, usr, 0);
             if (ctx->debug) {
                 auto sink_wire_name = "(uninitialized)";
                 if (sink_wire != WireId())
@@ -134,7 +135,7 @@ void GateMateImpl::route_clock()
             while (!visit.empty()) {
                 QueuedWire curr = visit.top();
                 visit.pop();
-                if (curr.wire == ctx->getNetinfoSourceWire(glb_net)) {
+                if (curr.wire == ctx->getNetinfoSourceWire(clk_net)) {
                     if (ctx->debug)
                         log_info("            (%.3fns)\n", curr.delay);
                     dest = curr.wire;
@@ -142,28 +143,28 @@ void GateMateImpl::route_clock()
                 }
 
                 PipId bound_pip;
-                auto fnd_wire = glb_net->wires.find(curr.wire);
-                if (fnd_wire != glb_net->wires.end()) {
+                auto fnd_wire = clk_net->wires.find(curr.wire);
+                if (fnd_wire != clk_net->wires.end()) {
                     bound_pip = fnd_wire->second.pip;
                 }
 
                 for (auto uh : ctx->getPipsUphill(curr.wire)) {
-                    if (!ctx->checkPipAvailForNet(uh, glb_net))
+                    if (!ctx->checkPipAvailForNet(uh, clk_net))
                         continue;
                     WireId src = ctx->getPipSrcWire(uh);
                     if (backtrace.count(src))
                         continue;
-                    if (!ctx->checkWireAvail(src) && ctx->getBoundWireNet(src) != glb_net)
+                    if (!ctx->checkWireAvail(src) && ctx->getBoundWireNet(src) != clk_net)
                         continue;
                     if (bound_pip != PipId() && uh != bound_pip)
                         continue;
                     // Has this wire been reserved for another net?
                     auto reserved = reserved_wires.find(src);
-                    if (reserved != reserved_wires.end() && reserved->second != glb_net->name)
+                    if (reserved != reserved_wires.end() && reserved->second != clk_net->name)
                         continue;
                     auto pip_loc = ctx->getPipLocation(uh);
-                    // Use only a specific plane to minimise congestion.
-                    if ((pip_loc.x != cpe_loc.x || pip_loc.y != cpe_loc.y)) {
+                    // Use only a specific plane to minimise congestion for global clocks.
+                    if (is_glb_clk && (pip_loc.x != cpe_loc.x || pip_loc.y != cpe_loc.y)) {
                         // Plane 9 is the clock plane, so it should only ever use itself.
                         if (clk_plane == 9 && pip_plane(uh) != 9)
                             continue;
@@ -187,18 +188,18 @@ void GateMateImpl::route_clock()
             }
             if (dest == WireId()) {
                 log_info("            failed to find a route using dedicated resources. %s -> %s\n",
-                         glb_net->driver.cell->name.c_str(ctx), usr.cell->name.c_str(ctx));
+                         clk_net->driver.cell->name.c_str(ctx), usr.cell->name.c_str(ctx));
             }
             while (backtrace.count(dest)) {
                 auto uh = backtrace[dest];
                 dest = ctx->getPipDstWire(uh);
-                if (ctx->getBoundWireNet(dest) == glb_net) {
-                    NPNR_ASSERT(glb_net->wires.at(dest).pip == uh);
+                if (ctx->getBoundWireNet(dest) == clk_net) {
+                    NPNR_ASSERT(clk_net->wires.at(dest).pip == uh);
                     if (ctx->debug)
                         log_info("                 pip %s --> %s (plane %hhd)\n", ctx->nameOfPip(uh),
                                  ctx->nameOfWire(dest), pip_plane(uh));
                 } else if (ctx->getBoundWireNet(dest) == nullptr) {
-                    ctx->bindPip(uh, glb_net, STRENGTH_LOCKED);
+                    ctx->bindPip(uh, clk_net, STRENGTH_LOCKED);
                     if (ctx->debug)
                         log_info("            bind pip %s --> %s (plane %hhd)\n", ctx->nameOfPip(uh),
                                  ctx->nameOfWire(dest), pip_plane(uh));
