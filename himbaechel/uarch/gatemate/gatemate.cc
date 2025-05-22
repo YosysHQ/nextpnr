@@ -63,7 +63,7 @@ delay_t GateMateImpl::estimateDelay(WireId src, WireId dst) const
     tile_xy(ctx->chip_info, src.tile, sx, sy);
     tile_xy(ctx->chip_info, dst.tile, dx, dy);
 
-    return 100 * (std::abs(dx - sx) / 4 + std::abs(dy - sy) / 4 + 2);
+    return 100 + 100 * (std::abs(dx - sx) + std::abs(dy - sy));
 }
 
 bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
