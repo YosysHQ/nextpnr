@@ -537,7 +537,13 @@ struct Arch : BaseArch<ArchRanges>
     WireId getWireByName(IdStringList name) const override;
     IdStringList getWireName(WireId wire) const override;
     IdString getWireType(WireId wire) const override { return IdString(chip_wire_info(chip_info, wire).wire_type); }
-    DelayQuad getWireDelay(WireId wire) const override { return DelayQuad(0); } // TODO
+    DelayQuad getWireDelay(WireId wire) const override {
+        auto src_tmg = get_node_timing(wire);
+        if (src_tmg)
+            return DelayQuad(src_tmg->delay.slow_min, src_tmg->delay.slow_max);
+        else
+            return DelayQuad(0);
+    } // TODO
     BelPinRange getWireBelPins(WireId wire) const override { return BelPinRange(chip_info, get_tile_wire_range(wire)); }
     IdString getWireConstantValue(WireId wire) const override
     {
