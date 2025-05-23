@@ -1199,6 +1199,13 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
                 last_arcs_with_ripup = router.arcs_with_ripup;
                 last_arcs_without_ripup = router.arcs_without_ripup;
                 ctx->yield();
+
+                if (cfg.timeout){
+                    if (curr_time - rstart > std::chrono::seconds(cfg.timeout)) {
+                        log_error("Timeout reached, stopping routing.\n");
+                    }
+                }
+
 #ifndef NDEBUG
                 router.check();
 #endif

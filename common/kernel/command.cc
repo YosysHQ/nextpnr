@@ -538,6 +538,10 @@ void CommandHandler::setupContext(Context *ctx)
     if (vm.count("parallel-refine"))
         ctx->settings[ctx->id("placerHeap/parallelRefine")] = true;
 
+    if (vm.count("router1-timeout")) {
+        ctx->settings[ctx->id("router1/timeout")] = vm["router1-timeout"].as<int>();
+    }
+
     if (vm.count("router2-heatmap"))
         ctx->settings[ctx->id("router2/heatmap")] = vm["router2-heatmap"].as<std::string>();
     if (vm.count("tmg-ripup") || vm.count("router2-tmg-ripup"))
