@@ -36,7 +36,6 @@ struct Router1Cfg
     delay_t netRipupPenalty;
     delay_t reuseBonus;
     delay_t estimatePrecision;
-    int timeout;
 };
 
 extern bool router1(Context *ctx, const Router1Cfg &cfg);

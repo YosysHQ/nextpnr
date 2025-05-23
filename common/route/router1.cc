@@ -1146,7 +1146,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 Router1Cfg::Router1Cfg(Context *ctx)
 {
-    maxIterCnt = ctx->setting<int>("router1/maxIterCnt", 200);
+    maxIterCnt = ctx->setting<int>("router1/maxIterCnt", 0);
     cleanupReroute = ctx->setting<bool>("router1/cleanupReroute", true);
     fullCleanupReroute = ctx->setting<bool>("router1/fullCleanupReroute", true);
     useEstimate = ctx->setting<bool>("router1/useEstimate", true);
@@ -1199,18 +1199,17 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
                 last_arcs_with_ripup = router.arcs_with_ripup;
                 last_arcs_without_ripup = router.arcs_without_ripup;
                 ctx->yield();
-
-                if (cfg.timeout){
-                    if (curr_time - rstart > std::chrono::seconds(cfg.timeout)) {
-                        log_error("Timeout reached, stopping routing.\n");
-                    }
-                }
-
+                
 #ifndef NDEBUG
                 router.check();
 #endif
             }
-
+            if (cfg.maxIterCnt){
+                if (iter_cnt > cfg.maxIterCnt) {
+                    log_error("Max iteration count reached, stopping routing.\n");
+                }
+            }
+            
             if (ctx->debug)
                 log("-- %d --\n", iter_cnt);
 
