@@ -114,6 +114,9 @@ class BelExtraData(BBAStruct):
     def serialise(self, context: str, bba: BBAWriter):
         bba.slice(f"{context}_constraints", len(self.constraints))
 
+def convert_timing(tim):
+    return TimingValue(tim.min, tim.max)
+
 def set_timings(ch):
     #speed_grades = ["best_lpr", "best_eco", "best_spd",
     #                "typ_lpr", "typ_eco", "typ_spd",
@@ -131,38 +134,38 @@ def set_timings(ch):
 
     for speed in speed_grades:
         lut = ch.timing.add_cell_variant(speed, "CPE_HALF_L")
-        lut.add_comb_arc("IN1", "OUT", TimingValue(416, 418)) # IN5 to OUT1
-        lut.add_comb_arc("IN2", "OUT", TimingValue(413, 422)) # IN6 to OUT1
-        lut.add_comb_arc("IN3", "OUT", TimingValue(372, 374)) # IN7 to OUT1
-        lut.add_comb_arc("IN4", "OUT", TimingValue(275, 385)) # IN8 to OUT1
+        lut.add_comb_arc("IN1", "OUT", convert_timing(timing["_ARBLUT_IN5_OUT1"])) # IN5 to OUT1
+        lut.add_comb_arc("IN2", "OUT", convert_timing(timing["_ARBLUT_IN6_OUT1"])) # IN6 to OUT1
+        lut.add_comb_arc("IN3", "OUT", convert_timing(timing["_ARBLUT_IN7_OUT1"])) # IN7 to OUT1
+        lut.add_comb_arc("IN4", "OUT", convert_timing(timing["_ARBLUT_IN8_OUT1"])) # IN8 to OUT1
 
         lut = ch.timing.add_cell_variant(speed, "CPE_HALF_U")
-        lut.add_comb_arc("IN1", "OUT", TimingValue(479, 484)) # to OUT2
-        lut.add_comb_arc("IN2", "OUT", TimingValue(471, 488)) # to OUT2
-        lut.add_comb_arc("IN3", "OUT", TimingValue(446, 449)) # to OUT2
-        lut.add_comb_arc("IN4", "OUT", TimingValue(443, 453)) # to OUT2
+        lut.add_comb_arc("IN1", "OUT", convert_timing(timing["_ARBLUT_IN1_OUT2"])) # to OUT2
+        lut.add_comb_arc("IN2", "OUT", convert_timing(timing["_ARBLUT_IN2_OUT2"])) # to OUT2
+        lut.add_comb_arc("IN3", "OUT", convert_timing(timing["_ARBLUT_IN3_OUT2"])) # to OUT2
+        lut.add_comb_arc("IN4", "OUT", convert_timing(timing["_ARBLUT_IN4_OUT2"])) # to OUT2
 
         lut = ch.timing.add_cell_variant(speed, "CPE_HALF")
-        lut.add_comb_arc("IN1", "OUT", TimingValue(479, 484)) # to OUT2
-        lut.add_comb_arc("IN2", "OUT", TimingValue(471, 488)) # to OUT2
-        lut.add_comb_arc("IN3", "OUT", TimingValue(446, 449)) # to OUT2
-        lut.add_comb_arc("IN4", "OUT", TimingValue(443, 453)) # to OUT2
+        lut.add_comb_arc("IN1", "OUT", convert_timing(timing["_ARBLUT_IN1_OUT2"])) # to OUT2
+        lut.add_comb_arc("IN2", "OUT", convert_timing(timing["_ARBLUT_IN2_OUT2"])) # to OUT2
+        lut.add_comb_arc("IN3", "OUT", convert_timing(timing["_ARBLUT_IN3_OUT2"])) # to OUT2
+        lut.add_comb_arc("IN4", "OUT", convert_timing(timing["_ARBLUT_IN4_OUT2"])) # to OUT2
 
         dff = ch.timing.add_cell_variant(speed, "CPE_DFF")
-        dff.add_setup_hold("CLK", "IN1", ClockEdge.RISING, TimingValue(100 + 479), TimingValue(100 + 484))
-        dff.add_setup_hold("CLK", "IN2", ClockEdge.RISING, TimingValue(100 + 471), TimingValue(100 + 488))
-        dff.add_setup_hold("CLK", "IN3", ClockEdge.RISING, TimingValue(100 + 446), TimingValue(100 + 449))
-        dff.add_setup_hold("CLK", "IN4", ClockEdge.RISING, TimingValue(100 + 443), TimingValue(100 + 453))
-        dff.add_setup_hold("CLK", "EN", ClockEdge.RISING, TimingValue(150), TimingValue(150))
-        dff.add_setup_hold("CLK", "SR", ClockEdge.RISING, TimingValue(150), TimingValue(150))
+        dff.add_setup_hold("CLK", "IN1", ClockEdge.RISING, convert_timing(timing["del_Setup_D_L"] + timing["_ARBLUT_IN1_OUT2"]), convert_timing(timing["del_Hold_D_L"] + timing["_ARBLUT_IN1_OUT2"]))
+        dff.add_setup_hold("CLK", "IN2", ClockEdge.RISING, convert_timing(timing["del_Setup_D_L"] + timing["_ARBLUT_IN2_OUT2"]), convert_timing(timing["del_Hold_D_L"] + timing["_ARBLUT_IN2_OUT2"]))
+        dff.add_setup_hold("CLK", "IN3", ClockEdge.RISING, convert_timing(timing["del_Setup_D_L"] + timing["_ARBLUT_IN3_OUT2"]), convert_timing(timing["del_Hold_D_L"] + timing["_ARBLUT_IN3_OUT2"]))
+        dff.add_setup_hold("CLK", "IN4", ClockEdge.RISING, convert_timing(timing["del_Setup_D_L"] + timing["_ARBLUT_IN4_OUT2"]), convert_timing(timing["del_Hold_D_L"] + timing["_ARBLUT_IN4_OUT2"]))
+        dff.add_setup_hold("CLK", "EN", ClockEdge.RISING, convert_timing(timing["del_Setup_SN_RN"]), convert_timing(timing["del_Hold_SN_RN"]))
+        dff.add_setup_hold("CLK", "SR", ClockEdge.RISING, convert_timing(timing["del_Setup_RN_SN"]), convert_timing(timing["del_Hold_RN_SN"]))
         dff.add_clock_out("CLK", "OUT", ClockEdge.RISING, TimingValue(500))
 
         lut = ch.timing.add_cell_variant(speed, "CPE_RAMIO")
-        lut.add_comb_arc("IN1", "RAM_O", TimingValue(416, 418)) # IN5 to OUT1
-        lut.add_comb_arc("IN2", "RAM_O", TimingValue(413, 422)) # IN6 to OUT1
-        lut.add_comb_arc("IN3", "RAM_O", TimingValue(372, 374)) # IN7 to OUT1
-        lut.add_comb_arc("IN4", "RAM_O", TimingValue(275, 385)) # IN8 to OUT1
-        lut.add_comb_arc("RAM_I", "OUT", TimingValue(416, 418)) # IN5 to OUT1
+        lut.add_comb_arc("IN1", "RAM_O", convert_timing(timing["_ARBLUT_IN1_OUT2"])) # to OUT2
+        lut.add_comb_arc("IN2", "RAM_O", convert_timing(timing["_ARBLUT_IN2_OUT2"])) # to OUT2
+        lut.add_comb_arc("IN3", "RAM_O", convert_timing(timing["_ARBLUT_IN3_OUT2"])) # to OUT2
+        lut.add_comb_arc("IN4", "RAM_O", convert_timing(timing["_ARBLUT_IN4_OUT2"])) # to OUT2
+        lut.add_comb_arc("RAM_I", "OUT", convert_timing(timing["_ARBLUT_RAM_I2_OUT2"])) # RAM_I to OUT2
 
 def main():
     # Range needs to be +1, but we are adding +2 more to coordinates, since 
