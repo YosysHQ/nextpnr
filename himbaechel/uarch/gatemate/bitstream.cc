@@ -154,14 +154,7 @@ struct BitstreamBackend
     {
         ChipConfig cc;
         cc.chip_name = device;
-        cc.configs[0].add_word("GPIO.BANK_E1", int_to_bitvector(1, 1));
-        cc.configs[0].add_word("GPIO.BANK_E2", int_to_bitvector(1, 1));
-        cc.configs[0].add_word("GPIO.BANK_N1", int_to_bitvector(1, 1));
-        cc.configs[0].add_word("GPIO.BANK_N2", int_to_bitvector(1, 1));
-        cc.configs[0].add_word("GPIO.BANK_S1", int_to_bitvector(1, 1));
-        cc.configs[0].add_word("GPIO.BANK_S2", int_to_bitvector(1, 1));
-        cc.configs[0].add_word("GPIO.BANK_W1", int_to_bitvector(1, 1));
-        cc.configs[0].add_word("GPIO.BANK_W2", int_to_bitvector(1, 1));
+        int bank[9] = { 0 };
         for (auto &cell : ctx->cells) {
             CfgLoc loc = get_config_loc(cell.second.get()->bel.tile);
             auto &params = cell.second.get()->params;
@@ -175,6 +168,7 @@ struct BitstreamBackend
             case id_CC_LVDS_OBUF.index:
             case id_CC_LVDS_IOBUF.index:
                 for (auto &p : params) {
+                    bank[ctx->get_bel_package_pin(cell.second.get()->bel)->pad_bank] = 1;
                     cc.tiles[loc].add_word(stringf("GPIO.%s", p.first.c_str(ctx)), p.second.as_bits());
                 }
                 break;
@@ -229,6 +223,16 @@ struct BitstreamBackend
                           cell.second->type.c_str(ctx));
             }
         }
+
+        cc.configs[0].add_word("GPIO.BANK_N1", int_to_bitvector(bank[0], 1));
+        cc.configs[0].add_word("GPIO.BANK_N2", int_to_bitvector(bank[1], 1));
+        cc.configs[0].add_word("GPIO.BANK_E1", int_to_bitvector(bank[2], 1));
+        cc.configs[0].add_word("GPIO.BANK_E2", int_to_bitvector(bank[3], 1));
+        cc.configs[0].add_word("GPIO.BANK_W1", int_to_bitvector(bank[4], 1));
+        cc.configs[0].add_word("GPIO.BANK_W2", int_to_bitvector(bank[5], 1));
+        cc.configs[0].add_word("GPIO.BANK_S1", int_to_bitvector(bank[6], 1));
+        cc.configs[0].add_word("GPIO.BANK_S2", int_to_bitvector(bank[7], 1));
+        cc.configs[0].add_word("GPIO.BANK_CFG", int_to_bitvector(bank[8], 1));
 
         for (auto &net : ctx->nets) {
             NetInfo *ni = net.second.get();
