@@ -154,7 +154,7 @@ struct BitstreamBackend
     {
         ChipConfig cc;
         cc.chip_name = device;
-        int bank[9] = { 0 };
+        int bank[9] = {0};
         for (auto &cell : ctx->cells) {
             CfgLoc loc = get_config_loc(cell.second.get()->bel.tile);
             auto &params = cell.second.get()->params;

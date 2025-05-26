@@ -168,6 +168,13 @@ void GateMatePacker::pack_io()
         if (ci.type == id_CC_LVDS_TOBUF && !ci.getPort(id_T))
             ci.type = id_CC_LVDS_OBUF;
 
+        if (ci.type.in(id_CC_IBUF, id_CC_IOBUF))
+            copy_constraint(ci.getPort(id_I), ci.getPort(id_Y));
+        if (ci.type.in(id_CC_LVDS_IBUF, id_CC_LVDS_IOBUF)) {
+            copy_constraint(ci.getPort(id_I_P), ci.getPort(id_Y));
+            copy_constraint(ci.getPort(id_I_N), ci.getPort(id_Y));
+        }
+
         std::vector<IdString> keys;
         for (auto &p : ci.params) {
 

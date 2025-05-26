@@ -65,6 +65,7 @@ struct GateMatePacker
     CellInfo *create_cell_ptr(IdString type, IdString name);
     void flush_cells();
     void pack_ram_cell(CellInfo &ci, CellInfo *cell, int num, bool is_split);
+    void copy_constraint(NetInfo *in_net, NetInfo *out_net);
 
     pool<IdString> packed_cells;
     std::map<NetInfo *, int> global_signals;
