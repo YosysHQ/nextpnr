@@ -222,6 +222,23 @@ void GateMatePacker::remove_not_used()
     }
 }
 
+void GateMatePacker::copy_constraint(NetInfo *in_net, NetInfo *out_net)
+{
+    if (!in_net || !out_net)
+        return;
+    if (ctx->debug)
+        log_info("copy clock period constraint on net '%s' from net '%s'\n", out_net->name.c_str(ctx),
+                 in_net->name.c_str(ctx));
+    if (out_net->clkconstr.get() != nullptr)
+        log_warning("found multiple clock constraints on net '%s'\n", out_net->name.c_str(ctx));
+    if (in_net->clkconstr) {
+        out_net->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
+        out_net->clkconstr->low = in_net->clkconstr->low;
+        out_net->clkconstr->high = in_net->clkconstr->high;
+        out_net->clkconstr->period = in_net->clkconstr->period;
+    }
+}
+
 void GateMateImpl::pack()
 {
     const ArchArgs &args = ctx->args;

@@ -131,14 +131,7 @@ void GateMatePacker::pack_bufg()
             if (is_cpe_source) {
                 ci.cluster = ci.name;
             }
-
-            if (in_net->clkconstr) {
-                NetInfo *o_net = ci.getPort(id_O);
-                o_net->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
-                o_net->clkconstr->low = in_net->clkconstr->low;
-                o_net->clkconstr->high = in_net->clkconstr->high;
-                o_net->clkconstr->period = in_net->clkconstr->period;
-            }
+            copy_constraint(in_net, ci.getPort(id_O));
         }
         ci.type = id_BUFG;
     }

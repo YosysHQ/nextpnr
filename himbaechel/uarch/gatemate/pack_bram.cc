@@ -66,7 +66,6 @@ uint8_t GateMatePacker::ram_clk_signal(CellInfo *cell, IdString port)
             val = 0b00010011;
             break;
         }
-        cell->disconnectPort(port);
         return val;
     }
 }
