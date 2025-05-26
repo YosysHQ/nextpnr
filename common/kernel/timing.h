@@ -45,6 +45,16 @@ struct CellPortKey
     }
 };
 
+struct ClockSkewPaths
+{
+    // Which clock this set is for.
+    IdString clk;
+
+    // Startpoints and endpoints, the pair contains the clock port and the clock delay
+    std::vector<std::pair<CellPortKey, delay_t>> startpoint_clk_ports;
+    std::vector<std::pair<CellPortKey, delay_t>> endpoint_clk_ports;
+};
+
 struct ClockDomainKey
 {
     IdString clock;
@@ -93,6 +103,12 @@ struct TimingAnalyser
             slack = std::min(slack, domain_pairs.at(dp.first).worst_setup_slack);
         return slack;
     }
+
+    // Gives a list a set of startpoints and endpoints that have a timing dependency
+    // via the clock path. Concretely that means that changing the clock delay to
+    // a start- or endpoint willl impact the skew of all the clocks in the other
+    // start- and endpoints.
+    std::vector<ClockSkewPaths> get_clock_skew_paths();
 
     dict<std::pair<IdString, IdString>, delay_t> get_clock_delays() const { return clock_delays; }
 
