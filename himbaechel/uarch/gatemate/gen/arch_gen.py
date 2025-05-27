@@ -140,6 +140,8 @@ def set_timings(ch):
     dff.add_setup_hold("CLK", "IN4", ClockEdge.RISING, TimingValue(60), TimingValue(50))
     dff.add_clock_out("CLK", "OUT", ClockEdge.RISING, TimingValue(60))
 
+EXPECTED_VERSION = 1.1
+
 def main():
     # Range needs to be +1, but we are adding +2 more to coordinates, since 
     # they are starting from -2 instead of zero required for nextpnr
@@ -148,6 +150,27 @@ def main():
     # Init constant ids
     ch.strs.read_constids(path.join(path.dirname(__file__), "..", "constids.inc"))
     ch.read_gfxids(path.join(path.dirname(__file__), "..", "gfxids.inc"))
+    try:
+        if chip.get_version()!=EXPECTED_VERSION:
+            print("==============================================================================")
+            print(f"ERROR: Expected v{EXPECTED_VERSION} and current v{chip.get_version()} chip database mismatch")
+            print("       Please update prjpeppercorn and/or nextpnr")
+            print("==============================================================================")
+            os._exit(-1)
+    except AttributeError:
+        print("==============================================================================")
+        print("ERROR: Unable to determine prjpepercorn version")
+        print("       Please update prjpeppercorn and/or nextpnr")
+        print("==============================================================================")
+        os._exit(-1)
+
+
+    if not chip.check_dly_available():
+        print("==============================================================================")
+        print("ERROR: Delay files not, found")
+        print("       Run delay.sh in prjpeppercorn to download needed files")
+        print("==============================================================================")
+        os._exit(-1)
 
     for type_name in sorted(die.get_tile_type_list()):
         tt = ch.create_tile_type(type_name)
