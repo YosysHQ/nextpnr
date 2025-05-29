@@ -55,19 +55,31 @@ uint8_t GateMatePacker::ram_clk_signal(CellInfo *cell, IdString port)
         switch (index) {
         case 0:
             val = 0b00100011;
-            cell->renamePort(port, id_CLOCK1);
+            if (!cell->getPort(id_CLOCK1))
+                cell->renamePort(port, id_CLOCK1);
+            else
+                cell->disconnectPort(port);
             break;
         case 1:
             val = 0b00110011;
-            cell->renamePort(port, id_CLOCK2);
+            if (!cell->getPort(id_CLOCK2))
+                cell->renamePort(port, id_CLOCK2);
+            else
+                cell->disconnectPort(port);
             break;
         case 2:
             val = 0b00000011;
-            cell->renamePort(port, id_CLOCK3);
+            if (!cell->getPort(id_CLOCK3))
+                cell->renamePort(port, id_CLOCK3);
+            else
+                cell->disconnectPort(port);
             break;
         case 3:
             val = 0b00010011;
-            cell->renamePort(port, id_CLOCK4);
+            if (!cell->getPort(id_CLOCK4))
+                cell->renamePort(port, id_CLOCK4);
+            else
+                cell->disconnectPort(port);
             break;
         }
         return val;
