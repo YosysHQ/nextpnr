@@ -463,7 +463,6 @@ void GateMatePacker::pack_io_sel()
                     ci.params[id_USE_DDR] = Property(Property::State::S1);
                     packed_cells.emplace(oddr->name);
                     ci.disconnectPort(id_A);
-                    // TODO: check mapping
                     oddr->movePortTo(id_D0, &ci, id_OUT2);
                     oddr->movePortTo(id_D1, &ci, id_OUT1);
                     const auto &pad = ctx->get_package_pin(ctx->id(loc));
@@ -482,7 +481,7 @@ void GateMatePacker::pack_io_sel()
                     }
                     use_custom_clock = set_out_clk(oddr, &ci);
                     bool invert = bool_or_default(oddr->params, id_CLK_INV, 0);
-                    if (invert) {
+                    if (!invert) {
                         ci.params[id_INV_OUT1_CLOCK] = Property(Property::State::S1);
                     } else {
                         ci.params[id_INV_OUT2_CLOCK] = Property(Property::State::S1);
