@@ -85,19 +85,17 @@ void GateMateImpl::route_clock()
                 auto clk_sink_wire = ctx->getNetinfoSinkWire(net, usr, 0);
                 reserve(clk_sink_wire, net);
 
-                auto en_port = usr.cell->ports.find(id_EN);
-                if (en_port != usr.cell->ports.end() && en_port->second.net != nullptr) {
-                    auto en_sink_wire = ctx->getNetinfoSinkWire(
-                            en_port->second.net, en_port->second.net->users.at(en_port->second.user_idx), 0);
-                    reserve(en_sink_wire, en_port->second.net);
-                }
+                auto reserve_port_if_needed = [&](IdString port_name) {
+                    auto port = usr.cell->ports.find(port_name);
+                    if (port != usr.cell->ports.end() && port->second.net != nullptr) {
+                        auto sink_wire = ctx->getNetinfoSinkWire(port->second.net,
+                                                                 port->second.net->users.at(port->second.user_idx), 0);
+                        reserve(sink_wire, port->second.net);
+                    }
+                };
 
-                auto sr_port = usr.cell->ports.find(id_SR);
-                if (sr_port != usr.cell->ports.end() && sr_port->second.net != nullptr) {
-                    auto sr_sink_wire = ctx->getNetinfoSinkWire(
-                            sr_port->second.net, sr_port->second.net->users.at(sr_port->second.user_idx), 0);
-                    reserve(sr_sink_wire, sr_port->second.net);
-                }
+                reserve_port_if_needed(id_EN);
+                reserve_port_if_needed(id_SR);
             }
         }
 
