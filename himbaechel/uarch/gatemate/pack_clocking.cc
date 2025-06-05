@@ -118,21 +118,26 @@ void GateMatePacker::pack_bufg()
             continue;
 
         NetInfo *in_net = ci.getPort(id_I);
+        bool is_cpe_source = true;
         if (in_net) {
-            bool is_cpe_source = true;
-            if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_GPIO) {
-                auto pad_info = uarch->bel_to_pad[in_net->driver.cell->bel];
-                if (pad_info->flags)
+            if (in_net->driver.cell) {
+                if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_GPIO) {
+                    auto pad_info = uarch->bel_to_pad[in_net->driver.cell->bel];
+                    if (pad_info->flags)
+                        is_cpe_source = false;
+                }
+                if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_PLL) {
                     is_cpe_source = false;
-            }
-            if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_PLL) {
+                }
+            } else {
+                // SER_CLK
                 is_cpe_source = false;
             }
-            if (is_cpe_source) {
-                ci.cluster = ci.name;
-            }
-            copy_constraint(in_net, ci.getPort(id_O));
         }
+        if (is_cpe_source) {
+            ci.cluster = ci.name;
+        }
+        copy_constraint(in_net, ci.getPort(id_O));
         ci.type = id_BUFG;
     }
 
@@ -141,7 +146,7 @@ void GateMatePacker::pack_bufg()
         if (!ci.type.in(id_BUFG))
             continue;
         NetInfo *in_net = ci.getPort(id_I);
-        if (in_net && ctx->getBelBucketForCellType(in_net->driver.cell->type) != id_PLL) {
+        if (in_net && in_net->driver.cell && ctx->getBelBucketForCellType(in_net->driver.cell->type) != id_PLL) {
             for (int i = 0; i < 4; i++) {
                 if (bufg[i] == nullptr) {
                     bufg[i] = &ci;

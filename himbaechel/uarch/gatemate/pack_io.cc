@@ -152,6 +152,22 @@ void GateMatePacker::pack_io()
             loc = new_loc;
         }
 
+        if (loc == "SER_CLK") {
+            if (ci.type.in(id_CC_IBUF)) {
+                log_info("    Constraining '%s' to pad '%s'\n", ci.name.c_str(ctx), loc.c_str());
+                NetInfo *ser_clk = ci.getPort(id_I);
+                for (auto s : ci.getPort(id_Y)->users) {
+                    s.cell->disconnectPort(s.port);
+                    s.cell->connectPort(s.port, ser_clk);
+                }
+                ci.disconnectPort(id_I);
+                packed_cells.emplace(ci.name);
+                printf("removing\n");
+                continue;
+            } else {
+                log_error("SER_CLK pin can only be used on input port.\n");
+            }
+        }
         if (loc == "UNPLACED") {
             const ArchArgs &args = ctx->args;
             if (args.options.count("allow-unconstrained"))
@@ -272,15 +288,24 @@ void GateMatePacker::pack_io()
         }
 
         // Disconnect PADs
-        ci.disconnectPort(id_IO);
-        ci.disconnectPort(id_I);
-        ci.disconnectPort(id_O);
-        ci.disconnectPort(id_IO_P);
-        ci.disconnectPort(id_IO_N);
-        ci.disconnectPort(id_I_P);
-        ci.disconnectPort(id_I_N);
-        ci.disconnectPort(id_O_P);
-        ci.disconnectPort(id_O_N);
+        //ci.disconnectPort(id_IO);
+        //ci.disconnectPort(id_I);
+        //ci.disconnectPort(id_O);
+        //ci.disconnectPort(id_IO_P);
+        //ci.disconnectPort(id_IO_N);
+        //ci.disconnectPort(id_I_P);
+        //ci.disconnectPort(id_I_N);
+        //ci.disconnectPort(id_O_P);
+        //ci.disconnectPort(id_O_N);
+        if (ci.getPort(id_I)) {
+            printf("id_I\n");
+            printf("net %s\n",ci.getPort(id_I)->name.c_str(ctx));
+            if (ci.getPort(id_I)->driver.cell)  {
+                printf("have driver\n");
+                printf("%s %s\n",ci.getPort(id_I)->driver.cell->name.c_str(ctx),ci.getPort(id_O_N)->driver.cell->type.c_str(ctx));
+            } else 
+                printf("no driver");
+        }
 
         if (loc.empty() || loc == "UNPLACED") {
             if (uarch->available_pads.empty())
@@ -302,6 +327,7 @@ void GateMatePacker::pack_io()
         }
         ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_FIXED);
     }
+    flush_cells();
 }
 
 void GateMatePacker::pack_io_sel()
