@@ -78,6 +78,17 @@ void GateMatePacker::sort_bufg()
     flush_cells();
 }
 
+static int glb_mux_mapping[] =  {
+    // CLK0_0 CLK90_0 CLK180_0 CLK270_0 CLK0_1 CLK0_2 CLK0_3
+    4, 5, 6, 7, 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, // GLBOUT 0
+    // CLK90_0 CLK0_1 CLK90_1 CLK180_1 CLK270_1 CLK90_2 CLK90_3 
+    0, 1, 0, 0, 4, 5, 6, 7, 0, 2, 0, 0, 0, 3, 0, 0, // GLBOUT 1
+    // CLK180_0 CLK180_1 CLK0_2 CLK90_2 CLK180_2 CLK270_2 CLK180_3
+    0, 0, 1, 0, 0, 0, 2, 0, 4, 5, 6, 7, 0, 0, 3, 0, // GLBOUT 2
+    // CLK270_0 CLK270_1 CLK270_2 CLK0_3 CLK90_3 CLK180_3 CLK270_3
+    0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 3, 4, 5, 6, 7, // GLBOUT 3
+};
+
 void GateMatePacker::pack_bufg()
 {
     log_info("Packing BUFGs..\n");
@@ -87,7 +98,7 @@ void GateMatePacker::pack_bufg()
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_PLL))
             continue;
-        pll[ci.constr_z - 4] = &ci;
+        pll[ci.constr_z - 2] = &ci;
     }
 
     auto update_bufg_port = [&](CellInfo *cell, int port_num, int pll_num) {
@@ -118,55 +129,86 @@ void GateMatePacker::pack_bufg()
             continue;
 
         NetInfo *in_net = ci.getPort(id_I);
-        bool is_cpe_source = true;
         if (in_net) {
             if (in_net->driver.cell) {
                 if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_GPIO) {
                     auto pad_info = uarch->bel_to_pad[in_net->driver.cell->bel];
-                    if (pad_info->flags)
-                        is_cpe_source = false;
-                }
-                if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_PLL) {
-                    is_cpe_source = false;
+                    if (pad_info->flags) {
+                        if (!clkin[0]->getPort(ctx->idf("CLK%d", pad_info->flags-1)))
+                            clkin[0]->connectPort(ctx->idf("CLK%d", pad_info->flags-1),in_net->driver.cell->getPort(id_I));
+                    }
                 }
             } else {
                 // SER_CLK
-                is_cpe_source = false;
+                clkin[0]->connectPort(id_SER_CLK, in_net);
             }
-        }
-        if (is_cpe_source) {
-            ci.cluster = ci.name;
-        }
-        copy_constraint(in_net, ci.getPort(id_O));
-        ci.type = id_BUFG;
-    }
 
-    for (auto &cell : ctx->cells) {
-        CellInfo &ci = *cell.second;
-        if (!ci.type.in(id_BUFG))
-            continue;
-        NetInfo *in_net = ci.getPort(id_I);
-        if (in_net && in_net->driver.cell && ctx->getBelBucketForCellType(in_net->driver.cell->type) != id_PLL) {
-            for (int i = 0; i < 4; i++) {
-                if (bufg[i] == nullptr) {
-                    bufg[i] = &ci;
-                    break;
+            copy_constraint(in_net, ci.getPort(id_O));
+            if ((in_net->driver.cell && ctx->getBelBucketForCellType(in_net->driver.cell->type) != id_PLL) || !in_net->driver.cell) {
+                for (int i = 0; i < 4; i++) {
+                    if (bufg[i] == nullptr) {
+                        bufg[i] = &ci;
+                        break;
+                    }
                 }
             }
         }
     }
 
+    Loc fixed_loc(33 + 2, 131 + 2, 1); // GLOBOUT
     for (int i = 0; i < 4; i++) {
         if (bufg[i]) {
             CellInfo &ci = *bufg[i];
             global_signals.emplace(ci.getPort(id_O), i);
-            Loc fixed_loc(33 + 2, 131 + 2, i); // BUFG
-            BelId bufg_bel = ctx->getBelByLocation(fixed_loc);
-            ctx->bindBel(bufg_bel, &ci, PlaceStrength::STRENGTH_FIXED);
-            if (ci.cluster != ClusterId())
-                move_ram_o_fixed(&ci, id_I, fixed_loc);
+            int glb_mux = 0;
+            NetInfo *in_net = ci.getPort(id_I);
+            if (in_net->driver.cell) {
+                if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_GPIO) {
+                    auto pad_info = uarch->bel_to_pad[in_net->driver.cell->bel];
+                    if (pad_info->flags) {
+                        clkin[0]->params[ctx->idf("REF%d",i)] = Property(pad_info->flags-1, 3);
+                        clkin[0]->params[ctx->idf("REF%d_INV",i)] = Property(Property::State::S0);
+                        NetInfo *conn = ctx->createNet(ci.name);
+                        clkin[0]->connectPort(ctx->idf("CLK_REF%d",i),conn);
+                        glbout[0]->connectPort(ctx->idf("CLK_REF_OUT%d",i),conn);
+                    } else {
+                        ci.movePortTo(id_I, glbout[0], ctx->idf("USR_GLB%d", i));
+                        move_ram_o_fixed(glbout[0], ctx->idf("USR_GLB%d", i), fixed_loc);
+                        glbout[0]->params[ctx->idf("USR_GLB%d", i)] = Property(Property::State::S1);
+                    }
+                }
+                if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_PLL) {
+                    CellInfo *pll = in_net->driver.cell;
+                    int pll_index = ctx->getBelLocation(pll->bel).z - 2;
+                    int pll_out = 0;
+                    if (pll->getPort(id_CLK0) == in_net) pll_out = 0;
+                    else if (pll->getPort(id_CLK90) == in_net) pll_out = 1;
+                    else if (pll->getPort(id_CLK180) == in_net) pll_out = 2;
+                    else if (pll->getPort(id_CLK270) == in_net) pll_out = 3;
+                    else log_error("Uknown connecton on BUFG to PLL.\n");
+                    glb_mux = glb_mux_mapping[i*16 + pll_index*4 + pll_out];
+                    ci.movePortTo(id_I, glbout[0], ctx->idf("%s_%d",in_net->driver.port.c_str(ctx), pll_index));
+                    //if (pll->getPort(id_CLK_FEEDBACK)){
+                    //    pll->movePortTo()
+                    //}
+                    // glb_mux  1-7
+                    //create_mux(f"PLL{i}.CLK_REF_OUT", f"GLBOUT.CLK_REF_OUT{i}", 1, 0, False, delay="del_dummy")
+                    //create_mux(f"GLBOUT.CLK_FB{i}",   f"PLL{i}.CLK_FEEDBACK",   1, 0, False, delay="del_dummy")
+                }
+            } else {
+                // SER_CLK
+                clkin[0]->params[ctx->idf("REF%d",i)] = Property(0b101, 3);
+                clkin[0]->params[ctx->idf("REF%d_INV",i)] = Property(Property::State::S0);
+            }
+
+
+            ci.movePortTo(id_O, glbout[0], ctx->idf("GLB%d",i));
+            glbout[0]->params[ctx->idf("GLB%d_EN",i)] = Property(Property::State::S1);
+            glbout[0]->params[ctx->idf("GLB%d",i)] = Property(glb_mux, 3);
+            packed_cells.emplace(ci.name);
         }
     }
+    flush_cells();
 }
 
 void GateMatePacker::pll_out(CellInfo *cell, IdString origPort, Loc fixed)
@@ -208,6 +250,16 @@ void GateMatePacker::insert_bufg(CellInfo *cell, IdString port)
 
 void GateMatePacker::insert_pll_bufg()
 {
+    for(int i=0;i<1;i++) {
+        Loc fixed_loc(33 + 2, 131 + 2, 0);
+        clkin.push_back(create_cell_ptr(id_CLKIN, ctx->idf("CLKIN%d",i)));
+        BelId clkin_bel = ctx->getBelByLocation(fixed_loc);
+        ctx->bindBel(clkin_bel, clkin.back(), PlaceStrength::STRENGTH_FIXED);
+        glbout.push_back(create_cell_ptr(id_GLBOUT, ctx->idf("GLBOUT%d",i)));
+        fixed_loc.z = 1;
+        BelId glbout_bel = ctx->getBelByLocation(fixed_loc);
+        ctx->bindBel(glbout_bel, glbout.back(), PlaceStrength::STRENGTH_FIXED);
+    }
     std::vector<CellInfo *> cells;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
@@ -239,9 +291,9 @@ void GateMatePacker::pack_pll()
 
         ci.cluster = ci.name;
         ci.constr_abs_z = true;
-        ci.constr_z = 4 + pll_index; // Position to a proper Z location
+        ci.constr_z = 2 + pll_index; // Position to a proper Z location
 
-        Loc fixed_loc(33 + 2, 131 + 2, 4 + pll_index); // PLL
+        Loc fixed_loc(33 + 2, 131 + 2, 2 + pll_index); // PLL
         BelId pll_bel = ctx->getBelByLocation(fixed_loc);
         ctx->bindBel(pll_bel, &ci, PlaceStrength::STRENGTH_FIXED);
 
@@ -266,10 +318,16 @@ void GateMatePacker::pack_pll()
             if (ctx->getBelBucketForCellType(clk->driver.cell->type) != id_GPIO)
                 log_error("CLK_REF must be driven with GPIO pin.\n");
             auto pad_info = uarch->bel_to_pad[clk->driver.cell->bel];
-            if (!(pad_info->flags & 1))
+            if (pad_info->flags==0)
                 log_error("CLK_REF must be driven with CLK dedicated pin.\n");
             if (clk->clkconstr)
                 period = clk->clkconstr->period.minDelay();
+            
+            ci.movePortTo(id_CLK_REF, clkin[0], ctx->idf("CLK%d", pad_info->flags-1));
+
+            NetInfo *conn = ctx->createNet(ctx->idf("%s_CLK_REF", ci.name.c_str(ctx)));
+            clkin[0]->connectPort(ctx->idf("CLK_REF%d", pll_index), conn);
+            ci.connectPort(id_CLK_REF, conn);
         }
 
         clk = ci.getPort(id_USR_CLK_REF);

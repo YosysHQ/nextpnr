@@ -47,6 +47,24 @@ CellInfo *GateMatePacker::create_cell_ptr(IdString type, IdString name)
         if (type == id_CPE_HALF_L) {
             add_port(id_COUTY1, PORT_OUT);
         }
+    } else if (type.in(id_CLKIN)) {
+        for(int i=0;i<4;i++) {
+            add_port(ctx->idf("CLK%d",i), PORT_IN);
+            add_port(ctx->idf("CLK_REF%d",i), PORT_OUT);
+        }
+        add_port(id_SER_CLK, PORT_IN);
+    } else if (type.in(id_GLBOUT)) {
+        for(int i=0;i<4;i++) {
+            add_port(ctx->idf("CLK0_%d",i), PORT_IN);
+            add_port(ctx->idf("CLK90_%d",i), PORT_IN);
+            add_port(ctx->idf("CLK180_%d",i), PORT_IN);
+            add_port(ctx->idf("CLK270_%d",i), PORT_IN);
+            add_port(ctx->idf("CLK_REF_OUT%d",i), PORT_IN);
+            add_port(ctx->idf("USR_GLB%d",i), PORT_IN);
+            add_port(ctx->idf("USR_FB%d",i), PORT_IN);
+            add_port(ctx->idf("CLK_FB%d",i), PORT_OUT);
+            add_port(ctx->idf("GLB%d",i), PORT_OUT);
+        }
     } else if (type.in(id_CC_BUFG)) {
         add_port(id_I, PORT_IN);
         add_port(id_O, PORT_OUT);

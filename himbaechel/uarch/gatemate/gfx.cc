@@ -62,13 +62,13 @@ void GateMateImpl::drawBel(std::vector<GraphicElement> &g, GraphicElement::style
         el.y2 = el.y1 + 0.60;
         g.push_back(el);
         break;
-    case id_BUFG.index:
-        el.x1 = loc.x + 0.15 + loc.z * 0.20;
-        el.x2 = el.x1 + 0.15;
-        el.y1 = loc.y + 0.10;
-        el.y2 = el.y1 + 0.30;
-        g.push_back(el);
-        break;
+    //case id_BUFG.index:
+    //    el.x1 = loc.x + 0.15 + loc.z * 0.20;
+    //    el.x2 = el.x1 + 0.15;
+    //    el.y1 = loc.y + 0.10;
+    //    el.y2 = el.y1 + 0.30;
+    //    g.push_back(el);
+    //    break;
     case id_PLL.index:
         el.x1 = loc.x + 0.15 + (loc.z - 4) * 0.20;
         el.x2 = el.x1 + 0.15;

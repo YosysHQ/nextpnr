@@ -162,7 +162,6 @@ void GateMatePacker::pack_io()
                 }
                 ci.disconnectPort(id_I);
                 packed_cells.emplace(ci.name);
-                printf("removing\n");
                 continue;
             } else {
                 log_error("SER_CLK pin can only be used on input port.\n");
@@ -297,15 +296,6 @@ void GateMatePacker::pack_io()
         //ci.disconnectPort(id_I_N);
         //ci.disconnectPort(id_O_P);
         //ci.disconnectPort(id_O_N);
-        if (ci.getPort(id_I)) {
-            printf("id_I\n");
-            printf("net %s\n",ci.getPort(id_I)->name.c_str(ctx));
-            if (ci.getPort(id_I)->driver.cell)  {
-                printf("have driver\n");
-                printf("%s %s\n",ci.getPort(id_I)->driver.cell->name.c_str(ctx),ci.getPort(id_O_N)->driver.cell->type.c_str(ctx));
-            } else 
-                printf("no driver");
-        }
 
         if (loc.empty() || loc == "UNPLACED") {
             if (uarch->available_pads.empty())

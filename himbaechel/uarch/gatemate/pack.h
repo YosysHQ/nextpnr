@@ -69,6 +69,8 @@ struct GateMatePacker
 
     pool<IdString> packed_cells;
     std::map<NetInfo *, int> global_signals;
+    std::vector<CellInfo *> clkin;
+    std::vector<CellInfo *> glbout;
 
     Context *ctx;
     GateMateImpl *uarch;

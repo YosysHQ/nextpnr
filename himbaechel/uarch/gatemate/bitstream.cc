@@ -179,14 +179,20 @@ struct BitstreamBackend
                     cc.tiles[loc].add_word(stringf("CPE%d.%s", id, p.first.c_str(ctx)), p.second.as_bits());
                 }
             } break;
-            case id_BUFG.index: {
-                Loc l = ctx->getBelLocation(cell.second->bel);
-                cc.configs[0].add_word(stringf("GLBOUT.GLB%d_EN", l.z), int_to_bitvector(1, 1));
+            case id_CLKIN.index: {
+                for (auto &p : params) {
+                    cc.configs[0].add_word(stringf("CLKIN.%s", p.first.c_str(ctx)), p.second.as_bits());
+                }
+            } break;
+            case id_GLBOUT.index: {
+                for (auto &p : params) {
+                    cc.configs[0].add_word(stringf("GLBOUT.%s", p.first.c_str(ctx)), p.second.as_bits());
+                }
             } break;
             case id_PLL.index: {
                 Loc l = ctx->getBelLocation(cell.second->bel);
                 for (auto &p : params) {
-                    cc.configs[0].add_word(stringf("PLL%d.%s", l.z - 4, p.first.c_str(ctx)), p.second.as_bits());
+                    cc.configs[0].add_word(stringf("PLL%d.%s", l.z - 2, p.first.c_str(ctx)), p.second.as_bits());
                 }
             } break;
             case id_RAM.index: {
