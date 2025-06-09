@@ -94,12 +94,6 @@ void GateMatePacker::pack_bufg()
     log_info("Packing BUFGs..\n");
     CellInfo *bufg[4] = {nullptr};
     CellInfo *pll[4] = {nullptr};
-    for (auto &cell : ctx->cells) {
-        CellInfo &ci = *cell.second;
-        if (!ci.type.in(id_PLL))
-            continue;
-        pll[ci.constr_z - 2] = &ci;
-    }
 
     auto update_bufg_port = [&](CellInfo *cell, int port_num, int pll_num) {
         CellInfo *b = net_only_drives(ctx, cell->getPort(ctx->idf("CLK%d", 90 * port_num)), is_bufg, id_I, false);
@@ -116,11 +110,14 @@ void GateMatePacker::pack_bufg()
         }
     };
 
-    for (int i = 0; i < 4; i++) {
-        if (pll[i]) {
-            for (int j = 0; j < 4; j++)
-                update_bufg_port(pll[i], j, i);
-        }
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_PLL))
+            continue;
+        int index = ci.constr_z - 2;
+        pll[index] = &ci;
+        for (int j = 0; j < 4; j++)
+            update_bufg_port(pll[index], j, index);
     }
 
     for (auto &cell : ctx->cells) {
@@ -134,9 +131,9 @@ void GateMatePacker::pack_bufg()
                 if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_GPIO) {
                     auto pad_info = uarch->bel_to_pad[in_net->driver.cell->bel];
                     if (pad_info->flags) {
-                        if (!clkin[0]->getPort(ctx->idf("CLK%d", pad_info->flags - 1)))
-                            clkin[0]->connectPort(ctx->idf("CLK%d", pad_info->flags - 1),
-                                                  in_net->driver.cell->getPort(id_I));
+                        int index = pad_info->flags - 1;
+                        if (!clkin[0]->getPort(ctx->idf("CLK%d", index)))
+                            clkin[0]->connectPort(ctx->idf("CLK%d", index), in_net->driver.cell->getPort(id_I));
                     }
                 }
             } else {
@@ -145,6 +142,7 @@ void GateMatePacker::pack_bufg()
             }
 
             copy_constraint(in_net, ci.getPort(id_O));
+
             if ((in_net->driver.cell && ctx->getBelBucketForCellType(in_net->driver.cell->type) != id_PLL) ||
                 !in_net->driver.cell) {
                 for (int i = 0; i < 4; i++) {
@@ -158,6 +156,7 @@ void GateMatePacker::pack_bufg()
     }
 
     Loc fixed_loc(33 + 2, 131 + 2, 1); // GLOBOUT
+
     for (int i = 0; i < 4; i++) {
         if (bufg[i]) {
             CellInfo &ci = *bufg[i];
@@ -208,6 +207,7 @@ void GateMatePacker::pack_bufg()
             packed_cells.emplace(ci.name);
         }
     }
+
     for (int i = 0; i < 4; i++) {
         if (pll[i]) {
             NetInfo *feedback_net = pll[i]->getPort(id_CLK_FEEDBACK);
@@ -228,6 +228,7 @@ void GateMatePacker::pack_bufg()
             }
         }
     }
+
     flush_cells();
 }
 
