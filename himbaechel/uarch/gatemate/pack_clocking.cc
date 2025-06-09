@@ -188,12 +188,6 @@ void GateMatePacker::pack_bufg()
                     else log_error("Uknown connecton on BUFG to PLL.\n");
                     glb_mux = glb_mux_mapping[i*16 + pll_index*4 + pll_out];
                     ci.movePortTo(id_I, glbout[0], ctx->idf("%s_%d",in_net->driver.port.c_str(ctx), pll_index));
-                    //if (pll->getPort(id_CLK_FEEDBACK)){
-                    //    pll->movePortTo()
-                    //}
-                    // glb_mux  1-7
-                    //create_mux(f"PLL{i}.CLK_REF_OUT", f"GLBOUT.CLK_REF_OUT{i}", 1, 0, False, delay="del_dummy")
-                    //create_mux(f"GLBOUT.CLK_FB{i}",   f"PLL{i}.CLK_FEEDBACK",   1, 0, False, delay="del_dummy")
                 }
             } else {
                 // SER_CLK
@@ -206,6 +200,25 @@ void GateMatePacker::pack_bufg()
             glbout[0]->params[ctx->idf("GLB%d_EN",i)] = Property(Property::State::S1);
             glbout[0]->params[ctx->idf("GLB%d",i)] = Property(glb_mux, 3);
             packed_cells.emplace(ci.name);
+        }
+    }
+    for (int i = 0; i < 4; i++) {
+        if (pll[i]) {
+            NetInfo *feedback_net = pll[i]->getPort(id_CLK_FEEDBACK);
+            if (feedback_net) {                    
+                if (!global_signals.count(feedback_net)) {
+                    pll[i]->movePortTo(id_CLK_FEEDBACK, glbout[0], ctx->idf("USR_FB%d",i));
+                    move_ram_o_fixed(glbout[0], ctx->idf("USR_FB%d",i), fixed_loc);
+                    glbout[0]->params[ctx->idf("USR_FB%d",i)] = Property(Property::State::S1);
+                } else {
+                    int index = global_signals[feedback_net];
+                    glbout[0]->params[ctx->idf("FB%d",i)] = Property(index,2);
+                    pll[i]->disconnectPort(id_CLK_FEEDBACK);
+                }
+                NetInfo *conn = ctx->createNet(ctx->idf("%s_%s",glbout[0]->name.c_str(ctx),feedback_net->name.c_str(ctx)));
+                pll[i]->connectPort(id_CLK_FEEDBACK,conn);
+                glbout[0]->connectPort(ctx->idf("CLK_FB%d",i),conn);
+            }
         }
     }
     flush_cells();
@@ -337,10 +350,6 @@ void GateMatePacker::pack_pll()
             if (clk->clkconstr)
                 period = clk->clkconstr->period.minDelay();
         }
-
-        NetInfo *fbk = ci.getPort(id_CLK_FEEDBACK);
-        if (fbk && !fbk->driver.cell->type.in(id_CC_BUFG))
-            move_ram_o_fixed(&ci, id_CLK_FEEDBACK, fixed_loc);
 
         if (ci.getPort(id_CLK_REF_OUT))
             log_error("Output CLK_REF_OUT cannot be used if PLL is used.\n");
