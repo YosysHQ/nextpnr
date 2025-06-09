@@ -42,6 +42,7 @@ struct GateMatePacker
     void pack_serdes();
 
     void remove_constants();
+    void remove_clocking();
     void remove_not_used();
 
   private:

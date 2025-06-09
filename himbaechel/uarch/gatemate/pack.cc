@@ -261,6 +261,7 @@ void GateMateImpl::pack()
     packer.pack_addf();
     packer.pack_cpe();
     packer.remove_constants();
+    packer.remove_clocking();
 }
 
 NEXTPNR_NAMESPACE_END

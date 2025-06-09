@@ -296,6 +296,30 @@ void GateMatePacker::insert_pll_bufg()
     }
 }
 
+void GateMatePacker::remove_clocking()
+{
+    auto remove_unused_cells = [&](std::vector<CellInfo *> cells, const char *type) {
+        for (auto cell : cells) {
+            bool used = false;
+            for (auto port : cell->ports) {
+                if (cell->getPort(port.first)) {
+                    used = true;
+                    break;
+                }
+            }
+            if (!used) {
+                BelId bel = cell->bel;
+                if (bel != BelId())
+                    ctx->unbindBel(bel);
+                packed_cells.emplace(cell->name);
+            }
+        }
+    };
+    remove_unused_cells(clkin, "CLKIN");
+    remove_unused_cells(glbout, "GLBOUT");
+    flush_cells();
+}
+
 void GateMatePacker::pack_pll()
 {
     int pll_index = 0;
