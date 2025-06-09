@@ -112,11 +112,19 @@ void GateMateImpl::route_clock()
         ctx->bindWire(ctx->getNetinfoSourceWire(clk_net), clk_net, STRENGTH_LOCKED);
 
         auto clk_plane = 0;
-        switch(clk_net->driver.port.index) {
-            case id_GLB0.index : clk_plane = 9; break;
-            case id_GLB1.index : clk_plane = 10; break;
-            case id_GLB2.index : clk_plane = 11; break;
-            case id_GLB3.index : clk_plane = 12; break;
+        switch (clk_net->driver.port.index) {
+        case id_GLB0.index:
+            clk_plane = 9;
+            break;
+        case id_GLB1.index:
+            clk_plane = 10;
+            break;
+        case id_GLB2.index:
+            clk_plane = 11;
+            break;
+        case id_GLB3.index:
+            clk_plane = 12;
+            break;
         }
 
         for (auto &usr : clk_net->users) {
