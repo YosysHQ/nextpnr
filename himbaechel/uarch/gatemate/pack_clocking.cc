@@ -191,7 +191,7 @@ void GateMatePacker::pack_bufg()
                 }
             } else {
                 // SER_CLK
-                clkin[0]->params[ctx->idf("REF%d",i)] = Property(0b101, 3);
+                clkin[0]->params[ctx->idf("REF%d",i)] = Property(0b100, 3);
                 clkin[0]->params[ctx->idf("REF%d_INV",i)] = Property(Property::State::S0);
             }
 

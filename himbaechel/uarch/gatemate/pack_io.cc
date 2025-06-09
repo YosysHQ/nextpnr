@@ -152,7 +152,7 @@ void GateMatePacker::pack_io()
             loc = new_loc;
         }
 
-        if (loc == "SER_CLK") {
+        if (loc == "SER_CLK" || loc == "SER_CLK_N") {
             if (ci.type.in(id_CC_IBUF)) {
                 log_info("    Constraining '%s' to pad '%s'\n", ci.name.c_str(ctx), loc.c_str());
                 NetInfo *ser_clk = ci.getPort(id_I);
@@ -164,7 +164,7 @@ void GateMatePacker::pack_io()
                 packed_cells.emplace(ci.name);
                 continue;
             } else {
-                log_error("SER_CLK pin can only be used on input port.\n");
+                log_error("SER_CLK and SER_CLK_N pins can only be used on input port.\n");
             }
         }
         if (loc == "UNPLACED") {
@@ -287,15 +287,15 @@ void GateMatePacker::pack_io()
         }
 
         // Disconnect PADs
-        //ci.disconnectPort(id_IO);
-        //ci.disconnectPort(id_I);
-        //ci.disconnectPort(id_O);
-        //ci.disconnectPort(id_IO_P);
-        //ci.disconnectPort(id_IO_N);
-        //ci.disconnectPort(id_I_P);
-        //ci.disconnectPort(id_I_N);
-        //ci.disconnectPort(id_O_P);
-        //ci.disconnectPort(id_O_N);
+        ci.disconnectPort(id_IO);
+        ci.disconnectPort(id_I);
+        ci.disconnectPort(id_O);
+        ci.disconnectPort(id_IO_P);
+        ci.disconnectPort(id_IO_N);
+        ci.disconnectPort(id_I_P);
+        ci.disconnectPort(id_I_N);
+        ci.disconnectPort(id_O_P);
+        ci.disconnectPort(id_O_N);
 
         if (loc.empty() || loc == "UNPLACED") {
             if (uarch->available_pads.empty())

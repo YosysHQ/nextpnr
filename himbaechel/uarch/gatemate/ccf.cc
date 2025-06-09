@@ -81,7 +81,7 @@ struct GateMateCCFReader
             if (name == "LOC") {
                 if (is_default)
                     log_error("Value '%s' can not be defined for default GPIO in line %d.\n", name.c_str(), lineno);
-                if (ctx->get_package_pin_bel(ctx->id(value)) == BelId() && value != "SER_CLK")
+                if (ctx->get_package_pin_bel(ctx->id(value)) == BelId() && value != "SER_CLK" && value != "SER_CLK_N")
                     log_error("Unknown location '%s' used in line %d.\n", value.c_str(), lineno);
                 if (!uarch->available_pads.count(ctx->id(value)))
                     log_error("Pad '%s' used in line %d not available.\n", value.c_str(), lineno);
