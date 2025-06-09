@@ -422,28 +422,28 @@ void GateMatePacker::pack_pll()
             // PLL_cfg_val_800_1400  PLL values from 11.08.2021
             bool feedback = false;
             if (ci.getPort(id_CLK_FEEDBACK)) {
-                ci.params[ctx->id("CFG_A.FB_PATH")] = Property(0b1, 1);
+                ci.params[ctx->id("CFG_A_FB_PATH")] = Property(0b1, 1);
                 feedback = true;
             }
-            ci.params[ctx->id("CFG_A.FINE_TUNE")] = Property(0b00011001000, 11);
-            ci.params[ctx->id("CFG_A.COARSE_TUNE")] = Property(0b100, 3);
-            ci.params[ctx->id("CFG_A.AO_SW")] = Property(0b01000, 5);
-            ci.params[ctx->id("CFG_A.OPEN_LOOP")] = Property(0b0, 1);
-            ci.params[ctx->id("CFG_A.ENFORCE_LOCK")] = Property(0b0, 1);
-            ci.params[ctx->id("CFG_A.PFD_SEL")] = Property(0b0, 1);
-            ci.params[ctx->id("CFG_A.LOCK_DETECT_WIN")] = Property(0b0, 1);
-            ci.params[ctx->id("CFG_A.SYNC_BYPASS")] = Property(0b0, 1);
-            ci.params[ctx->id("CFG_A.FILTER_SHIFT")] = Property(0b10, 2);
-            ci.params[ctx->id("CFG_A.FAST_LOCK")] = Property(0b1, 1);
-            ci.params[ctx->id("CFG_A.SAR_LIMIT")] = Property(0b010, 3);
-            ci.params[ctx->id("CFG_A.OP_LOCK")] = Property(0b0, 1);
-            ci.params[ctx->id("CFG_A.PDIV0_MUX")] = Property(0b1, 1);
-            ci.params[ctx->id("CFG_A.EN_COARSE_TUNE")] = Property(0b1, 1);
-            ci.params[ctx->id("CFG_A.EN_USR_CFG")] = Property(0b0, 1);
-            ci.params[ctx->id("CFG_A.PLL_EN_SEL")] = Property(0b0, 1);
+            ci.params[ctx->id("CFG_A_FINE_TUNE")] = Property(0b00011001000, 11);
+            ci.params[ctx->id("CFG_A_COARSE_TUNE")] = Property(0b100, 3);
+            ci.params[ctx->id("CFG_A_AO_SW")] = Property(0b01000, 5);
+            ci.params[ctx->id("CFG_A_OPEN_LOOP")] = Property(0b0, 1);
+            ci.params[ctx->id("CFG_A_ENFORCE_LOCK")] = Property(0b0, 1);
+            ci.params[ctx->id("CFG_A_PFD_SEL")] = Property(0b0, 1);
+            ci.params[ctx->id("CFG_A_LOCK_DETECT_WIN")] = Property(0b0, 1);
+            ci.params[ctx->id("CFG_A_SYNC_BYPASS")] = Property(0b0, 1);
+            ci.params[ctx->id("CFG_A_FILTER_SHIFT")] = Property(0b10, 2);
+            ci.params[ctx->id("CFG_A_FAST_LOCK")] = Property(0b1, 1);
+            ci.params[ctx->id("CFG_A_SAR_LIMIT")] = Property(0b010, 3);
+            ci.params[ctx->id("CFG_A_OP_LOCK")] = Property(0b0, 1);
+            ci.params[ctx->id("CFG_A_PDIV0_MUX")] = Property(0b1, 1);
+            ci.params[ctx->id("CFG_A_EN_COARSE_TUNE")] = Property(0b1, 1);
+            ci.params[ctx->id("CFG_A_EN_USR_CFG")] = Property(0b0, 1);
+            ci.params[ctx->id("CFG_A_PLL_EN_SEL")] = Property(0b0, 1);
 
-            ci.params[ctx->id("CFG_A.CI_FILTER_CONST")] = Property(ci_const, 5);
-            ci.params[ctx->id("CFG_A.CP_FILTER_CONST")] = Property(cp_const, 5);
+            ci.params[ctx->id("CFG_A_CI_FILTER_CONST")] = Property(ci_const, 5);
+            ci.params[ctx->id("CFG_A_CP_FILTER_CONST")] = Property(cp_const, 5);
             /*
                 clock path selection
                 0-0 PDIV0_MUX = 0, FB_PATH = 0 // DCO clock with intern feedback
@@ -455,12 +455,12 @@ void GateMatePacker::pack_pll()
             bool pdiv0_mux = true;
             PllCfgRecord val = get_pll_settings(ref_clk, out_clk, perf_md, low_jitter, pdiv0_mux, feedback);
             if (val.f_core > 0) { // cfg exists
-                ci.params[ctx->id("CFG_A.K")] = Property(val.K, 12);
-                ci.params[ctx->id("CFG_A.N1")] = Property(val.N1, 6);
-                ci.params[ctx->id("CFG_A.N2")] = Property(val.N2, 10);
-                ci.params[ctx->id("CFG_A.M1")] = Property(val.M1, 6);
-                ci.params[ctx->id("CFG_A.M2")] = Property(val.M2, 10);
-                ci.params[ctx->id("CFG_A.PDIV1_SEL")] = Property(val.PDIV1 == 2 ? 1 : 0, 1);
+                ci.params[ctx->id("CFG_A_K")] = Property(val.K, 12);
+                ci.params[ctx->id("CFG_A_N1")] = Property(val.N1, 6);
+                ci.params[ctx->id("CFG_A_N2")] = Property(val.N2, 10);
+                ci.params[ctx->id("CFG_A_M1")] = Property(val.M1, 6);
+                ci.params[ctx->id("CFG_A_M2")] = Property(val.M2, 10);
+                ci.params[ctx->id("CFG_A_PDIV1_SEL")] = Property(val.PDIV1 == 2 ? 1 : 0, 1);
             } else {
                 log_error("Unable to configure PLL %s\n", ci.name.c_str(ctx));
             }
@@ -477,41 +477,41 @@ void GateMatePacker::pack_pll()
             for (int i = 0; i < 2; i++) {
                 char cfg = 'A' + i;
                 IdString id = i == 0 ? id_PLL_CFG_A : id_PLL_CFG_B;
-                ci.params[ctx->idf("CFG_%c.CI_FILTER_CONST", cfg)] = Property(extract_bits(ci.params, id, 0, 5), 5);
-                ci.params[ctx->idf("CFG_%c.CP_FILTER_CONST", cfg)] = Property(extract_bits(ci.params, id, 5, 5), 5);
-                ci.params[ctx->idf("CFG_%c.N1", cfg)] = Property(extract_bits(ci.params, id, 10, 6), 6);
-                ci.params[ctx->idf("CFG_%c.N2", cfg)] = Property(extract_bits(ci.params, id, 16, 10), 10);
-                ci.params[ctx->idf("CFG_%c.M1", cfg)] = Property(extract_bits(ci.params, id, 26, 6), 6);
-                ci.params[ctx->idf("CFG_%c.M2", cfg)] = Property(extract_bits(ci.params, id, 32, 10), 10);
-                ci.params[ctx->idf("CFG_%c.K", cfg)] = Property(extract_bits(ci.params, id, 42, 12), 12);
-                ci.params[ctx->idf("CFG_%c.FB_PATH", cfg)] = Property(extract_bits(ci.params, id, 54, 1), 1);
-                ci.params[ctx->idf("CFG_%c.FINE_TUNE", cfg)] = Property(extract_bits(ci.params, id, 55, 11), 11);
-                ci.params[ctx->idf("CFG_%c.COARSE_TUNE", cfg)] = Property(extract_bits(ci.params, id, 66, 3), 3);
-                ci.params[ctx->idf("CFG_%c.AO_SW", cfg)] = Property(extract_bits(ci.params, id, 69, 5), 5);
-                ci.params[ctx->idf("CFG_%c.OPEN_LOOP", cfg)] = Property(extract_bits(ci.params, id, 74, 1), 1);
-                ci.params[ctx->idf("CFG_%c.ENFORCE_LOCK", cfg)] = Property(extract_bits(ci.params, id, 75, 1), 1);
-                ci.params[ctx->idf("CFG_%c.PFD_SEL", cfg)] = Property(extract_bits(ci.params, id, 76, 1), 1);
-                ci.params[ctx->idf("CFG_%c.LOCK_DETECT_WIN", cfg)] = Property(extract_bits(ci.params, id, 77, 1), 1);
-                ci.params[ctx->idf("CFG_%c.SYNC_BYPASS", cfg)] = Property(extract_bits(ci.params, id, 78, 1), 1);
-                ci.params[ctx->idf("CFG_%c.FILTER_SHIFT", cfg)] = Property(extract_bits(ci.params, id, 79, 2), 2);
-                ci.params[ctx->idf("CFG_%c.FAST_LOCK", cfg)] = Property(extract_bits(ci.params, id, 81, 1), 1);
-                ci.params[ctx->idf("CFG_%c.SAR_LIMIT", cfg)] = Property(extract_bits(ci.params, id, 82, 3), 3);
-                ci.params[ctx->idf("CFG_%c.OP_LOCK", cfg)] = Property(extract_bits(ci.params, id, 85, 1), 1);
-                ci.params[ctx->idf("CFG_%c.PDIV1_SEL", cfg)] = Property(extract_bits(ci.params, id, 86, 1), 1);
-                ci.params[ctx->idf("CFG_%c.PDIV0_MUX", cfg)] = Property(extract_bits(ci.params, id, 87, 1), 1);
-                ci.params[ctx->idf("CFG_%c.EN_COARSE_TUNE", cfg)] = Property(extract_bits(ci.params, id, 88, 1), 1);
-                ci.params[ctx->idf("CFG_%c.EN_USR_CFG", cfg)] = Property(extract_bits(ci.params, id, 89, 1), 1);
-                ci.params[ctx->idf("CFG_%c.PLL_EN_SEL", cfg)] = Property(extract_bits(ci.params, id, 90, 1), 1);
-                int N1 = int_or_default(ci.params, ctx->idf("CFG_%c.N1", cfg));
-                int N2 = int_or_default(ci.params, ctx->idf("CFG_%c.N2", cfg));
-                int M1 = int_or_default(ci.params, ctx->idf("CFG_%c.M1", cfg));
-                int M2 = int_or_default(ci.params, ctx->idf("CFG_%c.M2", cfg));
-                int K = int_or_default(ci.params, ctx->idf("CFG_%c.K", cfg));
-                int PDIV1 = bool_or_default(ci.params, ctx->idf("CFG_%c.PDIV1_SEL", cfg)) ? 2 : 0;
+                ci.params[ctx->idf("CFG_%c_CI_FILTER_CONST", cfg)] = Property(extract_bits(ci.params, id, 0, 5), 5);
+                ci.params[ctx->idf("CFG_%c_CP_FILTER_CONST", cfg)] = Property(extract_bits(ci.params, id, 5, 5), 5);
+                ci.params[ctx->idf("CFG_%c_N1", cfg)] = Property(extract_bits(ci.params, id, 10, 6), 6);
+                ci.params[ctx->idf("CFG_%c_N2", cfg)] = Property(extract_bits(ci.params, id, 16, 10), 10);
+                ci.params[ctx->idf("CFG_%c_M1", cfg)] = Property(extract_bits(ci.params, id, 26, 6), 6);
+                ci.params[ctx->idf("CFG_%c_M2", cfg)] = Property(extract_bits(ci.params, id, 32, 10), 10);
+                ci.params[ctx->idf("CFG_%c_K", cfg)] = Property(extract_bits(ci.params, id, 42, 12), 12);
+                ci.params[ctx->idf("CFG_%c_FB_PATH", cfg)] = Property(extract_bits(ci.params, id, 54, 1), 1);
+                ci.params[ctx->idf("CFG_%c_FINE_TUNE", cfg)] = Property(extract_bits(ci.params, id, 55, 11), 11);
+                ci.params[ctx->idf("CFG_%c_COARSE_TUNE", cfg)] = Property(extract_bits(ci.params, id, 66, 3), 3);
+                ci.params[ctx->idf("CFG_%c_AO_SW", cfg)] = Property(extract_bits(ci.params, id, 69, 5), 5);
+                ci.params[ctx->idf("CFG_%c_OPEN_LOOP", cfg)] = Property(extract_bits(ci.params, id, 74, 1), 1);
+                ci.params[ctx->idf("CFG_%c_ENFORCE_LOCK", cfg)] = Property(extract_bits(ci.params, id, 75, 1), 1);
+                ci.params[ctx->idf("CFG_%c_PFD_SEL", cfg)] = Property(extract_bits(ci.params, id, 76, 1), 1);
+                ci.params[ctx->idf("CFG_%c_LOCK_DETECT_WIN", cfg)] = Property(extract_bits(ci.params, id, 77, 1), 1);
+                ci.params[ctx->idf("CFG_%c_SYNC_BYPASS", cfg)] = Property(extract_bits(ci.params, id, 78, 1), 1);
+                ci.params[ctx->idf("CFG_%c_FILTER_SHIFT", cfg)] = Property(extract_bits(ci.params, id, 79, 2), 2);
+                ci.params[ctx->idf("CFG_%c_FAST_LOCK", cfg)] = Property(extract_bits(ci.params, id, 81, 1), 1);
+                ci.params[ctx->idf("CFG_%c_SAR_LIMIT", cfg)] = Property(extract_bits(ci.params, id, 82, 3), 3);
+                ci.params[ctx->idf("CFG_%c_OP_LOCK", cfg)] = Property(extract_bits(ci.params, id, 85, 1), 1);
+                ci.params[ctx->idf("CFG_%c_PDIV1_SEL", cfg)] = Property(extract_bits(ci.params, id, 86, 1), 1);
+                ci.params[ctx->idf("CFG_%c_PDIV0_MUX", cfg)] = Property(extract_bits(ci.params, id, 87, 1), 1);
+                ci.params[ctx->idf("CFG_%c_EN_COARSE_TUNE", cfg)] = Property(extract_bits(ci.params, id, 88, 1), 1);
+                ci.params[ctx->idf("CFG_%c_EN_USR_CFG", cfg)] = Property(extract_bits(ci.params, id, 89, 1), 1);
+                ci.params[ctx->idf("CFG_%c_PLL_EN_SEL", cfg)] = Property(extract_bits(ci.params, id, 90, 1), 1);
+                int N1 = int_or_default(ci.params, ctx->idf("CFG_%c_N1", cfg));
+                int N2 = int_or_default(ci.params, ctx->idf("CFG_%c_N2", cfg));
+                int M1 = int_or_default(ci.params, ctx->idf("CFG_%c_M1", cfg));
+                int M2 = int_or_default(ci.params, ctx->idf("CFG_%c_M2", cfg));
+                int K = int_or_default(ci.params, ctx->idf("CFG_%c_K", cfg));
+                int PDIV1 = bool_or_default(ci.params, ctx->idf("CFG_%c_PDIV1_SEL", cfg)) ? 2 : 0;
                 double out_clk;
                 double ref_clk = 1000.0f / ctx->getDelayNS(period);
-                if (!bool_or_default(ci.params, ctx->idf("CFG_%c.FB_PATH", cfg))) {
-                    if (bool_or_default(ci.params, ctx->idf("CFG_%c.PDIV0_MUX", cfg))) {
+                if (!bool_or_default(ci.params, ctx->idf("CFG_%c_FB_PATH", cfg))) {
+                    if (bool_or_default(ci.params, ctx->idf("CFG_%c_PDIV0_MUX", cfg))) {
                         out_clk = (ref_clk * N1 * N2) / (K * 2 * M1 * M2);
                     } else {
                         out_clk = (ref_clk / K) * N1 * N2 * PDIV1;
