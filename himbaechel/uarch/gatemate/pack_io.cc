@@ -476,6 +476,7 @@ void GateMatePacker::pack_io_sel()
                     } else {
                         oddr->movePortTo(id_DDR, &ci, id_DDR);
                         cpe_half = move_ram_o(&ci, id_DDR, false);
+                        uarch->ddr_nets.insert(cpe_half->getPort(id_IN1)->name);
                         ctx->bindBel(get_bank_cpe(pad->pad_bank), cpe_half, PlaceStrength::STRENGTH_FIXED);
                         ddr[pad->pad_bank] = cpe_half;
                     }

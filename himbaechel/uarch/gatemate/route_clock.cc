@@ -52,6 +52,10 @@ void GateMateImpl::route_clock()
         return port.cell->type.in(id_CPE_HALF, id_CPE_HALF_L, id_CPE_HALF_U) && port.port.in(id_CLK);
     };
 
+    auto feeds_ddr_port = [&](NetInfo *net, PortRef &port) {
+        return this->ddr_nets.find(net->name) != this->ddr_nets.end() && port.port == id_IN1;
+    };
+
     auto pip_plane = [&](PipId pip) {
         const auto &extra_data =
                 *reinterpret_cast<const GateMatePipExtraDataPOD *>(chip_pip_info(ctx->chip_info, pip).extra_data.get());
@@ -79,11 +83,11 @@ void GateMateImpl::route_clock()
 
         bool is_clk_net = false;
         for (auto &usr : net->users) {
-            if (feeds_clk_port(usr)) {
+            if (feeds_clk_port(usr) || feeds_ddr_port(net, usr)) {
                 is_clk_net = true;
 
-                auto clk_sink_wire = ctx->getNetinfoSinkWire(net, usr, 0);
-                reserve(clk_sink_wire, net);
+                for (auto clk_sink_wire : ctx->getNetinfoSinkWires(net, usr))
+                    reserve(clk_sink_wire, net);
 
                 auto reserve_port_if_needed = [&](IdString port_name) {
                     auto port = usr.cell->ports.find(port_name);
@@ -115,7 +119,7 @@ void GateMateImpl::route_clock()
             dict<WireId, PipId> backtrace;
             WireId dest = WireId();
 
-            if (!feeds_clk_port(usr))
+            if (!feeds_clk_port(usr) && !feeds_ddr_port(clk_net, usr))
                 continue;
 
             auto cpe_loc = ctx->getBelLocation(usr.cell->bel);
