@@ -419,7 +419,7 @@ void GateMatePacker::pack_io_sel()
         } else {
             ci.params[id_INV_IN2_CLOCK] = Property(Property::State::S1);
         }
-        return false;
+        return true;
     };
 
     for (auto &cell : cells) {
