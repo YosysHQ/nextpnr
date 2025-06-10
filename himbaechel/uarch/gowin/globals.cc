@@ -716,10 +716,24 @@ struct GowinGlobalRouter
                                              std::vector<PipId> &bound_pips)
     {
         bool routed = false;
+
         WireId lbo_wire = ctx->getWireByName(
                 IdStringList::concat(ctx->idf("X%dY%d", s_x, dst_loc.y), ctx->idf("LBO%d", s_idx / 4)));
         if (ctx->debug) {
             log_info("      step 0: %s -> %s\n", ctx->nameOfWire(lbo_wire), ctx->nameOfWire(dst_wire));
+        }
+        // The DFF can currently only connect to a neighbouring LUT. Skip such networks.
+        if (ctx->getWireName(dst_wire)[1].in(id_XD0, id_XD1, id_XD2, id_XD3, id_XD4, id_XD5)) {
+            auto pips = ctx->getPipsUphill(dst_wire);
+            auto pip_it = pips.begin();
+            ++pip_it;
+            NPNR_ASSERT_MSG(!(pip_it != pips.end()), "DFFs have been given the ability to connect independently of the "
+                                                     "neighbouring LUT. Segment routing must be corrected.\n");
+            // Connect LUT OUT to DFF IN
+            PipId pip = *pips.begin();
+            ctx->bindPip(pip, ni, STRENGTH_LOCKED);
+            bound_pips.push_back(pip);
+            return SEG_ROUTED_TO_ANOTHER_SEGMENT;
         }
         routed = backwards_bfs_route(
                 ni, lbo_wire, dst_wire, 1000000, false, [&](PipId pip, WireId src) { return true; }, &bound_pips);
@@ -1158,6 +1172,9 @@ struct GowinGlobalRouter
                     routed = route_segmented_step0(ni, dst_loc, dst_wire, s_idx, s_x, bound_pips);
                     if (routed == SEG_NOT_ROUTED) {
                         break;
+                    }
+                    if (routed == SEG_ROUTED_TO_ANOTHER_SEGMENT) {
+                        continue;
                     }
                     // Step 1: segment wire -> LBOx
                     routed = route_segmented_step1(ni, dst_loc, s_idx, s_x, bound_pips);

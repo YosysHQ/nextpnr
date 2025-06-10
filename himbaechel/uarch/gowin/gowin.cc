@@ -858,7 +858,7 @@ void GowinImpl::create_passthrough_luts(void)
 
                 if (d_net->name == ctx->id("$PACKER_GND") || d_net->name == ctx->id("$PACKER_VCC")) {
                     if (ctx->debug) {
-                        log("make a constant %s.\n", d_net->name == ctx->id("$PACKER_VCC") ? "VCC" : "GND");
+                        log_info("make a constant %s.\n", d_net->name == ctx->id("$PACKER_VCC") ? "VCC" : "GND");
                     }
                     ci->disconnectPort(id_D);
                     if (d_net->name == ctx->id("$PACKER_GND")) {
@@ -868,7 +868,7 @@ void GowinImpl::create_passthrough_luts(void)
                     }
                 } else {
                     if (ctx->debug) {
-                        log("make a pass-through.\n");
+                        log_info("make a pass-through.\n");
                     }
                     IdString lut_input = id_I3;
                     int lut_init = 0xff00;
@@ -980,7 +980,12 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
 
     if (ramw) {
         // FFs in slices 4 and 5 are not allowed
-        if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 4 * 2 + 1))) ||
+        // also temporarily disallow FF to be placed near RAM
+        if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 0 * 2 + 1))) ||
+            ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 1 * 2 + 1))) ||
+            ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 2 * 2 + 1))) ||
+            ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 3 * 2 + 1))) ||
+            ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 4 * 2 + 1))) ||
             ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 5 * 2 + 1)))) {
             return false;
         }
@@ -1014,6 +1019,7 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
         const auto &ff_data = fast_cell_info.at(ff->flat_index);
         const NetInfo *src;
         // check implcit LUT(ALU) -> FF connection
+        NPNR_ASSERT(!ramw); // XXX shouldn't happen for now
         if (lut || alu) {
             if (lut) {
                 src = fast_cell_info.at(lut->flat_index).lut_f;
