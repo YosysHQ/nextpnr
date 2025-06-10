@@ -159,14 +159,14 @@ struct BitstreamBackend
             CfgLoc loc = get_config_loc(cell.second.get()->bel.tile);
             auto &params = cell.second.get()->params;
             switch (cell.second->type.index) {
-            case id_CC_IBUF.index:
-            case id_CC_TOBUF.index:
-            case id_CC_OBUF.index:
-            case id_CC_IOBUF.index:
-            case id_CC_LVDS_IBUF.index:
-            case id_CC_LVDS_TOBUF.index:
-            case id_CC_LVDS_OBUF.index:
-            case id_CC_LVDS_IOBUF.index:
+            case id_CPE_IBUF.index:
+            case id_CPE_TOBUF.index:
+            case id_CPE_OBUF.index:
+            case id_CPE_IOBUF.index:
+            case id_CPE_LVDS_IBUF.index:
+            case id_CPE_LVDS_TOBUF.index:
+            case id_CPE_LVDS_OBUF.index:
+            case id_CPE_LVDS_IOBUF.index:
                 for (auto &p : params) {
                     bank[ctx->get_bel_package_pin(cell.second.get()->bel)->pad_bank] = 1;
                     cc.tiles[loc].add_word(stringf("GPIO.%s", p.first.c_str(ctx)), p.second.as_bits());

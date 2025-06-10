@@ -369,8 +369,8 @@ void GateMateImpl::assign_cell_info()
 // Bel bucket functions
 IdString GateMateImpl::getBelBucketForCellType(IdString cell_type) const
 {
-    if (cell_type.in(id_CC_IBUF, id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF, id_CC_LVDS_IBUF, id_CC_LVDS_TOBUF,
-                     id_CC_LVDS_OBUF, id_CC_LVDS_IOBUF))
+    if (cell_type.in(id_CPE_IBUF, id_CPE_OBUF, id_CPE_TOBUF, id_CPE_IOBUF, id_CPE_LVDS_IBUF, id_CPE_LVDS_TOBUF,
+                     id_CPE_LVDS_OBUF, id_CPE_LVDS_IOBUF))
         return id_GPIO;
     else if (cell_type.in(id_CPE_HALF_U, id_CPE_HALF_L, id_CPE_HALF))
         return id_CPE_HALF;
@@ -390,8 +390,8 @@ bool GateMateImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
 {
     IdString bel_type = ctx->getBelType(bel);
     if (bel_type == id_GPIO)
-        return cell_type.in(id_CC_IBUF, id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF, id_CC_LVDS_IBUF, id_CC_LVDS_TOBUF,
-                            id_CC_LVDS_OBUF, id_CC_LVDS_IOBUF);
+        return cell_type.in(id_CPE_IBUF, id_CPE_OBUF, id_CPE_TOBUF, id_CPE_IOBUF, id_CPE_LVDS_IBUF, id_CPE_LVDS_TOBUF,
+                            id_CPE_LVDS_OBUF, id_CPE_LVDS_IOBUF);
     else if (bel_type == id_CPE_HALF_U)
         return cell_type.in(id_CPE_HALF_U, id_CPE_HALF);
     else if (bel_type == id_CPE_HALF_L)

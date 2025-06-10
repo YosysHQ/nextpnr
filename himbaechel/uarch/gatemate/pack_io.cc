@@ -286,16 +286,13 @@ void GateMatePacker::pack_io()
             }
         }
 
-        // Disconnect PADs
-        ci.disconnectPort(id_IO);
-        ci.disconnectPort(id_I);
-        ci.disconnectPort(id_O);
-        ci.disconnectPort(id_IO_P);
-        ci.disconnectPort(id_IO_N);
-        ci.disconnectPort(id_I_P);
-        ci.disconnectPort(id_I_N);
-        ci.disconnectPort(id_O_P);
-        ci.disconnectPort(id_O_N);
+        static dict<IdString, IdString> map_types = {
+                {id_CC_IBUF, id_CPE_IBUF},           {id_CC_OBUF, id_CPE_OBUF},
+                {id_CC_TOBUF, id_CPE_TOBUF},         {id_CC_IOBUF, id_CPE_IOBUF},
+                {id_CC_LVDS_IBUF, id_CPE_LVDS_IBUF}, {id_CC_LVDS_TOBUF, id_CPE_LVDS_TOBUF},
+                {id_CC_LVDS_OBUF, id_CPE_LVDS_OBUF}, {id_CC_LVDS_IOBUF, id_CPE_LVDS_IOBUF},
+        };
+        ci.type = map_types[ci.type];
 
         if (loc.empty() || loc == "UNPLACED") {
             if (uarch->available_pads.empty())
@@ -325,8 +322,7 @@ void GateMatePacker::pack_io_sel()
     std::vector<CellInfo *> cells;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
-        if (!ci.type.in(id_CC_IBUF, id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF, id_CC_LVDS_IBUF, id_CC_LVDS_OBUF,
-                        id_CC_LVDS_TOBUF, id_CC_LVDS_IOBUF))
+        if (!uarch->getBelBucketForCellType(ci.type).in(id_GPIO))
             continue;
 
         cells.push_back(&ci);
@@ -387,7 +383,7 @@ void GateMatePacker::pack_io_sel()
             ci.params[id_IN2_FF] = Property(Property::State::S1);
             packed_cells.emplace(dff->name);
             ci.disconnectPort(id_Y);
-            dff->movePortTo(id_Q, &ci, id_DI);
+            dff->movePortTo(id_Q, &ci, id_IN1);
             set_in_clk(dff, &ci);
             bool invert = bool_or_default(dff->params, id_CLK_INV, 0);
             if (invert) {
@@ -521,7 +517,7 @@ void GateMatePacker::pack_io_sel()
             }
 
             if (!ff_ibf_merged && !iddr_merged)
-                ci.renamePort(id_Y, id_DI);
+                ci.renamePort(id_Y, id_IN1);
         }
 
         Loc root_loc = ctx->getBelLocation(ci.bel);
