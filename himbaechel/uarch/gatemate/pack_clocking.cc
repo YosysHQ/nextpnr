@@ -164,6 +164,7 @@ void GateMatePacker::pack_bufg()
             int glb_mux = 0;
             NetInfo *in_net = ci.getPort(id_I);
             if (in_net->driver.cell) {
+                bool user_glb = true;
                 if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_GPIO) {
                     auto pad_info = uarch->bel_to_pad[in_net->driver.cell->bel];
                     if (pad_info->flags) {
@@ -172,10 +173,7 @@ void GateMatePacker::pack_bufg()
                         NetInfo *conn = ctx->createNet(ci.name);
                         clkin[0]->connectPort(ctx->idf("CLK_REF%d", i), conn);
                         glbout[0]->connectPort(ctx->idf("CLK_REF_OUT%d", i), conn);
-                    } else {
-                        ci.movePortTo(id_I, glbout[0], ctx->idf("USR_GLB%d", i));
-                        move_ram_o_fixed(glbout[0], ctx->idf("USR_GLB%d", i), fixed_loc);
-                        glbout[0]->params[ctx->idf("USR_GLB%d", i)] = Property(Property::State::S1);
+                        user_glb = false;
                     }
                 }
                 if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_PLL) {
@@ -194,6 +192,12 @@ void GateMatePacker::pack_bufg()
                         log_error("Uknown connecton on BUFG to PLL.\n");
                     glb_mux = glb_mux_mapping[i * 16 + pll_index * 4 + pll_out];
                     ci.movePortTo(id_I, glbout[0], ctx->idf("%s_%d", in_net->driver.port.c_str(ctx), pll_index));
+                    user_glb = false;
+                }
+                if (user_glb) {
+                    ci.movePortTo(id_I, glbout[0], ctx->idf("USR_GLB%d", i));
+                    move_ram_o_fixed(glbout[0], ctx->idf("USR_GLB%d", i), fixed_loc);
+                    glbout[0]->params[ctx->idf("USR_GLB%d", i)] = Property(Property::State::S1);
                 }
             } else {
                 // SER_CLK
