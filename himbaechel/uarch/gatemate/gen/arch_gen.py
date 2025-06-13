@@ -46,6 +46,8 @@ class TileExtraData(BBAStruct):
     die : int = 0
     bit_x: int = 0
     bit_y: int = 0
+    tile_x: int = 0
+    tile_y: int = 0
     prim_id : int = 0
 
     def serialise_lists(self, context: str, bba: BBAWriter):
@@ -54,7 +56,10 @@ class TileExtraData(BBAStruct):
         bba.u8(self.die)
         bba.u8(self.bit_x)
         bba.u8(self.bit_y)
+        bba.u8(self.tile_x)
+        bba.u8(self.tile_y)
         bba.u8(self.prim_id)
+        bba.u16(0)
 
 @dataclass
 class PipExtraData(BBAStruct):
@@ -206,7 +211,7 @@ def main():
         for y in range(dev.max_row() + 3):
             ti = ch.set_tile_type(x, y, dev.get_tile_type(x - 2,y - 2))
             tileinfo = dev.get_tile_info(x - 2,y - 2)
-            ti.extra_data = TileExtraData(tileinfo.die, tileinfo.bit_x, tileinfo.bit_y, tileinfo.prim_index)
+            ti.extra_data = TileExtraData(tileinfo.die, tileinfo.bit_x, tileinfo.bit_y, tileinfo.tile_x, tileinfo.tile_y, tileinfo.prim_index)
 
     # Create nodes between tiles
     for _,nodes in dev.get_connections():

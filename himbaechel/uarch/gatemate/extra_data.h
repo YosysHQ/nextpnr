@@ -28,7 +28,10 @@ NPNR_PACKED_STRUCT(struct GateMateTileExtraDataPOD {
     uint8_t die;
     uint8_t bit_x;
     uint8_t bit_y;
+    uint8_t tile_x;
+    uint8_t tile_y;
     uint8_t prim_id;
+    uint16_t dummy;
 });
 
 NPNR_PACKED_STRUCT(struct GateMatePipExtraDataPOD {

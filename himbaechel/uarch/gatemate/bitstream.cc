@@ -176,36 +176,34 @@ struct BitstreamBackend
                     boost::replace_all(word, "TES.", stringf("TES%d.", id));
                 if (boost::starts_with(word, "SB_DRIVE.")) {
                     Loc l;
+                    auto ti = *tile_extra_data(pip.tile);
                     tile_xy(ctx->chip_info, pip.tile, l.x, l.y);
                     l.z = 0;
                     BelId cpe_bel = ctx->getBelByLocation(l);
                     // Only if switchbox is inside core (same as sharing location with CPE)
                     if (cpe_bel != BelId() && ctx->getBelType(cpe_bel).in(id_CPE_HALF_L, id_CPE_HALF_U)) {
-                        // Convert coordinates into in-tile coordinates
-                        int xt = ((l.x - 2 - 1) + 16) % 8;
-                        int yt = ((l.y - 2 - 1) + 16) % 8;
                         // Bitstream data for certain SB_DRIVES is located in other tiles
                         switch (word[14]) {
                         case '3':
-                            if (xt >= 4) {
+                            if (ti.tile_x >= 4) {
                                 loc.x -= 2;
                                 word[14] = '1';
                             };
                             break;
                         case '4':
-                            if (yt >= 4) {
+                            if (ti.tile_y >= 4) {
                                 loc.y -= 2;
                                 word[14] = '2';
                             };
                             break;
                         case '1':
-                            if (xt <= 3) {
+                            if (ti.tile_x <= 3) {
                                 loc.x += 2;
                                 word[14] = '3';
                             };
                             break;
                         case '2':
-                            if (yt <= 3) {
+                            if (ti.tile_y <= 3) {
                                 loc.y += 2;
                                 word[14] = '4';
                             };
