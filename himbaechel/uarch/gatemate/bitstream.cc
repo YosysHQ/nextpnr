@@ -46,6 +46,77 @@ struct BitstreamBackend
         return reinterpret_cast<const GateMateTileExtraDataPOD *>(ctx->chip_info->tile_insts[tile].extra_data.get());
     }
 
+    bool need_inversion(CellInfo *cell, IdString port)
+    {
+        PortRef sink;
+        sink.cell = cell;
+        sink.port = port;
+
+        NetInfo *net_info = cell->getPort(port);
+        if (!net_info)
+            return false;
+
+        WireId src_wire = ctx->getNetinfoSourceWire(net_info);
+        WireId dst_wire = ctx->getNetinfoSinkWire(net_info, sink, 0);
+
+        if (src_wire == WireId())
+            return false;
+
+        WireId cursor = dst_wire;
+        bool invert = false;
+        while (cursor != WireId() && cursor != src_wire) {
+            auto it = net_info->wires.find(cursor);
+
+            if (it == net_info->wires.end())
+                break;
+
+            PipId pip = it->second.pip;
+            if (pip == PipId())
+                break;
+
+            invert ^= ctx->isPipInverting(pip);
+            cursor = ctx->getPipSrcWire(pip);
+        }
+
+        return invert;
+    }
+
+    void update_cpe_lt(CellInfo *cell, IdString port, IdString init, dict<IdString, Property> &params)
+    {
+        unsigned init_val = int_or_default(params, init);
+        bool invert = need_inversion(cell, port);
+        if (invert) {
+            if (port.in(id_IN1, id_IN3))
+                init_val = (init_val & 0b1010) >> 1 | (init_val & 0b0101) << 1;
+            else
+                init_val = (init_val & 0b0011) << 2 | (init_val & 0b1100) >> 2;
+            params[init] = Property(init_val, 4);
+        }
+    }
+
+    void update_cpe_inv(CellInfo *cell, IdString port, IdString param, dict<IdString, Property> &params)
+    {
+        unsigned init_val = int_or_default(params, param);
+        bool invert = need_inversion(cell, port);
+        if (invert) {
+            params[param] = Property(3 - init_val, 2);
+        }
+    }
+
+    void update_cpe_mux(CellInfo *cell, IdString port, IdString param, int bit, dict<IdString, Property> &params)
+    {
+        // Mux inversion data is contained in other CPE half
+        Loc l = ctx->getBelLocation(cell->bel);
+        CellInfo *cell_u = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(l.x, l.y, 0)));
+        unsigned init_val = int_or_default(params, param);
+        bool invert = need_inversion(cell_u, port);
+        if (invert) {
+            int old = (init_val >> bit) & 1;
+            int val = (init_val & (~(1 << bit) & 0xf)) | ((!old) << bit);
+            params[param] = Property(val, 4);
+        }
+    }
+
     std::vector<bool> int_to_bitvector(int val, int size)
     {
         std::vector<bool> bv;
@@ -174,6 +245,36 @@ struct BitstreamBackend
                 break;
             case id_CPE_HALF_U.index:
             case id_CPE_HALF_L.index: {
+                // Update configuration bits based on signal inversion
+                dict<IdString, Property> params = cell.second->params;
+                uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
+                if (cell.second->type.in(id_CPE_HALF_U) && func != C_MX4) {
+                    update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L00, params);
+                    update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L00, params);
+                    update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L01, params);
+                    update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L01, params);
+                }
+                if (cell.second->type.in(id_CPE_HALF_L)) {
+                    update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L02, params);
+                    update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L02, params);
+                    update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L03, params);
+                    update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L03, params);
+                    if (func == C_MX4) {
+                        update_cpe_mux(cell.second.get(), id_IN1, id_INIT_L11, 0, params);
+                        update_cpe_mux(cell.second.get(), id_IN2, id_INIT_L11, 1, params);
+                        update_cpe_mux(cell.second.get(), id_IN3, id_INIT_L11, 2, params);
+                        update_cpe_mux(cell.second.get(), id_IN4, id_INIT_L11, 3, params);
+                    }
+                }
+                if (cell.second->type.in(id_CPE_HALF_U, id_CPE_HALF_L)) {
+                    update_cpe_inv(cell.second.get(), id_CLK, id_C_CPE_CLK, params);
+                    update_cpe_inv(cell.second.get(), id_EN, id_C_CPE_EN, params);
+                    bool set = int_or_default(params, id_C_EN_SR, 0) == 1;
+                    if (set)
+                        update_cpe_inv(cell.second.get(), id_SR, id_C_CPE_SET, params);
+                    else
+                        update_cpe_inv(cell.second.get(), id_SR, id_C_CPE_RES, params);
+                }
                 int id = tile_extra_data(cell.second.get()->bel.tile)->prim_id;
                 for (auto &p : params) {
                     cc.tiles[loc].add_word(stringf("CPE%d.%s", id, p.first.c_str(ctx)), p.second.as_bits());

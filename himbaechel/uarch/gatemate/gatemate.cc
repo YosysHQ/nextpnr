@@ -162,77 +162,6 @@ bool GateMateImpl::getClusterPlacement(ClusterId cluster, BelId root_bel,
     return getChildPlacement(root_cell, root_loc, placement);
 }
 
-bool GateMateImpl::need_inversion(CellInfo *cell, IdString port)
-{
-    PortRef sink;
-    sink.cell = cell;
-    sink.port = port;
-
-    NetInfo *net_info = cell->getPort(port);
-    if (!net_info)
-        return false;
-
-    WireId src_wire = ctx->getNetinfoSourceWire(net_info);
-    WireId dst_wire = ctx->getNetinfoSinkWire(net_info, sink, 0);
-
-    if (src_wire == WireId())
-        return false;
-
-    WireId cursor = dst_wire;
-    bool invert = false;
-    while (cursor != WireId() && cursor != src_wire) {
-        auto it = net_info->wires.find(cursor);
-
-        if (it == net_info->wires.end())
-            break;
-
-        PipId pip = it->second.pip;
-        if (pip == PipId())
-            break;
-
-        invert ^= ctx->isPipInverting(pip);
-        cursor = ctx->getPipSrcWire(pip);
-    }
-
-    return invert;
-}
-
-void GateMateImpl::update_cpe_lt(CellInfo *cell, IdString port, IdString init)
-{
-    unsigned init_val = int_or_default(cell->params, init);
-    bool invert = need_inversion(cell, port);
-    if (invert) {
-        if (port.in(id_IN1, id_IN3))
-            init_val = (init_val & 0b1010) >> 1 | (init_val & 0b0101) << 1;
-        else
-            init_val = (init_val & 0b0011) << 2 | (init_val & 0b1100) >> 2;
-        cell->params[init] = Property(init_val, 4);
-    }
-}
-
-void GateMateImpl::update_cpe_inv(CellInfo *cell, IdString port, IdString param)
-{
-    unsigned init_val = int_or_default(cell->params, param);
-    bool invert = need_inversion(cell, port);
-    if (invert) {
-        cell->params[param] = Property(3 - init_val, 2);
-    }
-}
-
-void GateMateImpl::update_cpe_mux(CellInfo *cell, IdString port, IdString param, int bit)
-{
-    // Mux inversion data is contained in other CPE half
-    Loc l = ctx->getBelLocation(cell->bel);
-    CellInfo *cell_l = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(l.x, l.y, 1)));
-    unsigned init_val = int_or_default(cell_l->params, param);
-    bool invert = need_inversion(cell, port);
-    if (invert) {
-        int old = (init_val >> bit) & 1;
-        int val = (init_val & (~(1 << bit) & 0xf)) | ((!old) << bit);
-        cell_l->params[param] = Property(val, 4);
-    }
-}
-
 void GateMateImpl::rename_param(CellInfo *cell, IdString name, IdString new_name, int width)
 {
     if (cell->params.count(name)) {
@@ -276,50 +205,6 @@ void GateMateImpl::preRoute() { route_clock(); }
 void GateMateImpl::postRoute()
 {
     ctx->assignArchInfo();
-    // Update configuration bits based on signal inversion
-    for (auto &cell : ctx->cells) {
-        if (cell.second->type.in(id_CPE_HALF_U)) {
-            uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
-            if (func != C_MX4) {
-                update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L00);
-                update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L00);
-                update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L01);
-                update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L01);
-            } else {
-                update_cpe_mux(cell.second.get(), id_IN1, id_INIT_L11, 0);
-                update_cpe_mux(cell.second.get(), id_IN2, id_INIT_L11, 1);
-                update_cpe_mux(cell.second.get(), id_IN3, id_INIT_L11, 2);
-                update_cpe_mux(cell.second.get(), id_IN4, id_INIT_L11, 3);
-            }
-        }
-        if (cell.second->type.in(id_CPE_HALF_L)) {
-            update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L02);
-            update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L02);
-            update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L03);
-            update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L03);
-        }
-        if (cell.second->type.in(id_CPE_HALF_U, id_CPE_HALF_L)) {
-            update_cpe_inv(cell.second.get(), id_CLK, id_C_CPE_CLK);
-            update_cpe_inv(cell.second.get(), id_EN, id_C_CPE_EN);
-            bool set = int_or_default(cell.second->params, id_C_EN_SR, 0) == 1;
-            if (set)
-                update_cpe_inv(cell.second.get(), id_SR, id_C_CPE_SET);
-            else
-                update_cpe_inv(cell.second.get(), id_SR, id_C_CPE_RES);
-        }
-    }
-    // Sanity check
-    for (auto &c : ctx->cells) {
-        CellInfo *cell = c.second.get();
-        if (!cell->type.in(id_CPE_HALF_U, id_CPE_HALF_L)) {
-            for (auto port : cell->ports) {
-                if (need_inversion(cell, port.first)) {
-                    log_error("Unhandled cell '%s' of type '%s' port '%s'\n", cell->name.c_str(ctx),
-                              cell->type.c_str(ctx), port.first.c_str(ctx));
-                }
-            }
-        }
-    }
     print_utilisation(ctx);
 
     const ArchArgs &args = ctx->args;

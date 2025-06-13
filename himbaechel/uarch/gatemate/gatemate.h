@@ -75,10 +75,6 @@ struct GateMateImpl : HimbaechelAPI
     void parse_ccf(const std::string &filename);
 
     void assign_cell_info();
-    bool need_inversion(CellInfo *cell, IdString port);
-    void update_cpe_lt(CellInfo *cell, IdString port, IdString init);
-    void update_cpe_inv(CellInfo *cell, IdString port, IdString param);
-    void update_cpe_mux(CellInfo *cell, IdString port, IdString param, int bit);
     void rename_param(CellInfo *cell, IdString name, IdString new_name, int width);
     void route_clock();
 
