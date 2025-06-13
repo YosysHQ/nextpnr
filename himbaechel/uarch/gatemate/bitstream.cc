@@ -225,7 +225,7 @@ struct BitstreamBackend
     {
         ChipConfig cc;
         cc.chip_name = device;
-        int bank[9] = {0};
+        int bank[uarch->dies][9] = {0};
         for (auto &cell : ctx->cells) {
             CfgLoc loc = get_config_loc(cell.second.get()->bel.tile);
             auto &params = cell.second.get()->params;
@@ -239,7 +239,7 @@ struct BitstreamBackend
             case id_CPE_LVDS_OBUF.index:
             case id_CPE_LVDS_IOBUF.index:
                 for (auto &p : params) {
-                    bank[ctx->get_bel_package_pin(cell.second.get()->bel)->pad_bank] = 1;
+                    bank[loc.die][ctx->get_bel_package_pin(cell.second.get()->bel)->pad_bank] = 1;
                     cc.tiles[loc].add_word(stringf("GPIO.%s", p.first.c_str(ctx)), p.second.as_bits());
                 }
                 break;
@@ -282,18 +282,18 @@ struct BitstreamBackend
             } break;
             case id_CLKIN.index: {
                 for (auto &p : params) {
-                    cc.configs[0].add_word(stringf("CLKIN.%s", p.first.c_str(ctx)), p.second.as_bits());
+                    cc.configs[loc.die].add_word(stringf("CLKIN.%s", p.first.c_str(ctx)), p.second.as_bits());
                 }
             } break;
             case id_GLBOUT.index: {
                 for (auto &p : params) {
-                    cc.configs[0].add_word(stringf("GLBOUT.%s", p.first.c_str(ctx)), p.second.as_bits());
+                    cc.configs[loc.die].add_word(stringf("GLBOUT.%s", p.first.c_str(ctx)), p.second.as_bits());
                 }
             } break;
             case id_PLL.index: {
                 Loc l = ctx->getBelLocation(cell.second->bel);
                 for (auto &p : params) {
-                    cc.configs[0].add_word(stringf("PLL%d.%s", l.z - 2, p.first.c_str(ctx)), p.second.as_bits());
+                    cc.configs[loc.die].add_word(stringf("PLL%d.%s", l.z - 2, p.first.c_str(ctx)), p.second.as_bits());
                 }
             } break;
             case id_RAM.index: {
@@ -331,15 +331,17 @@ struct BitstreamBackend
             }
         }
 
-        cc.configs[0].add_word("GPIO.BANK_N1", int_to_bitvector(bank[0], 1));
-        cc.configs[0].add_word("GPIO.BANK_N2", int_to_bitvector(bank[1], 1));
-        cc.configs[0].add_word("GPIO.BANK_E1", int_to_bitvector(bank[2], 1));
-        cc.configs[0].add_word("GPIO.BANK_E2", int_to_bitvector(bank[3], 1));
-        cc.configs[0].add_word("GPIO.BANK_W1", int_to_bitvector(bank[4], 1));
-        cc.configs[0].add_word("GPIO.BANK_W2", int_to_bitvector(bank[5], 1));
-        cc.configs[0].add_word("GPIO.BANK_S1", int_to_bitvector(bank[6], 1));
-        cc.configs[0].add_word("GPIO.BANK_S2", int_to_bitvector(bank[7], 1));
-        cc.configs[0].add_word("GPIO.BANK_CFG", int_to_bitvector(bank[8], 1));
+        for (int i = 0; i < uarch->dies; i++) {
+            cc.configs[i].add_word("GPIO.BANK_N1", int_to_bitvector(bank[i][0], 1));
+            cc.configs[i].add_word("GPIO.BANK_N2", int_to_bitvector(bank[i][1], 1));
+            cc.configs[i].add_word("GPIO.BANK_E1", int_to_bitvector(bank[i][2], 1));
+            cc.configs[i].add_word("GPIO.BANK_E2", int_to_bitvector(bank[i][3], 1));
+            cc.configs[i].add_word("GPIO.BANK_W1", int_to_bitvector(bank[i][4], 1));
+            cc.configs[i].add_word("GPIO.BANK_W2", int_to_bitvector(bank[i][5], 1));
+            cc.configs[i].add_word("GPIO.BANK_S1", int_to_bitvector(bank[i][6], 1));
+            cc.configs[i].add_word("GPIO.BANK_S2", int_to_bitvector(bank[i][7], 1));
+            cc.configs[i].add_word("GPIO.BANK_CFG", int_to_bitvector(bank[i][8], 1));
+        }
 
         for (auto &net : ctx->nets) {
             NetInfo *ni = net.second.get();

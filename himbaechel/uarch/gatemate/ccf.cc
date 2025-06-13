@@ -43,6 +43,7 @@ struct GateMateCCFReader
     std::istream &in;
     int lineno;
     dict<IdString, Property> defaults;
+    std::vector<int> count;
 
     GateMateCCFReader(Context *ctx, GateMateImpl *uarch, std::istream &in) : ctx(ctx), uarch(uarch), in(in){};
 
@@ -86,6 +87,12 @@ struct GateMateCCFReader
                 if (!uarch->available_pads.count(ctx->id(value)))
                     log_error("Pad '%s' used in line %d not available.\n", value.c_str(), lineno);
                 props->emplace(id_LOC, Property(value));
+                for (int i = 0; i < uarch->dies; i++) {
+                    if (uarch->locations.count(std::make_pair(ctx->id(value), i)))
+                        count[i]++;
+                    else
+                        count[i]--;
+                }
                 uarch->available_pads.erase(ctx->id(value));
             } else if (name == "SCHMITT_TRIGGER" || name == "PULLUP" || name == "PULLDOWN" || name == "KEEPER" ||
                        name == "FF_IBF" || name == "FF_OBF" || name == "LVDS_BOOST" || name == "LVDS_RTERM") {
@@ -148,6 +155,7 @@ struct GateMateCCFReader
             return std::all_of(str.begin(), str.end(), [](char c) { return isblank(c) || c == '\r' || c == '\n'; });
         };
         lineno = 0;
+        count = std::vector<int>(uarch->dies, 0);
         while (std::getline(in, line)) {
             ++lineno;
             // Both // and # are considered start of comment
@@ -213,6 +221,14 @@ struct GateMateCCFReader
         }
         if (!isempty(linebuf))
             log_error("unexpected end of CCF file\n");
+        int max_num = 0;
+        uarch->prefered_die = 0;
+        for (int i = 0; i < uarch->dies; i++) {
+            if (count[i] > max_num) {
+                max_num = count[i];
+                uarch->prefered_die = i;
+            }
+        }
     }
 };
 

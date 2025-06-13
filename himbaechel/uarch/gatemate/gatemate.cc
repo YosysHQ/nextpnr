@@ -38,6 +38,12 @@ void GateMateImpl::init_database(Arch *arch)
     arch->load_chipdb(stringf("gatemate/chipdb-%s.bin", args.device.c_str()));
     arch->set_package("FBGA324");
     arch->set_speed_grade("DEFAULT");
+    dies = std::stoi(args.device.substr(6));
+}
+
+const GateMateTileExtraDataPOD *GateMateImpl::tile_extra_data(int tile) const
+{
+    return reinterpret_cast<const GateMateTileExtraDataPOD *>(ctx->chip_info->tile_insts[tile].extra_data.get());
 }
 
 void GateMateImpl::init(Context *ctx)
@@ -49,6 +55,8 @@ void GateMateImpl::init(Context *ctx)
         available_pads.emplace(ctx->id("SER_CLK_N"));
         BelId bel = ctx->getBelByName(IdStringList::concat(IdString(pad.tile), IdString(pad.bel)));
         bel_to_pad.emplace(bel, &pad);
+        locations.emplace(std::make_pair(IdString(pad.package_pin), tile_extra_data(bel.tile)->die),
+                          ctx->getBelLocation(bel));
     }
     for (auto bel : ctx->getBels()) {
         auto *ptr = bel_extra_data(bel);
@@ -56,6 +64,10 @@ void GateMateImpl::init(Context *ctx)
         for (const auto &p : ptr->constraints)
             pins.emplace(IdString(p.name), &p);
         pin_to_constr.emplace(bel, pins);
+        if (ctx->getBelType(bel).in(id_CLKIN, id_GLBOUT, id_PLL, id_USR_RSTN, id_CFG_CTRL, id_SERDES)) {
+            locations.emplace(std::make_pair(ctx->getBelName(bel)[1], tile_extra_data(bel.tile)->die),
+                              ctx->getBelLocation(bel));
+        }
     }
 }
 

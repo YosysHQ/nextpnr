@@ -303,7 +303,11 @@ void GateMatePacker::pack_io()
         }
         ci.params[id_LOC] = Property(loc);
 
-        BelId bel = ctx->get_package_pin_bel(ctx->id(loc));
+        BelId bel;
+        if (uarch->locations.count(std::make_pair(ctx->id(loc), uarch->prefered_die)))
+            bel = ctx->getBelByLocation(uarch->locations[std::make_pair(ctx->id(loc), uarch->prefered_die)]);
+        else
+            bel = ctx->get_package_pin_bel(ctx->id(loc));
         if (bel == BelId())
             log_error("Unable to constrain IO '%s', device does not have a pin named '%s'\n", ci.name.c_str(ctx),
                       loc.c_str());
