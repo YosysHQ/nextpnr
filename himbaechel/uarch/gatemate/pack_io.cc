@@ -50,6 +50,13 @@ BelId GateMatePacker::get_bank_cpe(int bank)
     }
 }
 
+std::string get_die_name(int total_dies, int die)
+{
+    if (total_dies == 1)
+        return "";
+    return stringf("on die '%d%c'", int(die / total_dies) + 1, 'A' + int(die % total_dies));
+}
+
 void GateMatePacker::pack_io()
 {
     // Trim nextpnr IOBs - assume IO buffer insertion has been done in synthesis
@@ -311,7 +318,8 @@ void GateMatePacker::pack_io()
         if (bel == BelId())
             log_error("Unable to constrain IO '%s', device does not have a pin named '%s'\n", ci.name.c_str(ctx),
                       loc.c_str());
-        log_info("    Constraining '%s' to pad '%s'\n", ci.name.c_str(ctx), loc.c_str());
+        log_info("    Constraining '%s' to pad '%s'%s.\n", ci.name.c_str(ctx), loc.c_str(),
+                 get_die_name(uarch->dies, uarch->tile_extra_data(bel.tile)->die).c_str());
         if (!ctx->checkBelAvail(bel)) {
             log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci), ctx->nameOfBel(bel),
                       ctx->nameOf(ctx->getBoundBelCell(bel)));
