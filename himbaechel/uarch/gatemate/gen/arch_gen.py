@@ -116,6 +116,20 @@ class BelExtraData(BBAStruct):
     def serialise(self, context: str, bba: BBAWriter):
         bba.slice(f"{context}_constraints", len(self.constraints))
 
+@dataclass
+class PadExtraData(BBAStruct):
+    x: int = 0
+    y: int = 0
+    z: int = 0
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.u16(self.x)
+        bba.u16(self.y)
+        bba.u16(self.z)
+        bba.u16(0)
+
 def set_timings(ch):
     speed = "DEFAULT"
     tmg = ch.set_speed_grades([speed])
@@ -224,7 +238,8 @@ def main():
     for package in dev.get_packages():
         pkg = ch.create_package(package)
         for pad in sorted(dev.get_package_pads(package)):
-            pkg.create_pad(pad.name, f"X{pad.x+2}Y{pad.y+2}", pad.bel, pad.function, pad.bank, pad.flags)
+            pp = pkg.create_pad(pad.name, f"X{pad.x+2}Y{pad.y+2}", pad.bel, pad.function, pad.bank, pad.flags)
+            pp.extra_data = PadExtraData(pad.ddr.x+2, pad.ddr.y+2, pad.ddr.z)
 
     ch.write_bba(args.bba)
 

@@ -55,6 +55,13 @@ NPNR_PACKED_STRUCT(struct GateMateBelPinConstraintPOD {
 
 NPNR_PACKED_STRUCT(struct GateMateBelExtraDataPOD { RelSlice<GateMateBelPinConstraintPOD> constraints; });
 
+NPNR_PACKED_STRUCT(struct GateMatePadExtraDataPOD {
+    uint16_t x;
+    uint16_t y;
+    uint16_t z;
+    uint16_t dummy;
+});
+
 enum MuxFlags
 {
     MUX_INVERT = 1,

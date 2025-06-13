@@ -24,32 +24,6 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-BelId GateMatePacker::get_bank_cpe(int bank)
-{
-    switch (bank) {
-    case 0:
-        return ctx->getBelByLocation(Loc(97 + 2, 128 + 2, 1)); // N1, RAM_O1
-    case 1:
-        return ctx->getBelByLocation(Loc(97 + 2, 128 + 2, 0)); // N2, RAM_O2
-    case 2:
-        return ctx->getBelByLocation(Loc(160 + 2, 65 + 2, 1)); // E1, RAM_O1
-    case 3:
-        return ctx->getBelByLocation(Loc(160 + 2, 65 + 2, 0)); // E2, RAM_O2
-    case 4:
-        return ctx->getBelByLocation(Loc(1 + 2, 65 + 2, 1)); // W1, RAM_O1
-    case 5:
-        return ctx->getBelByLocation(Loc(1 + 2, 65 + 2, 0)); // W2, RAM_O2
-    case 6:
-        return ctx->getBelByLocation(Loc(97 + 2, 1 + 2, 1)); // S1, RAM_O1
-    case 7:
-        return ctx->getBelByLocation(Loc(97 + 2, 1 + 2, 0)); // S2, RAM_O2
-    case 8:
-        return ctx->getBelByLocation(Loc(49 + 2, 1 + 2, 1)); // S3, RAM_O1
-    default:
-        log_error("Unkown bank\n");
-    }
-}
-
 std::string get_die_name(int total_dies, int die)
 {
     if (total_dies == 1)
@@ -340,7 +314,7 @@ void GateMatePacker::pack_io_sel()
         cells.push_back(&ci);
     }
 
-    CellInfo *ddr[9] = {nullptr}; // for each bank
+    CellInfo *ddr[uarch->dies][9] = {nullptr}; // for each bank
 
     auto set_out_clk = [&](CellInfo *cell, CellInfo *target) -> bool {
         NetInfo *clk_net = cell->getPort(id_CLK);
@@ -490,7 +464,8 @@ void GateMatePacker::pack_io_sel()
                     oddr->movePortTo(id_D0, &ci, id_OUT2);
                     oddr->movePortTo(id_D1, &ci, id_OUT1);
                     const auto &pad = ctx->get_package_pin(ctx->id(loc));
-                    CellInfo *cpe_half = ddr[pad->pad_bank];
+                    int die = uarch->tile_extra_data(ci.bel.tile)->die;
+                    CellInfo *cpe_half = ddr[die][pad->pad_bank];
                     if (cpe_half) {
                         if (cpe_half->getPort(id_IN1) != oddr->getPort(id_DDR))
                             log_error("DDR port use signal different than already occupied DDR source.\n");
@@ -501,8 +476,10 @@ void GateMatePacker::pack_io_sel()
                         oddr->movePortTo(id_DDR, &ci, id_DDR);
                         cpe_half = move_ram_o(&ci, id_DDR, false);
                         uarch->ddr_nets.insert(cpe_half->getPort(id_IN1)->name);
-                        ctx->bindBel(get_bank_cpe(pad->pad_bank), cpe_half, PlaceStrength::STRENGTH_FIXED);
-                        ddr[pad->pad_bank] = cpe_half;
+                        auto l = reinterpret_cast<const GateMatePadExtraDataPOD *>(pad->extra_data.get());
+                        ctx->bindBel(ctx->getBelByLocation(Loc(l->x, l->y, l->z)), cpe_half,
+                                     PlaceStrength::STRENGTH_FIXED);
+                        ddr[die][pad->pad_bank] = cpe_half;
                     }
                     use_custom_clock = set_out_clk(oddr, &ci);
                     bool invert = bool_or_default(oddr->params, id_CLK_INV, 0);
