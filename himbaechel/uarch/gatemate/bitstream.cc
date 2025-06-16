@@ -340,6 +340,10 @@ struct BitstreamBackend
             cc.configs[i].add_word("GPIO.BANK_S2", int_to_bitvector(bank[i][7], 1));
             cc.configs[i].add_word("GPIO.BANK_CFG", int_to_bitvector(bank[i][8], 1));
         }
+        if (uarch->dies == 2) {
+            cc.configs[0].add_word("D2D.N", int_to_bitvector(1,1));
+            cc.configs[1].add_word("D2D.S", int_to_bitvector(1,1));
+        }
 
         for (auto &net : ctx->nets) {
             NetInfo *ni = net.second.get();
