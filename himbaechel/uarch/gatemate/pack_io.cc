@@ -285,8 +285,8 @@ void GateMatePacker::pack_io()
         ci.params[id_LOC] = Property(loc);
 
         BelId bel;
-        if (uarch->locations.count(std::make_pair(ctx->id(loc), uarch->prefered_die)))
-            bel = ctx->getBelByLocation(uarch->locations[std::make_pair(ctx->id(loc), uarch->prefered_die)]);
+        if (uarch->locations.count(std::make_pair(ctx->id(loc), uarch->preferred_die)))
+            bel = ctx->getBelByLocation(uarch->locations[std::make_pair(ctx->id(loc), uarch->preferred_die)]);
         else
             bel = ctx->get_package_pin_bel(ctx->id(loc));
         if (bel == BelId())

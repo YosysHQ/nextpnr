@@ -178,7 +178,7 @@ void GateMatePacker::pack_misc()
             continue;
         ci.type = id_USR_RSTN;
         ci.cluster = ci.name;
-        Loc fixed_loc = uarch->locations[std::make_pair(id_USR_RSTN, uarch->prefered_die)];
+        Loc fixed_loc = uarch->locations[std::make_pair(id_USR_RSTN, uarch->preferred_die)];
         ctx->bindBel(ctx->getBelByLocation(fixed_loc), &ci, PlaceStrength::STRENGTH_FIXED);
 
         move_ram_i_fixed(&ci, id_USR_RSTN, fixed_loc);
@@ -189,7 +189,7 @@ void GateMatePacker::pack_misc()
             continue;
         ci.type = id_CFG_CTRL;
         ci.cluster = ci.name;
-        Loc fixed_loc = uarch->locations[std::make_pair(id_CFG_CTRL, uarch->prefered_die)];
+        Loc fixed_loc = uarch->locations[std::make_pair(id_CFG_CTRL, uarch->preferred_die)];
         ctx->bindBel(ctx->getBelByLocation(fixed_loc), &ci, PlaceStrength::STRENGTH_FIXED);
 
         move_ram_o_fixed(&ci, id_CLK, fixed_loc);

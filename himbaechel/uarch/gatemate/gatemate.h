@@ -69,7 +69,7 @@ struct GateMateImpl : HimbaechelAPI
     pool<IdString> ddr_nets;
     dict<std::pair<IdString, int>, Loc> locations;
     int dies;
-    int prefered_die;
+    int preferred_die;
 
   private:
     bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,

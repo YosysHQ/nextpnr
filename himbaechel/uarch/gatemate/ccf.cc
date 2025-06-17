@@ -222,11 +222,11 @@ struct GateMateCCFReader
         if (!isempty(linebuf))
             log_error("unexpected end of CCF file\n");
         int max_num = 0;
-        uarch->prefered_die = 0;
+        uarch->preferred_die = 0;
         for (int i = 0; i < uarch->dies; i++) {
             if (count[i] > max_num) {
                 max_num = count[i];
-                uarch->prefered_die = i;
+                uarch->preferred_die = i;
             }
         }
     }

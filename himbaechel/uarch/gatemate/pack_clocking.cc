@@ -126,7 +126,7 @@ void GateMatePacker::pack_bufg()
             continue;
 
         NetInfo *in_net = ci.getPort(id_I);
-        int die = uarch->prefered_die;
+        int die = uarch->preferred_die;
         if (in_net) {
             if (in_net->driver.cell) {
                 if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_GPIO) {
@@ -163,7 +163,7 @@ void GateMatePacker::pack_bufg()
             global_signals.emplace(ci.getPort(id_O), i);
             int glb_mux = 0;
             NetInfo *in_net = ci.getPort(id_I);
-            int die = uarch->prefered_die;
+            int die = uarch->preferred_die;
             if (in_net->driver.cell) {
                 bool user_glb = true;
                 if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_GPIO) {
@@ -305,7 +305,7 @@ void GateMatePacker::insert_pll_bufg()
 
 void GateMatePacker::remove_clocking()
 {
-    auto remove_unused_cells = [&](std::vector<CellInfo *> cells, const char *type) {
+    auto remove_unused_cells = [&](std::vector<CellInfo *> &cells, const char *type) {
         for (auto cell : cells) {
             bool used = false;
             for (auto port : cell->ports) {
@@ -341,7 +341,7 @@ void GateMatePacker::pack_pll()
         disconnect_if_gnd(&ci, id_CLK_FEEDBACK);
         disconnect_if_gnd(&ci, id_USR_LOCKED_STDY_RST);
 
-        int die = uarch->prefered_die;
+        int die = uarch->preferred_die;
 
         NetInfo *clk = ci.getPort(id_CLK_REF);
         if (clk) {

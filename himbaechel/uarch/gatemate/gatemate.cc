@@ -88,7 +88,7 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
     }
 
     // TODO: remove when placemente per die is better handled
-    if (cell->belStrength != PlaceStrength::STRENGTH_FIXED && tile_extra_data(bel.tile)->die != prefered_die)
+    if (cell->belStrength != PlaceStrength::STRENGTH_FIXED && tile_extra_data(bel.tile)->die != preferred_die)
         return false;
 
     if (ctx->getBelType(bel).in(id_CPE_HALF, id_CPE_HALF_L, id_CPE_HALF_U)) {
