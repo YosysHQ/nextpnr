@@ -276,9 +276,21 @@ void GateMatePacker::pack_io()
         ci.type = map_types[ci.type];
 
         if (loc.empty() || loc == "UNPLACED") {
-            if (uarch->available_pads.empty())
+            // Skip SER_CLK and SER_CLK_N if found in available_pads
+            auto it = uarch->available_pads.begin();
+            while (it != uarch->available_pads.end()) {
+                std::string pad_name = it->str(ctx);
+                if (pad_name == "SER_CLK" || pad_name == "SER_CLK_N") {
+                    ++it;
+                    continue;
+                }
+                break;
+            }
+
+            if (it == uarch->available_pads.end())
                 log_error("No more pads available.\n");
-            IdString id = *(uarch->available_pads.begin());
+
+            IdString id = *it;
             uarch->available_pads.erase(id);
             loc = id.c_str(ctx);
         }

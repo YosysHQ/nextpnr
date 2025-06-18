@@ -51,13 +51,13 @@ void GateMateImpl::init(Context *ctx)
     HimbaechelAPI::init(ctx);
     for (const auto &pad : ctx->package_info->pads) {
         available_pads.emplace(IdString(pad.package_pin));
-        available_pads.emplace(ctx->id("SER_CLK"));
-        available_pads.emplace(ctx->id("SER_CLK_N"));
         BelId bel = ctx->getBelByName(IdStringList::concat(IdString(pad.tile), IdString(pad.bel)));
         bel_to_pad.emplace(bel, &pad);
         locations.emplace(std::make_pair(IdString(pad.package_pin), tile_extra_data(bel.tile)->die),
                           ctx->getBelLocation(bel));
     }
+    available_pads.emplace(ctx->id("SER_CLK"));
+    available_pads.emplace(ctx->id("SER_CLK_N"));
     for (auto bel : ctx->getBels()) {
         auto *ptr = bel_extra_data(bel);
         std::map<IdString, const GateMateBelPinConstraintPOD *> pins;
