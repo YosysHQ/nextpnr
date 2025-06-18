@@ -28,7 +28,10 @@ NPNR_PACKED_STRUCT(struct GateMateTileExtraDataPOD {
     uint8_t die;
     uint8_t bit_x;
     uint8_t bit_y;
+    uint8_t tile_x;
+    uint8_t tile_y;
     uint8_t prim_id;
+    uint16_t dummy;
 });
 
 NPNR_PACKED_STRUCT(struct GateMatePipExtraDataPOD {
@@ -51,6 +54,13 @@ NPNR_PACKED_STRUCT(struct GateMateBelPinConstraintPOD {
 });
 
 NPNR_PACKED_STRUCT(struct GateMateBelExtraDataPOD { RelSlice<GateMateBelPinConstraintPOD> constraints; });
+
+NPNR_PACKED_STRUCT(struct GateMatePadExtraDataPOD {
+    uint16_t x;
+    uint16_t y;
+    uint16_t z;
+    uint16_t dummy;
+});
 
 enum MuxFlags
 {

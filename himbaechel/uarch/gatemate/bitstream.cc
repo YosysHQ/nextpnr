@@ -46,6 +46,77 @@ struct BitstreamBackend
         return reinterpret_cast<const GateMateTileExtraDataPOD *>(ctx->chip_info->tile_insts[tile].extra_data.get());
     }
 
+    bool need_inversion(CellInfo *cell, IdString port)
+    {
+        PortRef sink;
+        sink.cell = cell;
+        sink.port = port;
+
+        NetInfo *net_info = cell->getPort(port);
+        if (!net_info)
+            return false;
+
+        WireId src_wire = ctx->getNetinfoSourceWire(net_info);
+        WireId dst_wire = ctx->getNetinfoSinkWire(net_info, sink, 0);
+
+        if (src_wire == WireId())
+            return false;
+
+        WireId cursor = dst_wire;
+        bool invert = false;
+        while (cursor != WireId() && cursor != src_wire) {
+            auto it = net_info->wires.find(cursor);
+
+            if (it == net_info->wires.end())
+                break;
+
+            PipId pip = it->second.pip;
+            if (pip == PipId())
+                break;
+
+            invert ^= ctx->isPipInverting(pip);
+            cursor = ctx->getPipSrcWire(pip);
+        }
+
+        return invert;
+    }
+
+    void update_cpe_lt(CellInfo *cell, IdString port, IdString init, dict<IdString, Property> &params)
+    {
+        unsigned init_val = int_or_default(params, init);
+        bool invert = need_inversion(cell, port);
+        if (invert) {
+            if (port.in(id_IN1, id_IN3))
+                init_val = (init_val & 0b1010) >> 1 | (init_val & 0b0101) << 1;
+            else
+                init_val = (init_val & 0b0011) << 2 | (init_val & 0b1100) >> 2;
+            params[init] = Property(init_val, 4);
+        }
+    }
+
+    void update_cpe_inv(CellInfo *cell, IdString port, IdString param, dict<IdString, Property> &params)
+    {
+        unsigned init_val = int_or_default(params, param);
+        bool invert = need_inversion(cell, port);
+        if (invert) {
+            params[param] = Property(3 - init_val, 2);
+        }
+    }
+
+    void update_cpe_mux(CellInfo *cell, IdString port, IdString param, int bit, dict<IdString, Property> &params)
+    {
+        // Mux inversion data is contained in other CPE half
+        Loc l = ctx->getBelLocation(cell->bel);
+        CellInfo *cell_u = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(l.x, l.y, 0)));
+        unsigned init_val = int_or_default(params, param);
+        bool invert = need_inversion(cell_u, port);
+        if (invert) {
+            int old = (init_val >> bit) & 1;
+            int val = (init_val & (~(1 << bit) & 0xf)) | ((!old) << bit);
+            params[param] = Property(val, 4);
+        }
+    }
+
     std::vector<bool> int_to_bitvector(int val, int size)
     {
         std::vector<bool> bv;
@@ -105,36 +176,34 @@ struct BitstreamBackend
                     boost::replace_all(word, "TES.", stringf("TES%d.", id));
                 if (boost::starts_with(word, "SB_DRIVE.")) {
                     Loc l;
+                    auto ti = *tile_extra_data(pip.tile);
                     tile_xy(ctx->chip_info, pip.tile, l.x, l.y);
                     l.z = 0;
                     BelId cpe_bel = ctx->getBelByLocation(l);
                     // Only if switchbox is inside core (same as sharing location with CPE)
                     if (cpe_bel != BelId() && ctx->getBelType(cpe_bel).in(id_CPE_HALF_L, id_CPE_HALF_U)) {
-                        // Convert coordinates into in-tile coordinates
-                        int xt = ((l.x - 2 - 1) + 16) % 8;
-                        int yt = ((l.y - 2 - 1) + 16) % 8;
                         // Bitstream data for certain SB_DRIVES is located in other tiles
                         switch (word[14]) {
                         case '3':
-                            if (xt >= 4) {
+                            if (ti.tile_x >= 4) {
                                 loc.x -= 2;
                                 word[14] = '1';
                             };
                             break;
                         case '4':
-                            if (yt >= 4) {
+                            if (ti.tile_y >= 4) {
                                 loc.y -= 2;
                                 word[14] = '2';
                             };
                             break;
                         case '1':
-                            if (xt <= 3) {
+                            if (ti.tile_x <= 3) {
                                 loc.x += 2;
                                 word[14] = '3';
                             };
                             break;
                         case '2':
-                            if (yt <= 3) {
+                            if (ti.tile_y <= 3) {
                                 loc.y += 2;
                                 word[14] = '4';
                             };
@@ -154,39 +223,75 @@ struct BitstreamBackend
     {
         ChipConfig cc;
         cc.chip_name = device;
-        int bank[9] = {0};
+        int bank[uarch->dies][9] = {0};
         for (auto &cell : ctx->cells) {
             CfgLoc loc = get_config_loc(cell.second.get()->bel.tile);
             auto &params = cell.second.get()->params;
             switch (cell.second->type.index) {
-            case id_CC_IBUF.index:
-            case id_CC_TOBUF.index:
-            case id_CC_OBUF.index:
-            case id_CC_IOBUF.index:
-            case id_CC_LVDS_IBUF.index:
-            case id_CC_LVDS_TOBUF.index:
-            case id_CC_LVDS_OBUF.index:
-            case id_CC_LVDS_IOBUF.index:
+            case id_CPE_IBUF.index:
+            case id_CPE_TOBUF.index:
+            case id_CPE_OBUF.index:
+            case id_CPE_IOBUF.index:
+            case id_CPE_LVDS_IBUF.index:
+            case id_CPE_LVDS_TOBUF.index:
+            case id_CPE_LVDS_OBUF.index:
+            case id_CPE_LVDS_IOBUF.index:
                 for (auto &p : params) {
-                    bank[ctx->get_bel_package_pin(cell.second.get()->bel)->pad_bank] = 1;
+                    bank[loc.die][ctx->get_bel_package_pin(cell.second.get()->bel)->pad_bank] = 1;
                     cc.tiles[loc].add_word(stringf("GPIO.%s", p.first.c_str(ctx)), p.second.as_bits());
                 }
                 break;
             case id_CPE_HALF_U.index:
             case id_CPE_HALF_L.index: {
+                // Update configuration bits based on signal inversion
+                dict<IdString, Property> params = cell.second->params;
+                uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
+                if (cell.second->type.in(id_CPE_HALF_U) && func != C_MX4) {
+                    update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L00, params);
+                    update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L00, params);
+                    update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L01, params);
+                    update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L01, params);
+                }
+                if (cell.second->type.in(id_CPE_HALF_L)) {
+                    update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L02, params);
+                    update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L02, params);
+                    update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L03, params);
+                    update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L03, params);
+                    if (func == C_MX4) {
+                        update_cpe_mux(cell.second.get(), id_IN1, id_INIT_L11, 0, params);
+                        update_cpe_mux(cell.second.get(), id_IN2, id_INIT_L11, 1, params);
+                        update_cpe_mux(cell.second.get(), id_IN3, id_INIT_L11, 2, params);
+                        update_cpe_mux(cell.second.get(), id_IN4, id_INIT_L11, 3, params);
+                    }
+                }
+                if (cell.second->type.in(id_CPE_HALF_U, id_CPE_HALF_L)) {
+                    update_cpe_inv(cell.second.get(), id_CLK, id_C_CPE_CLK, params);
+                    update_cpe_inv(cell.second.get(), id_EN, id_C_CPE_EN, params);
+                    bool set = int_or_default(params, id_C_EN_SR, 0) == 1;
+                    if (set)
+                        update_cpe_inv(cell.second.get(), id_SR, id_C_CPE_SET, params);
+                    else
+                        update_cpe_inv(cell.second.get(), id_SR, id_C_CPE_RES, params);
+                }
                 int id = tile_extra_data(cell.second.get()->bel.tile)->prim_id;
                 for (auto &p : params) {
                     cc.tiles[loc].add_word(stringf("CPE%d.%s", id, p.first.c_str(ctx)), p.second.as_bits());
                 }
             } break;
-            case id_BUFG.index: {
-                Loc l = ctx->getBelLocation(cell.second->bel);
-                cc.configs[0].add_word(stringf("GLBOUT.GLB%d_EN", l.z), int_to_bitvector(1, 1));
+            case id_CLKIN.index: {
+                for (auto &p : params) {
+                    cc.configs[loc.die].add_word(stringf("CLKIN.%s", p.first.c_str(ctx)), p.second.as_bits());
+                }
+            } break;
+            case id_GLBOUT.index: {
+                for (auto &p : params) {
+                    cc.configs[loc.die].add_word(stringf("GLBOUT.%s", p.first.c_str(ctx)), p.second.as_bits());
+                }
             } break;
             case id_PLL.index: {
                 Loc l = ctx->getBelLocation(cell.second->bel);
                 for (auto &p : params) {
-                    cc.configs[0].add_word(stringf("PLL%d.%s", l.z - 4, p.first.c_str(ctx)), p.second.as_bits());
+                    cc.configs[loc.die].add_word(stringf("PLL%d.%s", l.z - 2, p.first.c_str(ctx)), p.second.as_bits());
                 }
             } break;
             case id_RAM.index: {
@@ -224,15 +329,21 @@ struct BitstreamBackend
             }
         }
 
-        cc.configs[0].add_word("GPIO.BANK_N1", int_to_bitvector(bank[0], 1));
-        cc.configs[0].add_word("GPIO.BANK_N2", int_to_bitvector(bank[1], 1));
-        cc.configs[0].add_word("GPIO.BANK_E1", int_to_bitvector(bank[2], 1));
-        cc.configs[0].add_word("GPIO.BANK_E2", int_to_bitvector(bank[3], 1));
-        cc.configs[0].add_word("GPIO.BANK_W1", int_to_bitvector(bank[4], 1));
-        cc.configs[0].add_word("GPIO.BANK_W2", int_to_bitvector(bank[5], 1));
-        cc.configs[0].add_word("GPIO.BANK_S1", int_to_bitvector(bank[6], 1));
-        cc.configs[0].add_word("GPIO.BANK_S2", int_to_bitvector(bank[7], 1));
-        cc.configs[0].add_word("GPIO.BANK_CFG", int_to_bitvector(bank[8], 1));
+        for (int i = 0; i < uarch->dies; i++) {
+            cc.configs[i].add_word("GPIO.BANK_N1", int_to_bitvector(bank[i][0], 1));
+            cc.configs[i].add_word("GPIO.BANK_N2", int_to_bitvector(bank[i][1], 1));
+            cc.configs[i].add_word("GPIO.BANK_E1", int_to_bitvector(bank[i][2], 1));
+            cc.configs[i].add_word("GPIO.BANK_E2", int_to_bitvector(bank[i][3], 1));
+            cc.configs[i].add_word("GPIO.BANK_W1", int_to_bitvector(bank[i][4], 1));
+            cc.configs[i].add_word("GPIO.BANK_W2", int_to_bitvector(bank[i][5], 1));
+            cc.configs[i].add_word("GPIO.BANK_S1", int_to_bitvector(bank[i][6], 1));
+            cc.configs[i].add_word("GPIO.BANK_S2", int_to_bitvector(bank[i][7], 1));
+            cc.configs[i].add_word("GPIO.BANK_CFG", int_to_bitvector(bank[i][8], 1));
+        }
+        if (uarch->dies == 2) {
+            cc.configs[0].add_word("D2D.N", int_to_bitvector(1, 1));
+            cc.configs[1].add_word("D2D.S", int_to_bitvector(1, 1));
+        }
 
         for (auto &net : ctx->nets) {
             NetInfo *ni = net.second.get();

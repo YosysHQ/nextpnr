@@ -38,6 +38,12 @@ void GateMateImpl::init_database(Arch *arch)
     arch->load_chipdb(stringf("gatemate/chipdb-%s.bin", args.device.c_str()));
     arch->set_package("FBGA324");
     arch->set_speed_grade("DEFAULT");
+    dies = std::stoi(args.device.substr(6));
+}
+
+const GateMateTileExtraDataPOD *GateMateImpl::tile_extra_data(int tile) const
+{
+    return reinterpret_cast<const GateMateTileExtraDataPOD *>(ctx->chip_info->tile_insts[tile].extra_data.get());
 }
 
 void GateMateImpl::init(Context *ctx)
@@ -45,8 +51,12 @@ void GateMateImpl::init(Context *ctx)
     HimbaechelAPI::init(ctx);
     for (const auto &pad : ctx->package_info->pads) {
         available_pads.emplace(IdString(pad.package_pin));
+        available_pads.emplace(ctx->id("SER_CLK"));
+        available_pads.emplace(ctx->id("SER_CLK_N"));
         BelId bel = ctx->getBelByName(IdStringList::concat(IdString(pad.tile), IdString(pad.bel)));
         bel_to_pad.emplace(bel, &pad);
+        locations.emplace(std::make_pair(IdString(pad.package_pin), tile_extra_data(bel.tile)->die),
+                          ctx->getBelLocation(bel));
     }
     for (auto bel : ctx->getBels()) {
         auto *ptr = bel_extra_data(bel);
@@ -54,6 +64,10 @@ void GateMateImpl::init(Context *ctx)
         for (const auto &p : ptr->constraints)
             pins.emplace(IdString(p.name), &p);
         pin_to_constr.emplace(bel, pins);
+        if (ctx->getBelType(bel).in(id_CLKIN, id_GLBOUT, id_PLL, id_USR_RSTN, id_CFG_CTRL, id_SERDES)) {
+            locations.emplace(std::make_pair(ctx->getBelName(bel)[1], tile_extra_data(bel.tile)->die),
+                              ctx->getBelLocation(bel));
+        }
     }
 }
 
@@ -72,6 +86,11 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
     if (cell == nullptr) {
         return true;
     }
+
+    // TODO: remove when placemente per die is better handled
+    if (cell->belStrength != PlaceStrength::STRENGTH_FIXED && tile_extra_data(bel.tile)->die != preferred_die)
+        return false;
+
     if (ctx->getBelType(bel).in(id_CPE_HALF, id_CPE_HALF_L, id_CPE_HALF_U)) {
         Loc loc = ctx->getBelLocation(bel);
         const CellInfo *adj_half = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x, loc.y, loc.z == 1 ? 0 : 1)));
@@ -160,77 +179,6 @@ bool GateMateImpl::getClusterPlacement(ClusterId cluster, BelId root_bel,
     return getChildPlacement(root_cell, root_loc, placement);
 }
 
-bool GateMateImpl::need_inversion(CellInfo *cell, IdString port)
-{
-    PortRef sink;
-    sink.cell = cell;
-    sink.port = port;
-
-    NetInfo *net_info = cell->getPort(port);
-    if (!net_info)
-        return false;
-
-    WireId src_wire = ctx->getNetinfoSourceWire(net_info);
-    WireId dst_wire = ctx->getNetinfoSinkWire(net_info, sink, 0);
-
-    if (src_wire == WireId())
-        return false;
-
-    WireId cursor = dst_wire;
-    bool invert = false;
-    while (cursor != WireId() && cursor != src_wire) {
-        auto it = net_info->wires.find(cursor);
-
-        if (it == net_info->wires.end())
-            break;
-
-        PipId pip = it->second.pip;
-        if (pip == PipId())
-            break;
-
-        invert ^= ctx->isPipInverting(pip);
-        cursor = ctx->getPipSrcWire(pip);
-    }
-
-    return invert;
-}
-
-void GateMateImpl::update_cpe_lt(CellInfo *cell, IdString port, IdString init)
-{
-    unsigned init_val = int_or_default(cell->params, init);
-    bool invert = need_inversion(cell, port);
-    if (invert) {
-        if (port.in(id_IN1, id_IN3))
-            init_val = (init_val & 0b1010) >> 1 | (init_val & 0b0101) << 1;
-        else
-            init_val = (init_val & 0b0011) << 2 | (init_val & 0b1100) >> 2;
-        cell->params[init] = Property(init_val, 4);
-    }
-}
-
-void GateMateImpl::update_cpe_inv(CellInfo *cell, IdString port, IdString param)
-{
-    unsigned init_val = int_or_default(cell->params, param);
-    bool invert = need_inversion(cell, port);
-    if (invert) {
-        cell->params[param] = Property(3 - init_val, 2);
-    }
-}
-
-void GateMateImpl::update_cpe_mux(CellInfo *cell, IdString port, IdString param, int bit)
-{
-    // Mux inversion data is contained in other CPE half
-    Loc l = ctx->getBelLocation(cell->bel);
-    CellInfo *cell_l = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(l.x, l.y, 1)));
-    unsigned init_val = int_or_default(cell_l->params, param);
-    bool invert = need_inversion(cell, port);
-    if (invert) {
-        int old = (init_val >> bit) & 1;
-        int val = (init_val & (~(1 << bit) & 0xf)) | ((!old) << bit);
-        cell_l->params[param] = Property(val, 4);
-    }
-}
-
 void GateMateImpl::rename_param(CellInfo *cell, IdString name, IdString new_name, int width)
 {
     if (cell->params.count(name)) {
@@ -274,50 +222,6 @@ void GateMateImpl::preRoute() { route_clock(); }
 void GateMateImpl::postRoute()
 {
     ctx->assignArchInfo();
-    // Update configuration bits based on signal inversion
-    for (auto &cell : ctx->cells) {
-        if (cell.second->type.in(id_CPE_HALF_U)) {
-            uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
-            if (func != C_MX4) {
-                update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L00);
-                update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L00);
-                update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L01);
-                update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L01);
-            } else {
-                update_cpe_mux(cell.second.get(), id_IN1, id_INIT_L11, 0);
-                update_cpe_mux(cell.second.get(), id_IN2, id_INIT_L11, 1);
-                update_cpe_mux(cell.second.get(), id_IN3, id_INIT_L11, 2);
-                update_cpe_mux(cell.second.get(), id_IN4, id_INIT_L11, 3);
-            }
-        }
-        if (cell.second->type.in(id_CPE_HALF_L)) {
-            update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L02);
-            update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L02);
-            update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L03);
-            update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L03);
-        }
-        if (cell.second->type.in(id_CPE_HALF_U, id_CPE_HALF_L)) {
-            update_cpe_inv(cell.second.get(), id_CLK, id_C_CPE_CLK);
-            update_cpe_inv(cell.second.get(), id_EN, id_C_CPE_EN);
-            bool set = int_or_default(cell.second->params, id_C_EN_SR, 0) == 1;
-            if (set)
-                update_cpe_inv(cell.second.get(), id_SR, id_C_CPE_SET);
-            else
-                update_cpe_inv(cell.second.get(), id_SR, id_C_CPE_RES);
-        }
-    }
-    // Sanity check
-    for (auto &c : ctx->cells) {
-        CellInfo *cell = c.second.get();
-        if (!cell->type.in(id_CPE_HALF_U, id_CPE_HALF_L)) {
-            for (auto port : cell->ports) {
-                if (need_inversion(cell, port.first)) {
-                    log_error("Unhandled cell '%s' of type '%s' port '%s'\n", cell->name.c_str(ctx),
-                              cell->type.c_str(ctx), port.first.c_str(ctx));
-                }
-            }
-        }
-    }
     print_utilisation(ctx);
 
     const ArchArgs &args = ctx->args;
@@ -367,8 +271,8 @@ void GateMateImpl::assign_cell_info()
 // Bel bucket functions
 IdString GateMateImpl::getBelBucketForCellType(IdString cell_type) const
 {
-    if (cell_type.in(id_CC_IBUF, id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF, id_CC_LVDS_IBUF, id_CC_LVDS_TOBUF,
-                     id_CC_LVDS_OBUF, id_CC_LVDS_IOBUF))
+    if (cell_type.in(id_CPE_IBUF, id_CPE_OBUF, id_CPE_TOBUF, id_CPE_IOBUF, id_CPE_LVDS_IBUF, id_CPE_LVDS_TOBUF,
+                     id_CPE_LVDS_OBUF, id_CPE_LVDS_IOBUF))
         return id_GPIO;
     else if (cell_type.in(id_CPE_HALF_U, id_CPE_HALF_L, id_CPE_HALF))
         return id_CPE_HALF;
@@ -388,8 +292,8 @@ bool GateMateImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
 {
     IdString bel_type = ctx->getBelType(bel);
     if (bel_type == id_GPIO)
-        return cell_type.in(id_CC_IBUF, id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF, id_CC_LVDS_IBUF, id_CC_LVDS_TOBUF,
-                            id_CC_LVDS_OBUF, id_CC_LVDS_IOBUF);
+        return cell_type.in(id_CPE_IBUF, id_CPE_OBUF, id_CPE_TOBUF, id_CPE_IOBUF, id_CPE_LVDS_IBUF, id_CPE_LVDS_TOBUF,
+                            id_CPE_LVDS_OBUF, id_CPE_LVDS_IOBUF);
     else if (bel_type == id_CPE_HALF_U)
         return cell_type.in(id_CPE_HALF_U, id_CPE_HALF);
     else if (bel_type == id_CPE_HALF_L)

@@ -46,6 +46,8 @@ class TileExtraData(BBAStruct):
     die : int = 0
     bit_x: int = 0
     bit_y: int = 0
+    tile_x: int = 0
+    tile_y: int = 0
     prim_id : int = 0
 
     def serialise_lists(self, context: str, bba: BBAWriter):
@@ -54,7 +56,10 @@ class TileExtraData(BBAStruct):
         bba.u8(self.die)
         bba.u8(self.bit_x)
         bba.u8(self.bit_y)
+        bba.u8(self.tile_x)
+        bba.u8(self.tile_y)
         bba.u8(self.prim_id)
+        bba.u16(0)
 
 @dataclass
 class PipExtraData(BBAStruct):
@@ -111,6 +116,20 @@ class BelExtraData(BBAStruct):
     def serialise(self, context: str, bba: BBAWriter):
         bba.slice(f"{context}_constraints", len(self.constraints))
 
+@dataclass
+class PadExtraData(BBAStruct):
+    x: int = 0
+    y: int = 0
+    z: int = 0
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.u16(self.x)
+        bba.u16(self.y)
+        bba.u16(self.z)
+        bba.u16(0)
+
 def set_timings(ch):
     speed = "DEFAULT"
     tmg = ch.set_speed_grades([speed])
@@ -140,7 +159,7 @@ def set_timings(ch):
     dff.add_setup_hold("CLK", "IN4", ClockEdge.RISING, TimingValue(60), TimingValue(50))
     dff.add_clock_out("CLK", "OUT", ClockEdge.RISING, TimingValue(60))
 
-EXPECTED_VERSION = 1.1
+EXPECTED_VERSION = 1.2
 
 def main():
     # Range needs to be +1, but we are adding +2 more to coordinates, since 
@@ -178,16 +197,12 @@ def main():
             tt.create_group(group.name, group.type)
         for wire in sorted(die.get_endpoints_for_type(type_name)):
             tt.create_wire(wire.name, wire.type)
-        if "GPIO" in type_name:
-            tt.create_wire("GPIO.DI", "CPE_VIRTUAL_WIRE")
         for prim in sorted(die.get_primitives_for_type(type_name)):
             bel = tt.create_bel(prim.name, prim.type, prim.z)
             extra = BelExtraData()
             for constr in sorted(die.get_pins_constraint(type_name, prim.name, prim.type)):
                 extra.add_constraints(ch.strs.id(constr.name),constr.rel_x,constr.rel_y,0 if constr.pin_num==2 else 1)
             bel.extra_data = extra
-            if prim.name == "GPIO":
-                tt.add_bel_pin(bel, "DI", "GPIO.DI", PinType.INPUT)
             for pin in sorted(die.get_primitive_pins(prim.type)):
                 tt.add_bel_pin(bel, pin.name, die.get_pin_connection_name(prim,pin), pin.dir)
         for mux in sorted(die.get_mux_connections_for_type(type_name)):
@@ -204,16 +219,13 @@ def main():
                 if mux.name.startswith("SB_DRIVE"):
                     plane = int(mux.name[10:12])
                 pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(mux.name), mux.bits, mux.value, mux_flags, plane)
-        if "GPIO" in type_name:
-            tt.create_pip("GPIO.DI", "GPIO.IN1")
-            tt.create_pip("GPIO.DI", "GPIO.IN2")
 
     # Setup tile grid
     for x in range(dev.max_col() + 3):
         for y in range(dev.max_row() + 3):
             ti = ch.set_tile_type(x, y, dev.get_tile_type(x - 2,y - 2))
             tileinfo = dev.get_tile_info(x - 2,y - 2)
-            ti.extra_data = TileExtraData(tileinfo.die, tileinfo.bit_x, tileinfo.bit_y, tileinfo.prim_index)
+            ti.extra_data = TileExtraData(tileinfo.die, tileinfo.bit_x, tileinfo.bit_y, tileinfo.tile_x, tileinfo.tile_y, tileinfo.prim_index)
 
     # Create nodes between tiles
     for _,nodes in dev.get_connections():
@@ -226,7 +238,8 @@ def main():
     for package in dev.get_packages():
         pkg = ch.create_package(package)
         for pad in sorted(dev.get_package_pads(package)):
-            pkg.create_pad(pad.name, f"X{pad.x+2}Y{pad.y+2}", pad.bel, pad.function, pad.bank, pad.flags)
+            pp = pkg.create_pad(pad.name, f"X{pad.x+2}Y{pad.y+2}", pad.bel, pad.function, pad.bank, pad.flags)
+            pp.extra_data = PadExtraData(pad.ddr.x+2, pad.ddr.y+2, pad.ddr.z)
 
     ch.write_bba(args.bba)
 

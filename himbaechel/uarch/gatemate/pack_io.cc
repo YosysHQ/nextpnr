@@ -24,30 +24,11 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-BelId GateMatePacker::get_bank_cpe(int bank)
+std::string get_die_name(int total_dies, int die)
 {
-    switch (bank) {
-    case 0:
-        return ctx->getBelByLocation(Loc(97 + 2, 128 + 2, 1)); // N1, RAM_O1
-    case 1:
-        return ctx->getBelByLocation(Loc(97 + 2, 128 + 2, 0)); // N2, RAM_O2
-    case 2:
-        return ctx->getBelByLocation(Loc(160 + 2, 65 + 2, 1)); // E1, RAM_O1
-    case 3:
-        return ctx->getBelByLocation(Loc(160 + 2, 65 + 2, 0)); // E2, RAM_O2
-    case 4:
-        return ctx->getBelByLocation(Loc(1 + 2, 65 + 2, 1)); // W1, RAM_O1
-    case 5:
-        return ctx->getBelByLocation(Loc(1 + 2, 65 + 2, 0)); // W2, RAM_O2
-    case 6:
-        return ctx->getBelByLocation(Loc(97 + 2, 1 + 2, 1)); // S1, RAM_O1
-    case 7:
-        return ctx->getBelByLocation(Loc(97 + 2, 1 + 2, 0)); // S2, RAM_O2
-    case 8:
-        return ctx->getBelByLocation(Loc(49 + 2, 1 + 2, 1)); // S3, RAM_O1
-    default:
-        log_error("Unkown bank\n");
-    }
+    if (total_dies == 1)
+        return "";
+    return stringf("on die '%d%c'", int(die / total_dies) + 1, 'A' + int(die % total_dies));
 }
 
 void GateMatePacker::pack_io()
@@ -152,6 +133,21 @@ void GateMatePacker::pack_io()
             loc = new_loc;
         }
 
+        if (loc == "SER_CLK" || loc == "SER_CLK_N") {
+            if (ci.type.in(id_CC_IBUF)) {
+                log_info("    Constraining '%s' to pad '%s'\n", ci.name.c_str(ctx), loc.c_str());
+                NetInfo *ser_clk = ci.getPort(id_I);
+                for (auto s : ci.getPort(id_Y)->users) {
+                    s.cell->disconnectPort(s.port);
+                    s.cell->connectPort(s.port, ser_clk);
+                }
+                ci.disconnectPort(id_I);
+                packed_cells.emplace(ci.name);
+                continue;
+            } else {
+                log_error("SER_CLK and SER_CLK_N pins can only be used on input port.\n");
+            }
+        }
         if (loc == "UNPLACED") {
             const ArchArgs &args = ctx->args;
             if (args.options.count("allow-unconstrained"))
@@ -271,16 +267,13 @@ void GateMatePacker::pack_io()
             }
         }
 
-        // Disconnect PADs
-        ci.disconnectPort(id_IO);
-        ci.disconnectPort(id_I);
-        ci.disconnectPort(id_O);
-        ci.disconnectPort(id_IO_P);
-        ci.disconnectPort(id_IO_N);
-        ci.disconnectPort(id_I_P);
-        ci.disconnectPort(id_I_N);
-        ci.disconnectPort(id_O_P);
-        ci.disconnectPort(id_O_N);
+        static dict<IdString, IdString> map_types = {
+                {id_CC_IBUF, id_CPE_IBUF},           {id_CC_OBUF, id_CPE_OBUF},
+                {id_CC_TOBUF, id_CPE_TOBUF},         {id_CC_IOBUF, id_CPE_IOBUF},
+                {id_CC_LVDS_IBUF, id_CPE_LVDS_IBUF}, {id_CC_LVDS_TOBUF, id_CPE_LVDS_TOBUF},
+                {id_CC_LVDS_OBUF, id_CPE_LVDS_OBUF}, {id_CC_LVDS_IOBUF, id_CPE_LVDS_IOBUF},
+        };
+        ci.type = map_types[ci.type];
 
         if (loc.empty() || loc == "UNPLACED") {
             if (uarch->available_pads.empty())
@@ -291,17 +284,23 @@ void GateMatePacker::pack_io()
         }
         ci.params[id_LOC] = Property(loc);
 
-        BelId bel = ctx->get_package_pin_bel(ctx->id(loc));
+        BelId bel;
+        if (uarch->locations.count(std::make_pair(ctx->id(loc), uarch->preferred_die)))
+            bel = ctx->getBelByLocation(uarch->locations[std::make_pair(ctx->id(loc), uarch->preferred_die)]);
+        else
+            bel = ctx->get_package_pin_bel(ctx->id(loc));
         if (bel == BelId())
             log_error("Unable to constrain IO '%s', device does not have a pin named '%s'\n", ci.name.c_str(ctx),
                       loc.c_str());
-        log_info("    Constraining '%s' to pad '%s'\n", ci.name.c_str(ctx), loc.c_str());
+        log_info("    Constraining '%s' to pad '%s'%s.\n", ci.name.c_str(ctx), loc.c_str(),
+                 get_die_name(uarch->dies, uarch->tile_extra_data(bel.tile)->die).c_str());
         if (!ctx->checkBelAvail(bel)) {
             log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci), ctx->nameOfBel(bel),
                       ctx->nameOf(ctx->getBoundBelCell(bel)));
         }
         ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_FIXED);
     }
+    flush_cells();
 }
 
 void GateMatePacker::pack_io_sel()
@@ -309,14 +308,13 @@ void GateMatePacker::pack_io_sel()
     std::vector<CellInfo *> cells;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
-        if (!ci.type.in(id_CC_IBUF, id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF, id_CC_LVDS_IBUF, id_CC_LVDS_OBUF,
-                        id_CC_LVDS_TOBUF, id_CC_LVDS_IOBUF))
+        if (!uarch->getBelBucketForCellType(ci.type).in(id_GPIO))
             continue;
 
         cells.push_back(&ci);
     }
 
-    CellInfo *ddr[9] = {nullptr}; // for each bank
+    CellInfo *ddr[uarch->dies][9] = {nullptr}; // for each bank
 
     auto set_out_clk = [&](CellInfo *cell, CellInfo *target) -> bool {
         NetInfo *clk_net = cell->getPort(id_CLK);
@@ -371,7 +369,7 @@ void GateMatePacker::pack_io_sel()
             ci.params[id_IN2_FF] = Property(Property::State::S1);
             packed_cells.emplace(dff->name);
             ci.disconnectPort(id_Y);
-            dff->movePortTo(id_Q, &ci, id_DI);
+            dff->movePortTo(id_Q, &ci, id_IN1);
             set_in_clk(dff, &ci);
             bool invert = bool_or_default(dff->params, id_CLK_INV, 0);
             if (invert) {
@@ -407,7 +405,7 @@ void GateMatePacker::pack_io_sel()
         } else {
             ci.params[id_INV_IN2_CLOCK] = Property(Property::State::S1);
         }
-        return false;
+        return true;
     };
 
     for (auto &cell : cells) {
@@ -466,7 +464,8 @@ void GateMatePacker::pack_io_sel()
                     oddr->movePortTo(id_D0, &ci, id_OUT2);
                     oddr->movePortTo(id_D1, &ci, id_OUT1);
                     const auto &pad = ctx->get_package_pin(ctx->id(loc));
-                    CellInfo *cpe_half = ddr[pad->pad_bank];
+                    int die = uarch->tile_extra_data(ci.bel.tile)->die;
+                    CellInfo *cpe_half = ddr[die][pad->pad_bank];
                     if (cpe_half) {
                         if (cpe_half->getPort(id_IN1) != oddr->getPort(id_DDR))
                             log_error("DDR port use signal different than already occupied DDR source.\n");
@@ -477,8 +476,10 @@ void GateMatePacker::pack_io_sel()
                         oddr->movePortTo(id_DDR, &ci, id_DDR);
                         cpe_half = move_ram_o(&ci, id_DDR, false);
                         uarch->ddr_nets.insert(cpe_half->getPort(id_IN1)->name);
-                        ctx->bindBel(get_bank_cpe(pad->pad_bank), cpe_half, PlaceStrength::STRENGTH_FIXED);
-                        ddr[pad->pad_bank] = cpe_half;
+                        auto l = reinterpret_cast<const GateMatePadExtraDataPOD *>(pad->extra_data.get());
+                        ctx->bindBel(ctx->getBelByLocation(Loc(l->x, l->y, l->z)), cpe_half,
+                                     PlaceStrength::STRENGTH_FIXED);
+                        ddr[die][pad->pad_bank] = cpe_half;
                     }
                     use_custom_clock = set_out_clk(oddr, &ci);
                     bool invert = bool_or_default(oddr->params, id_CLK_INV, 0);
@@ -505,7 +506,7 @@ void GateMatePacker::pack_io_sel()
             }
 
             if (!ff_ibf_merged && !iddr_merged)
-                ci.renamePort(id_Y, id_DI);
+                ci.renamePort(id_Y, id_IN1);
         }
 
         Loc root_loc = ctx->getBelLocation(ci.bel);

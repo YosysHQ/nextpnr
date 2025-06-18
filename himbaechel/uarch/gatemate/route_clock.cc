@@ -111,8 +111,21 @@ void GateMateImpl::route_clock()
         log_info("    routing net '%s'\n", clk_net->name.c_str(ctx));
         ctx->bindWire(ctx->getNetinfoSourceWire(clk_net), clk_net, STRENGTH_LOCKED);
 
-        auto bufg_idx = ctx->getBelLocation(clk_net->driver.cell->bel).z;
-        auto clk_plane = 9 + bufg_idx;
+        auto clk_plane = 0;
+        switch (clk_net->driver.port.index) {
+        case id_GLB0.index:
+            clk_plane = 9;
+            break;
+        case id_GLB1.index:
+            clk_plane = 10;
+            break;
+        case id_GLB2.index:
+            clk_plane = 11;
+            break;
+        case id_GLB3.index:
+            clk_plane = 12;
+            break;
+        }
 
         for (auto &usr : clk_net->users) {
             std::priority_queue<QueuedWire, std::vector<QueuedWire>, std::greater<QueuedWire>> visit;
@@ -123,7 +136,7 @@ void GateMateImpl::route_clock()
                 continue;
 
             auto cpe_loc = ctx->getBelLocation(usr.cell->bel);
-            auto is_glb_clk = clk_net->driver.cell->type == id_BUFG;
+            auto is_glb_clk = clk_net->driver.cell->type == id_GLBOUT;
 
             auto sink_wire = ctx->getNetinfoSinkWire(clk_net, usr, 0);
             if (ctx->debug) {

@@ -62,9 +62,14 @@ struct GateMateImpl : HimbaechelAPI
 
     bool isPipInverting(PipId pip) const override;
 
+    const GateMateTileExtraDataPOD *tile_extra_data(int tile) const;
+
     std::set<IdString> available_pads;
     std::map<BelId, const PadInfoPOD *> bel_to_pad;
     pool<IdString> ddr_nets;
+    dict<std::pair<IdString, int>, Loc> locations;
+    int dies;
+    int preferred_die;
 
   private:
     bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
@@ -75,10 +80,6 @@ struct GateMateImpl : HimbaechelAPI
     void parse_ccf(const std::string &filename);
 
     void assign_cell_info();
-    bool need_inversion(CellInfo *cell, IdString port);
-    void update_cpe_lt(CellInfo *cell, IdString port, IdString init);
-    void update_cpe_inv(CellInfo *cell, IdString port, IdString param);
-    void update_cpe_mux(CellInfo *cell, IdString port, IdString param, int bit);
     void rename_param(CellInfo *cell, IdString name, IdString new_name, int width);
     void route_clock();
 

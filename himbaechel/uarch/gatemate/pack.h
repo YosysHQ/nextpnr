@@ -42,6 +42,7 @@ struct GateMatePacker
     void pack_serdes();
 
     void remove_constants();
+    void remove_clocking();
     void remove_not_used();
 
   private:
@@ -60,7 +61,6 @@ struct GateMatePacker
     uint8_t ram_ctrl_signal(CellInfo *cell, IdString port, bool alt);
     uint8_t ram_clk_signal(CellInfo *cell, IdString port);
     bool is_gpio_valid_dff(CellInfo *dff);
-    BelId get_bank_cpe(int bank);
     // Cell creating
     CellInfo *create_cell_ptr(IdString type, IdString name);
     void flush_cells();
@@ -69,6 +69,8 @@ struct GateMatePacker
 
     pool<IdString> packed_cells;
     std::map<NetInfo *, int> global_signals;
+    std::vector<CellInfo *> clkin;
+    std::vector<CellInfo *> glbout;
 
     Context *ctx;
     GateMateImpl *uarch;
