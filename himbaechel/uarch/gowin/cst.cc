@@ -20,7 +20,7 @@ struct GowinCstReader
     Context *ctx;
     std::istream &in;
 
-    GowinCstReader(Context *ctx, std::istream &in) : ctx(ctx), in(in) {};
+    GowinCstReader(Context *ctx, std::istream &in) : ctx(ctx), in(in){};
 
     const PadInfoPOD *pinLookup(const PadInfoPOD *list, const size_t len, const IdString idx)
     {
