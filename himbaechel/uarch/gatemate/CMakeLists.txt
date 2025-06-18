@@ -15,6 +15,7 @@ set(SOURCES
     pack_clocking.cc
     pack_cpe.cc
     pack_io.cc
+    pack_mult.cc
     pack_serdes.cc
     pack.h
     pll.cc
