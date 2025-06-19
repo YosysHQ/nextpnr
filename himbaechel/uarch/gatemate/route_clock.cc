@@ -49,7 +49,7 @@ void GateMateImpl::route_clock()
     auto reserved_wires = dict<WireId, IdString>{};
 
     auto feeds_clk_port = [](PortRef &port) {
-        return port.cell->type.in(id_CPE_HALF, id_CPE_HALF_L, id_CPE_HALF_U) && port.port.in(id_CLK);
+        return port.cell->type.in(id_CPE_LT, id_CPE_LT_L, id_CPE_LT_U) && port.port.in(id_CLK);
     };
 
     auto feeds_ddr_port = [&](NetInfo *net, PortRef &port) {
