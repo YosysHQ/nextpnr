@@ -47,12 +47,12 @@ void GateMatePacker::disconnect_if_gnd(CellInfo *cell, IdString input)
     }
 }
 
-CellInfo *GateMatePacker::move_ram_i(CellInfo *cell, IdString origPort, bool place)
+CellInfo *GateMatePacker::move_ram_i(CellInfo *cell, IdString origPort, bool place, Loc fixed)
 {
     CellInfo *cpe_half = nullptr;
     NetInfo *net = cell->getPort(origPort);
     if (net) {
-        cpe_half = create_cell_ptr(id_CPE_HALF, ctx->idf("%s$%s_cpe_half", cell->name.c_str(ctx), origPort.c_str(ctx)));
+        cpe_half = create_cell_ptr(id_CPE_RAMI, ctx->idf("%s$%s_cpe_half", cell->name.c_str(ctx), origPort.c_str(ctx)));
         if (place) {
             cell->constr_children.push_back(cpe_half);
             cpe_half->cluster = cell->cluster;
@@ -69,17 +69,23 @@ CellInfo *GateMatePacker::move_ram_i(CellInfo *cell, IdString origPort, bool pla
     return cpe_half;
 }
 
-CellInfo *GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, bool place)
+CellInfo *GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, bool place, Loc fixed)
 {
     CellInfo *cpe_half = nullptr;
     NetInfo *net = cell->getPort(origPort);
+    Loc cpe_loc;
     if (net) {
-        cpe_half = create_cell_ptr(id_CPE_HALF, ctx->idf("%s$%s_cpe_half", cell->name.c_str(ctx), origPort.c_str(ctx)));
+        cpe_half = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$%s_cpe_half", cell->name.c_str(ctx), origPort.c_str(ctx)));
         if (place) {
             cell->constr_children.push_back(cpe_half);
             cpe_half->cluster = cell->cluster;
             cpe_half->constr_abs_z = false;
             cpe_half->constr_z = PLACE_DB_CONSTR + origPort.index;
+        } else {
+            cpe_loc = uarch->getRelativeConstraint(fixed, origPort);
+            BelId b = ctx->getBelByLocation(cpe_loc);
+            printf("CPE_L2T4 %d,%d,%d\n",cpe_loc.x, cpe_loc.y, cpe_loc.z);
+            ctx->bindBel(b, cpe_half, PlaceStrength::STRENGTH_FIXED);
         }
         if (net->name == ctx->id("$PACKER_GND")) {
             cpe_half->params[id_INIT_L00] = Property(0b0000, 4);
@@ -92,12 +98,29 @@ CellInfo *GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, bool pla
             cell->movePortTo(origPort, cpe_half, id_IN1);
         }
         cpe_half->params[id_INIT_L10] = Property(0b1010, 4);
-        cpe_half->params[id_C_O] = Property(0b11, 2);
-        cpe_half->params[id_C_RAM_O] = Property(1, 1);
+        //cpe_half->params[id_C_O] = Property(0b11, 2);
 
+        CellInfo *cpe_ramio = create_cell_ptr(id_CPE_RAMO, ctx->idf("%s$%s_cpe_ramio", cell->name.c_str(ctx), origPort.c_str(ctx)));
+        if (place) {
+            cpe_half->constr_children.push_back(cpe_ramio);
+            cpe_ramio->cluster = cell->cluster;
+            cpe_ramio->constr_abs_z = true;
+            cpe_ramio->constr_z = +4;
+        } else {
+            cpe_loc.z += 4;
+            printf("CPE_RAMIO %d,%d,%d\n",cpe_loc.x, cpe_loc.y, cpe_loc.z);
+            BelId b = ctx->getBelByLocation(cpe_loc);
+            ctx->bindBel(b, cpe_ramio, PlaceStrength::STRENGTH_FIXED);
+        }
+
+        cpe_ramio->params[id_C_RAM_O] = Property(1, 1);
         NetInfo *ram_o = ctx->createNet(ctx->idf("%s$ram_o", cpe_half->name.c_str(ctx)));
         cell->connectPort(origPort, ram_o);
-        cpe_half->connectPort(id_RAM_O, ram_o);
+        cpe_ramio->connectPort(id_RAM_O, ram_o);
+
+        NetInfo *out = ctx->createNet(ctx->idf("%s$out", cpe_half->name.c_str(ctx)));
+        cpe_half->connectPort(id_OUT, out);
+        cpe_ramio->connectPort(id_I, out);
     }
     return cpe_half;
 }
@@ -114,11 +137,7 @@ CellInfo *GateMatePacker::move_ram_i_fixed(CellInfo *cell, IdString origPort, Lo
 
 CellInfo *GateMatePacker::move_ram_o_fixed(CellInfo *cell, IdString origPort, Loc fixed)
 {
-    CellInfo *cpe = move_ram_o(cell, origPort, false);
-    if (cpe) {
-        BelId b = ctx->getBelByLocation(uarch->getRelativeConstraint(fixed, origPort));
-        ctx->bindBel(b, cpe, PlaceStrength::STRENGTH_FIXED);
-    }
+    CellInfo *cpe = move_ram_o(cell, origPort, false, fixed);
     return cpe;
 }
 
@@ -130,7 +149,7 @@ CellInfo *GateMatePacker::move_ram_io(CellInfo *cell, IdString iPort, IdString o
     if (!i_net && !o_net)
         return cpe_half;
 
-    cpe_half = create_cell_ptr(id_CPE_HALF, ctx->idf("%s$%s_cpe_half", cell->name.c_str(ctx), oPort.c_str(ctx)));
+    cpe_half = create_cell_ptr(id_CPE_LT, ctx->idf("%s$%s_cpe_half", cell->name.c_str(ctx), oPort.c_str(ctx)));
     if (place) {
         cell->constr_children.push_back(cpe_half);
         cpe_half->cluster = cell->cluster;

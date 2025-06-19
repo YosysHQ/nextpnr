@@ -132,7 +132,7 @@ void GateMatePacker::dff_to_cpe(CellInfo *dff, CellInfo *cpe)
         dff->unsetParam(id_INIT);
     }
     cpe->timing_index = ctx->get_cell_timing_idx(id_CPE_DFF);
-    cpe->params[id_C_O] = Property(0b00, 2);
+//    cpe->params[id_C_O] = Property(0b00, 2);
 }
 
 void GateMatePacker::pack_cpe()
@@ -152,10 +152,10 @@ void GateMatePacker::pack_cpe()
 
             ci.renamePort(id_O, id_OUT);
 
-            ci.params[id_C_O] = Property(0b11, 2);
-            ci.type = id_CPE_HALF_L;
+            //ci.params[id_C_O] = Property(0b11, 2);
+            ci.type = id_CPE_L2T5_L;
         } else if (ci.type == id_CC_MX2) {
-            ci.params[id_C_O] = Property(0b11, 2);
+            //ci.params[id_C_O] = Property(0b11, 2);
             ci.renamePort(id_D1, id_IN1);
             NetInfo *sel = ci.getPort(id_S0);
             ci.renamePort(id_S0, id_IN2);
@@ -168,14 +168,14 @@ void GateMatePacker::pack_cpe()
             ci.params[id_INIT_L01] = Property(0b0100, 4); // AND inv D0
             ci.params[id_INIT_L10] = Property(0b1110, 4); // OR
             ci.renamePort(id_Y, id_OUT);
-            ci.type = id_CPE_HALF;
+            ci.type = id_CPE_L2T4;
         } else {
             ci.renamePort(id_I0, id_IN1);
             ci.renamePort(id_I1, id_IN2);
             ci.renamePort(id_I2, id_IN3);
             ci.renamePort(id_I3, id_IN4);
             ci.renamePort(id_O, id_OUT);
-            ci.params[id_C_O] = Property(0b11, 2);
+            ///ci.params[id_C_O] = Property(0b11, 2);
             if (ci.type.in(id_CC_LUT1, id_CC_LUT2)) {
                 uint8_t val = int_or_default(ci.params, id_INIT, 0);
                 if (ci.type == id_CC_LUT1)
@@ -184,7 +184,7 @@ void GateMatePacker::pack_cpe()
                 ci.unsetParam(id_INIT);
                 ci.params[id_INIT_L10] = Property(0b1010, 4);
             }
-            ci.type = id_CPE_HALF;
+            ci.type = id_CPE_L2T4;
         }
         NetInfo *o = ci.getPort(id_OUT);
         if (o) {
@@ -207,7 +207,7 @@ void GateMatePacker::pack_cpe()
     }
 
     for (auto ci : l2t5_list) {
-        CellInfo *upper = create_cell_ptr(id_CPE_HALF_U, ctx->idf("%s$upper", ci->name.c_str(ctx)));
+        CellInfo *upper = create_cell_ptr(id_CPE_L2T5_U, ctx->idf("%s$upper", ci->name.c_str(ctx)));
         upper->cluster = ci->name;
         upper->constr_abs_z = false;
         upper->constr_z = -1;
@@ -255,10 +255,10 @@ void GateMatePacker::pack_cpe()
         ci.params[id_INIT_L03] = Property(0b1100, 4); // IN8
         ci.params[id_INIT_L11] = Property(invert, 4); // Inversion bits
         // ci.params[id_INIT_L20] = Property(0b1100, 4); // Always D1
-        ci.params[id_C_O] = Property(0b11, 2);
-        ci.type = id_CPE_HALF_L;
+        //ci.params[id_C_O] = Property(0b11, 2);
+        ci.type = id_CPE_LT_L;
 
-        CellInfo *upper = create_cell_ptr(id_CPE_HALF_U, ctx->idf("%s$upper", ci.name.c_str(ctx)));
+        CellInfo *upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$upper", ci.name.c_str(ctx)));
         upper->cluster = ci.name;
         upper->constr_abs_z = false;
         upper->constr_z = -1;
@@ -291,7 +291,7 @@ void GateMatePacker::pack_cpe()
         ci.params[id_INIT_L10] = Property(0b1010, 4);
         ci.renamePort(id_D, id_IN1);
         dff_to_cpe(&ci, &ci);
-        ci.type = id_CPE_HALF;
+        ci.type = id_CPE_LT;
     }
 }
 
@@ -385,19 +385,19 @@ void GateMatePacker::pack_addf()
         CellInfo *root = grp.front();
         root->cluster = root->name;
 
-        CellInfo *ci_upper = create_cell_ptr(id_CPE_HALF_U, ctx->idf("%s$ci_upper", root->name.c_str(ctx)));
+        CellInfo *ci_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$ci_upper", root->name.c_str(ctx)));
         root->constr_children.push_back(ci_upper);
         ci_upper->cluster = root->name;
         ci_upper->constr_abs_z = false;
         ci_upper->constr_z = -1;
         ci_upper->constr_y = -1;
 
-        CellInfo *ci_lower = create_cell_ptr(id_CPE_HALF_L, ctx->idf("%s$ci_lower", root->name.c_str(ctx)));
+        CellInfo *ci_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$ci_lower", root->name.c_str(ctx)));
         root->constr_children.push_back(ci_lower);
         ci_lower->cluster = root->name;
         ci_lower->constr_abs_z = false;
         ci_lower->constr_y = -1;
-        ci_lower->params[id_C_O] = Property(0b11, 2);
+        //ci_lower->params[id_C_O] = Property(0b11, 2);
         ci_lower->params[id_C_SELY1] = Property(1, 1);
         ci_lower->params[id_C_CY1_I] = Property(1, 1);
         ci_lower->params[id_INIT_L10] = Property(0b1010, 4); // D0
@@ -464,10 +464,10 @@ void GateMatePacker::pack_addf()
                 cy->params[id_INIT_L20] = Property(0b0110, 4); // XOR
             }
             cy->params[id_C_FUNCTION] = Property(merged ? C_ADDF2 : C_ADDF, 3);
-            cy->params[id_C_O] = Property(0b11, 2);
-            cy->type = id_CPE_HALF_L;
+            //cy->params[id_C_O] = Property(0b11, 2);
+            cy->type = id_CPE_LT_L;
 
-            CellInfo *upper = create_cell_ptr(id_CPE_HALF_U, ctx->idf("%s$upper", cy->name.c_str(ctx)));
+            CellInfo *upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$upper", cy->name.c_str(ctx)));
             upper->cluster = root->name;
             root->constr_children.push_back(upper);
             upper->constr_abs_z = false;
@@ -475,7 +475,7 @@ void GateMatePacker::pack_addf()
             upper->constr_z = -1;
             if (merged) {
                 cy->movePortTo(id_S, upper, id_OUT);
-                upper->params[id_C_O] = Property(0b11, 2);
+                //upper->params[id_C_O] = Property(0b11, 2);
             } else {
                 cy->renamePort(id_S, id_OUT);
             }
@@ -509,18 +509,18 @@ void GateMatePacker::pack_addf()
             if (i == grp.size() - 1) {
                 if (!cy->getPort(id_CO))
                     break;
-                CellInfo *co_upper = create_cell_ptr(id_CPE_HALF_U, ctx->idf("%s$co_upper", cy->name.c_str(ctx)));
+                CellInfo *co_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$co_upper", cy->name.c_str(ctx)));
                 co_upper->cluster = root->name;
                 root->constr_children.push_back(co_upper);
                 co_upper->constr_abs_z = false;
                 co_upper->constr_z = -1;
                 co_upper->constr_y = +i + 1;
-                CellInfo *co_lower = create_cell_ptr(id_CPE_HALF_L, ctx->idf("%s$co_lower", cy->name.c_str(ctx)));
+                CellInfo *co_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$co_lower", cy->name.c_str(ctx)));
                 co_lower->cluster = root->name;
                 root->constr_children.push_back(co_lower);
                 co_lower->constr_abs_z = false;
                 co_lower->constr_y = +i + 1;
-                co_lower->params[id_C_O] = Property(0b11, 2);
+                //co_lower->params[id_C_O] = Property(0b11, 2);
                 co_lower->params[id_C_FUNCTION] = Property(C_EN_CIN, 3);
                 co_lower->params[id_INIT_L11] = Property(0b1100, 4);
                 co_lower->params[id_INIT_L20] = Property(0b1100, 4);
@@ -551,7 +551,7 @@ void GateMatePacker::pack_addf()
                             break;
                         }
                     }
-                    upper->params[id_C_O] = Property(0b10, 2);
+                    //upper->params[id_C_O] = Property(0b10, 2);
                     cy->movePortTo(id_CO, upper, id_OUT);
                 }
             }
@@ -563,10 +563,10 @@ void GateMatePacker::pack_constants()
 {
     log_info("Packing constants..\n");
     // Replace constants with LUTs
-    const dict<IdString, Property> vcc_params = {{id_INIT_L10, Property(0b1111, 4)}, {id_C_O, Property(0b11, 2)}};
-    const dict<IdString, Property> gnd_params = {{id_INIT_L10, Property(0b0000, 4)}, {id_C_O, Property(0b11, 2)}};
+    const dict<IdString, Property> vcc_params = {{id_INIT_L10, Property(0b1111, 4)}};
+    const dict<IdString, Property> gnd_params = {{id_INIT_L10, Property(0b0000, 4)}};
 
-    h.replace_constants(CellTypePort(id_CPE_HALF, id_OUT), CellTypePort(id_CPE_HALF, id_OUT), vcc_params, gnd_params);
+    h.replace_constants(CellTypePort(id_CPE_LT, id_OUT), CellTypePort(id_CPE_LT, id_OUT), vcc_params, gnd_params);
 }
 
 void GateMatePacker::remove_constants()
