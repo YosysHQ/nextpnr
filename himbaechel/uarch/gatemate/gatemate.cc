@@ -91,9 +91,9 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
     if (cell->belStrength != PlaceStrength::STRENGTH_FIXED && tile_extra_data(bel.tile)->die != preferred_die)
         return false;
 
-    if (ctx->getBelType(bel).in(id_CPE_LT, id_CPE_LT_L, id_CPE_LT_U)) {
+    if (ctx->getBelType(bel).in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U)) {
         Loc loc = ctx->getBelLocation(bel);
-        const CellInfo *adj_half = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x, loc.y, loc.z == 1 ? 0 : 1)));
+        const CellInfo *adj_half = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x, loc.y, loc.z == 2 ? 3 : 2)));
         if (adj_half) {
             const auto &half_data = fast_cell_info.at(cell->flat_index);
             if (half_data.dff_used) {
@@ -283,28 +283,25 @@ void GateMateImpl::assign_cell_info()
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
         auto &fc = fast_cell_info.at(ci->flat_index);
-        if (getBelBucketForCellType(ci->type) == id_CPE_LT) {
-            fc.signal_used = int_or_default(ci->params, id_C_O, -1);
+        if (getBelBucketForCellType(ci->type) == id_CPE_FF) {
             fc.ff_en = ci->getPort(id_EN);
             fc.ff_clk = ci->getPort(id_CLK);
             fc.ff_sr = ci->getPort(id_SR);
             fc.ff_config = 0;
-            if (fc.signal_used == 0) {
-                fc.ff_config |= int_or_default(ci->params, id_C_CPE_EN, 0);
-                fc.ff_config <<= 2;
-                fc.ff_config |= int_or_default(ci->params, id_C_CPE_CLK, 0);
-                fc.ff_config <<= 2;
-                fc.ff_config |= int_or_default(ci->params, id_C_CPE_RES, 0);
-                fc.ff_config <<= 2;
-                fc.ff_config |= int_or_default(ci->params, id_C_CPE_SET, 0);
-                fc.ff_config <<= 2;
-                fc.ff_config |= int_or_default(ci->params, id_C_EN_SR, 0);
-                fc.ff_config <<= 1;
-                fc.ff_config |= int_or_default(ci->params, id_C_L_D, 0);
-                fc.ff_config <<= 1;
-                fc.ff_config |= int_or_default(ci->params, id_FF_INIT, 0);
-                fc.dff_used = true;
-            }
+            fc.ff_config |= int_or_default(ci->params, id_C_CPE_EN, 0);
+            fc.ff_config <<= 2;
+            fc.ff_config |= int_or_default(ci->params, id_C_CPE_CLK, 0);
+            fc.ff_config <<= 2;
+            fc.ff_config |= int_or_default(ci->params, id_C_CPE_RES, 0);
+            fc.ff_config <<= 2;
+            fc.ff_config |= int_or_default(ci->params, id_C_CPE_SET, 0);
+            fc.ff_config <<= 2;
+            fc.ff_config |= int_or_default(ci->params, id_C_EN_SR, 0);
+            fc.ff_config <<= 1;
+            fc.ff_config |= int_or_default(ci->params, id_C_L_D, 0);
+            fc.ff_config <<= 1;
+            fc.ff_config |= int_or_default(ci->params, id_FF_INIT, 0);
+            fc.dff_used = true;
         }
     }
 }
