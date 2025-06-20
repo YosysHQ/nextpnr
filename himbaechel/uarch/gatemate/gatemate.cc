@@ -93,7 +93,7 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
 
     if (ctx->getBelType(bel).in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U)) {
         Loc loc = ctx->getBelLocation(bel);
-        const CellInfo *adj_half = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x, loc.y, loc.z == 2 ? 3 : 2)));
+        const CellInfo *adj_half = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x, loc.y, loc.z == 3 ? 2 : 3)));
         if (adj_half) {
             const auto &half_data = fast_cell_info.at(cell->flat_index);
             if (half_data.dff_used) {
@@ -221,7 +221,7 @@ void GateMateImpl::postPlace()
             }
         }
     }
-    std::vector<IdString> delete_cells;
+    /*std::vector<IdString> delete_cells;
     for (auto &cell : ctx->cells) {
         if (cell.second->type == id_CPE_L2T5_L) {
             BelId bel = cell.second->bel;
@@ -255,6 +255,7 @@ void GateMateImpl::postPlace()
         ctx->cells.erase(pcell);
     }
     delete_cells.clear();
+    */
     ctx->assignArchInfo();
 }
 
