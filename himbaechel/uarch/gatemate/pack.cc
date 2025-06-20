@@ -49,11 +49,11 @@ void GateMatePacker::disconnect_if_gnd(CellInfo *cell, IdString input)
 
 CellInfo *GateMatePacker::move_ram_i(CellInfo *cell, IdString origPort, bool place, Loc fixed)
 {
-    CellInfo *cpe_half = nullptr;
+    CellInfo *cpe_ramio = nullptr;
     NetInfo *net = cell->getPort(origPort);
     if (net) {
         Loc cpe_loc;
-        CellInfo *cpe_ramio = create_cell_ptr(id_CPE_RAMI, ctx->idf("%s$%s_cpe_ramio", cell->name.c_str(ctx), origPort.c_str(ctx)));
+        cpe_ramio = create_cell_ptr(id_CPE_RAMI, ctx->idf("%s$%s_cpe_ramio", cell->name.c_str(ctx), origPort.c_str(ctx)));
         if (place) {
             cell->constr_children.push_back(cpe_ramio);
             cpe_ramio->cluster = cell->cluster;
@@ -64,27 +64,14 @@ CellInfo *GateMatePacker::move_ram_i(CellInfo *cell, IdString origPort, bool pla
             BelId b = ctx->getBelByLocation(cpe_loc);
             ctx->bindBel(b, cpe_ramio, PlaceStrength::STRENGTH_FIXED);
         }
-        cpe_half = create_cell_ptr(id_CPE_RAMI, ctx->idf("%s$%s_cpe_half", cell->name.c_str(ctx), origPort.c_str(ctx)));
-        if (place) {
-            cell->constr_children.push_back(cpe_half);
-            cpe_half->cluster = cell->cluster;
-            cpe_half->constr_abs_z = false;
-            cpe_half->constr_z = PLACE_DB_CONSTR + origPort.index;
-            cpe_half->constr_z = -4;
-        } else {
-            cpe_loc = uarch->getRelativeConstraint(fixed, origPort);
-            cpe_loc.z -= 4;
-            BelId b = ctx->getBelByLocation(cpe_loc);
-            ctx->bindBel(b, cpe_half, PlaceStrength::STRENGTH_FIXED);
-        }
         cpe_ramio->params[id_C_RAM_I] = Property(1, 1);
 
-        NetInfo *ram_i = ctx->createNet(ctx->idf("%s$ram_i", cpe_half->name.c_str(ctx)));
-        cell->movePortTo(origPort, cpe_half, id_OUT);
+        NetInfo *ram_i = ctx->createNet(ctx->idf("%s$ram_i", cpe_ramio->name.c_str(ctx)));
+        cell->movePortTo(origPort, cpe_ramio, id_OUT);
         cell->connectPort(origPort, ram_i);
-        cpe_half->connectPort(id_RAM_I, ram_i);
+        cpe_ramio->connectPort(id_RAM_I, ram_i);
     }
-    return cpe_half;
+    return cpe_ramio;
 }
 
 CellInfo *GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, bool place, Loc fixed)
@@ -142,14 +129,9 @@ CellInfo *GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, bool pla
     return cpe_half;
 }
 
-CellInfo *GateMatePacker::move_ram_i_fixed(CellInfo *cell, IdString origPort, Loc fixed)
+void GateMatePacker::move_ram_i_fixed(CellInfo *cell, IdString origPort, Loc fixed)
 {
-    CellInfo *cpe = move_ram_i(cell, origPort, false);
-    if (cpe) {
-        BelId b = ctx->getBelByLocation(uarch->getRelativeConstraint(fixed, origPort));
-        ctx->bindBel(b, cpe, PlaceStrength::STRENGTH_FIXED);
-    }
-    return cpe;
+    move_ram_i(cell, origPort, false, fixed);
 }
 
 CellInfo *GateMatePacker::move_ram_o_fixed(CellInfo *cell, IdString origPort, Loc fixed)
@@ -214,12 +196,10 @@ CellInfo *GateMatePacker::move_ram_io(CellInfo *cell, IdString iPort, IdString o
         cpe_ramio->params[id_C_RAM_I] = Property(1, 1);
 
         NetInfo *ram_i = ctx->createNet(ctx->idf("%s$ram_i", cpe_half->name.c_str(ctx)));
-        cell->movePortTo(iPort, cpe_half, id_OUT);
+        cell->movePortTo(iPort, cpe_ramio, id_OUT);
         cell->connectPort(iPort, ram_i);
         cpe_ramio->connectPort(id_RAM_I, ram_i);
     }
-    // TODO: set proper timing model, without this it detects combinational loops
-    cpe_half->timing_index = ctx->get_cell_timing_idx(id_CPE_DFF);
     return cpe_half;
 }
 
