@@ -221,7 +221,7 @@ void GateMateImpl::postPlace()
             }
         }
     }
-    /*std::vector<IdString> delete_cells;
+    std::vector<IdString> delete_cells;
     for (auto &cell : ctx->cells) {
         if (cell.second->type == id_CPE_L2T5_L) {
             BelId bel = cell.second->bel;
@@ -239,8 +239,8 @@ void GateMateImpl::postPlace()
 
             loc.z = 0;
             CellInfo *upper = ctx->getBoundBelCell(ctx->getBelByLocation(loc));
-            cell.second->params[id_INIT_L00] = upper->params[id_INIT_L00];
-            cell.second->params[id_INIT_L10] = upper->params[id_INIT_L10];
+            cell.second->params[id_INIT_L00] = Property(int_or_default(upper->params, id_INIT_L00, 0), 4);
+            cell.second->params[id_INIT_L10] = Property(int_or_default(upper->params, id_INIT_L10, 0), 4);
             upper->movePortTo(id_IN1, cell.second.get(), id_IN1);
         }
         // Mark for deletion
@@ -255,7 +255,6 @@ void GateMateImpl::postPlace()
         ctx->cells.erase(pcell);
     }
     delete_cells.clear();
-    */
     ctx->assignArchInfo();
 }
 
