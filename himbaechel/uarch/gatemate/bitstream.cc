@@ -86,7 +86,7 @@ struct BitstreamBackend
         unsigned init_val = int_or_default(params, init);
         bool invert = need_inversion(cell, port);
         if (invert) {
-            if (port.in(id_IN1, id_IN3))
+            if (port.in(id_IN1, id_IN3, id_IN5, id_IN7))
                 init_val = (init_val & 0b1010) >> 1 | (init_val & 0b0101) << 1;
             else
                 init_val = (init_val & 0b0011) << 2 | (init_val & 0b1100) >> 2;
@@ -274,6 +274,17 @@ struct BitstreamBackend
                         update_cpe_mux(cell.second.get(), id_IN4, id_INIT_L11, 3, params);
                     }
                 }
+                if (l.z==7) {
+                    update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L00, params);
+                    update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L00, params);
+                    update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L01, params);
+                    update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L01, params);
+                    update_cpe_lt(cell.second.get(), id_IN5, id_INIT_L02, params);
+                    update_cpe_lt(cell.second.get(), id_IN6, id_INIT_L02, params);
+                    update_cpe_lt(cell.second.get(), id_IN7, id_INIT_L03, params);
+                    update_cpe_lt(cell.second.get(), id_IN8, id_INIT_L03, params);
+                }
+
                 if (cell.second->type.in(id_CPE_FF)) {
                     update_cpe_inv(cell.second.get(), id_CLK, id_C_CPE_CLK, params);
                     update_cpe_inv(cell.second.get(), id_EN, id_C_CPE_EN, params);
