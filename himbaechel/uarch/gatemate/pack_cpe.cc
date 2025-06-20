@@ -279,19 +279,14 @@ void GateMatePacker::pack_cpe()
     }
     for (auto &cell : dff_list) {
         CellInfo &ci = *cell;
-        printf("1\n");
         CellInfo *lt = create_cell_ptr(id_CPE_LT, ctx->idf("%s$lt", ci.name.c_str(ctx)));
         lt->cluster = ci.name;
         lt->constr_abs_z = false;
         lt->constr_z = -2;
         ci.cluster = ci.name;
         ci.constr_children.push_back(lt);
-    printf("2\n");
         ci.renamePort(id_Q, id_DOUT);
         NetInfo *d_net = ci.getPort(id_D);
-printf("3\n");
-        if (!d_net)
-            printf("NULL\n");
         if (d_net->name == ctx->id("$PACKER_GND")) {
             lt->params[id_INIT_L00] = Property(0b0000, 4);
             ci.disconnectPort(id_D);
@@ -301,17 +296,17 @@ printf("3\n");
         } else {
             lt->params[id_INIT_L00] = Property(0b1010, 4);
         }
-printf("4\n");
-        ci.params[id_INIT_L10] = Property(0b1010, 4);
+        lt->params[id_INIT_L10] = Property(0b1010, 4);
         ci.movePortTo(id_D, lt, id_IN1);
         dff_to_cpe(&ci);
-printf("5\n");
         ci.type = id_CPE_FF;
         NetInfo *conn = ctx->createNet(ctx->idf("%s$di", ci.name.c_str(ctx)));
         lt->connectPort(id_OUT, conn);
+        ci.ports[id_DIN].name = id_DIN;
+        ci.ports[id_DIN].type = PORT_IN;
         ci.connectPort(id_DIN, conn);
-printf("6\n");
     }
+    dff_list.clear();
 }
 
 static bool is_addf_ci(NetInfo *net)

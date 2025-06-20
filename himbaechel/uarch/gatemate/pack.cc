@@ -84,7 +84,6 @@ CellInfo *GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, bool pla
         } else {
             cpe_loc = uarch->getRelativeConstraint(fixed, origPort);
             BelId b = ctx->getBelByLocation(cpe_loc);
-            printf("CPE_L2T4 %d,%d,%d\n",cpe_loc.x, cpe_loc.y, cpe_loc.z);
             ctx->bindBel(b, cpe_half, PlaceStrength::STRENGTH_FIXED);
         }
         if (net->name == ctx->id("$PACKER_GND")) {
@@ -108,7 +107,6 @@ CellInfo *GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, bool pla
             cpe_ramio->constr_z = +4;
         } else {
             cpe_loc.z += 4;
-            printf("CPE_RAMIO %d,%d,%d\n",cpe_loc.x, cpe_loc.y, cpe_loc.z);
             BelId b = ctx->getBelByLocation(cpe_loc);
             ctx->bindBel(b, cpe_ramio, PlaceStrength::STRENGTH_FIXED);
         }
@@ -169,7 +167,7 @@ CellInfo *GateMatePacker::move_ram_io(CellInfo *cell, IdString iPort, IdString o
             cell->movePortTo(oPort, cpe_half, id_IN1);
         }
         cpe_half->params[id_INIT_L10] = Property(0b1010, 4);
-        cpe_half->params[id_C_O] = Property(0b11, 2);
+        //cpe_half->params[id_C_O] = Property(0b11, 2);
         cpe_half->params[id_C_RAM_O] = Property(1, 1);
 
         NetInfo *ram_o = ctx->createNet(ctx->idf("%s$ram_o", cpe_half->name.c_str(ctx)));
