@@ -24,6 +24,26 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+enum CPELut
+{
+    LUT_ZERO = 0b0000,
+    LUT_NOR = 0b0001,
+    LUT_AND_INV_D1 = 0b0010,
+    LUT_INV_D1 = 0b0011,
+    LUT_AND_INV_D0 = 0b0100,
+    LUT_INV_D0 = 0b0101,
+    LUT_XOR = 0b0110,
+    LUT_NAND = 0b0111,
+    LUT_AND = 0b1000,
+    LUT_XNOR = 0b1001,
+    LUT_D0 = 0b1010,
+    LUT_NAND_INV_D0 = 0b1011,
+    LUT_D1 = 0b1100,
+    LUT_NAND_INV_D1 = 0b1101,
+    LUT_OR = 0b1110,
+    LUT_ONE = 0b1111
+};
+
 struct GateMatePacker
 {
     GateMatePacker(Context *ctx, GateMateImpl *uarch) : ctx(ctx), uarch(uarch) { h.init(ctx); };
