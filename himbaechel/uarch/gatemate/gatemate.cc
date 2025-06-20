@@ -127,7 +127,7 @@ Loc GateMateImpl::getRelativeConstraint(Loc &root_loc, IdString id) const
             child_loc.y = root_loc.y + p->constr_y;
             child_loc.z = p->constr_z;
         } else {
-            log_error("Constrain info not available for pin.\n");
+            log_error("Constrain info not available for pin '%s'.\n", id.c_str(ctx));
         }
     } else {
         log_error("Bel info not available for constraints.\n");

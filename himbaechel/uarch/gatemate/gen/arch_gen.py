@@ -201,7 +201,7 @@ def main():
             bel = tt.create_bel(prim.name, prim.type, prim.z)
             extra = BelExtraData()
             for constr in sorted(die.get_pins_constraint(type_name, prim.name, prim.type)):
-                extra.add_constraints(ch.strs.id(constr.name),constr.rel_x,constr.rel_y,0 if constr.pin_num==2 else 1)
+                extra.add_constraints(ch.strs.id(constr.name),constr.rel_x,constr.rel_y,4 if constr.pin_num==2 else 5)
             bel.extra_data = extra
             for pin in sorted(die.get_primitive_pins(prim.type)):
                 tt.add_bel_pin(bel, pin.name, die.get_pin_connection_name(prim,pin), pin.dir)
