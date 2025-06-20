@@ -243,22 +243,26 @@ struct BitstreamBackend
                 break;
             case id_CPE_L2T4.index:
             case id_CPE_L2T5.index:
+            case id_CPE_L2T5_U.index:
+            case id_CPE_L2T5_L.index:
             case id_CPE_FF.index:
             case id_CPE_RAMI.index:
             case id_CPE_RAMO.index:
             case id_CPE_RAMIO.index:
+            case id_CPE_LT.index:
             case id_CPE_LT_U.index:
             case id_CPE_LT_L.index: {
                 // Update configuration bits based on signal inversion
                 dict<IdString, Property> params = cell.second->params;
                 uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
-                if (cell.second->type.in(id_CPE_LT_U) && func != C_MX4) {
+                Loc l = ctx->getBelLocation(cell.second->bel);
+                if (l.z==0 && func != C_MX4) {
                     update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L00, params);
                     update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L00, params);
                     update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L01, params);
                     update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L01, params);
                 }
-                if (cell.second->type.in(id_CPE_LT_L)) {
+                if (l.z==1) {
                     update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L02, params);
                     update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L02, params);
                     update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L03, params);
@@ -270,7 +274,7 @@ struct BitstreamBackend
                         update_cpe_mux(cell.second.get(), id_IN4, id_INIT_L11, 3, params);
                     }
                 }
-                if (cell.second->type.in(id_CPE_FF_U, id_CPE_FF_L)) {
+                if (cell.second->type.in(id_CPE_FF)) {
                     update_cpe_inv(cell.second.get(), id_CLK, id_C_CPE_CLK, params);
                     update_cpe_inv(cell.second.get(), id_EN, id_C_CPE_EN, params);
                     bool set = int_or_default(params, id_C_EN_SR, 0) == 1;
