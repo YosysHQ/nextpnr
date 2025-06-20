@@ -55,7 +55,7 @@ struct GateMatePacker
 
     CellInfo *move_ram_i(CellInfo *cell, IdString origPort, bool place = true, Loc fixed = Loc());
     CellInfo *move_ram_o(CellInfo *cell, IdString origPort, bool place = true, Loc fixed = Loc());
-    CellInfo *move_ram_i_fixed(CellInfo *cell, IdString origPort, Loc fixed);
+    void move_ram_i_fixed(CellInfo *cell, IdString origPort, Loc fixed);
     CellInfo *move_ram_o_fixed(CellInfo *cell, IdString origPort, Loc fixed);
     CellInfo *move_ram_io(CellInfo *cell, IdString iPort, IdString oPort, bool place = true, Loc fixed = Loc());
     uint8_t ram_ctrl_signal(CellInfo *cell, IdString port, bool alt);
