@@ -64,6 +64,19 @@ CellInfo *GateMatePacker::move_ram_i(CellInfo *cell, IdString origPort, bool pla
             BelId b = ctx->getBelByLocation(cpe_loc);
             ctx->bindBel(b, cpe_ramio, PlaceStrength::STRENGTH_FIXED);
         }
+        CellInfo * cpe_half = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$%s_cpe_half", cell->name.c_str(ctx), origPort.c_str(ctx)));
+        if (place) {
+            cpe_ramio->constr_children.push_back(cpe_half);
+            cpe_half->cluster = cell->cluster;
+            cpe_half->constr_abs_z = false;
+            cpe_half->constr_z = -4;
+        } else {
+            cpe_loc = uarch->getRelativeConstraint(fixed, origPort);
+            cpe_loc.z -= 4;
+            BelId b = ctx->getBelByLocation(cpe_loc);
+            ctx->bindBel(b, cpe_half, PlaceStrength::STRENGTH_FIXED);
+        }
+
         cpe_ramio->params[id_C_RAM_I] = Property(1, 1);
 
         NetInfo *ram_i = ctx->createNet(ctx->idf("%s$ram_i", cpe_ramio->name.c_str(ctx)));
