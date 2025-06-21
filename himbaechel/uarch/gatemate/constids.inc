@@ -2042,7 +2042,6 @@ X(C_PY2_I)
 X(C_C_P)
 X(C_2D_IN)
 X(C_SN)
-X(C_O)
 X(C_O1)
 X(C_O2)
 X(C_BR)
@@ -2059,8 +2058,6 @@ X(C_EN_SR)
 X(C_CLKSEL)
 X(C_ENSEL)
 X(FF_INIT)
-// Timing model for CPE
-X(CPE_DFF)
 
 // GPIO configuration parameters
 X(OPEN_DRAIN)
