@@ -131,8 +131,6 @@ void GateMatePacker::dff_to_cpe(CellInfo *dff)
     } else {
         dff->unsetParam(id_INIT);
     }
-    //cpe->timing_index = ctx->get_cell_timing_idx(id_CPE_DFF);
-//    cpe->params[id_C_O] = Property(0b00, 2);
 }
 
 void GateMatePacker::pack_cpe()
@@ -151,11 +149,8 @@ void GateMatePacker::pack_cpe()
             ci.renamePort(id_I3, id_IN4);
 
             ci.renamePort(id_O, id_OUT);
-
-            //ci.params[id_C_O] = Property(0b11, 2);
             ci.type = id_CPE_L2T5_L;
         } else if (ci.type == id_CC_MX2) {
-            //ci.params[id_C_O] = Property(0b11, 2);
             ci.renamePort(id_D1, id_IN1);
             NetInfo *sel = ci.getPort(id_S0);
             ci.renamePort(id_S0, id_IN2);
@@ -175,7 +170,6 @@ void GateMatePacker::pack_cpe()
             ci.renamePort(id_I2, id_IN3);
             ci.renamePort(id_I3, id_IN4);
             ci.renamePort(id_O, id_OUT);
-            ///ci.params[id_C_O] = Property(0b11, 2);
             if (ci.type.in(id_CC_LUT1, id_CC_LUT2)) {
                 uint8_t val = int_or_default(ci.params, id_INIT, 0);
                 if (ci.type == id_CC_LUT1)
@@ -252,7 +246,6 @@ void GateMatePacker::pack_cpe()
         ci.params[id_INIT_L03] = Property(0b1100, 4); // IN8
         ci.params[id_INIT_L11] = Property(invert, 4); // Inversion bits
         // ci.params[id_INIT_L20] = Property(0b1100, 4); // Always D1
-        //ci.params[id_C_O] = Property(0b11, 2);
         ci.type = id_CPE_LT_L;
 
         CellInfo *upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$upper", ci.name.c_str(ctx)));
@@ -411,7 +404,8 @@ void GateMatePacker::pack_addf()
         ci_lower->cluster = root->name;
         ci_lower->constr_abs_z = false;
         ci_lower->constr_y = -1;
-        //ci_lower->params[id_C_O] = Property(0b11, 2);
+        // TODO: Need to check C_O1 handling in this case
+        ci_lower->params[id_C_O1] = Property(0b11, 2);
         ci_lower->params[id_C_SELY1] = Property(1, 1);
         ci_lower->params[id_C_CY1_I] = Property(1, 1);
         ci_lower->params[id_INIT_L10] = Property(0b1010, 4); // D0
@@ -478,7 +472,6 @@ void GateMatePacker::pack_addf()
                 cy->params[id_INIT_L20] = Property(0b0110, 4); // XOR
             }
             cy->params[id_C_FUNCTION] = Property(merged ? C_ADDF2 : C_ADDF, 3);
-            //cy->params[id_C_O] = Property(0b11, 2);
             cy->type = id_CPE_LT_L;
 
             CellInfo *upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$upper", cy->name.c_str(ctx)));
@@ -489,7 +482,6 @@ void GateMatePacker::pack_addf()
             upper->constr_z = -1;
             if (merged) {
                 cy->movePortTo(id_S, upper, id_OUT);
-                //upper->params[id_C_O] = Property(0b11, 2);
             } else {
                 cy->renamePort(id_S, id_OUT);
             }
@@ -534,7 +526,6 @@ void GateMatePacker::pack_addf()
                 root->constr_children.push_back(co_lower);
                 co_lower->constr_abs_z = false;
                 co_lower->constr_y = +i + 1;
-                //co_lower->params[id_C_O] = Property(0b11, 2);
                 co_lower->params[id_C_FUNCTION] = Property(C_EN_CIN, 3);
                 co_lower->params[id_INIT_L11] = Property(0b1100, 4);
                 co_lower->params[id_INIT_L20] = Property(0b1100, 4);
@@ -565,7 +556,6 @@ void GateMatePacker::pack_addf()
                             break;
                         }
                     }
-                    //upper->params[id_C_O] = Property(0b10, 2);
                     cy->movePortTo(id_CO, upper, id_OUT);
                 }
             }
