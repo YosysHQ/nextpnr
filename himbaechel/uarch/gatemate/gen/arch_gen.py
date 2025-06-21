@@ -239,7 +239,7 @@ def main():
         pkg = ch.create_package(package)
         for pad in sorted(dev.get_package_pads(package)):
             pp = pkg.create_pad(pad.name, f"X{pad.x+2}Y{pad.y+2}", pad.bel, pad.function, pad.bank, pad.flags)
-            pp.extra_data = PadExtraData(pad.ddr.x+2, pad.ddr.y+2, pad.ddr.z)
+            pp.extra_data = PadExtraData(pad.ddr.x+2, pad.ddr.y+2, 4 if pad.ddr.z==0 else 5)
 
     ch.write_bba(args.bba)
 
