@@ -272,7 +272,7 @@ void GateMatePacker::pack_cpe()
     }
     for (auto &cell : dff_list) {
         CellInfo &ci = *cell;
-        CellInfo *lt = create_cell_ptr(id_CPE_LT, ctx->idf("%s$lt", ci.name.c_str(ctx)));
+        CellInfo *lt = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$lt", ci.name.c_str(ctx)));
         lt->cluster = ci.name;
         lt->constr_abs_z = false;
         lt->constr_z = -2;

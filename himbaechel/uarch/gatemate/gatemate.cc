@@ -252,6 +252,7 @@ void GateMateImpl::postPlace()
         for (auto &port : ctx->cells[pcell]->ports) {
             ctx->cells[pcell]->disconnectPort(port.first);
         }
+        ctx->unbindBel(ctx->cells[pcell]->bel);
         ctx->cells.erase(pcell);
     }
     delete_cells.clear();
