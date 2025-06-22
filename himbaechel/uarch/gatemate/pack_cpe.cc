@@ -556,7 +556,7 @@ void GateMatePacker::pack_addf()
                             break;
                         }
                     }
-                    cy->movePortTo(id_CO, upper, id_OUT);
+                    cy->movePortTo(id_CO, upper, id_CP_OUT);
                 }
             }
         }
