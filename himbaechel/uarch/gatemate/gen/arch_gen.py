@@ -172,8 +172,14 @@ def set_timings(ch):
     dff.add_setup_hold("CLK", "DIN", ClockEdge.RISING, TimingValue(60), TimingValue(50))
     dff.add_clock_out("CLK", "DOUT", ClockEdge.RISING, TimingValue(60))
 
+    lut = ch.timing.add_cell_variant(speed, "CPE_RAMI")
+    lut.add_comb_arc("RAM_I", "OUT", TimingValue(0, 0))
+
+    lut = ch.timing.add_cell_variant(speed, "CPE_RAMO")
+    lut.add_comb_arc("I", "RAM_O", TimingValue(0, 0))
+
     lut = ch.timing.add_cell_variant(speed, "CPE_RAMIO")
-    lut.add_comb_arc("I", "OUT", TimingValue(0, 0))
+    #lut.add_comb_arc("I", "OUT", TimingValue(0, 0))
     lut.add_comb_arc("I", "RAM_O", TimingValue(0, 0))
     lut.add_comb_arc("RAM_I", "OUT", TimingValue(0, 0))
 

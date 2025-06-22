@@ -243,13 +243,10 @@ struct BitstreamBackend
                 break;
             case id_CPE_L2T4.index:
             case id_CPE_L2T5.index:
-            case id_CPE_L2T5_U.index:
-            case id_CPE_L2T5_L.index:
             case id_CPE_FF.index:
             case id_CPE_RAMI.index:
             case id_CPE_RAMO.index:
             case id_CPE_RAMIO.index:
-            case id_CPE_LT.index:
             case id_CPE_LT_U.index:
             case id_CPE_LT_L.index: {
                 // Update configuration bits based on signal inversion
