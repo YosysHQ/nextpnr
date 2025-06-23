@@ -223,28 +223,50 @@ void GateMateImpl::postPlace()
     }
     std::vector<IdString> delete_cells;
     for (auto &cell : ctx->cells) {
-        if (cell.second->type == id_CPE_L2T5_L) {
+        if (cell.second->type.in(id_CPE_L2T5_L,id_CPE_LT_L)) {
             BelId bel = cell.second->bel;
             PlaceStrength strength = cell.second->belStrength;
+            uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
+            bool is_l2t5 = cell.second->type == id_CPE_L2T5_L;
             Loc loc = ctx->getBelLocation(bel);
             loc.z = 7; // CPE_LT_FULL
             ctx->unbindBel(bel);
-            cell.second->type = id_CPE_L2T5;
             ctx->bindBel(ctx->getBelByLocation(loc), cell.second.get(), strength);
             cell.second->renamePort(id_IN1, id_IN5);
             cell.second->renamePort(id_IN2, id_IN6);
             cell.second->renamePort(id_IN3, id_IN7);
             cell.second->renamePort(id_IN4, id_IN8);
             cell.second->renamePort(id_OUT, id_OUT1);
+            if (is_l2t5) {
+                cell.second->type = id_CPE_L2T5;
+            } else {
+                switch(func) {
+                    case C_ADDF   : cell.second->type = id_CPE_ADDF; break;
+                    case C_ADDF2  : cell.second->type = id_CPE_ADDF2; break;
+                    case C_MULT   : cell.second->type = id_CPE_MULT; break;
+                    case C_MX4    : cell.second->type = id_CPE_MX4; break;
+                    case C_EN_CIN : cell.second->type = id_CPE_EN_CIN; break;
+                    case C_CONCAT : cell.second->type = id_CPE_CONCAT; break;
+                    case C_ADDCIN : cell.second->type = id_CPE_ADDCIN; break;
+                    default:
+                    break;
+                }
+            }
 
             loc.z = 0;
             CellInfo *upper = ctx->getBoundBelCell(ctx->getBelByLocation(loc));
             cell.second->params[id_INIT_L00] = Property(int_or_default(upper->params, id_INIT_L00, 0), 4);
+            cell.second->params[id_INIT_L01] = Property(int_or_default(upper->params, id_INIT_L01, 0), 4);
             cell.second->params[id_INIT_L10] = Property(int_or_default(upper->params, id_INIT_L10, 0), 4);
             upper->movePortTo(id_IN1, cell.second.get(), id_IN1);
+            upper->movePortTo(id_IN2, cell.second.get(), id_IN2);
+            upper->movePortTo(id_IN3, cell.second.get(), id_IN3);
+            upper->movePortTo(id_IN4, cell.second.get(), id_IN4);
+            upper->movePortTo(id_OUT, cell.second.get(), id_OUT2);
+
         }
         // Mark for deletion
-        if (cell.second->type == id_CPE_L2T5_U) {
+        if (cell.second->type.in(id_CPE_L2T5_U,id_CPE_LT_U)) {
             delete_cells.push_back(cell.second->name);
         }
     }
@@ -313,7 +335,7 @@ IdString GateMateImpl::getBelBucketForCellType(IdString cell_type) const
     if (cell_type.in(id_CPE_IBUF, id_CPE_OBUF, id_CPE_TOBUF, id_CPE_IOBUF, id_CPE_LVDS_IBUF, id_CPE_LVDS_TOBUF,
                      id_CPE_LVDS_OBUF, id_CPE_LVDS_IOBUF))
         return id_GPIO;
-    else if (cell_type.in(id_CPE_LT_U, id_CPE_LT_L, id_CPE_LT, id_CPE_L2T4, id_CPE_L2T5_L, id_CPE_L2T5_U))
+    else if (cell_type.in(id_CPE_LT_U, id_CPE_LT_L, id_CPE_LT, id_CPE_L2T4, id_CPE_L2T5_L, id_CPE_L2T5_U, id_CPE_CI))
         return id_CPE_LT;
     else if (cell_type.in(id_CPE_FF_U, id_CPE_FF_L, id_CPE_FF))
         return id_CPE_FF;
@@ -326,7 +348,7 @@ IdString GateMateImpl::getBelBucketForCellType(IdString cell_type) const
 BelBucketId GateMateImpl::getBelBucketForBel(BelId bel) const
 {
     IdString bel_type = ctx->getBelType(bel);
-    if (bel_type.in(id_CPE_LT_U, id_CPE_LT_L, id_CPE_L2T4, id_CPE_L2T5_U, id_CPE_L2T5_L))
+    if (bel_type.in(id_CPE_LT_U, id_CPE_LT_L))
         return id_CPE_LT;
     else if (bel_type.in(id_CPE_FF_U, id_CPE_FF_L))
         return id_CPE_FF;
@@ -344,7 +366,7 @@ bool GateMateImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
     else if (bel_type == id_CPE_LT_U)
         return cell_type.in(id_CPE_LT_U, id_CPE_LT, id_CPE_L2T4, id_CPE_L2T5_U);
     else if (bel_type == id_CPE_LT_L)
-        return cell_type.in(id_CPE_LT_L, id_CPE_LT, id_CPE_L2T4, id_CPE_L2T5_L);
+        return cell_type.in(id_CPE_LT_L, id_CPE_LT, id_CPE_L2T4, id_CPE_L2T5_L, id_CPE_CI);
     else if (bel_type == id_CPE_FF_U)
         return cell_type.in(id_CPE_FF_U, id_CPE_FF);
     else if (bel_type == id_CPE_FF_L)

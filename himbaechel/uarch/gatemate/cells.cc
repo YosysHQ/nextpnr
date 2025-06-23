@@ -33,7 +33,7 @@ CellInfo *GateMatePacker::create_cell_ptr(IdString type, IdString name)
         cell->ports[id].name = id;
         cell->ports[id].type = dir;
     };
-    if (type.in(id_CPE_LT, id_CPE_LT_U, id_CPE_LT_L, id_CPE_L2T4, id_CPE_L2T5_U, id_CPE_L2T5_L)) {
+    if (type.in(id_CPE_LT, id_CPE_LT_U, id_CPE_LT_L, id_CPE_L2T4, id_CPE_L2T5_U, id_CPE_L2T5_L, id_CPE_CI)) {
         add_port(id_I1, PORT_IN);
         add_port(id_I2, PORT_IN);
         add_port(id_I3, PORT_IN);
@@ -44,7 +44,7 @@ CellInfo *GateMatePacker::create_cell_ptr(IdString type, IdString name)
         add_port(id_EN, PORT_IN);
         add_port(id_CLK, PORT_IN);
         add_port(id_SR, PORT_IN);
-        if (type == id_CPE_LT_L) {
+        if (type.in(id_CPE_LT_L, id_CPE_CI)) {
             add_port(id_COUTY1, PORT_OUT);
         }
     } else if (type.in(id_CLKIN)) {
