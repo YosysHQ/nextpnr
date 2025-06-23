@@ -392,14 +392,14 @@ void GateMatePacker::pack_addf()
         CellInfo *root = grp.front();
         root->cluster = root->name;
 
-        CellInfo *ci_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$ci_upper", root->name.c_str(ctx)));
+        CellInfo *ci_upper = create_cell_ptr(id_CPE_DUMMY, ctx->idf("%s$ci_upper", root->name.c_str(ctx)));
         root->constr_children.push_back(ci_upper);
         ci_upper->cluster = root->name;
         ci_upper->constr_abs_z = false;
         ci_upper->constr_z = -1;
         ci_upper->constr_y = -1;
 
-        CellInfo *ci_lower = create_cell_ptr(id_CPE_CI, ctx->idf("%s$ci_lower", root->name.c_str(ctx)));
+        CellInfo *ci_lower = create_cell_ptr(id_CPE_CI, ctx->idf("%s$ci", root->name.c_str(ctx)));
         root->constr_children.push_back(ci_lower);
         ci_lower->cluster = root->name;
         ci_lower->constr_abs_z = false;
@@ -422,7 +422,7 @@ void GateMatePacker::pack_addf()
             ci_lower->params[id_INIT_L00] = Property(0b1010, 4); // IN5
         }
 
-        NetInfo *ci_conn = ctx->createNet(ctx->idf("%s$ci", root->name.c_str(ctx)));
+        NetInfo *ci_conn = ctx->createNet(ctx->idf("%s$ci_net", root->name.c_str(ctx)));
         ci_lower->connectPort(id_COUTY1, ci_conn);
 
         root->ports[id_CINY1].name = id_CINY1;
@@ -521,7 +521,7 @@ void GateMatePacker::pack_addf()
                 co_upper->constr_abs_z = false;
                 co_upper->constr_z = -1;
                 co_upper->constr_y = +i + 1;
-                CellInfo *co_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$co_lower", cy->name.c_str(ctx)));
+                CellInfo *co_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$co", cy->name.c_str(ctx)));
                 co_lower->cluster = root->name;
                 root->constr_children.push_back(co_lower);
                 co_lower->constr_abs_z = false;
@@ -530,7 +530,7 @@ void GateMatePacker::pack_addf()
                 co_lower->params[id_INIT_L11] = Property(0b1100, 4);
                 co_lower->params[id_INIT_L20] = Property(0b1100, 4);
 
-                NetInfo *co_conn = ctx->createNet(ctx->idf("%s$co", cy->name.c_str(ctx)));
+                NetInfo *co_conn = ctx->createNet(ctx->idf("%s$co_net", cy->name.c_str(ctx)));
 
                 co_lower->ports[id_CINY1].name = id_CINY1;
                 co_lower->ports[id_CINY1].type = PORT_IN;
@@ -548,7 +548,7 @@ void GateMatePacker::pack_addf()
                     for (auto &usr : co_net->users) {
                         if (usr.cell->type == id_CC_ADDF || usr.port == id_CI) {
                             usr.cell->disconnectPort(id_CI);
-                            NetInfo *co_conn = ctx->createNet(ctx->idf("%s$co", cy->name.c_str(ctx)));
+                            NetInfo *co_conn = ctx->createNet(ctx->idf("%s$co_net", cy->name.c_str(ctx)));
                             cy->ports[id_COUTY1].name = id_COUTY1;
                             cy->ports[id_COUTY1].type = PORT_OUT;
                             cy->connectPort(id_COUTY1, co_conn);
