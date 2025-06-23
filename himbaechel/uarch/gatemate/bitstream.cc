@@ -106,10 +106,8 @@ struct BitstreamBackend
     void update_cpe_mux(CellInfo *cell, IdString port, IdString param, int bit, dict<IdString, Property> &params)
     {
         // Mux inversion data is contained in other CPE half
-        Loc l = ctx->getBelLocation(cell->bel);
-        CellInfo *cell_u = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(l.x, l.y, 0)));
         unsigned init_val = int_or_default(params, param);
-        bool invert = need_inversion(cell_u, port);
+        bool invert = need_inversion(cell, port);
         if (invert) {
             int old = (init_val >> bit) & 1;
             int val = (init_val & (~(1 << bit) & 0xf)) | ((!old) << bit);
@@ -258,35 +256,40 @@ struct BitstreamBackend
             {
                 // Update configuration bits based on signal inversion
                 dict<IdString, Property> params = cell.second->params;
-                uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
                 Loc l = ctx->getBelLocation(cell.second->bel);
-                if (l.z==0 && func != C_MX4) {
-                    update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L00, params);
-                    update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L00, params);
-                    update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L01, params);
-                    update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L01, params);
+                if (cell.second->type.in(id_CPE_L2T4, id_CPE_CI)) {
+                    if (l.z==0) {
+                        update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L00, params);
+                        update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L00, params);
+                        update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L01, params);
+                        update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L01, params);
+                    } else {
+                        update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L02, params);
+                        update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L02, params);
+                        update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L03, params);
+                        update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L03, params);
+                    }
                 }
-                if (l.z==1) {
-                    update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L02, params);
-                    update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L02, params);
-                    update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L03, params);
-                    update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L03, params);
-                    if (func == C_MX4) {
+                if (l.z==7) {
+                    if (cell.second->type.in(id_CPE_MX4)) {            
                         update_cpe_mux(cell.second.get(), id_IN1, id_INIT_L11, 0, params);
                         update_cpe_mux(cell.second.get(), id_IN2, id_INIT_L11, 1, params);
                         update_cpe_mux(cell.second.get(), id_IN3, id_INIT_L11, 2, params);
                         update_cpe_mux(cell.second.get(), id_IN4, id_INIT_L11, 3, params);
+                        update_cpe_lt(cell.second.get(), id_IN5, id_INIT_L02, params);
+                        update_cpe_lt(cell.second.get(), id_IN6, id_INIT_L02, params);
+                        update_cpe_lt(cell.second.get(), id_IN7, id_INIT_L03, params);
+                        update_cpe_lt(cell.second.get(), id_IN8, id_INIT_L03, params);
+                    } else {                
+                        update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L00, params);
+                        update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L00, params);
+                        update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L01, params);
+                        update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L01, params);
+                        update_cpe_lt(cell.second.get(), id_IN5, id_INIT_L02, params);
+                        update_cpe_lt(cell.second.get(), id_IN6, id_INIT_L02, params);
+                        update_cpe_lt(cell.second.get(), id_IN7, id_INIT_L03, params);
+                        update_cpe_lt(cell.second.get(), id_IN8, id_INIT_L03, params);
                     }
-                }
-                if (l.z==7) {
-                    update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L00, params);
-                    update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L00, params);
-                    update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L01, params);
-                    update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L01, params);
-                    update_cpe_lt(cell.second.get(), id_IN5, id_INIT_L02, params);
-                    update_cpe_lt(cell.second.get(), id_IN6, id_INIT_L02, params);
-                    update_cpe_lt(cell.second.get(), id_IN7, id_INIT_L03, params);
-                    update_cpe_lt(cell.second.get(), id_IN8, id_INIT_L03, params);
                 }
 
                 if (cell.second->type.in(id_CPE_FF)) {
