@@ -257,7 +257,7 @@ struct BitstreamBackend
                 dict<IdString, Property> params = cell.second->params;
                 Loc l = ctx->getBelLocation(cell.second->bel);
                 if (cell.second->type.in(id_CPE_L2T4, id_CPE_CI)) {
-                    if (l.z == 0) {
+                    if (l.z == CPE_LT_U_Z) {
                         update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L00, params);
                         update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L00, params);
                         update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L01, params);
@@ -270,7 +270,7 @@ struct BitstreamBackend
                         update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L01, params);
                     }
                 }
-                if (l.z == 7) {
+                if (l.z == CPE_LT_FULL_Z) {
                     if (cell.second->type.in(id_CPE_MX4)) {
                         update_cpe_mux(cell.second.get(), id_IN1, id_INIT_L11, 0, params);
                         update_cpe_mux(cell.second.get(), id_IN2, id_INIT_L11, 1, params);
@@ -305,7 +305,7 @@ struct BitstreamBackend
                 for (auto &p : params) {
                     IdString name = p.first;
                     switch (l.z) {
-                    case 1: // CPE_LT_L
+                    case CPE_LT_L_Z:
                         switch (p.first.index) {
                         case id_INIT_L00.index:
                             name = id_INIT_L02;
@@ -318,7 +318,7 @@ struct BitstreamBackend
                             break;
                         }
                         break;
-                    case 4: // CPE_RAMIO_U
+                    case CPE_RAMIO_U_Z:
                         switch (p.first.index) {
                         case id_C_RAM_I.index:
                             name = id_C_RAM_I2;
@@ -328,7 +328,7 @@ struct BitstreamBackend
                             break;
                         }
                         break;
-                    case 5: // CPE_RAMIO_L
+                    case CPE_RAMIO_L_Z:
                         switch (p.first.index) {
                         case id_C_RAM_I.index:
                             name = id_C_RAM_I1;

@@ -91,9 +91,10 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
     if (cell->belStrength != PlaceStrength::STRENGTH_FIXED && tile_extra_data(bel.tile)->die != preferred_die)
         return false;
 
-    if (ctx->getBelType(bel).in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U)) {
+    if (getBelBucketForCellType(ctx->getBelType(bel)) == id_CPE_FF) {
         Loc loc = ctx->getBelLocation(bel);
-        const CellInfo *adj_half = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x, loc.y, loc.z == 3 ? 2 : 3)));
+        const CellInfo *adj_half = ctx->getBoundBelCell(
+                ctx->getBelByLocation(Loc(loc.x, loc.y, loc.z == CPE_FF_L_Z ? CPE_FF_U_Z : CPE_FF_L_Z)));
         if (adj_half) {
             const auto &half_data = fast_cell_info.at(cell->flat_index);
             if (half_data.dff_used) {
@@ -196,7 +197,7 @@ void GateMateImpl::postPlace()
     for (auto &cell : ctx->cells) {
         if (cell.second->type.in(id_CPE_L2T4, id_CPE_CI)) {
             Loc l = ctx->getBelLocation(cell.second->bel);
-            if (l.z == 1) { // CPE_HALF_L
+            if (l.z == CPE_LT_L_Z) {
                 if (!cell.second->params.count(id_INIT_L20))
                     cell.second->params[id_INIT_L20] = Property(0b1100, 4);
             }
@@ -206,7 +207,7 @@ void GateMateImpl::postPlace()
             uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
             bool is_l2t5 = cell.second->type == id_CPE_L2T5_L;
             Loc loc = ctx->getBelLocation(bel);
-            loc.z = 7; // CPE_LT_FULL
+            loc.z = CPE_LT_FULL_Z;
             ctx->unbindBel(bel);
             ctx->bindBel(ctx->getBelByLocation(loc), cell.second.get(), strength);
             cell.second->renamePort(id_IN1, id_IN5);
@@ -251,7 +252,7 @@ void GateMateImpl::postPlace()
                 }
             }
 
-            loc.z = 0;
+            loc.z = CPE_LT_U_Z;
             CellInfo *upper = ctx->getBoundBelCell(ctx->getBelByLocation(loc));
             if (upper->params.count(id_INIT_L00))
                 cell.second->params[id_INIT_L00] = Property(int_or_default(upper->params, id_INIT_L00, 0), 4);
