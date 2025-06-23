@@ -195,29 +195,9 @@ void GateMateImpl::postPlace()
     for (auto &cell : ctx->cells) {
         if (getBelBucketForCellType(cell.second->type) == id_CPE_LT) {
             Loc l = ctx->getBelLocation(cell.second->bel);
-            if (l.z == 0) { // CPE_HALF_U
-                //if (cell.second->params.count(id_C_O) && int_or_default(cell.second->params, id_C_O, 0) == 0)
-                    //cell.second->params[id_C_2D_IN] = Property(1, 1);
-                //cell.second->type = id_CPE_HALF_U;
-            } else { // CPE_HALF_L
+            if (l.z == 1) { // CPE_HALF_L
                 if (!cell.second->params.count(id_INIT_L20))
                     cell.second->params[id_INIT_L20] = Property(0b1100, 4);
-                rename_param(cell.second.get(), id_INIT_L00, id_INIT_L02, 4);
-                rename_param(cell.second.get(), id_INIT_L01, id_INIT_L03, 4);
-                rename_param(cell.second.get(), id_INIT_L10, id_INIT_L11, 4);
-                //cell.second->type = id_CPE_HALF_L;
-            }
-        }
-        if (getBelBucketForCellType(cell.second->type) == id_CPE_RAMIO) {
-            Loc l = ctx->getBelLocation(cell.second->bel);
-            if (l.z == 4) { // CPE_RAMIO_U
-                rename_param(cell.second.get(), id_C_RAM_I, id_C_RAM_I2, 1);
-                rename_param(cell.second.get(), id_C_RAM_O, id_C_RAM_O2, 1);
-                //cell.second->type = id_CPE_RAMIO_U;
-            } else { // CPE_HALF_L
-                rename_param(cell.second.get(), id_C_RAM_I, id_C_RAM_I1, 1);
-                rename_param(cell.second.get(), id_C_RAM_O, id_C_RAM_O1, 1);
-                //cell.second->type = id_CPE_RAMIO_L;
             }
         }
     }
@@ -238,6 +218,10 @@ void GateMateImpl::postPlace()
             cell.second->renamePort(id_IN4, id_IN8);
             cell.second->renamePort(id_OUT, id_OUT1);
             cell.second->renamePort(id_CPOUT, id_CPOUT1);
+            rename_param(cell.second.get(), id_INIT_L00, id_INIT_L02, 4);
+            rename_param(cell.second.get(), id_INIT_L01, id_INIT_L03, 4);
+            rename_param(cell.second.get(), id_INIT_L10, id_INIT_L11, 4);
+
             if (is_l2t5) {
                 cell.second->type = id_CPE_L2T5;
             } else {

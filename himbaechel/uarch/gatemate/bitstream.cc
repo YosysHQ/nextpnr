@@ -264,10 +264,11 @@ struct BitstreamBackend
                         update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L01, params);
                         update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L01, params);
                     } else {
-                        update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L02, params);
-                        update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L02, params);
-                        update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L03, params);
-                        update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L03, params);
+                        // These will be renamed later
+                        update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L00, params);
+                        update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L00, params);
+                        update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L01, params);
+                        update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L01, params);
                     }
                 }
                 if (l.z==7) {
@@ -303,7 +304,29 @@ struct BitstreamBackend
                 }
                 int id = tile_extra_data(cell.second.get()->bel.tile)->prim_id;
                 for (auto &p : params) {
-                    cc.tiles[loc].add_word(stringf("CPE%d.%s", id, p.first.c_str(ctx)), p.second.as_bits());
+                    IdString name = p.first;
+                    switch(l.z) {
+                    case 1 : // CPE_LT_L
+                            switch(p.first.index) {
+                                case id_INIT_L00.index : name = id_INIT_L02; break;
+                                case id_INIT_L01.index : name = id_INIT_L03; break;
+                                case id_INIT_L10.index : name = id_INIT_L11; break;
+                            }
+                            break;
+                    case 4 : // CPE_RAMIO_U
+                            switch(p.first.index) {
+                                case id_C_RAM_I.index : name = id_C_RAM_I2; break;
+                                case id_C_RAM_O.index : name = id_C_RAM_O2; break;
+                            }
+                            break;
+                    case 5 : // CPE_RAMIO_L
+                            switch(p.first.index) {
+                                case id_C_RAM_I.index : name = id_C_RAM_I1; break;
+                                case id_C_RAM_O.index : name = id_C_RAM_O1; break;
+                            }
+                            break;
+                    }
+                    cc.tiles[loc].add_word(stringf("CPE%d.%s", id, name.c_str(ctx)), p.second.as_bits());
                 }
             } break;
             case id_CLKIN.index: {
