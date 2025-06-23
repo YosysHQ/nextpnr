@@ -47,7 +47,7 @@ void GateMatePacker::disconnect_if_gnd(CellInfo *cell, IdString input)
     }
 }
 
-std::pair<CellInfo*,CellInfo*> GateMatePacker::move_ram_i(CellInfo *cell, IdString origPort, bool place, Loc cpe_loc)
+std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_i(CellInfo *cell, IdString origPort, bool place, Loc cpe_loc)
 {
     CellInfo *cpe_half = nullptr;
     CellInfo *cpe_ramio = nullptr;
@@ -63,7 +63,8 @@ std::pair<CellInfo*,CellInfo*> GateMatePacker::move_ram_i(CellInfo *cell, IdStri
             BelId b = ctx->getBelByLocation(cpe_loc);
             ctx->bindBel(b, cpe_ramio, PlaceStrength::STRENGTH_FIXED);
         }
-        CellInfo * cpe_half = create_cell_ptr(id_CPE_DUMMY, ctx->idf("%s$%s_cpe", cell->name.c_str(ctx), origPort.c_str(ctx)));
+        CellInfo *cpe_half =
+                create_cell_ptr(id_CPE_DUMMY, ctx->idf("%s$%s_cpe", cell->name.c_str(ctx), origPort.c_str(ctx)));
         if (place) {
             cpe_ramio->constr_children.push_back(cpe_half);
             cpe_half->cluster = cell->cluster;
@@ -84,7 +85,7 @@ std::pair<CellInfo*,CellInfo*> GateMatePacker::move_ram_i(CellInfo *cell, IdStri
     return std::make_pair(cpe_half, cpe_ramio);
 }
 
-std::pair<CellInfo*,CellInfo*> GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, bool place, Loc cpe_loc)
+std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, bool place, Loc cpe_loc)
 {
     CellInfo *cpe_half = nullptr;
     CellInfo *cpe_ramio = nullptr;
@@ -134,14 +135,16 @@ std::pair<CellInfo*,CellInfo*> GateMatePacker::move_ram_o(CellInfo *cell, IdStri
     return std::make_pair(cpe_half, cpe_ramio);
 }
 
-std::pair<CellInfo*,CellInfo*> GateMatePacker::move_ram_io(CellInfo *cell, IdString iPort, IdString oPort, bool place, Loc cpe_loc)
+std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_io(CellInfo *cell, IdString iPort, IdString oPort,
+                                                              bool place, Loc cpe_loc)
 {
     NetInfo *i_net = cell->getPort(iPort);
     NetInfo *o_net = cell->getPort(oPort);
     if (!i_net && !o_net)
         return std::make_pair(nullptr, nullptr);
 
-    CellInfo *cpe_ramio = create_cell_ptr(id_CPE_RAMIO, ctx->idf("%s$%s_ramio", cell->name.c_str(ctx), oPort.c_str(ctx)));
+    CellInfo *cpe_ramio =
+            create_cell_ptr(id_CPE_RAMIO, ctx->idf("%s$%s_ramio", cell->name.c_str(ctx), oPort.c_str(ctx)));
     if (place) {
         cell->constr_children.push_back(cpe_ramio);
         cpe_ramio->cluster = cell->cluster;
@@ -195,17 +198,18 @@ std::pair<CellInfo*,CellInfo*> GateMatePacker::move_ram_io(CellInfo *cell, IdStr
     return std::make_pair(cpe_half, cpe_ramio);
 }
 
-std::pair<CellInfo*,CellInfo*> GateMatePacker::move_ram_i_fixed(CellInfo *cell, IdString origPort, Loc fixed)
+std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_i_fixed(CellInfo *cell, IdString origPort, Loc fixed)
 {
     return move_ram_i(cell, origPort, false, uarch->getRelativeConstraint(fixed, origPort));
 }
 
-std::pair<CellInfo*,CellInfo*> GateMatePacker::move_ram_o_fixed(CellInfo *cell, IdString origPort, Loc fixed)
+std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_o_fixed(CellInfo *cell, IdString origPort, Loc fixed)
 {
     return move_ram_o(cell, origPort, false, uarch->getRelativeConstraint(fixed, origPort));
 }
 
-std::pair<CellInfo*,CellInfo*> GateMatePacker::move_ram_io_fixed(CellInfo *cell, IdString iPort, IdString oPort, Loc fixed)
+std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_io_fixed(CellInfo *cell, IdString iPort, IdString oPort,
+                                                                    Loc fixed)
 {
     return move_ram_io(cell, iPort, oPort, false, uarch->getRelativeConstraint(fixed, oPort));
 }

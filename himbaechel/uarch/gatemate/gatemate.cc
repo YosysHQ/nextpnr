@@ -194,14 +194,13 @@ void GateMateImpl::postPlace()
     ctx->assignArchInfo();
     std::vector<IdString> delete_cells;
     for (auto &cell : ctx->cells) {
-        if (cell.second->type.in(id_CPE_L2T4,id_CPE_CI)) {
+        if (cell.second->type.in(id_CPE_L2T4, id_CPE_CI)) {
             Loc l = ctx->getBelLocation(cell.second->bel);
             if (l.z == 1) { // CPE_HALF_L
                 if (!cell.second->params.count(id_INIT_L20))
                     cell.second->params[id_INIT_L20] = Property(0b1100, 4);
             }
-        }
-        else if (cell.second->type.in(id_CPE_L2T5_L,id_CPE_LT_L)) {
+        } else if (cell.second->type.in(id_CPE_L2T5_L, id_CPE_LT_L)) {
             BelId bel = cell.second->bel;
             PlaceStrength strength = cell.second->belStrength;
             uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
@@ -225,15 +224,29 @@ void GateMateImpl::postPlace()
             if (is_l2t5) {
                 cell.second->type = id_CPE_L2T5;
             } else {
-                switch(func) {
-                    case C_ADDF   : cell.second->type = id_CPE_ADDF; break;
-                    case C_ADDF2  : cell.second->type = id_CPE_ADDF2; break;
-                    case C_MULT   : cell.second->type = id_CPE_MULT; break;
-                    case C_MX4    : cell.second->type = id_CPE_MX4; break;
-                    case C_EN_CIN : cell.second->type = id_CPE_EN_CIN; break;
-                    case C_CONCAT : cell.second->type = id_CPE_CONCAT; break;
-                    case C_ADDCIN : cell.second->type = id_CPE_ADDCIN; break;
-                    default:
+                switch (func) {
+                case C_ADDF:
+                    cell.second->type = id_CPE_ADDF;
+                    break;
+                case C_ADDF2:
+                    cell.second->type = id_CPE_ADDF2;
+                    break;
+                case C_MULT:
+                    cell.second->type = id_CPE_MULT;
+                    break;
+                case C_MX4:
+                    cell.second->type = id_CPE_MX4;
+                    break;
+                case C_EN_CIN:
+                    cell.second->type = id_CPE_EN_CIN;
+                    break;
+                case C_CONCAT:
+                    cell.second->type = id_CPE_CONCAT;
+                    break;
+                case C_ADDCIN:
+                    cell.second->type = id_CPE_ADDCIN;
+                    break;
+                default:
                     break;
                 }
             }
@@ -255,7 +268,7 @@ void GateMateImpl::postPlace()
 
         }
         // Mark for deletion
-        else if (cell.second->type.in(id_CPE_L2T5_U,id_CPE_LT_U, id_CPE_DUMMY)) {
+        else if (cell.second->type.in(id_CPE_L2T5_U, id_CPE_LT_U, id_CPE_DUMMY)) {
             delete_cells.push_back(cell.second->name);
         }
     }
@@ -360,7 +373,7 @@ bool GateMateImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
         return cell_type.in(id_CPE_FF_U, id_CPE_FF);
     else if (bel_type == id_CPE_FF_L)
         return cell_type.in(id_CPE_FF_L, id_CPE_FF);
-    else if (bel_type.in(id_CPE_RAMIO_U,id_CPE_RAMIO_L))
+    else if (bel_type.in(id_CPE_RAMIO_U, id_CPE_RAMIO_L))
         return cell_type.in(id_CPE_RAMIO, id_CPE_RAMI, id_CPE_RAMO);
     else
         return (bel_type == cell_type);

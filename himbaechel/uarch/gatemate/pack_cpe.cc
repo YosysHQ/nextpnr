@@ -192,7 +192,7 @@ void GateMatePacker::pack_cpe()
                 dff->renamePort(id_D, id_DIN);
                 dff->renamePort(id_Q, id_DOUT);
                 dff_to_cpe(dff);
-                dff->type=id_CPE_FF;
+                dff->type = id_CPE_FF;
             }
         }
     }
