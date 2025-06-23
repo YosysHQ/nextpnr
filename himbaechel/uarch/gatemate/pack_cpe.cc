@@ -399,12 +399,12 @@ void GateMatePacker::pack_addf()
         ci_upper->constr_z = -1;
         ci_upper->constr_y = -1;
 
-        CellInfo *ci_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$ci_lower", root->name.c_str(ctx)));
+        CellInfo *ci_lower = create_cell_ptr(id_CPE_CI, ctx->idf("%s$ci_lower", root->name.c_str(ctx)));
         root->constr_children.push_back(ci_lower);
         ci_lower->cluster = root->name;
         ci_lower->constr_abs_z = false;
         ci_lower->constr_y = -1;
-        // TODO: Need to check C_O1 handling in this case
+        // TODO: Maybe move this to bitstream gen
         ci_lower->params[id_C_O1] = Property(0b11, 2);
         ci_lower->params[id_C_SELY1] = Property(1, 1);
         ci_lower->params[id_C_CY1_I] = Property(1, 1);
@@ -556,7 +556,7 @@ void GateMatePacker::pack_addf()
                             break;
                         }
                     }
-                    cy->movePortTo(id_CO, upper, id_CP_OUT);
+                    cy->movePortTo(id_CO, upper, id_CPOUT);
                 }
             }
         }

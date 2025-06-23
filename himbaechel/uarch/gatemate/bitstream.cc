@@ -243,12 +243,19 @@ struct BitstreamBackend
                 break;
             case id_CPE_L2T4.index:
             case id_CPE_L2T5.index:
+            case id_CPE_ADDF.index:
+            case id_CPE_ADDF2.index:
+            case id_CPE_MULT.index:
+            case id_CPE_MX4.index:
+            case id_CPE_EN_CIN.index:
+            case id_CPE_CONCAT.index:
+            case id_CPE_ADDCIN.index:
+            case id_CPE_CI.index:
             case id_CPE_FF.index:
             case id_CPE_RAMI.index:
             case id_CPE_RAMO.index:
             case id_CPE_RAMIO.index:
-            case id_CPE_LT_U.index:
-            case id_CPE_LT_L.index: {
+            {
                 // Update configuration bits based on signal inversion
                 dict<IdString, Property> params = cell.second->params;
                 uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
