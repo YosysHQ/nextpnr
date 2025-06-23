@@ -237,6 +237,7 @@ void GateMateImpl::postPlace()
             cell.second->renamePort(id_IN3, id_IN7);
             cell.second->renamePort(id_IN4, id_IN8);
             cell.second->renamePort(id_OUT, id_OUT1);
+            cell.second->renamePort(id_CPOUT, id_CPOUT1);
             if (is_l2t5) {
                 cell.second->type = id_CPE_L2T5;
             } else {
@@ -255,14 +256,18 @@ void GateMateImpl::postPlace()
 
             loc.z = 0;
             CellInfo *upper = ctx->getBoundBelCell(ctx->getBelByLocation(loc));
-            cell.second->params[id_INIT_L00] = Property(int_or_default(upper->params, id_INIT_L00, 0), 4);
-            cell.second->params[id_INIT_L01] = Property(int_or_default(upper->params, id_INIT_L01, 0), 4);
-            cell.second->params[id_INIT_L10] = Property(int_or_default(upper->params, id_INIT_L10, 0), 4);
+            if (upper->params.count(id_INIT_L00))
+                cell.second->params[id_INIT_L00] = Property(int_or_default(upper->params, id_INIT_L00, 0), 4);
+            if (upper->params.count(id_INIT_L01))
+                cell.second->params[id_INIT_L01] = Property(int_or_default(upper->params, id_INIT_L01, 0), 4);
+            if (upper->params.count(id_INIT_L10))
+                cell.second->params[id_INIT_L10] = Property(int_or_default(upper->params, id_INIT_L10, 0), 4);
             upper->movePortTo(id_IN1, cell.second.get(), id_IN1);
             upper->movePortTo(id_IN2, cell.second.get(), id_IN2);
             upper->movePortTo(id_IN3, cell.second.get(), id_IN3);
             upper->movePortTo(id_IN4, cell.second.get(), id_IN4);
             upper->movePortTo(id_OUT, cell.second.get(), id_OUT2);
+            upper->movePortTo(id_CPOUT, cell.second.get(), id_CPOUT2);
 
         }
         // Mark for deletion
