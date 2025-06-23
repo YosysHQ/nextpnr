@@ -159,10 +159,10 @@ def set_timings(ch):
     lut.add_comb_arc("IN4", "OUT", TimingValue(443, 453)) # to OUT2
 
     lut = ch.timing.add_cell_variant(speed, "CPE_L2T5")
-    lut.add_comb_arc("IN1", "OUT2", TimingValue(479, 484)) # to OUT2
-    lut.add_comb_arc("IN2", "OUT2", TimingValue(471, 488)) # to OUT2
-    lut.add_comb_arc("IN3", "OUT2", TimingValue(446, 449)) # to OUT2
-    lut.add_comb_arc("IN4", "OUT2", TimingValue(443, 453)) # to OUT2
+    lut.add_comb_arc("IN1", "OUT1", TimingValue(479, 484)) # to OUT2
+    lut.add_comb_arc("IN2", "OUT1", TimingValue(471, 488)) # to OUT2
+    lut.add_comb_arc("IN3", "OUT1", TimingValue(446, 449)) # to OUT2
+    lut.add_comb_arc("IN4", "OUT1", TimingValue(443, 453)) # to OUT2
     lut.add_comb_arc("IN5", "OUT1", TimingValue(416, 418)) # IN5 to OUT1
     lut.add_comb_arc("IN6", "OUT1", TimingValue(413, 422)) # IN6 to OUT1
     lut.add_comb_arc("IN7", "OUT1", TimingValue(372, 374)) # IN7 to OUT1
