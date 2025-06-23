@@ -326,7 +326,7 @@ void GateMatePacker::pack_io_sel()
         cells.push_back(&ci);
     }
 
-    std::pair<CellInfo*,CellInfo*> ddr[uarch->dies][9]; // for each bank
+    std::pair<CellInfo *, CellInfo *> ddr[uarch->dies][9]; // for each bank
     for (int i = 0; i < uarch->dies; ++i)
         for (int j = 0; j < 9; ++j)
             ddr[i][j] = {nullptr, nullptr};
@@ -480,7 +480,7 @@ void GateMatePacker::pack_io_sel()
                     oddr->movePortTo(id_D1, &ci, id_OUT1);
                     const auto &pad = ctx->get_package_pin(ctx->id(loc));
                     int die = uarch->tile_extra_data(ci.bel.tile)->die;
-                    auto [cpe_half,cpe_ramio] = ddr[die][pad->pad_bank];
+                    auto [cpe_half, cpe_ramio] = ddr[die][pad->pad_bank];
                     if (cpe_half) {
                         if (cpe_half->getPort(id_IN1) != oddr->getPort(id_DDR))
                             log_error("DDR port use signal different than already occupied DDR source.\n");
