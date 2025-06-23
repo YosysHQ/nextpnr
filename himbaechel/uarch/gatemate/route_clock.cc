@@ -48,8 +48,8 @@ void GateMateImpl::route_clock()
     auto clk_nets = std::vector<NetInfo *>{};
     auto reserved_wires = dict<WireId, IdString>{};
 
-    auto feeds_clk_port = [](PortRef &port) {
-        return port.cell->type.in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U) && port.port.in(id_CLK);
+    auto feeds_clk_port = [&](PortRef &port) {
+        return (ctx->getBelBucketForCellType(port.cell->type) == id_CPE_FF) && port.port.in(id_CLK);
     };
 
     auto feeds_ddr_port = [&](NetInfo *net, PortRef &port) {
