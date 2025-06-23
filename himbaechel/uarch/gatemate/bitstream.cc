@@ -176,10 +176,10 @@ struct BitstreamBackend
                     Loc l;
                     auto ti = *tile_extra_data(pip.tile);
                     tile_xy(ctx->chip_info, pip.tile, l.x, l.y);
-                    l.z = 0;
+                    l.z = CPE_LT_U_Z;
                     BelId cpe_bel = ctx->getBelByLocation(l);
                     // Only if switchbox is inside core (same as sharing location with CPE)
-                    if (cpe_bel != BelId() && ctx->getBelType(cpe_bel).in(id_CPE_LT_L, id_CPE_LT_U)) {
+                    if (cpe_bel != BelId() && ctx->getBelType(cpe_bel) == id_CPE_LT_U) {
                         // Bitstream data for certain SB_DRIVES is located in other tiles
                         switch (word[14]) {
                         case '3':
