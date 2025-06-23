@@ -255,7 +255,7 @@ void GateMateImpl::postPlace()
 
         }
         // Mark for deletion
-        else if (cell.second->type.in(id_CPE_L2T5_U,id_CPE_LT_U)) {
+        else if (cell.second->type.in(id_CPE_L2T5_U,id_CPE_LT_U, id_CPE_DUMMY)) {
             delete_cells.push_back(cell.second->name);
         }
     }
@@ -353,9 +353,9 @@ bool GateMateImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
         return cell_type.in(id_CPE_IBUF, id_CPE_OBUF, id_CPE_TOBUF, id_CPE_IOBUF, id_CPE_LVDS_IBUF, id_CPE_LVDS_TOBUF,
                             id_CPE_LVDS_OBUF, id_CPE_LVDS_IOBUF);
     else if (bel_type == id_CPE_LT_U)
-        return cell_type.in(id_CPE_LT_U, id_CPE_LT, id_CPE_L2T4, id_CPE_L2T5_U);
+        return cell_type.in(id_CPE_LT_U, id_CPE_LT, id_CPE_L2T4, id_CPE_L2T5_U, id_CPE_DUMMY);
     else if (bel_type == id_CPE_LT_L)
-        return cell_type.in(id_CPE_LT_L, id_CPE_LT, id_CPE_L2T4, id_CPE_L2T5_L, id_CPE_CI);
+        return cell_type.in(id_CPE_LT_L, id_CPE_LT, id_CPE_L2T4, id_CPE_L2T5_L, id_CPE_CI, id_CPE_DUMMY);
     else if (bel_type == id_CPE_FF_U)
         return cell_type.in(id_CPE_FF_U, id_CPE_FF);
     else if (bel_type == id_CPE_FF_L)
