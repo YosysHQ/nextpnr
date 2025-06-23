@@ -38,13 +38,8 @@ CellInfo *GateMatePacker::create_cell_ptr(IdString type, IdString name)
         add_port(id_I2, PORT_IN);
         add_port(id_I3, PORT_IN);
         add_port(id_I4, PORT_IN);
-        add_port(id_RAM_I, PORT_IN);
         add_port(id_OUT, PORT_OUT);
-        add_port(id_RAM_O, PORT_OUT);
-        add_port(id_EN, PORT_IN);
-        add_port(id_CLK, PORT_IN);
-        add_port(id_SR, PORT_IN);
-        if (type.in(id_CPE_LT_L, id_CPE_CI)) {
+        if (type.in(id_CPE_LT_L, id_CPE_L2T5_L, id_CPE_CI)) {
             add_port(id_COUTY1, PORT_OUT);
         }
     } else if (type.in(id_CLKIN)) {
