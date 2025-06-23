@@ -36,15 +36,15 @@ struct APassThroughCell
 {
     APassThroughCell(CellInfo *lower, CellInfo *upper, IdString name) : lower{lower}, upper{upper}
     {
-        lower->params[id_INIT_L00] = Property(LUT_D0, 4);   // IN1
-        lower->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
-        lower->params[id_INIT_L10] = Property(LUT_D0, 4);   // L00 -> COMB2OUT
+        lower->params[id_INIT_L02] = Property(LUT_D0, 4);   // IN5
+        lower->params[id_INIT_L03] = Property(LUT_ZERO, 4); // (unused)
+        lower->params[id_INIT_L11] = Property(LUT_D0, 4);   // L02
+        lower->params[id_INIT_L20] = Property(LUT_D1, 4);   // L11 -> COMB1OUT
+        lower->params[id_INIT_L30] = Property(LUT_ONE, 4);  // zero -> COMP_OUT (L30 is inverted)
 
-        upper->params[id_INIT_L02] = Property(LUT_D0, 4);   // IN5
-        upper->params[id_INIT_L03] = Property(LUT_ZERO, 4); // (unused)
-        upper->params[id_INIT_L11] = Property(LUT_D0, 4);   // L02
-        upper->params[id_INIT_L20] = Property(LUT_D1, 4);   // L11 -> COMB1OUT
-        upper->params[id_INIT_L30] = Property(LUT_ONE, 4);  // zero -> COMP_OUT (L30 is inverted)
+        upper->params[id_INIT_L00] = Property(LUT_D0, 4);   // IN1
+        upper->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
+        upper->params[id_INIT_L10] = Property(LUT_D0, 4);   // L00 -> COMB2OUT
 
         upper->params[id_C_SEL_C] = Property(1, 1); // COMP_OUT -> CX_VAL
         upper->params[id_C_SEL_P] = Property(1, 1); // COMP_OUT -> PX_VAL
@@ -55,8 +55,32 @@ struct APassThroughCell
         upper->params[id_C_O2] = Property(0b11, 2); // COMB2OUT -> OUT2
     }
 
-    PortRef a0() const { return PortRef{upper, id_IN1}; }
-    PortRef a1() const { return PortRef{lower, id_IN1}; }
+    void clean_up(Context *ctx)
+    {
+        auto *lower_net = lower->ports.at(id_IN1).net;
+        auto *upper_net = lower->ports.at(id_IN1).net;
+
+        if (lower_net) {
+            bool net_is_gnd = lower_net->name == ctx->idf("$PACKER_GND");
+            bool net_is_vcc = lower_net->name == ctx->idf("$PACKER_VCC");
+            if (net_is_gnd || net_is_vcc) {
+                lower->params[id_INIT_L02] = Property(LUT_ZERO, 4);
+                lower->params[id_INIT_L11] = Property(LUT_ZERO, 4);
+                lower->params[id_INIT_L20] = Property(net_is_vcc ? LUT_ONE : LUT_ZERO, 4);
+                lower->disconnectPort(id_IN1);
+            }
+        }
+
+        if (upper_net) {
+            bool net_is_gnd = upper_net->name == ctx->idf("$PACKER_GND");
+            bool net_is_vcc = upper_net->name == ctx->idf("$PACKER_VCC");
+            if (net_is_gnd || net_is_vcc) {
+                upper->params[id_INIT_L00] = Property(LUT_ZERO, 4);
+                upper->params[id_INIT_L10] = Property(net_is_vcc ? LUT_ONE : LUT_ZERO, 4);
+                upper->disconnectPort(id_IN1);
+            }
+        }
+    }
 
     CellInfo *lower;
     CellInfo *upper;
@@ -72,16 +96,14 @@ struct BPassThroughCell
 
     BPassThroughCell(CellInfo *lower, CellInfo *upper, IdString name) : lower{lower}, upper{upper}
     {
-        lower->cluster = name;
-        lower->constr_abs_z = false;
-        lower->params[id_INIT_L00] = Property(LUT_D0, 4);   // IN1
-        lower->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
-        lower->params[id_INIT_L10] = Property(LUT_D0, 4);   // L00 -> COMB2OUT
+        lower->params[id_INIT_L02] = Property(LUT_D0, 4);   // IN5
+        lower->params[id_INIT_L03] = Property(LUT_ZERO, 4); // (unused)
+        lower->params[id_INIT_L11] = Property(LUT_D0, 4);   // L02
+        lower->params[id_INIT_L20] = Property(LUT_D1, 4);   // L11 -> COMB1OUT
 
-        upper->params[id_INIT_L02] = Property(LUT_D0, 4);   // IN5
-        upper->params[id_INIT_L03] = Property(LUT_ZERO, 4); // (unused)
-        upper->params[id_INIT_L11] = Property(LUT_D0, 4);   // L02
-        upper->params[id_INIT_L20] = Property(LUT_D1, 4);   // L11 -> COMB1OUT
+        upper->params[id_INIT_L00] = Property(LUT_D0, 4);   // IN1
+        upper->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
+        upper->params[id_INIT_L10] = Property(LUT_D0, 4);   // L00 -> COMB2OUT
 
         upper->params[id_C_CY1_I] = Property(1, 1); // CY1_VAL -> COUTY1
         upper->params[id_C_PY1_I] = Property(1, 1); // PY1_VAL -> POUTY1
@@ -90,8 +112,32 @@ struct BPassThroughCell
         upper->params[id_C_O2] = Property(0b11, 2); // COMB2OUT -> OUT2
     }
 
-    PortRef b0() const { return PortRef{upper, id_IN1}; }
-    PortRef b1() const { return PortRef{lower, id_IN1}; }
+    void clean_up(Context *ctx)
+    {
+        auto *lower_net = lower->ports.at(id_IN1).net;
+        auto *upper_net = lower->ports.at(id_IN1).net;
+
+        if (lower_net) {
+            bool net_is_gnd = lower_net->name == ctx->idf("$PACKER_GND");
+            bool net_is_vcc = lower_net->name == ctx->idf("$PACKER_VCC");
+            if (net_is_gnd || net_is_vcc) {
+                lower->params[id_INIT_L02] = Property(LUT_ZERO, 4);
+                lower->params[id_INIT_L11] = Property(LUT_ZERO, 4);
+                lower->params[id_INIT_L20] = Property(net_is_vcc ? LUT_ONE : LUT_ZERO, 4);
+                lower->disconnectPort(id_IN1);
+            }
+        }
+
+        if (upper_net) {
+            bool net_is_gnd = upper_net->name == ctx->idf("$PACKER_GND");
+            bool net_is_vcc = upper_net->name == ctx->idf("$PACKER_VCC");
+            if (net_is_gnd || net_is_vcc) {
+                upper->params[id_INIT_L00] = Property(LUT_ZERO, 4);
+                upper->params[id_INIT_L10] = Property(net_is_vcc ? LUT_ONE : LUT_ZERO, 4);
+                upper->disconnectPort(id_IN1);
+            }
+        }
+    }
 
     CellInfo *lower;
     CellInfo *upper;
@@ -106,15 +152,15 @@ struct CarryGenCell
     {
         // TODO: simplify AND with zero/OR with zero into something more sensical.
 
-        lower->params[id_INIT_L00] = Property(LUT_ZERO, 4); // (unused)
-        lower->params[id_INIT_L01] = Property(LUT_D1, 4);   // CINX
-        lower->params[id_INIT_L10] = Property(is_even_x ? LUT_AND : LUT_OR, 4);
+        lower->params[id_INIT_L02] = Property(LUT_D1, 4);   // PINY1
+        lower->params[id_INIT_L03] = Property(LUT_ZERO, 4); // (unused)
+        lower->params[id_INIT_L11] = Property(is_even_x ? LUT_AND : LUT_OR, 4);
+        lower->params[id_INIT_L20] = Property(is_even_x ? LUT_AND : LUT_OR, 4);
+        lower->params[id_INIT_L30] = Property(LUT_INV_D0, 4); // OUT1 -> COMP_OUT
 
-        upper->params[id_INIT_L02] = Property(LUT_D1, 4);   // PINY1
-        upper->params[id_INIT_L03] = Property(LUT_ZERO, 4); // (unused)
-        upper->params[id_INIT_L11] = Property(is_even_x ? LUT_AND : LUT_OR, 4);
-        upper->params[id_INIT_L20] = Property(is_even_x ? LUT_AND : LUT_OR, 4);
-        upper->params[id_INIT_L30] = Property(LUT_INV_D0, 4); // OUT1 -> COMP_OUT
+        upper->params[id_INIT_L00] = Property(LUT_ZERO, 4); // (unused)
+        upper->params[id_INIT_L01] = Property(LUT_D1, 4);   // CINX
+        upper->params[id_INIT_L10] = Property(is_even_x ? LUT_AND : LUT_OR, 4);
 
         upper->params[id_C_I2] = Property(1, 1); // CINX for L01
         upper->params[id_C_I3] = Property(1, 1); // PINY1 for L02
@@ -141,15 +187,15 @@ struct MultfabCell
     {
         // TODO: perhaps C_I[1234] could be pips?
 
-        lower->params[id_INIT_L00] = Property(LUT_D1, 4);                        // PINY1
-        lower->params[id_INIT_L01] = Property(is_even_x ? LUT_ZERO : LUT_D1, 4); // CINX
-        lower->params[id_INIT_L10] = Property(LUT_XOR, 4);                       // XOR
+        lower->params[id_INIT_L02] = Property(LUT_D1, 4);                              // PINY1
+        lower->params[id_INIT_L03] = Property(LUT_ZERO, 4);                            // (unused)
+        lower->params[id_INIT_L11] = Property(LUT_D0, 4);                              // L02
+        lower->params[id_INIT_L20] = Property(is_even_x ? LUT_AND_INV_D0 : LUT_OR, 4); // L10 AND L11 -> OUT1
+        lower->params[id_INIT_L30] = Property(LUT_INV_D1, 4);                          // L10 -> COMP_OUT
 
-        upper->params[id_INIT_L02] = Property(LUT_D1, 4);                              // PINY1
-        upper->params[id_INIT_L03] = Property(LUT_ZERO, 4);                            // (unused)
-        upper->params[id_INIT_L11] = Property(LUT_D0, 4);                              // L02
-        upper->params[id_INIT_L20] = Property(is_even_x ? LUT_AND_INV_D0 : LUT_OR, 4); // L10 AND L11 -> OUT1
-        upper->params[id_INIT_L30] = Property(LUT_INV_D1, 4);                          // L10 -> COMP_OUT
+        upper->params[id_INIT_L00] = Property(LUT_D1, 4);                        // PINY1
+        upper->params[id_INIT_L01] = Property(is_even_x ? LUT_ZERO : LUT_D1, 4); // CINX
+        upper->params[id_INIT_L10] = Property(LUT_XOR, 4);                       // XOR
 
         upper->params[id_C_I1] = Property(1, 1); // PINY1 for L00
         upper->params[id_C_I2] = Property(1, 1); // CINX for L01
@@ -172,7 +218,6 @@ struct MultfabCell
 };
 
 // CITE: CPE_ges_f-routing-1.pdf
-// TODO:
 struct FRoutingCell
 {
     FRoutingCell() : lower{nullptr}, upper{nullptr} {}
@@ -181,15 +226,15 @@ struct FRoutingCell
     {
         // TODO: simplify AND with zero/OR with zero into something more sensical.
 
-        lower->params[id_INIT_L00] = Property(LUT_D1, 4);  // PINY1
-        lower->params[id_INIT_L01] = Property(LUT_ONE, 4); // (unused)
-        lower->params[id_INIT_L10] = Property(LUT_AND, 4);
+        lower->params[id_INIT_L02] = Property(LUT_ZERO, 4); // (unused)
+        lower->params[id_INIT_L03] = Property(LUT_ONE, 4);  // (unused)
+        lower->params[id_INIT_L11] = Property(LUT_AND, 4);
+        lower->params[id_INIT_L20] = Property(LUT_D1, 4);
+        lower->params[id_INIT_L30] = Property(is_even_x ? LUT_ONE : LUT_INV_D1, 4); // OUT1 -> COMP_OUT
 
-        upper->params[id_INIT_L02] = Property(LUT_ZERO, 4); // (unused)
-        upper->params[id_INIT_L03] = Property(LUT_ONE, 4);  // (unused)
-        upper->params[id_INIT_L11] = Property(LUT_AND, 4);
-        upper->params[id_INIT_L20] = Property(LUT_D1, 4);
-        upper->params[id_INIT_L30] = Property(is_even_x ? LUT_ONE : LUT_INV_D1, 4); // OUT1 -> COMP_OUT
+        upper->params[id_INIT_L00] = Property(LUT_D1, 4);  // PINY1
+        upper->params[id_INIT_L01] = Property(LUT_ONE, 4); // (unused)
+        upper->params[id_INIT_L10] = Property(LUT_AND, 4);
 
         upper->params[id_C_I1] = Property(1, 1); // PINY1 for L00
         upper->params[id_C_FUNCTION] = Property(C_ADDCIN, 3);
@@ -219,14 +264,14 @@ struct MultCell
 
     MultCell(CellInfo *lower, CellInfo *upper, IdString name) : lower{lower}, upper{upper}
     {
-        lower->params[id_INIT_L00] = Property(LUT_AND, 4);
-        lower->params[id_INIT_L01] = Property(LUT_D1, 4); // CINX
-        lower->params[id_INIT_L10] = Property(LUT_XOR, 4);
+        lower->params[id_INIT_L02] = Property(LUT_AND, 4);
+        lower->params[id_INIT_L03] = Property(LUT_D1, 4); // PINX
+        lower->params[id_INIT_L11] = Property(LUT_XOR, 4);
+        lower->params[id_INIT_L20] = Property(LUT_D1, 4); // L11
 
-        upper->params[id_INIT_L02] = Property(LUT_AND, 4);
-        upper->params[id_INIT_L03] = Property(LUT_D1, 4); // PINX
-        upper->params[id_INIT_L11] = Property(LUT_XOR, 4);
-        upper->params[id_INIT_L20] = Property(LUT_D1, 4); // L11
+        upper->params[id_INIT_L00] = Property(LUT_AND, 4);
+        upper->params[id_INIT_L01] = Property(LUT_D1, 4); // CINX
+        upper->params[id_INIT_L10] = Property(LUT_XOR, 4);
 
         upper->params[id_C_I1] = Property(1, 1); // PINY1 for L00
         upper->params[id_C_I2] = Property(1, 1); // CINX for L01
@@ -238,10 +283,6 @@ struct MultCell
         upper->params[id_C_O2] = Property(0b10, 2); // CP_OUT2 -> OUT2
     }
 
-    PortRef a0() const { return PortRef{upper, id_IN4}; }
-    PortRef a1() const { return PortRef{upper, id_IN1}; }
-    PortRef a2() const { return PortRef{lower, id_IN1}; }
-
     CellInfo *lower;
     CellInfo *upper;
 };
@@ -252,16 +293,14 @@ struct MultMsbCell
 
     MultMsbCell(CellInfo *lower, CellInfo *upper, IdString name) : lower{lower}, upper{upper}
     {
-        lower->params[id_INIT_L00] = Property(LUT_AND, 4);
-        lower->params[id_INIT_L01] = Property(LUT_D1, 4); // CINX
-        lower->params[id_INIT_L10] = Property(LUT_XOR, 4);
+        lower->params[id_INIT_L02] = Property(LUT_AND, 4);
+        lower->params[id_INIT_L03] = Property(LUT_D1, 4); // PINX
+        lower->params[id_INIT_L11] = Property(LUT_XOR, 4);
+        lower->params[id_INIT_L20] = Property(LUT_D1, 4); // L11
 
-        upper->cluster = name;
-        upper->constr_abs_z = false;
-        upper->params[id_INIT_L02] = Property(LUT_AND, 4);
-        upper->params[id_INIT_L03] = Property(LUT_D1, 4); // PINX
-        upper->params[id_INIT_L11] = Property(LUT_XOR, 4);
-        upper->params[id_INIT_L20] = Property(LUT_D1, 4); // L11
+        upper->params[id_INIT_L00] = Property(LUT_AND, 4);
+        upper->params[id_INIT_L01] = Property(LUT_D1, 4); // CINX
+        upper->params[id_INIT_L10] = Property(LUT_XOR, 4);
 
         upper->params[id_C_I1] = Property(1, 1); // PINY1 for L00
         upper->params[id_C_I2] = Property(1, 1); // CINX for L01
@@ -285,17 +324,15 @@ struct MsbRoutingCell
 
     MsbRoutingCell(CellInfo *lower, CellInfo *upper, IdString name) : lower{lower}, upper{upper}
     {
-        lower->params[id_INIT_L00] = Property(LUT_D1, 4);   // PINY1
-        lower->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
-        lower->params[id_INIT_L10] = Property(LUT_OR, 4);
+        lower->params[id_INIT_L02] = Property(LUT_ONE, 4);
+        lower->params[id_INIT_L03] = Property(LUT_ONE, 4);
+        lower->params[id_INIT_L11] = Property(LUT_ZERO, 4);
+        lower->params[id_INIT_L20] = Property(LUT_D1, 4); // L11
+        lower->params[id_INIT_L30] = Property(LUT_ONE, 4);
 
-        upper->cluster = name;
-        upper->constr_abs_z = false;
-        upper->params[id_INIT_L02] = Property(LUT_ONE, 4);
-        upper->params[id_INIT_L03] = Property(LUT_ONE, 4);
-        upper->params[id_INIT_L11] = Property(LUT_ZERO, 4);
-        upper->params[id_INIT_L20] = Property(LUT_D1, 4); // L11
-        upper->params[id_INIT_L30] = Property(LUT_ONE, 4);
+        upper->params[id_INIT_L00] = Property(LUT_D1, 4);   // PINY1
+        upper->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
+        upper->params[id_INIT_L10] = Property(LUT_OR, 4);
 
         upper->params[id_C_I1] = Property(1, 1); // PINY1 for L00
         upper->params[id_C_FUNCTION] = Property(C_MULT, 3);
@@ -414,68 +451,159 @@ void GateMatePacker::pack_mult()
         auto a_width = int_or_default(mult->params, id_A_WIDTH);
         auto b_width = int_or_default(mult->params, id_B_WIDTH);
         auto p_width = int_or_default(mult->params, id_P_WIDTH);
+
+        // Sign-extend odd A_WIDTH to even, because we're working with 2x2 multiplier cells.
+        if (a_width % 2 == 1) {
+            mult->copyPortTo(ctx->idf("A[%d]", a_width), mult, ctx->idf("A[%d]", a_width + 1));
+            a_width += 1;
+        }
+
+        // Sign-extend odd B_WIDTH to even, because we're working with 2x2 multiplier cells.
+        if (b_width % 2 == 1) {
+            mult->copyPortTo(ctx->idf("B[%d]", b_width), mult, ctx->idf("B[%d]", b_width + 1));
+            b_width += 1;
+        }
+
         log_info("    Configuring '%s' as a %d-bit * %d-bit = %d-bit multiplier.\n", mult->name.c_str(ctx), a_width,
                  b_width, p_width);
 
         auto m = Multiplier{};
 
         // Step 1: instantiate all the CPEs.
-        for (int a = 0; a <= a_width / 2; a++)
+        for (int a = 0; a < a_width / 2; a++)
             m.a_passthrus.push_back(create_a_passthru(ctx->idf("%s$col0$row%d", mult->name.c_str(ctx), a)));
-        for (int b = 0; b <= b_width / 2; b++)
+        for (int b = 0; b < b_width / 2; b++)
             m.cols.push_back(create_mult_col(ctx->idf("%s$col%d", mult->name.c_str(ctx), b + 1), a_width, b % 2 == 0));
 
         // Step 2: constrain them together.
         // We define (0,0) to be the B passthrough cell of column 1.
         auto *root = m.cols[0].b_passthru.upper;
+        root->cluster = root->name;
 
         auto constrain_cell = [&](CellInfo *cell, int x_offset, int y_offset) {
             if (cell == root)
                 return;
             root->constr_children.push_back(cell);
             cell->cluster = root->name;
-            cell->constr_abs_z = false;
+            cell->constr_abs_z = true;
             cell->constr_x = x_offset;
             cell->constr_y = y_offset;
+            cell->constr_z = cell->type == id_CPE_HALF_L ? 1 : 0;
         };
 
         // Constrain A passthrough cells.
-        for (int a = 0; a <= a_width / 2; a++) {
-            auto &a_passthru = m.a_passthrus[a];
+        for (int a = 0; a < a_width / 2; a++) {
+            auto &a_passthru = m.a_passthrus.at(a);
             constrain_cell(a_passthru.lower, -1, 4 + a);
             constrain_cell(a_passthru.upper, -1, 4 + a);
         }
 
         // Constrain multiplier columns.
-        for (int b = 0; b <= b_width / 2; b++) {
-            auto &col = m.cols[b];
+        for (int b = 0; b < b_width / 2; b++) {
+            auto &col = m.cols.at(b);
             constrain_cell(col.b_passthru.lower, b, b);
             constrain_cell(col.b_passthru.upper, b, b);
 
-            constrain_cell(col.carry.lower, b + 1, b);
-            constrain_cell(col.carry.upper, b + 1, b);
+            constrain_cell(col.carry.lower, b, b + 1);
+            constrain_cell(col.carry.upper, b, b + 1);
 
-            constrain_cell(col.multfab.lower, b + 2, b);
-            constrain_cell(col.multfab.upper, b + 2, b);
+            constrain_cell(col.multfab.lower, b, b + 2);
+            constrain_cell(col.multfab.upper, b, b + 2);
 
-            constrain_cell(col.f_route.lower, b + 3, b);
-            constrain_cell(col.f_route.upper, b + 3, b);
+            constrain_cell(col.f_route.lower, b, b + 3);
+            constrain_cell(col.f_route.upper, b, b + 3);
 
             for (size_t mult_idx = 0; mult_idx < col.mults.size(); mult_idx++) {
-                constrain_cell(col.mults[mult_idx].lower, b + 4 + mult_idx, b);
-                constrain_cell(col.mults[mult_idx].upper, b + 4 + mult_idx, b);
+                constrain_cell(col.mults[mult_idx].lower, b, b + 4 + mult_idx);
+                constrain_cell(col.mults[mult_idx].upper, b, b + 4 + mult_idx);
             }
 
-            constrain_cell(col.mult_msb.lower, b + 4 + col.mults.size() + 1, b);
-            constrain_cell(col.mult_msb.upper, b + 4 + col.mults.size() + 1, b);
+            constrain_cell(col.mult_msb.lower, b, b + 4 + col.mults.size());
+            constrain_cell(col.mult_msb.upper, b, b + 4 + col.mults.size());
 
-            constrain_cell(col.msb_route.lower, b + 4 + col.mults.size() + 2, b);
-            constrain_cell(col.msb_route.upper, b + 4 + col.mults.size() + 2, b);
+            constrain_cell(col.msb_route.lower, b, b + 4 + col.mults.size() + 1);
+            constrain_cell(col.msb_route.upper, b, b + 4 + col.mults.size() + 1);
         }
 
         // Step 3: connect them.
 
-        // Connect A passthrough cells.
+        // TODO: check this with odd bus widths.
+
+        for (int a = 0; a < a_width; a++) {
+            auto &a_passthru = m.a_passthrus.at(a / 2);
+            auto *cpe_half = (a % 2 == 1) ? a_passthru.upper : a_passthru.lower;
+
+            // Connect A input passthrough cell.
+            mult->movePortTo(ctx->idf("A[%d]", a), cpe_half, id_IN1);
+
+            // This may be GND/VCC; if so, clean it up.
+            a_passthru.clean_up(ctx);
+
+            // Connect A passthrough output to multiplier inputs.
+            auto *a_net = ctx->createNet(cpe_half->name);
+            cpe_half->connectPort(id_OUT, a_net);
+
+            for (int b = 0; b < b_width / 2; b++) {
+                {
+                    auto &mult_row = m.cols.at(b).mults.at(a / 2);
+                    auto *mult_cell = (a % 2 == 1) ? mult_row.upper : mult_row.lower;
+
+                    mult_cell->connectPort(id_IN1, a_net);
+                }
+
+                // A upper out signals must also go to the CPE above.
+                if ((a % 2) == 1) {
+                    auto &mult_col = m.cols.at(b);
+                    if ((a / 2 + 1) < (a_width / 2)) {
+                        auto *mult_cell = mult_col.mults.at(a / 2 + 1).lower;
+
+                        mult_cell->connectPort(id_IN4, a_net); // IN8
+                    } else {
+                        auto &mult_cell = mult_col.mult_msb;
+
+                        mult_cell.upper->connectPort(id_IN1, a_net); // IN1
+                        mult_cell.lower->connectPort(id_IN1, a_net); // IN5
+                        mult_cell.lower->connectPort(id_IN4, a_net); // IN8
+                    }
+                }
+            }
+        }
+
+        for (int b = 0; b < b_width; b++) {
+            auto &b_passthru = m.cols[b / 2].b_passthru;
+            auto *cpe_half = (b % 2 == 1) ? b_passthru.upper : b_passthru.lower;
+
+            // Connect B input passthrough cell.
+            mult->movePortTo(ctx->idf("B[%d]", b), cpe_half, id_IN1);
+
+            // This may be GND/VCC; if so, clean it up.
+            b_passthru.clean_up(ctx);
+        }
+        {
+            auto &b_passthru = m.cols.back().b_passthru;
+            mult->copyPortTo(ctx->idf("B[%d]", b_width - 1), b_passthru.upper, id_IN1);
+            mult->copyPortTo(ctx->idf("B[%d]", b_width - 1), b_passthru.lower, id_IN1);
+        }
+
+        // Connect P outputs.
+        auto diagonal_p_width = std::min(b_width, p_width);
+        auto vertical_p_width = std::max(p_width - b_width, 0);
+
+        for (int p = 0; p < diagonal_p_width; p++) {
+            auto &mult_cell = m.cols[p / 2].mults[0];
+            auto *cpe_half = (p % 2 == 1) ? mult_cell.upper : mult_cell.lower;
+
+            mult->movePortTo(ctx->idf("P[%d]", p), cpe_half, id_OUT);
+        }
+
+        for (int p = 0; p < vertical_p_width; p++) {
+            auto &mult_cell = m.cols.back().mults[1 + (p / 2)];
+            auto *cpe_half = (p % 2 == 1) ? mult_cell.upper : mult_cell.lower;
+
+            mult->movePortTo(ctx->idf("P[%d]", p + diagonal_p_width), cpe_half, id_OUT);
+        }
+
+        ctx->cells.erase(mult->name);
 
         log_info("        Created %zu CPEs.\n", m.cpe_count());
     }

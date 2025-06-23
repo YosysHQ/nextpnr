@@ -34,10 +34,10 @@ CellInfo *GateMatePacker::create_cell_ptr(IdString type, IdString name)
         cell->ports[id].type = dir;
     };
     if (type.in(id_CPE_HALF, id_CPE_HALF_U, id_CPE_HALF_L)) {
-        add_port(id_I1, PORT_IN);
-        add_port(id_I2, PORT_IN);
-        add_port(id_I3, PORT_IN);
-        add_port(id_I4, PORT_IN);
+        add_port(id_IN1, PORT_IN);
+        add_port(id_IN2, PORT_IN);
+        add_port(id_IN3, PORT_IN);
+        add_port(id_IN4, PORT_IN);
         add_port(id_RAM_I, PORT_IN);
         add_port(id_OUT, PORT_OUT);
         add_port(id_RAM_O, PORT_OUT);
