@@ -183,7 +183,7 @@ def set_timings(ch):
     lut.add_comb_arc("I", "RAM_O", TimingValue(0, 0))
     lut.add_comb_arc("RAM_I", "OUT", TimingValue(0, 0))
 
-EXPECTED_VERSION = 1.2
+EXPECTED_VERSION = 1.3
 
 def main():
     # Range needs to be +1, but we are adding +2 more to coordinates, since 
