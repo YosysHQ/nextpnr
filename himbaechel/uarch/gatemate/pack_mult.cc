@@ -31,6 +31,30 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+// Constant zero.
+struct ZeroDriver
+{
+    ZeroDriver() : lower{nullptr}, upper{nullptr} {}
+
+    ZeroDriver(CellInfo *lower, CellInfo *upper, IdString name) : lower{lower}, upper{upper}
+    {
+        lower->params[id_INIT_L02] = Property(LUT_ZERO, 4); // (unused)
+        lower->params[id_INIT_L03] = Property(LUT_ZERO, 4); // (unused)
+        lower->params[id_INIT_L11] = Property(LUT_ZERO, 4); // (unused)
+        lower->params[id_INIT_L20] = Property(LUT_ZERO, 4); // (unused)
+
+        upper->params[id_INIT_L00] = Property(LUT_ZERO, 4); // (unused)
+        upper->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
+        upper->params[id_INIT_L10] = Property(LUT_ZERO, 4); // (unused)
+
+        upper->params[id_C_O1] = Property(0b11, 2); // COMB1OUT -> OUT1
+        upper->params[id_C_O2] = Property(0b11, 2); // COMB2OUT -> OUT2
+    }
+
+    CellInfo *lower;
+    CellInfo *upper;
+};
+
 // Propagate A0 through OUT1 and A1 through OUT2; zero COUTX and POUTX.
 struct APassThroughCell
 {
@@ -157,6 +181,7 @@ struct CarryGenCell
         lower->params[id_INIT_L11] = Property(is_even_x ? LUT_AND : LUT_OR, 4);
         lower->params[id_INIT_L20] = Property(is_even_x ? LUT_AND : LUT_OR, 4);
         lower->params[id_INIT_L30] = Property(LUT_INV_D0, 4); // OUT1 -> COMP_OUT
+        lower->params[id_C_FUNCTION] = Property(C_EN_CIN, 3);
 
         upper->params[id_INIT_L00] = Property(LUT_ZERO, 4); // (unused)
         upper->params[id_INIT_L01] = Property(LUT_D1, 4);   // CINX
@@ -192,6 +217,7 @@ struct MultfabCell
         lower->params[id_INIT_L11] = Property(LUT_D0, 4);                              // L02
         lower->params[id_INIT_L20] = Property(is_even_x ? LUT_AND_INV_D0 : LUT_OR, 4); // L10 AND L11 -> OUT1
         lower->params[id_INIT_L30] = Property(LUT_INV_D1, 4);                          // L10 -> COMP_OUT
+        lower->params[id_C_FUNCTION] = Property(C_ADDCIN, 3);
 
         upper->params[id_INIT_L00] = Property(LUT_D1, 4);                        // PINY1
         upper->params[id_INIT_L01] = Property(is_even_x ? LUT_ZERO : LUT_D1, 4); // CINX
@@ -231,6 +257,7 @@ struct FRoutingCell
         lower->params[id_INIT_L11] = Property(LUT_AND, 4);
         lower->params[id_INIT_L20] = Property(LUT_D1, 4);
         lower->params[id_INIT_L30] = Property(is_even_x ? LUT_ONE : LUT_INV_D1, 4); // OUT1 -> COMP_OUT
+        lower->params[id_C_FUNCTION] = Property(C_ADDCIN, 3);
 
         upper->params[id_INIT_L00] = Property(LUT_D1, 4);  // PINY1
         upper->params[id_INIT_L01] = Property(LUT_ONE, 4); // (unused)
@@ -268,6 +295,7 @@ struct MultCell
         lower->params[id_INIT_L03] = Property(LUT_D1, 4); // PINX
         lower->params[id_INIT_L11] = Property(LUT_XOR, 4);
         lower->params[id_INIT_L20] = Property(LUT_D1, 4); // L11
+        lower->params[id_C_FUNCTION] = Property(C_MULT, 3);
 
         upper->params[id_INIT_L00] = Property(LUT_AND, 4);
         upper->params[id_INIT_L01] = Property(LUT_D1, 4); // CINX
@@ -297,6 +325,7 @@ struct MultMsbCell
         lower->params[id_INIT_L03] = Property(LUT_D1, 4); // PINX
         lower->params[id_INIT_L11] = Property(LUT_XOR, 4);
         lower->params[id_INIT_L20] = Property(LUT_D1, 4); // L11
+        lower->params[id_C_FUNCTION] = Property(C_MULT, 3);
 
         upper->params[id_INIT_L00] = Property(LUT_AND, 4);
         upper->params[id_INIT_L01] = Property(LUT_D1, 4); // CINX
@@ -329,6 +358,7 @@ struct MsbRoutingCell
         lower->params[id_INIT_L11] = Property(LUT_ZERO, 4);
         lower->params[id_INIT_L20] = Property(LUT_D1, 4); // L11
         lower->params[id_INIT_L30] = Property(LUT_ONE, 4);
+        lower->params[id_C_FUNCTION] = Property(C_MULT, 3);
 
         upper->params[id_INIT_L00] = Property(LUT_D1, 4);   // PINY1
         upper->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
@@ -364,14 +394,15 @@ struct MultiplierColumn
 // A GateMate multiplier is made up of columns of 2x2 multipliers.
 struct Multiplier
 {
+    ZeroDriver zero;
     std::vector<APassThroughCell> a_passthrus;
     std::vector<MultiplierColumn> cols;
 
     size_t cpe_count() const
     {
-        auto count = a_passthrus.size();
+        auto count = 1 /* (zero driver) */ + a_passthrus.size();
         for (const auto &col : cols) {
-            count += 6 + col.mults.size();
+            count += 4 /* (b_passthru, carry, multfab, f_route) */ + col.mults.size() + 2 /* (mult_msb, msb_route* */;
         }
         return count;
     }
@@ -381,6 +412,12 @@ void GateMatePacker::pack_mult()
 {
     // note to self: use constr_children for recursive constraints
     // fpga_generic.pas in p_r might have useful info
+
+    auto create_zero_driver = [&](IdString name) {
+        auto *zero_lower = create_cell_ptr(id_CPE_HALF_L, ctx->idf("%s$zero_lower", name.c_str(ctx)));
+        auto *zero_upper = create_cell_ptr(id_CPE_HALF_U, ctx->idf("%s$zero_upper", name.c_str(ctx)));
+        return ZeroDriver{zero_lower, zero_upper, name};
+    };
 
     auto create_a_passthru = [&](IdString name) {
         auto *a_passthru_lower = create_cell_ptr(id_CPE_HALF_L, ctx->idf("%s$a_passthru_lower", name.c_str(ctx)));
@@ -470,6 +507,7 @@ void GateMatePacker::pack_mult()
         auto m = Multiplier{};
 
         // Step 1: instantiate all the CPEs.
+        m.zero = create_zero_driver(ctx->idf("%s$col0", mult->name.c_str(ctx)));
         for (int a = 0; a < a_width / 2; a++)
             m.a_passthrus.push_back(create_a_passthru(ctx->idf("%s$col0$row%d", mult->name.c_str(ctx), a)));
         for (int b = 0; b < b_width / 2; b++)
@@ -490,6 +528,10 @@ void GateMatePacker::pack_mult()
             cell->constr_y = y_offset;
             cell->constr_z = cell->type == id_CPE_HALF_L ? 1 : 0;
         };
+
+        // Constrain zero driver.
+        constrain_cell(m.zero.lower, -1, 3);
+        constrain_cell(m.zero.upper, -1, 3);
 
         // Constrain A passthrough cells.
         for (int a = 0; a < a_width / 2; a++) {
@@ -529,6 +571,11 @@ void GateMatePacker::pack_mult()
 
         // TODO: check this with odd bus widths.
 
+        // Zero driver.
+        auto *zero_net = ctx->createNet(m.zero.upper->name);
+        m.zero.upper->connectPort(id_OUT, zero_net);
+
+        // A input.
         for (int a = 0; a < a_width; a++) {
             auto &a_passthru = m.a_passthrus.at(a / 2);
             auto *cpe_half = (a % 2 == 1) ? a_passthru.upper : a_passthru.lower;
@@ -566,9 +613,18 @@ void GateMatePacker::pack_mult()
                         mult_cell.lower->connectPort(id_IN4, a_net); // IN8
                     }
                 }
+
+                // constant zero goes to LSB of multipliers.
+                if (a == 0) {
+                    auto &mult_col = m.cols.at(b);
+                    auto *mult_cell = mult_col.mults.at(0).lower;
+
+                    mult_cell->connectPort(id_IN4, zero_net);
+                }
             }
         }
 
+        // B input.
         for (int b = 0; b < b_width; b++) {
             auto &b_passthru = m.cols[b / 2].b_passthru;
             auto *cpe_half = (b % 2 == 1) ? b_passthru.upper : b_passthru.lower;
@@ -585,7 +641,7 @@ void GateMatePacker::pack_mult()
             mult->copyPortTo(ctx->idf("B[%d]", b_width - 1), b_passthru.lower, id_IN1);
         }
 
-        // Connect P outputs.
+        // P output.
         auto diagonal_p_width = std::min(b_width, p_width);
         auto vertical_p_width = std::max(p_width - b_width, 0);
 

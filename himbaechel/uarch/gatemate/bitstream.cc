@@ -23,6 +23,8 @@
 #include "config.h"
 #include "gatemate.h"
 #include "gatemate_util.h"
+#include "nextpnr_assertions.h"
+#include "uarch/gatemate/extra_data.h"
 
 #define HIMBAECHEL_CONSTIDS "uarch/gatemate/constids.inc"
 #include "himbaechel_constids.h"
@@ -246,13 +248,13 @@ struct BitstreamBackend
                 // Update configuration bits based on signal inversion
                 dict<IdString, Property> params = cell.second->params;
                 uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
-                if (cell.second->type.in(id_CPE_HALF_U) && func != C_MX4) {
+                if (cell.second->type.in(id_CPE_HALF_U) && func != C_MX4 && func != C_MULT) {
                     update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L00, params);
                     update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L00, params);
                     update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L01, params);
                     update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L01, params);
                 }
-                if (cell.second->type.in(id_CPE_HALF_L)) {
+                if (cell.second->type.in(id_CPE_HALF_L) && func != C_MULT) {
                     update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L02, params);
                     update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L02, params);
                     update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L03, params);
