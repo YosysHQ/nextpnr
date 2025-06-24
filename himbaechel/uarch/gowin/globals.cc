@@ -1087,13 +1087,13 @@ struct GowinGlobalRouter
                     WireId gate_wire1;
                     gwu.get_segment_top_gate_wires(s_i, gate_wire, gate_wire1);
                     if (gate_wire == WireId()) {
-                        gate_wire == gate_wire1;
+                        gate_wire = gate_wire1;
                     }
                     if (gate_wire == WireId()) {
                         // This segment has no top gate wires, so we use one of the bottom ones.
                         gwu.get_segment_bottom_gate_wires(s_i, gate_wire, gate_wire1);
                         if (gate_wire == WireId()) {
-                            gate_wire == gate_wire1;
+                            gate_wire = gate_wire1;
                         }
                         tb_wire = bottom_seg_wire;
                         wire_to_isolate = top_seg_wire;
@@ -1105,13 +1105,13 @@ struct GowinGlobalRouter
                     wire_to_isolate = top_seg_wire;
                     gwu.get_segment_bottom_gate_wires(s_i, gate_wire, gate_wire1);
                     if (gate_wire == WireId()) {
-                        gate_wire == gate_wire1;
+                        gate_wire = gate_wire1;
                     }
                     if (gate_wire == WireId()) {
                         // This segment has no top gate wires, so we use one of the bottom ones.
                         gwu.get_segment_top_gate_wires(s_i, gate_wire, gate_wire1);
                         if (gate_wire == WireId()) {
-                            gate_wire == gate_wire1;
+                            gate_wire = gate_wire1;
                         }
                         tb_wire = top_seg_wire;
                         wire_to_isolate = WireId();
