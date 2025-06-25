@@ -51,6 +51,24 @@ static std::string clock_event_name(const Context *ctx, const ClockEvent &e)
     return value;
 };
 
+static std::vector<std::string> net_sources(const NetInfo *net, const Context *ctx) {
+    auto sources = net->attrs.find(ctx->id("src"));
+    std::vector<std::string> source_entries;
+    if (sources != net->attrs.end()) {
+        // Sources are separated by pipe characters.
+        // There is no guaranteed ordering on sources, so we just print all
+        auto sourcelist = sources->second.as_string();
+        size_t current = 0, prev = 0;
+        while ((current = sourcelist.find("|", prev)) != std::string::npos) {
+            source_entries.emplace_back(sourcelist.substr(prev, current - prev));
+            prev = current + 1;
+        }
+        // Ensure we emplace the final entry
+        source_entries.emplace_back(sourcelist.substr(prev, current - prev));
+    }
+    return source_entries;
+}
+
 static Json::array json_report_critical_paths(const Context *ctx)
 {
 
@@ -82,6 +100,8 @@ static Json::array json_report_critical_paths(const Context *ctx)
             segmentJson["type"] = CriticalPath::Segment::type_to_str(segment.type);
             if (segment.type == CriticalPath::Segment::Type::ROUTING) {
                 segmentJson["net"] = segment.net.c_str(ctx);
+                const NetInfo *net = ctx->nets.at(segment.net).get();
+                segmentJson["sources"] = net_sources(net, ctx);
             }
 
             pathJson.push_back(segmentJson);
@@ -133,6 +153,7 @@ static Json::array json_report_detailed_net_timings(const Context *ctx)
         }
 
         auto netTimingJson = Json::object({{"net", net->name.c_str(ctx)},
+                                           {"sources", net_sources(net, ctx)},
                                            {"driver", net->driver.cell->name.c_str(ctx)},
                                            {"port", net->driver.port.c_str(ctx)},
                                            {"event", clock_event_name(ctx, start)},
@@ -186,6 +207,7 @@ Report JSON structure:
           },
           "type": <path segment type "clk-to-q", "source", "logic", "routing" or "setup">,
           "net": <net name (for routing only!)>,
+          "sources": <list of sources if available. (for routing only!)>
           "delay": <segment delay [ns]>,
         }
         ...
@@ -199,6 +221,7 @@ Report JSON structure:
       "port": <driving cell port name>,
       "event": <driver clock event name>,
       "net": <net name>,
+      "sources": [<sources>]
       "endpoints": [
         {
           "cell": <sink cell name>,
