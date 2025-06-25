@@ -273,7 +273,7 @@ WireId Arch::getWireByName(IdStringList name) const
     const auto &tdata = chip_tile_info(chip_info, tile);
     for (int wire = 0; wire < tdata.wires.ssize(); wire++) {
         if (IdString(tdata.wires[wire].name) == name[1])
-            return WireId(tile, wire);
+            return normalise_wire(tile, wire);
     }
     return WireId();
 }
