@@ -250,7 +250,7 @@ void XilinxPacker::pack_lutffs()
 
 bool XilinxPacker::is_constrained(const CellInfo *cell) { return cell->cluster != ClusterId(); }
 
-void XilinxPacker::legalise_muxf_tree(CellInfo *curr, std::vector<CellInfo *> &mux_roots)
+void XilinxPacker::legalise_muxf_tree(CellInfo *curr, std::vector<CellInfo *> &mux_roots, pool<IdString> &seen_leaves)
 {
     if (curr->type.str(ctx).substr(0, 3) == "LUT")
         return;
@@ -259,13 +259,15 @@ void XilinxPacker::legalise_muxf_tree(CellInfo *curr, std::vector<CellInfo *> &m
         if (pn == nullptr || pn->driver.cell == nullptr)
             continue;
         if (curr->type == id_MUXF7) {
-            if (pn->driver.cell->type.str(ctx).substr(0, 3) != "LUT" || is_constrained(pn->driver.cell)) {
+            if (pn->driver.cell->type.str(ctx).substr(0, 3) != "LUT" || is_constrained(pn->driver.cell) ||
+                seen_leaves.count(pn->driver.cell->name)) {
                 PortRef pr;
                 pr.cell = curr;
                 pr.port = p;
                 feed_through_lut(pn, {pr});
                 continue;
             }
+            seen_leaves.insert(pn->driver.cell->name);
         } else {
             IdString next_type;
             if (curr->type == id_MUXF9)
@@ -275,21 +277,21 @@ void XilinxPacker::legalise_muxf_tree(CellInfo *curr, std::vector<CellInfo *> &m
             else
                 NPNR_ASSERT_FALSE("bad mux type");
             if (pn->driver.cell->type != next_type || is_constrained(pn->driver.cell) ||
-                bool_or_default(pn->driver.cell->attrs, id_MUX_TREE_ROOT)) {
+                seen_leaves.count(pn->driver.cell->name) || bool_or_default(pn->driver.cell->attrs, id_MUX_TREE_ROOT)) {
                 PortRef pr;
                 pr.cell = curr;
                 pr.port = p;
                 feed_through_muxf(pn, next_type, {pr});
                 continue;
             }
+            seen_leaves.insert(pn->driver.cell->name);
         }
-        legalise_muxf_tree(pn->driver.cell, mux_roots);
+        legalise_muxf_tree(pn->driver.cell, mux_roots, seen_leaves);
     }
 }
 
 void XilinxPacker::constrain_muxf_tree(CellInfo *curr, CellInfo *base, int zoffset)
 {
-
     if (curr->type == id_SLICE_LUTX && (curr->constr_abs_z || curr->cluster != ClusterId()))
         return;
 
@@ -357,8 +359,9 @@ void XilinxPacker::pack_muxfs()
     }
     for (auto root : mux_roots)
         root->attrs[id_MUX_TREE_ROOT] = 1;
+    pool<IdString> seen_leaves;
     for (auto root : mux_roots)
-        legalise_muxf_tree(root, mux_roots);
+        legalise_muxf_tree(root, mux_roots, seen_leaves);
     for (auto root : mux_roots) {
         root->cluster = root->name;
         constrain_muxf_tree(root, root, 0);

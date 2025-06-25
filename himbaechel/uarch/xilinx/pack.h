@@ -125,7 +125,7 @@ struct XilinxPacker
     bool is_constrained(const CellInfo *cell);
     void pack_muxfs();
     void finalise_muxfs();
-    void legalise_muxf_tree(CellInfo *curr, std::vector<CellInfo *> &mux_roots);
+    void legalise_muxf_tree(CellInfo *curr, std::vector<CellInfo *> &mux_roots, pool<IdString> &seen_leaves);
     void constrain_muxf_tree(CellInfo *curr, CellInfo *base, int zoffset);
     void create_muxf_tree(CellInfo *base, const std::string &name_base, const std::vector<NetInfo *> &data,
                           const std::vector<NetInfo *> &select, NetInfo *out, int zoffset);
