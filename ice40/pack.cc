@@ -1520,7 +1520,7 @@ void pack_plls(Context *ctx)
                 log_info("    Input frequency of PLL '%s' is constrained to %.1f MHz\n", ctx->nameOf(ci),
                          MHz(ctx, input_constr));
                 // Input divider (DIVR)
-                input_constr *= (int_or_default(packed->params, id_DIVR, 0) + 1);
+                auto input_divr = input_constr * (int_or_default(packed->params, id_DIVR, 0) + 1);
                 delay_t vco_constr = 0;
                 delay_t outa_constr = 0, outb_constr = 0;
                 int sr_div = 4;
@@ -1561,7 +1561,7 @@ void pack_plls(Context *ctx)
                 }
                 }
                 // Determine dividers in VCO path
-                vco_constr = input_constr / (int_or_default(packed->params, id_DIVF, 0) + 1);
+                vco_constr = input_divr / (int_or_default(packed->params, id_DIVF, 0) + 1);
                 divq = 1 << (int_or_default(packed->params, id_DIVQ, 0));
                 if (fbp_value != "1") // anything other than SIMPLE - feedback after DIVQ
                     vco_constr /= divq;
