@@ -186,8 +186,12 @@ struct SDCParser
             s += c;
 
         while (true) {
-            if (eof())
-                log_error("EOF while parsing string '%s'\n", s.c_str());
+            if (eof()) {
+                if (in_quotes || in_braces || escaped)
+                    log_error("EOF while parsing string '%s'\n", s.c_str());
+                else
+                    break;
+            }
 
             char c = peek();
             if (!in_quotes && !in_braces && !escaped && (std::isblank(c) || c == ']')) {
