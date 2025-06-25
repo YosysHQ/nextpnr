@@ -1431,7 +1431,6 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
 
     tmg = chip.set_speed_grades(speed_grades)
 
-    print("device {}:".format(chip.name))
     for speed, groups in db.timing.items():
         for group, arc in groups.items():
             if group == "lut":
@@ -1535,19 +1534,6 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
                 # wires with fanout-only delay; used on cell output pips
                 for name, mapping in [("LUT_OUT", "FFan"), ("FF_OUT", "QFan"), ("OF", "OFFan")]:
                     tmg.set_pip_class(speed, name, TimingValue(), group_to_timingvalue(groups["fanout"][mapping]), TimingValue(round(1e6 / groups["fanout"][f"{mapping}Num"])))
-
-        print("speed {}:".format(speed))
-        for group, arc in groups.items():
-            print("  group {}:".format(group))
-            for name, items in arc.items():
-                print("    name {}:".format(str(name)))
-                try:
-                    items[0]
-                    for item in items:
-                        print("      item {}".format(item))
-                except TypeError:
-                    print("      item {}".format(items))
-                    continue
 
 def main():
     parser = argparse.ArgumentParser(description='Make Gowin BBA')
