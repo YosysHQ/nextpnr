@@ -133,4 +133,4 @@ The following constraints are enforced by the generic architecture during placem
 
 ## Implementation Example
 
-An artificial, procedural architecture is included in the [generic/examples](../generic/examples) folder. [simple.py](../generic/examples/simple.py) sets up the architecture, and [report.py](../generic/examples/report.py) saves post-place-and-route design to a text file (in place of bitstream generation). [simple.sh](../generic/examples/simple.sh) can be used to synthesise and place-and-route a simple blinky for this architecture.
+An artificial, procedural architecture is included in the [generic/examples](../generic/examples) folder. [simple.py](../generic/examples/simple.py) sets up the architecture, and [bitstream.py](../generic/examples/bitstream.py) saves the post-place-and-route design to a FASM format file (which could be used for bitstream generation). [simple.sh](../generic/examples/simple.sh) can be used to synthesise and place-and-route a simple blinky for this architecture.
