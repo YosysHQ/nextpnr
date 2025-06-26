@@ -29,6 +29,8 @@
 #include "log.h"
 #include "nextpnr.h"
 
+#include <functional>
+
 NEXTPNR_NAMESPACE_BEGIN
 
 struct PlacerHeapCfg
@@ -53,6 +55,9 @@ struct PlacerHeapCfg
     // These cell types are part of the same unit (e.g. slices split into
     // components) so will always be spread together
     std::vector<pool<BelBucketId>> cellGroups;
+
+    // this is an optional callback to prioritise certain cells/clusters for legalisation
+    std::function<float(Context *, CellInfo *)> get_cell_legalisation_weight = [](Context *, CellInfo *) { return 1; };
 };
 
 extern bool placer_heap(Context *ctx, PlacerHeapCfg cfg);
