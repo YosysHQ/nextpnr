@@ -217,7 +217,7 @@ void GateMateImpl::postPlace()
     }
 }
 
-void GateMateImpl::preRoute() { route_clock(); route_mults(); }
+void GateMateImpl::preRoute() { route_clock(); }
 
 void GateMateImpl::postRoute()
 {

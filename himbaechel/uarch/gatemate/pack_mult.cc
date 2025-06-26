@@ -18,6 +18,7 @@
  */
 
 #include "idstring.h"
+#include "log.h"
 #include "nextpnr_assertions.h"
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
@@ -84,7 +85,10 @@ struct APassThroughCell
         auto *lower_net = lower->ports.at(id_IN1).net;
         auto *upper_net = lower->ports.at(id_IN1).net;
 
-        if (lower_net) {
+        NPNR_ASSERT(lower_net != nullptr);
+        NPNR_ASSERT(upper_net != nullptr);
+
+        {
             bool net_is_gnd = lower_net->name == ctx->idf("$PACKER_GND");
             bool net_is_vcc = lower_net->name == ctx->idf("$PACKER_VCC");
             if (net_is_gnd || net_is_vcc) {
@@ -95,9 +99,9 @@ struct APassThroughCell
             }
         }
 
-        if (upper_net) {
-            bool net_is_gnd = upper_net->name == ctx->idf("$PACKER_GND");
-            bool net_is_vcc = upper_net->name == ctx->idf("$PACKER_VCC");
+        {
+            bool net_is_gnd = lower_net->name == ctx->idf("$PACKER_GND");
+            bool net_is_vcc = lower_net->name == ctx->idf("$PACKER_VCC");
             if (net_is_gnd || net_is_vcc) {
                 upper->params[id_INIT_L00] = Property(LUT_ZERO, 4);
                 upper->params[id_INIT_L10] = Property(net_is_vcc ? LUT_ONE : LUT_ZERO, 4);
@@ -108,6 +112,7 @@ struct APassThroughCell
 
     CellInfo *lower;
     CellInfo *upper;
+    bool inverted;
 };
 
 // Propagate B0 through POUTY1 and B1 through COUTY1
@@ -139,7 +144,7 @@ struct BPassThroughCell
     void clean_up(Context *ctx)
     {
         auto *lower_net = lower->ports.at(id_IN1).net;
-        auto *upper_net = lower->ports.at(id_IN1).net;
+        auto *upper_net = upper->ports.at(id_IN1).net;
 
         if (lower_net) {
             bool net_is_gnd = lower_net->name == ctx->idf("$PACKER_GND");
@@ -491,13 +496,13 @@ void GateMatePacker::pack_mult()
 
         // Sign-extend odd A_WIDTH to even, because we're working with 2x2 multiplier cells.
         if (a_width % 2 == 1) {
-            mult->copyPortTo(ctx->idf("A[%d]", a_width), mult, ctx->idf("A[%d]", a_width + 1));
+            mult->copyPortTo(ctx->idf("A[%d]", a_width - 1), mult, ctx->idf("A[%d]", a_width));
             a_width += 1;
         }
 
         // Sign-extend odd B_WIDTH to even, because we're working with 2x2 multiplier cells.
         if (b_width % 2 == 1) {
-            mult->copyPortTo(ctx->idf("B[%d]", b_width), mult, ctx->idf("B[%d]", b_width + 1));
+            mult->copyPortTo(ctx->idf("B[%d]", b_width - 1), mult, ctx->idf("B[%d]", b_width));
             b_width += 1;
         }
 
@@ -569,8 +574,6 @@ void GateMatePacker::pack_mult()
 
         // Step 3: connect them.
 
-        // TODO: check this with odd bus widths.
-
         // Zero driver.
         auto *zero_net = ctx->createNet(m.zero.upper->name);
         m.zero.upper->connectPort(id_OUT, zero_net);
@@ -584,7 +587,8 @@ void GateMatePacker::pack_mult()
             mult->movePortTo(ctx->idf("A[%d]", a), cpe_half, id_IN1);
 
             // This may be GND/VCC; if so, clean it up.
-            a_passthru.clean_up(ctx);
+            if (a % 2 == 1)
+                a_passthru.clean_up(ctx);
 
             // Connect A passthrough output to multiplier inputs.
             auto *a_net = ctx->createNet(cpe_half->name);
@@ -633,7 +637,8 @@ void GateMatePacker::pack_mult()
             mult->movePortTo(ctx->idf("B[%d]", b), cpe_half, id_IN1);
 
             // This may be GND/VCC; if so, clean it up.
-            b_passthru.clean_up(ctx);
+            if (b % 2 == 1)
+                b_passthru.clean_up(ctx);
         }
         {
             auto &b_passthru = m.cols.back().b_passthru;
@@ -659,6 +664,7 @@ void GateMatePacker::pack_mult()
             mult->movePortTo(ctx->idf("P[%d]", p + diagonal_p_width), cpe_half, id_OUT);
         }
 
+        // We don't need the original cell anymore.
         ctx->cells.erase(mult->name);
 
         log_info("        Created %zu CPEs.\n", m.cpe_count());

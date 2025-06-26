@@ -223,6 +223,46 @@ struct BitstreamBackend
 
     void write_bitstream()
     {
+        {
+            auto *lower = ctx->cells.at(ctx->idf("$mul$top.v:18$15$col1$row0$mult_lower")).get();
+            auto *upper = ctx->cells.at(ctx->idf("$mul$top.v:18$15$col1$row0$mult_upper")).get();
+
+            NPNR_ASSERT(lower && upper);
+            NPNR_ASSERT(!need_inversion(lower, id_IN4));
+            NPNR_ASSERT(!need_inversion(lower, id_IN1));
+            NPNR_ASSERT(!need_inversion(upper, id_IN1));
+        }
+
+        {
+            auto *lower = ctx->cells.at(ctx->idf("$mul$top.v:18$15$col1$row1$mult_lower")).get();
+            auto *upper = ctx->cells.at(ctx->idf("$mul$top.v:18$15$col1$row1$mult_upper")).get();
+
+            NPNR_ASSERT(lower && upper);
+            NPNR_ASSERT(!need_inversion(lower, id_IN4));
+            NPNR_ASSERT(!need_inversion(lower, id_IN1));
+            NPNR_ASSERT(!need_inversion(upper, id_IN1));
+        }
+
+        {
+            auto *lower = ctx->cells.at(ctx->idf("$mul$top.v:18$15$col2$row0$mult_lower")).get();
+            auto *upper = ctx->cells.at(ctx->idf("$mul$top.v:18$15$col2$row0$mult_upper")).get();
+
+            NPNR_ASSERT(lower && upper);
+            NPNR_ASSERT(need_inversion(lower, id_IN4));
+            NPNR_ASSERT(need_inversion(lower, id_IN1));
+            NPNR_ASSERT(need_inversion(upper, id_IN1));
+        }
+
+        {
+            auto *lower = ctx->cells.at(ctx->idf("$mul$top.v:18$15$col2$row1$mult_lower")).get();
+            auto *upper = ctx->cells.at(ctx->idf("$mul$top.v:18$15$col2$row1$mult_upper")).get();
+
+            NPNR_ASSERT(lower && upper);
+            NPNR_ASSERT(need_inversion(lower, id_IN4));
+            NPNR_ASSERT(need_inversion(lower, id_IN1));
+            NPNR_ASSERT(need_inversion(upper, id_IN1));
+        }
+
         ChipConfig cc;
         cc.chip_name = device;
         int bank[uarch->dies][9] = {0};
