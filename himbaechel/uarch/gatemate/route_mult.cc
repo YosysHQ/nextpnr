@@ -50,7 +50,8 @@ void GateMateImpl::route_mults()
     auto reserved_wires = dict<WireId, IdString>{};
 
     auto feeds_multiplier = [](PortRef &port) {
-        return port.cell->type.in(id_CPE_HALF, id_CPE_HALF_L, id_CPE_HALF_U) && int_or_default(port.cell->params, id_C_FUNCTION) == C_MULT;
+        return port.cell->type.in(id_CPE_HALF, id_CPE_HALF_L, id_CPE_HALF_U) &&
+               int_or_default(port.cell->params, id_C_FUNCTION) == C_MULT;
     };
 
     auto reserve = [&](WireId wire, NetInfo *net) {
@@ -151,13 +152,11 @@ void GateMateImpl::route_mults()
                 if (ctx->getBoundWireNet(dest) == mult_net) {
                     NPNR_ASSERT(mult_net->wires.at(dest).pip == uh);
                     if (ctx->debug)
-                        log_info("                 pip %s --> %s\n", ctx->nameOfPip(uh),
-                                 ctx->nameOfWire(dest));
+                        log_info("                 pip %s --> %s\n", ctx->nameOfPip(uh), ctx->nameOfWire(dest));
                 } else if (ctx->getBoundWireNet(dest) == nullptr) {
                     ctx->bindPip(uh, mult_net, STRENGTH_LOCKED);
                     if (ctx->debug)
-                        log_info("            bind pip %s --> %s\n", ctx->nameOfPip(uh),
-                                 ctx->nameOfWire(dest));
+                        log_info("            bind pip %s --> %s\n", ctx->nameOfPip(uh), ctx->nameOfWire(dest));
                 } else {
                     log_error("Can't bind pip %s because wire %s is already bound\n", ctx->nameOfPip(uh),
                               ctx->nameOfWire(dest));

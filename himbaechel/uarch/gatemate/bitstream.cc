@@ -221,47 +221,30 @@ struct BitstreamBackend
         }
     }
 
+    void check_multipliers()
+    {
+        for (const auto &multiplier : uarch->multipliers) {
+            for (const auto &col : multiplier.cols) {
+                for (const auto &mult : col.mults) {
+                    NPNR_ASSERT(mult.lower != nullptr);
+                    NPNR_ASSERT(mult.upper != nullptr);
+
+                    auto should_be_inverted = mult.lower->constr_x % 2 == 1;
+
+                    if (need_inversion(mult.lower, id_IN4) != should_be_inverted)
+                        log_error("%s.IN4 has wrong inversion state\n", mult.lower->name.c_str(ctx));
+                    if (need_inversion(mult.lower, id_IN1) != should_be_inverted)
+                        log_error("%s.IN1 has wrong inversion state\n", mult.lower->name.c_str(ctx));
+                    if (need_inversion(mult.upper, id_IN1) != should_be_inverted)
+                        log_error("%s.IN1 has wrong inversion state\n", mult.upper->name.c_str(ctx));
+                }
+            }
+        }
+    }
+
     void write_bitstream()
     {
-        {
-            auto *lower = ctx->cells.at(ctx->idf("$mul$top.v:18$15$col1$row0$mult_lower")).get();
-            auto *upper = ctx->cells.at(ctx->idf("$mul$top.v:18$15$col1$row0$mult_upper")).get();
-
-            NPNR_ASSERT(lower && upper);
-            NPNR_ASSERT(!need_inversion(lower, id_IN4));
-            NPNR_ASSERT(!need_inversion(lower, id_IN1));
-            NPNR_ASSERT(!need_inversion(upper, id_IN1));
-        }
-
-        {
-            auto *lower = ctx->cells.at(ctx->idf("$mul$top.v:18$15$col1$row1$mult_lower")).get();
-            auto *upper = ctx->cells.at(ctx->idf("$mul$top.v:18$15$col1$row1$mult_upper")).get();
-
-            NPNR_ASSERT(lower && upper);
-            NPNR_ASSERT(!need_inversion(lower, id_IN4));
-            NPNR_ASSERT(!need_inversion(lower, id_IN1));
-            NPNR_ASSERT(!need_inversion(upper, id_IN1));
-        }
-
-        {
-            auto *lower = ctx->cells.at(ctx->idf("$mul$top.v:18$15$col2$row0$mult_lower")).get();
-            auto *upper = ctx->cells.at(ctx->idf("$mul$top.v:18$15$col2$row0$mult_upper")).get();
-
-            NPNR_ASSERT(lower && upper);
-            NPNR_ASSERT(need_inversion(lower, id_IN4));
-            NPNR_ASSERT(need_inversion(lower, id_IN1));
-            NPNR_ASSERT(need_inversion(upper, id_IN1));
-        }
-
-        {
-            auto *lower = ctx->cells.at(ctx->idf("$mul$top.v:18$15$col2$row1$mult_lower")).get();
-            auto *upper = ctx->cells.at(ctx->idf("$mul$top.v:18$15$col2$row1$mult_upper")).get();
-
-            NPNR_ASSERT(lower && upper);
-            NPNR_ASSERT(need_inversion(lower, id_IN4));
-            NPNR_ASSERT(need_inversion(lower, id_IN1));
-            NPNR_ASSERT(need_inversion(upper, id_IN1));
-        }
+        check_multipliers();
 
         ChipConfig cc;
         cc.chip_name = device;
