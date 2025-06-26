@@ -862,7 +862,7 @@ class HeAPPlacer
         // the simple greedy largest-macro-first approach.
         std::priority_queue<std::pair<int, IdString>> remaining;
         for (auto cell : solve_cells) {
-            remaining.emplace(chain_size[cell->name], cell->name);
+            remaining.emplace(chain_size[cell->name] * cfg.get_cell_legalisation_weight(ctx, cell), cell->name);
         }
         int ripup_radius = 2;
         int total_iters = 0;
@@ -875,7 +875,8 @@ class HeAPPlacer
             // Was now placed, ignore
             if (ci->bel != BelId())
                 continue;
-            // log_info("   Legalising %s (%s) %d\n", top.second.c_str(ctx), ci->type.c_str(ctx), top.first);
+            if (ctx->debug)
+                log_info("   Legalising %s (%s) priority=%d\n", top.second.c_str(ctx), ci->type.c_str(ctx), top.first);
             FastBels::FastBelsData *fb;
             fast_bels.getBelsForCellType(ci->type, &fb);
             int radius = 0;
@@ -973,7 +974,8 @@ class HeAPPlacer
                     CellInfo *bound = ctx->getBoundBelCell(bestBel);
                     if (bound != nullptr) {
                         ctx->unbindBel(bound->bel);
-                        remaining.emplace(chain_size[bound->name], bound->name);
+                        remaining.emplace(chain_size[bound->name] * cfg.get_cell_legalisation_weight(ctx, bound),
+                                          bound->name);
                     }
                     ctx->bindBel(bestBel, ci, STRENGTH_WEAK);
                     placed = true;
@@ -1035,7 +1037,9 @@ class HeAPPlacer
                             } else {
                                 // It's legal, and we've tried enough. Finish.
                                 if (bound != nullptr)
-                                    remaining.emplace(chain_size[bound->name], bound->name);
+                                    remaining.emplace(chain_size[bound->name] *
+                                                              cfg.get_cell_legalisation_weight(ctx, bound),
+                                                      bound->name);
                                 Loc loc = ctx->getBelLocation(sz);
                                 cell_locs[ci->name].x = loc.x;
                                 cell_locs[ci->name].y = loc.y;
@@ -1098,7 +1102,9 @@ class HeAPPlacer
                         for (auto &swap : swaps_made) {
                             // Where we have ripped up cells; add them to the queue
                             if (swap.second != nullptr)
-                                remaining.emplace(chain_size[swap.second->name], swap.second->name);
+                                remaining.emplace(chain_size[swap.second->name] *
+                                                          cfg.get_cell_legalisation_weight(ctx, swap.second),
+                                                  swap.second->name);
                         }
 
                         placed = true;

@@ -278,6 +278,13 @@ void XilinxImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
     cfg.hpwl_scale_y = 1;
     cfg.beta = 0.5;
     cfg.placeAllAtOnce = true;
+    cfg.get_cell_legalisation_weight = [this](Context *, CellInfo *ci) {
+        if (ci->type != id_SLICE_LUTX)
+            return 1;
+        auto tags = get_tags(ci);
+        // Place memory first, because they require entire SLICEMs
+        return tags->lut.is_memory ? 100 : 1;
+    };
 }
 
 void XilinxImpl::preRoute()
