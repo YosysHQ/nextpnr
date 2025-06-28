@@ -68,7 +68,7 @@ struct BPassThroughCell
 struct CarryGenCell
 {
     CarryGenCell() : lower{nullptr}, upper{nullptr} {}
-    CarryGenCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_even_x);
+    CarryGenCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_even_x, bool enable_cinx);
 
     CellInfo *lower;
     CellInfo *upper;
@@ -78,7 +78,7 @@ struct CarryGenCell
 struct MultfabCell
 {
     MultfabCell() : lower{nullptr}, upper{nullptr} {}
-    MultfabCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_even_x);
+    MultfabCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_even_x, bool enable_cinx);
 
     CellInfo *lower;
     CellInfo *upper;
@@ -100,16 +100,7 @@ struct FRoutingCell
 struct MultCell
 {
     MultCell() : lower{nullptr}, upper{nullptr} {}
-    MultCell(CellInfo *lower, CellInfo *upper, IdString name);
-
-    CellInfo *lower;
-    CellInfo *upper;
-};
-
-struct MultMsbCell
-{
-    MultMsbCell() : lower{nullptr}, upper{nullptr} {}
-    MultMsbCell(CellInfo *lower, CellInfo *upper, IdString name);
+    MultCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_msb);
 
     CellInfo *lower;
     CellInfo *upper;
@@ -132,7 +123,6 @@ struct MultiplierColumn
     MultfabCell multfab;
     FRoutingCell f_route;
     std::vector<MultCell> mults;
-    MultMsbCell mult_msb;
     MsbRoutingCell msb_route;
 };
 

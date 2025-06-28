@@ -51,7 +51,8 @@ static std::string clock_event_name(const Context *ctx, const ClockEvent &e)
     return value;
 };
 
-static std::vector<std::string> net_sources(const NetInfo *net, const Context *ctx) {
+static std::vector<std::string> net_sources(const NetInfo *net, const Context *ctx)
+{
     auto sources = net->attrs.find(ctx->id("src"));
     std::vector<std::string> source_entries;
     if (sources != net->attrs.end()) {

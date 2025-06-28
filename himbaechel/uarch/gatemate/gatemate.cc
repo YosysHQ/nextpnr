@@ -215,6 +215,91 @@ void GateMateImpl::postPlace()
             }
         }
     }
+
+    auto print_config = [&](CellInfo *cell, dict<IdString, Property> &params) {
+        uint32_t word1 = 0;
+        uint32_t word2 = 0;
+        uint32_t word3 = 0;
+        word1 |= int_or_default(params, id_INIT_L00, 0);
+        word1 |= int_or_default(params, id_INIT_L01, 0) << 4;
+        word1 |= int_or_default(params, id_INIT_L02, 0) << 8;
+        word1 |= int_or_default(params, id_INIT_L03, 0) << 12;
+        word1 |= int_or_default(params, id_INIT_L10, 0) << 16;
+        word1 |= int_or_default(params, id_INIT_L11, 0) << 20;
+        word1 |= int_or_default(params, id_INIT_L20, 0) << 24;
+        word1 |= int_or_default(params, id_INIT_L30, 0) << 28;
+
+        word2 |= int_or_default(params, id_C_I1, 0) << (32 - 32);
+        word2 |= int_or_default(params, id_C_I2, 0) << (33 - 32);
+        word2 |= int_or_default(params, id_C_I3, 0) << (34 - 32);
+        word2 |= int_or_default(params, id_C_I4, 0) << (35 - 32);
+        word2 |= int_or_default(params, id_C_FUNCTION, 0) << (36 - 32);
+        word2 |= int_or_default(params, id_C_COMP, 0) << (39 - 32);
+        word2 |= int_or_default(params, id_C_COMP_I, 0) << (40 - 32);
+        word2 |= int_or_default(params, id_C_HORIZ, 0) << (41 - 32);
+        word2 |= int_or_default(params, id_C_SELX, 0) << (42 - 32);
+        word2 |= int_or_default(params, id_C_SELY1, 0) << (43 - 32);
+        word2 |= int_or_default(params, id_C_SELY2, 0) << (44 - 32);
+        word2 |= int_or_default(params, id_C_SEL_C, 0) << (45 - 32);
+        word2 |= int_or_default(params, id_C_SEL_P, 0) << (46 - 32);
+        word2 |= int_or_default(params, id_C_Y12, 0) << (47 - 32);
+        word2 |= int_or_default(params, id_C_CX_I, 0) << (48 - 32);
+        word2 |= int_or_default(params, id_C_CY1_I, 0) << (49 - 32);
+        word2 |= int_or_default(params, id_C_CY2_I, 0) << (50 - 32);
+        word2 |= int_or_default(params, id_C_PX_I, 0) << (51 - 32);
+        word2 |= int_or_default(params, id_C_PY1_I, 0) << (52 - 32);
+        word2 |= int_or_default(params, id_C_PY2_I, 0) << (53 - 32);
+        word2 |= int_or_default(params, id_C_C_P, 0) << (54 - 32);
+        word2 |= int_or_default(params, id_C_2D_IN, 0) << (55 - 32);
+        word2 |= int_or_default(params, id_C_SN, 0) << (56 - 32);
+        word2 |= int_or_default(params, id_C_O1, 0) << (59 - 32);
+        word2 |= int_or_default(params, id_C_O2, 0) << (61 - 32);
+        word2 |= int_or_default(params, id_C_BR, 0) << (63 - 32);
+
+        word3 |= int_or_default(params, id_C_CPE_CLK, 0) << (64 - 64);
+        word3 |= int_or_default(params, id_C_CPE_EN, 0) << (66 - 64);
+        word3 |= int_or_default(params, id_C_CPE_RES, 0) << (68 - 64);
+        word3 |= int_or_default(params, id_C_CPE_SET, 0) << (70 - 64);
+        word3 |= int_or_default(params, id_C_RAM_I1, 0) << (72 - 64);
+        word3 |= int_or_default(params, id_C_RAM_I2, 0) << (73 - 64);
+        word3 |= int_or_default(params, id_C_RAM_O1, 0) << (74 - 64);
+        word3 |= int_or_default(params, id_C_RAM_O2, 0) << (75 - 64);
+        word3 |= int_or_default(params, id_C_L_D, 0) << (76 - 64);
+        word3 |= int_or_default(params, id_C_EN_SR, 0) << (77 - 64);
+        word3 |= int_or_default(params, id_C_CLKSEL, 0) << (78 - 64);
+        word3 |= int_or_default(params, id_C_ENSEL, 0) << (79 - 64);
+
+        auto loc = ctx->getBelLocation(cell->bel);
+        printf("(%d, %d): %s %02x_%02x%02x_%02x_%04x_%04x_%04x\n", loc.x, loc.y, cell->name.c_str(ctx), word3 >> 8,
+               word3 & 0xFF, word2 >> 24, (word2 >> 16) & 0xFF, word2 & 0xFFFF, word1 >> 16, word1 & 0xFFFF);
+    };
+
+    if (ctx->debug) {
+        std::set<CellInfo *> done;
+        printf("=====================\n");
+        for (auto &cell : ctx->cells) {
+            if (cell.second->type.in(id_CPE_HALF_L)) {
+                Loc l = ctx->getBelLocation(cell.second->bel);
+                dict<IdString, Property> params = cell.second->params;
+                CellInfo *upper = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(l.x, l.y, l.z == 1 ? 0 : 1)));
+                if (upper) {
+                    for (auto &p : upper->params) {
+                        params.emplace(p.first, p.second);
+                    }
+                    done.emplace(upper);
+                }
+                print_config(cell.second.get(), params);
+            }
+        }
+
+        for (auto &cell : ctx->cells) {
+            if (cell.second->type.in(id_CPE_HALF_U) && done.count(cell.second.get()) == 0) {
+                print_config(cell.second.get(), cell.second->params);
+            }
+        }
+
+        printf("=====================\n");
+    }
 }
 
 void GateMateImpl::preRoute() { route_clock(); }
