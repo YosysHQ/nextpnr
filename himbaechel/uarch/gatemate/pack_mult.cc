@@ -372,25 +372,13 @@ void GateMatePacker::pack_mult()
         auto p_width = int_or_default(mult->params, id_P_WIDTH);
 
         // Sign-extend odd A_WIDTH to even, because we're working with 2x2 multiplier cells.
-        if (a_width % 2 == 1) {
-            mult->copyPortTo(ctx->idf("A[%d]", a_width - 1), mult, ctx->idf("A[%d]", a_width));
-            a_width += 1;
-        }
-
-        // Keep extending until we reach p_width
-        while (a_width < p_width) {
+        while (a_width < p_width || a_width % 2 == 1) {
             mult->copyPortTo(ctx->idf("A[%d]", a_width - 1), mult, ctx->idf("A[%d]", a_width));
             a_width += 1;
         }
 
         // Sign-extend odd B_WIDTH to even, because we're working with 2x2 multiplier cells.
-        if (b_width % 2 == 1) {
-            mult->copyPortTo(ctx->idf("B[%d]", b_width - 1), mult, ctx->idf("B[%d]", b_width));
-            b_width += 1;
-        }
-
-        // Keep extending until we reach p_width
-        while (b_width < p_width) {
+        while (b_width < p_width || b_width % 2 == 1) {
             mult->copyPortTo(ctx->idf("B[%d]", b_width - 1), mult, ctx->idf("B[%d]", b_width));
             b_width += 1;
         }
@@ -475,7 +463,7 @@ void GateMatePacker::pack_mult()
 
             // Connect A passthrough output to multiplier inputs.
             auto *a_net =
-                    ctx->createNet(ctx->idf("%s$a%d_passthru", cpe_half->ports.at(id_IN1).net->name.c_str(ctx), a));
+                    ctx->createNet(ctx->idf("%s$%s$a%d_passthru", cpe_half->name.c_str(ctx), cpe_half->ports.at(id_IN1).net->name.c_str(ctx), a));
             cpe_half->connectPort(id_OUT, a_net);
 
             // This may be GND/VCC; if so, clean it up.
@@ -509,7 +497,7 @@ void GateMatePacker::pack_mult()
 
         // B input.
         for (int b = 0; b < b_width; b++) {
-            auto &b_passthru = m.cols[b / 2].b_passthru;
+            auto &b_passthru = m.cols.at(b / 2).b_passthru;
             auto *cpe_half = (b % 2 == 1) ? b_passthru.upper : b_passthru.lower;
 
             // Connect B input passthrough cell.
