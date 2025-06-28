@@ -28,14 +28,22 @@ if (NOT HIMBAECHEL_PRJXRAY_DB AND NOT IMPORT_BBA_FILES)
     message(FATAL_ERROR "HIMBAECHEL_PRJXRAY_DB must be set to a prjxray database checkout")
 endif()
 
-set(HIMBAECHEL_XILINX_DEVICES "" CACHE STRING
-    "Include support for these Xilinx devices")
+set(ALL_HIMBAECHEL_XILINX_DEVICES xc7a100t xc7a200t xc7a50t xc7s50 xc7z010 xc7z020)
+set(HIMBAECHEL_XILINX_DEVICES ${ALL_HIMBAECHEL_XILINX_DEVICES} CACHE STRING
+    "Include support for these Xilinx devices (available: ${ALL_HIMBAECHEL_XILINX_DEVICES})")
+if (HIMBAECHEL_XILINX_DEVICES STREQUAL "all")
+    set(HIMBAECHEL_XILINX_DEVICES ${ALL_HIMBAECHEL_XILINX_DEVICES})
+endif()
 message(STATUS "Enabled Himbaechel-Xilinx devices: ${HIMBAECHEL_XILINX_DEVICES}")
+
+if (NOT XilinxChipdb_Python3_EXECUTABLE)
+    find_program(XilinxChipdb_Python3_EXECUTABLE NAMES pypy3 python3)
+endif()
 
 foreach (device ${HIMBAECHEL_XILINX_DEVICES})
     add_bba_produce_command(
         TARGET  nextpnr-himbaechel-xilinx-bba
-        COMMAND ${Python3_EXECUTABLE}
+        COMMAND ${XilinxChipdb_Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/gen/xilinx_gen.py
             --xray ${HIMBAECHEL_PRJXRAY_DB}/artix7
             --device ${device}
