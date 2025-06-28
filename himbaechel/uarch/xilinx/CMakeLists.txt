@@ -24,7 +24,7 @@ add_nextpnr_himbaechel_microarchitecture(${uarch}
 
 set(HIMBAECHEL_PRJXRAY_DB "" CACHE STRING
     "Path to a project x-ray database")
-if (NOT HIMBAECHEL_PRJXRAY_DB)
+if (NOT HIMBAECHEL_PRJXRAY_DB AND NOT IMPORT_BBA_FILES)
     message(FATAL_ERROR "HIMBAECHEL_PRJXRAY_DB must be set to a prjxray database checkout")
 endif()
 
