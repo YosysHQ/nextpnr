@@ -35,7 +35,8 @@ message(STATUS "Enabled Himbaechel-Xilinx devices: ${HIMBAECHEL_XILINX_DEVICES}"
 foreach (device ${HIMBAECHEL_XILINX_DEVICES})
     add_bba_produce_command(
         TARGET  nextpnr-himbaechel-xilinx-bba
-        COMMAND /usr/bin/pypy3 ${CMAKE_CURRENT_SOURCE_DIR}/gen/xilinx_gen.py
+        COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/gen/xilinx_gen.py
             --xray ${HIMBAECHEL_PRJXRAY_DB}/artix7
             --device ${device}
             --bba ${CMAKE_CURRENT_BINARY_DIR}/chipdb-${device}.bba.new
