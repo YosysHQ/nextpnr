@@ -568,7 +568,7 @@ void GateMatePacker::pack_mult()
         // Step 3: connect them.
 
         // Zero driver.
-        auto *zero_net = ctx->createNet(m.zero.upper->name);
+        auto *zero_net = ctx->createNet(ctx->idf("%s$out",m.zero.upper->name.c_str(ctx)));
         m.zero.upper->connectPort(id_OUT, zero_net);
 
         // A input.
