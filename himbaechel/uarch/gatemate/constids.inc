@@ -903,42 +903,94 @@ X(VALID)
 X(CC_USR_RSTN)
 X(USR_RSTN)
 
-// hardware primitive CPE_HALF_U
-X(CPE_HALF_U)
-// CPE_HALF_U pins
-X(RAM_I)
+// hardware primitive CPE_LT_U
+X(CPE_LT_U)
+// CPE_LT_U pins
 X(IN1)
 X(IN2)
 X(IN3)
 X(IN4)
+X(OUT)
+X(CPOUT)
+
+// hardware primitive CPE_FF_U
+X(CPE_FF_U)
+// CPE_FF_U pins
+X(DIN)
 //X(CLK)
 //X(EN)
 //X(SR)
-X(OUT)
+X(DOUT)
+
+// hardware primitive CPE_RAMIO_U
+X(CPE_RAMIO_U)
+// CPE_RAMIO_U pins
+X(RAM_I)
+//X(I)
+//X(OUT)
 X(RAM_O)
 
-// hardware primitive CPE_HALF_L
-X(CPE_HALF_L)
-// CPE_HALF_L pins
-//X(RAM_I)
+// hardware primitive CPE_LT_L
+X(CPE_LT_L)
+// CPE_LT_L pins
 //X(IN1)
 //X(IN2)
 //X(IN3)
 //X(IN4)
+//X(OUT)
+//X(CPOUT)
+X(MUXOUT)
+X(CINY1)
+X(COUTY1)
+
+// hardware primitive CPE_FF_L
+X(CPE_FF_L)
+// CPE_FF_L pins
+//X(DIN)
 //X(CLK)
 //X(EN)
 //X(SR)
+//X(DOUT)
+
+// hardware primitive CPE_RAMIO_L
+X(CPE_RAMIO_L)
+// CPE_RAMIO_L pins
+//X(RAM_I)
+//X(I)
 //X(OUT)
 //X(RAM_O)
+
+// hardware primitive CPE_LT_FULL
+X(CPE_LT_FULL)
+// CPE_LT_FULL pins
+//X(IN1)
+//X(IN2)
+//X(IN3)
+//X(IN4)
+X(IN5)
+X(IN6)
+X(IN7)
+X(IN8)
+X(OUT1)
+X(OUT2)
+X(CPOUT1)
+X(CPOUT2)
+//X(MUXOUT)
+//X(CINY1)
+//X(COUTY1)
+
+// hardware primitive CPE_LINES
+X(CPE_LINES)
+// CPE_LINES pins
 X(CINX)
 X(PINX)
-X(CINY1)
+//X(CINY1)
 X(PINY1)
 X(CINY2)
 X(PINY2)
 X(COUTX)
 X(POUTX)
-X(COUTY1)
+//X(COUTY1)
 X(POUTY1)
 X(COUTY2)
 X(POUTY2)
@@ -948,8 +1000,8 @@ X(GPIO)
 // GPIO pins
 //X(IN1)
 //X(IN2)
-X(OUT1)
-X(OUT2)
+//X(OUT1)
+//X(OUT2)
 X(OUT3)
 X(OUT4)
 //X(DDR)
@@ -2000,7 +2052,6 @@ X(C_PY2_I)
 X(C_C_P)
 X(C_2D_IN)
 X(C_SN)
-X(C_O)
 X(C_O1)
 X(C_O2)
 X(C_BR)
@@ -2017,8 +2068,6 @@ X(C_EN_SR)
 X(C_CLKSEL)
 X(C_ENSEL)
 X(FF_INIT)
-// Timing model for CPE
-X(CPE_DFF)
 
 // GPIO configuration parameters
 X(OPEN_DRAIN)
@@ -2055,7 +2104,11 @@ X(LVDS_EN)
 X(LVDS_IE)
 //X(LVDS_RTERM)
 
-X(CPE_HALF)
+X(CPE_LT)
+X(CPE_FF)
+X(CPE_RAMIO)
+X(CPE_RAMI)
+X(CPE_RAMO)
 X(RAM_I1)
 X(RAM_I2)
 X(RAM_O1)
@@ -2170,3 +2223,18 @@ X(CPE_LVDS_IBUF)
 X(CPE_LVDS_OBUF)
 X(CPE_LVDS_TOBUF)
 X(CPE_LVDS_IOBUF)
+
+X(CPE_L2T4)
+X(CPE_L2T5)
+X(CPE_L2T5_U)
+X(CPE_L2T5_L)
+X(CPE_ADDF)
+X(CPE_ADDF2)
+X(CPE_MULT)
+X(CPE_MX4)
+X(CPE_EN_CIN)
+X(CPE_CONCAT)
+X(CPE_ADDCIN)
+X(CPE_CI)
+X(CPE_DUMMY)
+X(CPE_LATCH)

@@ -46,18 +46,22 @@ struct GateMatePacker
     void remove_not_used();
 
   private:
-    void dff_to_cpe(CellInfo *dff, CellInfo *cpe);
+    void dff_to_cpe(CellInfo *dff);
     void insert_bufg(CellInfo *cell, IdString port);
     void disconnect_if_gnd(CellInfo *cell, IdString input);
     void pll_out(CellInfo *cell, IdString origPort, Loc fixed);
 
     PllCfgRecord get_pll_settings(double f_ref, double f_core, int mode, int low_jitter, bool pdiv0_mux, bool feedback);
 
-    CellInfo *move_ram_i(CellInfo *cell, IdString origPort, bool place = true);
-    CellInfo *move_ram_o(CellInfo *cell, IdString origPort, bool place = true);
-    CellInfo *move_ram_i_fixed(CellInfo *cell, IdString origPort, Loc fixed);
-    CellInfo *move_ram_o_fixed(CellInfo *cell, IdString origPort, Loc fixed);
-    CellInfo *move_ram_io(CellInfo *cell, IdString iPort, IdString oPort, bool place = true);
+    std::pair<CellInfo *, CellInfo *> move_ram_i(CellInfo *cell, IdString origPort, bool place = true,
+                                                 Loc cpe_loc = Loc());
+    std::pair<CellInfo *, CellInfo *> move_ram_o(CellInfo *cell, IdString origPort, bool place = true,
+                                                 Loc cpe_loc = Loc());
+    std::pair<CellInfo *, CellInfo *> move_ram_io(CellInfo *cell, IdString iPort, IdString oPort, bool place = true,
+                                                  Loc cpe_loc = Loc());
+    std::pair<CellInfo *, CellInfo *> move_ram_i_fixed(CellInfo *cell, IdString origPort, Loc fixed);
+    std::pair<CellInfo *, CellInfo *> move_ram_o_fixed(CellInfo *cell, IdString origPort, Loc fixed);
+    std::pair<CellInfo *, CellInfo *> move_ram_io_fixed(CellInfo *cell, IdString iPort, IdString oPort, Loc fixed);
     uint8_t ram_ctrl_signal(CellInfo *cell, IdString port, bool alt);
     uint8_t ram_clk_signal(CellInfo *cell, IdString port);
     bool is_gpio_valid_dff(CellInfo *dff);
