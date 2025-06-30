@@ -33,6 +33,119 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+// Constant zero.
+struct ZeroDriver
+{
+    ZeroDriver() : lower{nullptr}, upper{nullptr} {}
+    ZeroDriver(CellInfo *lower, CellInfo *upper, IdString name);
+
+    CellInfo *lower;
+    CellInfo *upper;
+};
+
+// Propagate A0 through OUT1 and A1 through OUT2; zero COUTX and POUTX.
+struct APassThroughCell
+{
+    APassThroughCell(CellInfo *lower, CellInfo *upper, IdString name, bool inverted);
+
+    void clean_up(Context *ctx);
+
+    CellInfo *lower;
+    CellInfo *upper;
+    bool inverted;
+};
+
+// Propagate B0 through POUTY1 and B1 through COUTY1
+struct BPassThroughCell
+{
+    BPassThroughCell() : lower{nullptr}, upper{nullptr} {}
+    BPassThroughCell(CellInfo *lower, CellInfo *upper, IdString name);
+
+    void clean_up(Context *ctx);
+
+    CellInfo *lower;
+    CellInfo *upper;
+};
+
+// TODO: Micko points out this is an L2T4 CPE_HALF
+struct CarryGenCell
+{
+    CarryGenCell() : lower{nullptr}, upper{nullptr} {}
+    CarryGenCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_even_x, bool enable_cinx);
+
+    CellInfo *lower;
+    CellInfo *upper;
+};
+
+// This prepares B bits for multiplication.
+struct MultfabCell
+{
+    MultfabCell() : lower{nullptr}, upper{nullptr} {}
+    MultfabCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_even_x, bool enable_cinx);
+
+    CellInfo *lower;
+    CellInfo *upper;
+};
+
+// CITE: CPE_ges_f-routing-1.pdf
+struct FRoutingCell
+{
+    FRoutingCell() : lower{nullptr}, upper{nullptr} {}
+    FRoutingCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_even_x);
+
+    CellInfo *lower;
+    CellInfo *upper;
+};
+
+// Multiply two bits of A with two bits of B.
+//
+// CITE: CPE_MULT.pdf
+struct MultCell
+{
+    MultCell() : lower{nullptr}, upper{nullptr} {}
+    MultCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_msb);
+
+    CellInfo *lower;
+    CellInfo *upper;
+};
+
+// CITE: CPE_ges_MSB-routing.pdf
+struct MsbRoutingCell
+{
+    MsbRoutingCell() : lower{nullptr}, upper{nullptr} {}
+    MsbRoutingCell(CellInfo *lower, CellInfo *upper, IdString name);
+
+    CellInfo *lower;
+    CellInfo *upper;
+};
+
+struct MultiplierColumn
+{
+    BPassThroughCell b_passthru;
+    CarryGenCell carry;
+    MultfabCell multfab;
+    FRoutingCell f_route;
+    std::vector<MultCell> mults;
+    MsbRoutingCell msb_route;
+};
+
+// A GateMate multiplier is made up of columns of 2x2 multipliers.
+struct Multiplier
+{
+    ZeroDriver zero;
+    std::vector<APassThroughCell> a_passthrus;
+    std::vector<MultiplierColumn> cols;
+
+    size_t cpe_count() const
+    {
+        auto count = 1 /* (zero driver) */ + a_passthrus.size();
+        for (const auto &col : cols) {
+            count += 4 /* (b_passthru, carry, multfab, f_route) */ + col.mults.size() + 1 /* (msb_route) */;
+        }
+        return count;
+    }
+};
+
 ZeroDriver::ZeroDriver(CellInfo *lower, CellInfo *upper, IdString name) : lower{lower}, upper{upper}
 {
     lower->params[id_INIT_L02] = Property(LUT_ZERO, 4); // (unused)
@@ -349,6 +462,7 @@ void GateMatePacker::pack_mult()
             auto *mult_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$row%d$mult", name.c_str(ctx), i));
             auto *mult_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$row%d$mult_upper", name.c_str(ctx), i));
             col.mults.push_back(MultCell{mult_lower, mult_upper, name, i == ((a_width / 2) - 1)});
+            uarch->multipliers.push_back(mult_lower);
         }
 
         {
@@ -539,8 +653,6 @@ void GateMatePacker::pack_mult()
         ctx->cells.erase(mult->name);
 
         log_info("        Created %zu CPEs.\n", m.cpe_count());
-
-        uarch->multipliers.push_back(m);
     }
 }
 

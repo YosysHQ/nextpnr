@@ -219,33 +219,30 @@ struct BitstreamBackend
 
     void check_multipliers()
     {
-        for (const auto &multiplier : uarch->multipliers) {
-            for (const auto &col : multiplier.cols) {
-                for (const auto &mult : col.mults) {
-                    NPNR_ASSERT(mult.lower != nullptr);
-                    NPNR_ASSERT(mult.upper != nullptr);
+        for (auto *mult : uarch->multipliers) {
+            NPNR_ASSERT(mult != nullptr);
 
-                    auto should_be_inverted = mult.lower->constr_x % 2 == 1;
+            auto should_be_inverted = mult->constr_x % 2 == 1;
 
-                    // IN8
-                    if (need_inversion(mult.lower, id_IN4) != should_be_inverted)
-                        log_error("%s.IN4 has wrong inversion state\n", mult.lower->name.c_str(ctx));
+            // TODO: these are errors, but downgraded to allow providing *some* output.
 
-                    // IN5
-                    if (need_inversion(mult.lower, id_IN1) != should_be_inverted)
-                        log_error("%s.IN1 has wrong inversion state\n", mult.lower->name.c_str(ctx));
+            // IN8
+            if (need_inversion(mult, id_IN8) != should_be_inverted)
+                log_warning("%s.IN8 has wrong inversion state\n", mult->name.c_str(ctx));
 
-                    // IN1
-                    if (need_inversion(mult.upper, id_IN1) != should_be_inverted)
-                        log_error("%s.IN1 has wrong inversion state\n", mult.upper->name.c_str(ctx));
-                }
-            }
+            // IN5
+            if (need_inversion(mult, id_IN5) != should_be_inverted)
+                log_warning("%s.IN5 has wrong inversion state\n", mult->name.c_str(ctx));
+
+            // IN1
+            if (need_inversion(mult, id_IN1) != should_be_inverted)
+                log_warning("%s.IN1 has wrong inversion state\n", mult->name.c_str(ctx));
         }
     }
 
     void write_bitstream()
     {
-        //check_multipliers();
+        check_multipliers();
 
         ChipConfig cc;
         cc.chip_name = device;
