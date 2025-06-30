@@ -250,6 +250,7 @@ struct BitstreamBackend
             case id_CPE_ADDCIN.index:
             case id_CPE_CI.index:
             case id_CPE_FF.index:
+            case id_CPE_LATCH.index:
             case id_CPE_RAMI.index:
             case id_CPE_RAMO.index:
             case id_CPE_RAMIO.index: {
@@ -292,7 +293,7 @@ struct BitstreamBackend
                     }
                 }
 
-                if (cell.second->type.in(id_CPE_FF)) {
+                if (cell.second->type.in(id_CPE_FF, id_CPE_LATCH)) {
                     update_cpe_inv(cell.second.get(), id_CLK, id_C_CPE_CLK, params);
                     update_cpe_inv(cell.second.get(), id_EN, id_C_CPE_EN, params);
                     bool set = int_or_default(params, id_C_EN_SR, 0) == 1;
