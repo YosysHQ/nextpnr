@@ -782,13 +782,19 @@ struct GowinGlobalRouter
     SegmentRouteResult route_segmented_step2(NetInfo *ni, WireId segment_wire, WireId gate_wire,
                                              std::vector<PipId> &bound_pips)
     {
-        IdStringList pip_name = IdStringList::concat(ctx->getWireName(segment_wire), ctx->getWireName(gate_wire)[1]);
-        PipId pip = ctx->getPipByName(pip_name);
-        if (ctx->debug) {
-            log_info("      step 2: %s\n", ctx->nameOfPip(pip));
+        PipId pip;
+        for (PipId down_pip : ctx->getPipsDownhill(gate_wire)) {
+            WireId dst = ctx->getPipDstWire(down_pip);
+            if (dst == segment_wire) {
+                pip = down_pip;
+                break;
+            }
         }
 
         NPNR_ASSERT(pip != PipId());
+        if (ctx->debug) {
+            log_info("      step 2: %s\n", ctx->nameOfPip(pip));
+        }
         NetInfo *pip_net = ctx->getBoundPipNet(pip);
         if (pip_net == nullptr) {
             ctx->bindPip(pip, ni, STRENGTH_LOCKED);
@@ -822,7 +828,8 @@ struct GowinGlobalRouter
             }
             routed = backwards_bfs_route(
                     gate_ni, src_wire, gatewire, 1000000, false,
-                    [&](PipId pip, WireId src) { return dcs_input_filter(pip); }, &gate_bound_pips);
+                    [&](PipId pip, WireId src) { return dcs_input_filter(pip) && !gwu.is_global_pip(pip); },
+                    &gate_bound_pips);
             if (routed) {
                 // bind src
                 if (ctx->checkWireAvail(src_wire)) {
