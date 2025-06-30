@@ -192,7 +192,7 @@ void GateMatePacker::pack_cpe()
                 dff->renamePort(id_D, id_DIN);
                 dff->renamePort(id_Q, id_DOUT);
                 dff_to_cpe(dff);
-                dff->type = id_CPE_FF;
+                dff->type = (dff->type == id_CC_DLT) ? id_CPE_LATCH : id_CPE_FF;
             }
         }
     }
@@ -292,7 +292,7 @@ void GateMatePacker::pack_cpe()
         lt->params[id_INIT_L10] = Property(0b1010, 4);
         ci.movePortTo(id_D, lt, id_IN1);
         dff_to_cpe(&ci);
-        ci.type = id_CPE_FF;
+        ci.type = (ci.type == id_CC_DLT) ? id_CPE_LATCH : id_CPE_FF;
         NetInfo *conn = ctx->createNet(ctx->idf("%s$di", ci.name.c_str(ctx)));
         lt->connectPort(id_OUT, conn);
         ci.ports[id_DIN].name = id_DIN;

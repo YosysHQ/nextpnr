@@ -340,7 +340,7 @@ IdString GateMateImpl::getBelBucketForCellType(IdString cell_type) const
         return id_GPIO;
     else if (cell_type.in(id_CPE_LT_U, id_CPE_LT_L, id_CPE_LT, id_CPE_L2T4, id_CPE_L2T5_L, id_CPE_L2T5_U, id_CPE_CI))
         return id_CPE_LT;
-    else if (cell_type.in(id_CPE_FF_U, id_CPE_FF_L, id_CPE_FF))
+    else if (cell_type.in(id_CPE_FF_U, id_CPE_FF_L, id_CPE_FF, id_CPE_LATCH))
         return id_CPE_FF;
     else if (cell_type.in(id_CPE_RAMIO, id_CPE_RAMI, id_CPE_RAMO))
         return id_CPE_RAMIO;
@@ -371,9 +371,9 @@ bool GateMateImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
     else if (bel_type == id_CPE_LT_L)
         return cell_type.in(id_CPE_LT_L, id_CPE_LT, id_CPE_L2T4, id_CPE_L2T5_L, id_CPE_CI, id_CPE_DUMMY);
     else if (bel_type == id_CPE_FF_U)
-        return cell_type.in(id_CPE_FF_U, id_CPE_FF);
+        return cell_type.in(id_CPE_FF_U, id_CPE_FF, id_CPE_LATCH);
     else if (bel_type == id_CPE_FF_L)
-        return cell_type.in(id_CPE_FF_L, id_CPE_FF);
+        return cell_type.in(id_CPE_FF_L, id_CPE_FF, id_CPE_LATCH);
     else if (bel_type.in(id_CPE_RAMIO_U, id_CPE_RAMIO_L))
         return cell_type.in(id_CPE_RAMIO, id_CPE_RAMI, id_CPE_RAMO);
     else
