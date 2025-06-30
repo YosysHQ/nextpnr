@@ -399,7 +399,7 @@ struct GateMateArch : HimbaechelArch
     {
         return device.size() > 6 && device.substr(0, 6) == "CCGM1A";
     }
-    std::unique_ptr<HimbaechelAPI> create(const std::string &device, const dict<std::string, std::string> &args)
+    std::unique_ptr<HimbaechelAPI> create(const std::string &device, const dict<std::string, std::string> &args) override
     {
         return std::make_unique<GateMateImpl>();
     }
