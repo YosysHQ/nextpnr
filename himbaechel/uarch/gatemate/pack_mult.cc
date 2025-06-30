@@ -303,13 +303,13 @@ void GateMatePacker::pack_mult()
     // fpga_generic.pas in p_r might have useful info
 
     auto create_zero_driver = [&](IdString name) {
-        auto *zero_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$zero_lower", name.c_str(ctx)));
+        auto *zero_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$zero", name.c_str(ctx)));
         auto *zero_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$zero_upper", name.c_str(ctx)));
         return ZeroDriver{zero_lower, zero_upper, name};
     };
 
     auto create_a_passthru = [&](IdString name, bool inverted) {
-        auto *a_passthru_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$a_passthru_lower", name.c_str(ctx)));
+        auto *a_passthru_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$a_passthru", name.c_str(ctx)));
         auto *a_passthru_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$a_passthru_upper", name.c_str(ctx)));
         return APassThroughCell{a_passthru_lower, a_passthru_upper, name, inverted};
     };
@@ -320,39 +320,39 @@ void GateMatePacker::pack_mult()
         auto col = MultiplierColumn{};
 
         {
-            auto *b_passthru_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$b_passthru_lower", name.c_str(ctx)));
+            auto *b_passthru_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$b_passthru", name.c_str(ctx)));
             auto *b_passthru_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$b_passthru_upper", name.c_str(ctx)));
             col.b_passthru = BPassThroughCell{b_passthru_lower, b_passthru_upper, name};
         }
 
         {
-            auto *carry_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$carry_lower", name.c_str(ctx)));
+            auto *carry_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$carry", name.c_str(ctx)));
             auto *carry_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$carry_upper", name.c_str(ctx)));
             col.carry = CarryGenCell{carry_lower, carry_upper, name, is_even_x, carry_enable_cinx};
         }
 
         {
             auto *multfab_lower = create_cell_ptr(id_CPE_LT_L,
-                                                  ctx->idf("%s$multf%c_lower", name.c_str(ctx), is_even_x ? 'a' : 'b'));
+                                                  ctx->idf("%s$multf%c", name.c_str(ctx), is_even_x ? 'a' : 'b'));
             auto *multfab_upper = create_cell_ptr(id_CPE_LT_U,
                                                   ctx->idf("%s$multf%c_upper", name.c_str(ctx), is_even_x ? 'a' : 'b'));
             col.multfab = MultfabCell{multfab_lower, multfab_upper, name, is_even_x, multfab_enable_cinx};
         }
 
         {
-            auto *f_route_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$f_route_lower", name.c_str(ctx)));
+            auto *f_route_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$f_route", name.c_str(ctx)));
             auto *f_route_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$f_route_upper", name.c_str(ctx)));
             col.f_route = FRoutingCell{f_route_lower, f_route_upper, name, is_even_x};
         }
 
         for (int i = 0; i < (a_width / 2); i++) {
-            auto *mult_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$row%d$mult_lower", name.c_str(ctx), i));
+            auto *mult_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$row%d$mult", name.c_str(ctx), i));
             auto *mult_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$row%d$mult_upper", name.c_str(ctx), i));
             col.mults.push_back(MultCell{mult_lower, mult_upper, name, i == ((a_width / 2) - 1)});
         }
 
         {
-            auto *msb_route_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$msb_route_lower", name.c_str(ctx)));
+            auto *msb_route_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$msb_route", name.c_str(ctx)));
             auto *msb_route_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$msb_route_upper", name.c_str(ctx)));
             col.msb_route = MsbRoutingCell{msb_route_lower, msb_route_upper, name};
         }
