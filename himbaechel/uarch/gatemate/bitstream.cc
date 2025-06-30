@@ -227,10 +227,15 @@ struct BitstreamBackend
 
                     auto should_be_inverted = mult.lower->constr_x % 2 == 1;
 
+                    // IN8
                     if (need_inversion(mult.lower, id_IN4) != should_be_inverted)
                         log_error("%s.IN4 has wrong inversion state\n", mult.lower->name.c_str(ctx));
+
+                    // IN5
                     if (need_inversion(mult.lower, id_IN1) != should_be_inverted)
                         log_error("%s.IN1 has wrong inversion state\n", mult.lower->name.c_str(ctx));
+
+                    // IN1
                     if (need_inversion(mult.upper, id_IN1) != should_be_inverted)
                         log_error("%s.IN1 has wrong inversion state\n", mult.upper->name.c_str(ctx));
                 }
