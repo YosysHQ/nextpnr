@@ -633,6 +633,7 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
         addProperty(topItem, QVariant::String, "Type", ctx->getBelType(bel).c_str(ctx));
         addProperty(topItem, QVariant::Bool, "Available", ctx->checkBelAvail(bel));
         addProperty(topItem, QVariant::String, "Bound Cell", ctx->nameOf(ctx->getBoundBelCell(bel)), ElementType::CELL);
+        addProperty(topItem, QVariant::String, "Bound Cell Type", ctx->getBoundBelCell(bel) ? ctx->getBoundBelCell(bel)->type.c_str(ctx) : "");
         addProperty(topItem, QVariant::String, "Conflicting Cell", ctx->nameOf(ctx->getConflictingBelCell(bel)),
                     ElementType::CELL);
 
