@@ -178,7 +178,7 @@ APassThroughCell::APassThroughCell(CellInfo *lower, CellInfo *upper, IdString na
 void APassThroughCell::clean_up(Context *ctx)
 {
     auto *lower_net = lower->ports.at(id_IN1).net;
-    auto *upper_net = lower->ports.at(id_IN1).net;
+    auto *upper_net = upper->ports.at(id_IN1).net;
 
     NPNR_ASSERT(lower_net != nullptr);
     NPNR_ASSERT(upper_net != nullptr);
