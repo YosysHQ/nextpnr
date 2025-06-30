@@ -195,7 +195,19 @@ void GateMateImpl::postPlace()
     ctx->assignArchInfo();
     std::vector<IdString> delete_cells;
     for (auto &cell : ctx->cells) {
-        if (cell.second->type.in(id_CPE_L2T4, id_CPE_CI)) {
+        /// TODO: Remove this section when pack_mult is cleaned
+        if (cell.second->type.in(id_CPE_LT_L,id_CPE_LT_U) && int_or_default(cell.second->params, id_C_FUNCTION, 0)==0) {
+            Loc l = ctx->getBelLocation(cell.second->bel);
+            if (l.z == CPE_LT_L_Z) {
+                if (!cell.second->params.count(id_INIT_L20))
+                    cell.second->params[id_INIT_L20] = Property(0b1100, 4);
+                // Rename params since currently in pack_mult they have final names
+                // and we do rename again later for bitstream
+                rename_param(cell.second.get(), id_INIT_L02, id_INIT_L00, 4);
+                rename_param(cell.second.get(), id_INIT_L03, id_INIT_L01, 4);
+                rename_param(cell.second.get(), id_INIT_L11, id_INIT_L10, 4);
+            }
+        } else if (cell.second->type.in(id_CPE_L2T4, id_CPE_CI)) {
             Loc l = ctx->getBelLocation(cell.second->bel);
             if (l.z == CPE_LT_L_Z) {
                 if (!cell.second->params.count(id_INIT_L20))

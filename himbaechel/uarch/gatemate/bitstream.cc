@@ -284,7 +284,7 @@ struct BitstreamBackend
                 // Update configuration bits based on signal inversion
                 dict<IdString, Property> params = cell.second->params;
                 Loc l = ctx->getBelLocation(cell.second->bel);
-                if (cell.second->type.in(id_CPE_L2T4, id_CPE_CI)) {
+                if (cell.second->type.in(id_CPE_L2T4, id_CPE_CI, id_CPE_LT_L, id_CPE_LT_U)) {
                     if (l.z == CPE_LT_U_Z) {
                         update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L00, params);
                         update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L00, params);
