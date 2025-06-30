@@ -108,6 +108,7 @@ void APassThroughCell::clean_up(Context *ctx)
     }
 }
 
+// B0 -> POUTY1; B1 -> COUTY1
 BPassThroughCell::BPassThroughCell(CellInfo *lower, CellInfo *upper, IdString name) : lower{lower}, upper{upper}
 {
     lower->params[id_INIT_L02] = Property(LUT_D0, 4);   // IN5
@@ -119,6 +120,9 @@ BPassThroughCell::BPassThroughCell(CellInfo *lower, CellInfo *upper, IdString na
     upper->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
     upper->params[id_INIT_L10] = Property(LUT_D0, 4);   // L00 -> COMB2OUT
 
+    upper->params[id_C_SEL_C] = Property(0, 1); // COMB2OUT -> CY1_VAL
+    upper->params[id_C_SEL_P] = Property(0, 1); // COMB1OUT -> PY1_VAL
+    upper->params[id_C_SELY1] = Property(0, 1); // COMB1OUT -> PY1_VAL; COMB2OUT -> CY1_VAL
     upper->params[id_C_CY1_I] = Property(1, 1); // CY1_VAL -> COUTY1
     upper->params[id_C_PY1_I] = Property(1, 1); // PY1_VAL -> POUTY1
 
