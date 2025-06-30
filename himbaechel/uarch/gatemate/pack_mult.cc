@@ -148,17 +148,9 @@ struct Multiplier
 
 ZeroDriver::ZeroDriver(CellInfo *lower, CellInfo *upper, IdString name) : lower{lower}, upper{upper}
 {
-    lower->params[id_INIT_L02] = Property(LUT_ZERO, 4); // (unused)
-    lower->params[id_INIT_L03] = Property(LUT_ZERO, 4); // (unused)
-    lower->params[id_INIT_L11] = Property(LUT_ZERO, 4); // (unused)
-    lower->params[id_INIT_L20] = Property(LUT_ZERO, 4); // (unused)
-
     upper->params[id_INIT_L00] = Property(LUT_ZERO, 4); // (unused)
     upper->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
     upper->params[id_INIT_L10] = Property(LUT_ZERO, 4); // (unused)
-
-    upper->params[id_C_O1] = Property(0b11, 2); // COMB1OUT -> OUT1
-    upper->params[id_C_O2] = Property(0b11, 2); // COMB2OUT -> OUT2
 }
 
 APassThroughCell::APassThroughCell(CellInfo *lower, CellInfo *upper, IdString name, bool inverted)
@@ -416,8 +408,8 @@ void GateMatePacker::pack_mult()
     // fpga_generic.pas in p_r might have useful info
 
     auto create_zero_driver = [&](IdString name) {
-        auto *zero_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$zero_lower", name.c_str(ctx)));
-        auto *zero_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$zero_upper", name.c_str(ctx)));
+        auto *zero_lower = create_cell_ptr(id_CPE_DUMMY, ctx->idf("%s$zero_lower", name.c_str(ctx)));
+        auto *zero_upper = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$zero", name.c_str(ctx)));
         return ZeroDriver{zero_lower, zero_upper, name};
     };
 
@@ -519,7 +511,7 @@ void GateMatePacker::pack_mult()
         auto *root = m.cols[0].b_passthru.upper;
         root->cluster = root->name;
 
-        auto constrain_cell = [&](CellInfo *cell, int x_offset, int y_offset) {
+        auto constrain_cell = [&](CellInfo *cell, int x_offset, int y_offset, int z_offset) {
             if (cell == root)
                 return;
             root->constr_children.push_back(cell);
@@ -527,42 +519,42 @@ void GateMatePacker::pack_mult()
             cell->constr_abs_z = true;
             cell->constr_x = x_offset;
             cell->constr_y = y_offset;
-            cell->constr_z = cell->type == id_CPE_LT_L ? 1 : 0;
+            cell->constr_z = z_offset;
         };
 
         // Constrain zero driver.
-        constrain_cell(m.zero.lower, -1, 3);
-        constrain_cell(m.zero.upper, -1, 3);
+        constrain_cell(m.zero.lower, -1, 3, 1);
+        constrain_cell(m.zero.upper, -1, 3, 0);
 
         // Constrain A passthrough cells.
         for (int a = 0; a < a_width / 2; a++) {
             auto &a_passthru = m.a_passthrus.at(a);
-            constrain_cell(a_passthru.lower, -1, 4 + a);
-            constrain_cell(a_passthru.upper, -1, 4 + a);
+            constrain_cell(a_passthru.lower, -1, 4 + a, 1);
+            constrain_cell(a_passthru.upper, -1, 4 + a, 0);
         }
 
         // Constrain multiplier columns.
         for (int b = 0; b < b_width / 2; b++) {
             auto &col = m.cols.at(b);
-            constrain_cell(col.b_passthru.lower, b, b);
-            constrain_cell(col.b_passthru.upper, b, b);
+            constrain_cell(col.b_passthru.lower, b, b, 1);
+            constrain_cell(col.b_passthru.upper, b, b, 0);
 
-            constrain_cell(col.carry.lower, b, b + 1);
-            constrain_cell(col.carry.upper, b, b + 1);
+            constrain_cell(col.carry.lower, b, b + 1, 1);
+            constrain_cell(col.carry.upper, b, b + 1, 0);
 
-            constrain_cell(col.multfab.lower, b, b + 2);
-            constrain_cell(col.multfab.upper, b, b + 2);
+            constrain_cell(col.multfab.lower, b, b + 2, 1);
+            constrain_cell(col.multfab.upper, b, b + 2, 0);
 
-            constrain_cell(col.f_route.lower, b, b + 3);
-            constrain_cell(col.f_route.upper, b, b + 3);
+            constrain_cell(col.f_route.lower, b, b + 3, 1);
+            constrain_cell(col.f_route.upper, b, b + 3, 0);
 
             for (size_t mult_idx = 0; mult_idx < col.mults.size(); mult_idx++) {
-                constrain_cell(col.mults[mult_idx].lower, b, b + 4 + mult_idx);
-                constrain_cell(col.mults[mult_idx].upper, b, b + 4 + mult_idx);
+                constrain_cell(col.mults[mult_idx].lower, b, b + 4 + mult_idx, 1);
+                constrain_cell(col.mults[mult_idx].upper, b, b + 4 + mult_idx, 0);
             }
 
-            constrain_cell(col.msb_route.lower, b, b + 4 + col.mults.size());
-            constrain_cell(col.msb_route.upper, b, b + 4 + col.mults.size());
+            constrain_cell(col.msb_route.lower, b, b + 4 + col.mults.size(), 1);
+            constrain_cell(col.msb_route.upper, b, b + 4 + col.mults.size(), 0);
         }
 
         // Step 3: connect them.
