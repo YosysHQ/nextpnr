@@ -205,6 +205,9 @@ void GateMatePacker::pack_bufg()
                 // SER_CLK
                 clkin[die]->params[ctx->idf("REF%d", i)] = Property(0b100, 3);
                 clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
+                NetInfo *conn = ctx->createNet(ci.name);
+                clkin[die]->connectPort(ctx->idf("CLK_REF%d", i), conn);
+                glbout[die]->connectPort(ctx->idf("CLK_REF_OUT%d", i), conn);
             }
 
             ci.movePortTo(id_O, glbout[die], ctx->idf("GLB%d", i));
