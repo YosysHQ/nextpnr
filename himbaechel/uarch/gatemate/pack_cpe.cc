@@ -525,7 +525,7 @@ void GateMatePacker::pack_addf()
             if (i == grp.size() - 1) {
                 if (!cy->getPort(id_CO))
                     break;
-                CellInfo *co_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$co_upper", cy->name.c_str(ctx)));
+                CellInfo *co_upper = create_cell_ptr(id_CPE_DUMMY, ctx->idf("%s$co_upper", cy->name.c_str(ctx)));
                 co_upper->cluster = root->name;
                 root->constr_children.push_back(co_upper);
                 co_upper->constr_abs_z = false;
@@ -542,8 +542,6 @@ void GateMatePacker::pack_addf()
 
                 NetInfo *co_conn = ctx->createNet(ctx->idf("%s$co_net", cy->name.c_str(ctx)));
 
-                co_lower->ports[id_CINY1].name = id_CINY1;
-                co_lower->ports[id_CINY1].type = PORT_IN;
                 co_lower->connectPort(id_CINY1, co_conn);
                 cy->ports[id_COUTY1].name = id_COUTY1;
                 cy->ports[id_COUTY1].type = PORT_OUT;
