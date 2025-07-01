@@ -70,7 +70,7 @@ struct BPassThroughCell
 struct CarryGenCell
 {
     CarryGenCell() : lower{nullptr}, upper{nullptr} {}
-    CarryGenCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_even_x, bool enable_cinx);
+    CarryGenCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_odd_x, bool enable_cinx);
 
     CellInfo *lower;
     CellInfo *upper;
@@ -252,21 +252,19 @@ void BPassThroughCell::clean_up(Context *ctx)
     }
 }
 
-CarryGenCell::CarryGenCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_even_x, bool enable_cinx)
+CarryGenCell::CarryGenCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_odd_x, bool enable_cinx)
         : lower{lower}, upper{upper}
 {
-    // TODO: simplify AND with zero/OR with zero into something more sensical.
-
     lower->params[id_INIT_L02] = Property(LUT_D1, 4);   // PINY1
-    lower->params[id_INIT_L03] = Property(LUT_ZERO, 4); // (unused)
-    lower->params[id_INIT_L11] = Property(is_even_x ? LUT_AND : LUT_OR, 4);
-    lower->params[id_INIT_L20] = Property(is_even_x ? LUT_AND : LUT_OR, 4);
+    lower->params[id_INIT_L03] = Property(LUT_ZERO, 4); // (overriden by CIN)
+    lower->params[id_INIT_L11] = Property(is_odd_x ? LUT_OR : LUT_ZERO, 4);
+    lower->params[id_INIT_L20] = Property(is_odd_x ? LUT_OR : LUT_ZERO, 4);
     lower->params[id_INIT_L30] = Property(LUT_INV_D0, 4); // OUT1 -> COMP_OUT
     lower->params[id_C_FUNCTION] = Property(C_EN_CIN, 3);
 
-    upper->params[id_INIT_L00] = Property(enable_cinx ? LUT_ONE : LUT_ZERO, 4); // ???
-    upper->params[id_INIT_L01] = Property(LUT_D1, 4);                           // CINX
-    upper->params[id_INIT_L10] = Property(is_even_x ? LUT_AND : LUT_OR, 4);
+    upper->params[id_INIT_L00] = Property(LUT_ZERO, 4);                        // (unused)
+    upper->params[id_INIT_L01] = Property(enable_cinx ? LUT_D1 : LUT_ZERO, 4); // CINX
+    upper->params[id_INIT_L10] = Property(LUT_D1, 4);
 
     upper->params[id_C_I2] = Property(1, 1); // CINX for L01
     upper->params[id_C_I3] = Property(1, 1); // PINY1 for L02
@@ -423,7 +421,7 @@ void GateMatePacker::pack_mult()
         {
             auto *carry_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$carry_lower", name.c_str(ctx)));
             auto *carry_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$carry_upper", name.c_str(ctx)));
-            col.carry = CarryGenCell{carry_lower, carry_upper, name, is_even_x, carry_enable_cinx};
+            col.carry = CarryGenCell{carry_lower, carry_upper, name, !is_even_x, carry_enable_cinx};
         }
 
         {
