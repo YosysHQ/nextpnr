@@ -43,13 +43,12 @@ struct ZeroDriver
 // Propagate A0 through OUT1 and A1 through OUT2; zero COUTX and POUTX.
 struct APassThroughCell
 {
-    APassThroughCell(CellInfo *lower, CellInfo *upper, IdString name, bool inverted);
+    APassThroughCell(CellInfo *lower, CellInfo *upper, IdString name);
 
     void clean_up(Context *ctx);
 
     CellInfo *lower;
     CellInfo *upper;
-    bool inverted;
 };
 
 // Propagate B0 through POUTY1 and B1 through COUTY1
