@@ -266,6 +266,8 @@ struct BitstreamBackend
                 break;
             case id_CPE_LT_L.index:
             case id_CPE_LT_U.index:
+            case id_CPE_CPLINES.index:
+            case id_CPE_COMP.index:
             case id_CPE_L2T4.index:
             case id_CPE_L2T5.index:
             case id_CPE_ADDF.index:

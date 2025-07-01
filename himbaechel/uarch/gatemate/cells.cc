@@ -41,7 +41,19 @@ CellInfo *GateMatePacker::create_cell_ptr(IdString type, IdString name)
         add_port(id_IN4, PORT_IN);
         add_port(id_OUT, PORT_OUT);
         if (type.in(id_CPE_LT_L, id_CPE_L2T5_L, id_CPE_CI)) {
+            add_port(id_CINX, PORT_IN);
+            add_port(id_PINX, PORT_IN);
+            add_port(id_CINY1, PORT_IN);
+            add_port(id_PINY1, PORT_IN);
+            add_port(id_CINY2, PORT_IN);
+            add_port(id_PINY2, PORT_IN);
+
+            add_port(id_COUTX,  PORT_OUT);
+            add_port(id_POUTX,  PORT_OUT);
             add_port(id_COUTY1, PORT_OUT);
+            add_port(id_POUTY1, PORT_OUT);
+            add_port(id_COUTY2, PORT_OUT);
+            add_port(id_POUTY2, PORT_OUT);
         }
     } else if (type.in(id_CLKIN)) {
         for (int i = 0; i < 4; i++) {
@@ -69,6 +81,28 @@ CellInfo *GateMatePacker::create_cell_ptr(IdString type, IdString name)
         add_port(id_RAM_I, PORT_IN);
         add_port(id_RAM_O, PORT_OUT);
         add_port(id_OUT, PORT_OUT);
+    } else if (type.in(id_CPE_COMP)) {
+        add_port(id_COMB1, PORT_IN);
+        add_port(id_COMB2, PORT_IN);
+        add_port(id_COMPOUT, PORT_OUT);
+    } else if (type.in(id_CPE_CPLINES)) {
+        add_port(id_OUT1, PORT_IN);
+        add_port(id_OUT2, PORT_IN);
+        add_port(id_COMPOUT, PORT_IN);
+
+        add_port(id_CINX, PORT_IN);
+        add_port(id_PINX, PORT_IN);
+        add_port(id_CINY1, PORT_IN);
+        add_port(id_PINY1, PORT_IN);
+        add_port(id_CINY2, PORT_IN);
+        add_port(id_PINY2, PORT_IN);
+
+        add_port(id_COUTX,  PORT_OUT);
+        add_port(id_POUTX,  PORT_OUT);
+        add_port(id_COUTY1, PORT_OUT);
+        add_port(id_POUTY1, PORT_OUT);
+        add_port(id_COUTY2, PORT_OUT);
+        add_port(id_POUTY2, PORT_OUT);
     } else {
         log_error("Trying to create unknown cell type %s\n", type.c_str(ctx));
     }

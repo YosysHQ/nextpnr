@@ -93,8 +93,9 @@ enum CPE_Z
     CPE_FF_L_Z = 3,
     CPE_RAMIO_U_Z = 4,
     CPE_RAMIO_L_Z = 5,
-    CPE_LINES_Z = 6,
-    CPE_LT_FULL_Z = 7,
+    CPE_COMP_Z = 6,
+    CPE_CPLINES_Z = 7,
+    CPE_LT_FULL_Z = 8,
 };
 
 enum ClusterPlacement
