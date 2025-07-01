@@ -326,11 +326,9 @@ void GateMatePacker::pack_io_sel()
         cells.push_back(&ci);
     }
 
-    std::vector<std::array<std::pair<CellInfo*,CellInfo*>, 9>> ddr(uarch->dies); // for each bank
-    for (int i = 0; i < uarch->dies; ++i)
-        for (int j = 0; j < 9; ++j)
-            ddr[i][j] = {nullptr, nullptr};
-
+    std::vector<std::array<std::pair<CellInfo *, CellInfo *>, 9>> ddr(
+        uarch->dies, std::array<std::pair<CellInfo *, CellInfo *>, 9>{}
+    );
     auto set_out_clk = [&](CellInfo *cell, CellInfo *target) -> bool {
         NetInfo *clk_net = cell->getPort(id_CLK);
         if (clk_net) {
