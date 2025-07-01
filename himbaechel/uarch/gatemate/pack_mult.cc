@@ -46,13 +46,12 @@ struct ZeroDriver
 // Propagate A0 through OUT1 and A1 through OUT2; zero COUTX and POUTX.
 struct APassThroughCell
 {
-    APassThroughCell(CellInfo *lower, CellInfo *upper, IdString name, bool inverted);
+    APassThroughCell(CellInfo *lower, CellInfo *upper, IdString name);
 
     void clean_up(Context *ctx);
 
     CellInfo *lower;
     CellInfo *upper;
-    bool inverted;
 };
 
 // Propagate B0 through POUTY1 and B1 through COUTY1
@@ -153,8 +152,7 @@ ZeroDriver::ZeroDriver(CellInfo *lower, CellInfo *upper, IdString name) : lower{
     upper->params[id_INIT_L10] = Property(LUT_ZERO, 4); // (unused)
 }
 
-APassThroughCell::APassThroughCell(CellInfo *lower, CellInfo *upper, IdString name, bool inverted)
-        : lower{lower}, upper{upper}, inverted{inverted}
+APassThroughCell::APassThroughCell(CellInfo *lower, CellInfo *upper, IdString name) : lower{lower}, upper{upper}
 {
     lower->params[id_INIT_L02] = Property(LUT_D0, 4);   // IN5
     lower->params[id_INIT_L03] = Property(LUT_ZERO, 4); // (unused)
@@ -184,31 +182,23 @@ void APassThroughCell::clean_up(Context *ctx)
     NPNR_ASSERT(upper_net != nullptr);
 
     {
-        bool net_is_gnd =
-                lower_net->name == ctx->idf("$PACKER_GND") || (inverted && lower_net->name == ctx->idf("$PACKER_VCC"));
-        bool net_is_vcc =
-                lower_net->name == ctx->idf("$PACKER_VCC") || (inverted && lower_net->name == ctx->idf("$PACKER_GND"));
+        bool net_is_gnd = lower_net->name == ctx->idf("$PACKER_GND");
+        bool net_is_vcc = lower_net->name == ctx->idf("$PACKER_VCC");
         if (net_is_gnd || net_is_vcc) {
             lower->params[id_INIT_L02] = Property(LUT_ZERO, 4);
             lower->params[id_INIT_L11] = Property(LUT_ZERO, 4);
             lower->params[id_INIT_L20] = Property(net_is_vcc ? LUT_ONE : LUT_ZERO, 4);
             lower->disconnectPort(id_IN1);
-        } else if (inverted) {
-            lower->params[id_INIT_L02] = Property(LUT_INV_D0, 4);
         }
     }
 
     {
-        bool net_is_gnd =
-                upper_net->name == ctx->idf("$PACKER_GND") || (inverted && upper_net->name == ctx->idf("$PACKER_VCC"));
-        bool net_is_vcc =
-                upper_net->name == ctx->idf("$PACKER_VCC") || (inverted && upper_net->name == ctx->idf("$PACKER_GND"));
+        bool net_is_gnd = upper_net->name == ctx->idf("$PACKER_GND");
+        bool net_is_vcc = upper_net->name == ctx->idf("$PACKER_VCC");
         if (net_is_gnd || net_is_vcc) {
             upper->params[id_INIT_L00] = Property(LUT_ZERO, 4);
             upper->params[id_INIT_L10] = Property(net_is_vcc ? LUT_ONE : LUT_ZERO, 4);
             upper->disconnectPort(id_IN1);
-        } else if (inverted) {
-            upper->params[id_INIT_L00] = Property(LUT_INV_D0, 4);
         }
     }
 }
@@ -413,10 +403,10 @@ void GateMatePacker::pack_mult()
         return ZeroDriver{zero_lower, zero_upper, name};
     };
 
-    auto create_a_passthru = [&](IdString name, bool inverted) {
+    auto create_a_passthru = [&](IdString name) {
         auto *a_passthru_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$a_passthru_lower", name.c_str(ctx)));
-        auto *a_passthru_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$a_passthru_upper", name.c_str(ctx)));
-        return APassThroughCell{a_passthru_lower, a_passthru_upper, name, inverted};
+        auto *a_passthru_upper = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$a_passthru_upper", name.c_str(ctx)));
+        return APassThroughCell{a_passthru_lower, a_passthru_upper, name};
     };
 
     auto create_mult_col = [&](IdString name, int a_width, bool is_even_x, bool carry_enable_cinx,
@@ -437,10 +427,10 @@ void GateMatePacker::pack_mult()
         }
 
         {
-            auto *multfab_lower = create_cell_ptr(id_CPE_LT_L,
-                                                  ctx->idf("%s$multf%c_lower", name.c_str(ctx), is_even_x ? 'a' : 'b'));
-            auto *multfab_upper = create_cell_ptr(id_CPE_LT_U,
-                                                  ctx->idf("%s$multf%c_upper", name.c_str(ctx), is_even_x ? 'a' : 'b'));
+            auto *multfab_lower =
+                    create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$multf%c_lower", name.c_str(ctx), is_even_x ? 'a' : 'b'));
+            auto *multfab_upper =
+                    create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$multf%c_upper", name.c_str(ctx), is_even_x ? 'a' : 'b'));
             col.multfab = MultfabCell{multfab_lower, multfab_upper, name, is_even_x, multfab_enable_cinx};
         }
 
@@ -501,7 +491,7 @@ void GateMatePacker::pack_mult()
         // Step 1: instantiate all the CPEs.
         m.zero = create_zero_driver(ctx->idf("%s$col0", mult->name.c_str(ctx)));
         for (int a = 0; a < a_width / 2; a++)
-            m.a_passthrus.push_back(create_a_passthru(ctx->idf("%s$col0$row%d", mult->name.c_str(ctx), a), false));
+            m.a_passthrus.push_back(create_a_passthru(ctx->idf("%s$col0$row%d", mult->name.c_str(ctx), a)));
         for (int b = 0; b < b_width / 2; b++)
             m.cols.push_back(create_mult_col(ctx->idf("%s$col%d", mult->name.c_str(ctx), b + 1), a_width, b % 2 == 0,
                                              b == 2 /* ??? */, b > 0 /* ??? */));
@@ -560,7 +550,7 @@ void GateMatePacker::pack_mult()
         // Step 3: connect them.
 
         // Zero driver.
-        auto *zero_net = ctx->createNet(ctx->idf("%s$out",m.zero.upper->name.c_str(ctx)));
+        auto *zero_net = ctx->createNet(ctx->idf("%s$out", m.zero.upper->name.c_str(ctx)));
         m.zero.upper->connectPort(id_OUT, zero_net);
 
         // A input.
@@ -572,8 +562,8 @@ void GateMatePacker::pack_mult()
             mult->movePortTo(ctx->idf("A[%d]", a), cpe_half, id_IN1);
 
             // Connect A passthrough output to multiplier inputs.
-            auto *a_net =
-                    ctx->createNet(ctx->idf("%s$%s$a%d_passthru", cpe_half->name.c_str(ctx), cpe_half->ports.at(id_IN1).net->name.c_str(ctx), a));
+            auto *a_net = ctx->createNet(ctx->idf("%s$%s$a%d_passthru", cpe_half->name.c_str(ctx),
+                                                  cpe_half->ports.at(id_IN1).net->name.c_str(ctx), a));
             cpe_half->connectPort(id_OUT, a_net);
 
             // This may be GND/VCC; if so, clean it up.
