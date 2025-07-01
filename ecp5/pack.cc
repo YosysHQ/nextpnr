@@ -1775,6 +1775,28 @@ class Ecp5Packer
             log_error("Unsupported DEL_MODE '%s'\n", del_mode.c_str());
     }
 
+    std::vector<BelId> get_pll_eclkbs(WireId pll_clkfb)
+    {
+        std::vector<BelId> result;
+        std::queue<std::pair<WireId, int>> visit;
+        visit.emplace(pll_clkfb, 0);
+        while (!visit.empty()) {
+            auto top = visit.front();
+            visit.pop();
+            for (auto belpin : ctx->getWireBelPins(top.first)) {
+                if (ctx->getBelType(belpin.bel) == id_ECLKSYNCB && belpin.pin == id_ECLKO) {
+                    result.push_back(belpin.bel);
+                }
+            }
+            if (top.second > 6) // depth limit
+                break;
+            for (auto pip : ctx->getPipsUphill(top.first)) {
+                visit.emplace(ctx->getPipSrcWire(pip), top.second + 1);
+            }
+        }
+        return result;
+    }
+
     // Pack IOLOGIC
     void pack_iologic()
     {
@@ -2510,6 +2532,7 @@ class Ecp5Packer
                         }
                     }
                 }
+
             eclksync_done:
                 continue;
             } else if (ci->type == id_DDRDLLA) {
@@ -2578,6 +2601,24 @@ class Ecp5Packer
                 // Most will be dealt with above, but there might be some rogue cases
                 if (ci->attrs.count(id_BEL))
                     continue;
+                const NetInfo *eclko = ci->getPort(id_ECLKO);
+                if (eclko) {
+                    // Look at the path to PLL CLKFB (apparently used by Lattice wizard for DDR71)
+                    for (auto user : eclko->users) {
+                        if (user.cell->type == id_EHXPLLL && user.port == id_CLKFB && user.cell->attrs.count(id_BEL)) {
+                            BelId pll_bel = ctx->getBelByNameStr(user.cell->attrs.at(id_BEL).as_string());
+                            WireId clkfb_wire = ctx->getBelPinWire(pll_bel, user.port);
+                            for (auto bel : get_pll_eclkbs(clkfb_wire)) {
+                                if (used_eclksyncb.count(bel))
+                                    continue;
+                                log_info("Constraining ECLKSYNCB '%s' to bel '%s' based on CLKFB routing\n",
+                                         ctx->nameOf(ci), ctx->nameOfBel(bel));
+                                ci->attrs[id_BEL] = ctx->getBelName(bel).str(ctx);
+                                goto eclksync_ii_done;
+                            }
+                        }
+                    }
+                }
                 for (BelId bel : ctx->getBels()) {
                     if (ctx->getBelType(bel) != id_ECLKSYNCB)
                         continue;
