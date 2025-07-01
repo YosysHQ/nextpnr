@@ -223,7 +223,7 @@ struct BitstreamBackend
     {
         ChipConfig cc;
         cc.chip_name = device;
-        int bank[uarch->dies][9] = {0};
+        std::vector<std::array<int, 9>> bank(uarch->dies);
         for (auto &cell : ctx->cells) {
             CfgLoc loc = get_config_loc(cell.second.get()->bel.tile);
             auto &params = cell.second.get()->params;
