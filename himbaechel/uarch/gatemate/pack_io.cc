@@ -326,7 +326,7 @@ void GateMatePacker::pack_io_sel()
         cells.push_back(&ci);
     }
 
-    CellInfo *ddr[uarch->dies][9] = {nullptr}; // for each bank
+    std::vector<std::array<CellInfo *, 9>> ddr(uarch->dies); // for each bank
 
     auto set_out_clk = [&](CellInfo *cell, CellInfo *target) -> bool {
         NetInfo *clk_net = cell->getPort(id_CLK);
