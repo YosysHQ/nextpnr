@@ -261,23 +261,25 @@ MultCell::MultCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_msb)
 
 MsbRoutingCell::MsbRoutingCell(CellInfo *lower, CellInfo *upper, IdString name) : lower{lower}, upper{upper}
 {
-    lower->params[id_INIT_L02] = Property(LUT_ONE, 4);
-    lower->params[id_INIT_L03] = Property(LUT_ONE, 4);
-    lower->params[id_INIT_L11] = Property(LUT_ZERO, 4);
-    lower->params[id_INIT_L20] = Property(LUT_D1, 4); // L11
-    lower->params[id_INIT_L30] = Property(LUT_ONE, 4);
+    lower->params[id_INIT_L02] = Property(LUT_ZERO, 4); // (unused)
+    lower->params[id_INIT_L03] = Property(LUT_ZERO, 4); // (unused)
+    lower->params[id_INIT_L11] = Property(LUT_ZERO, 4); // (unused)
+    lower->params[id_INIT_L20] = Property(LUT_ZERO, 4); // (unused)
+    lower->params[id_INIT_L30] = Property(LUT_ONE, 4);  // zero -> COMP_OUT (L30 is inverted)
 
     upper->params[id_INIT_L00] = Property(LUT_D1, 4);   // PINY1
     upper->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
-    upper->params[id_INIT_L10] = Property(LUT_OR, 4);
+    upper->params[id_INIT_L10] = Property(LUT_D0, 4);   // L00 -> COMB2OUT
 
-    upper->params[id_C_I1] = Property(1, 1); // PINY1 for L00
-    upper->params[id_C_SELX] = Property(1, 1);
-    upper->params[id_C_SEL_P] = Property(1, 1);
-    upper->params[id_C_CX_I] = Property(1, 1);
-    upper->params[id_C_PX_I] = Property(1, 1);
-    upper->params[id_C_PY1_I] = Property(1, 1);
-    upper->params[id_C_PY2_I] = Property(1, 1);
+    upper->params[id_C_I1] = Property(1, 1);    // PINY1 for L00
+    upper->params[id_C_SELX] = Property(1, 1);  // COMB2OUT -> CX_VAL; PINY1 -> PX_VAL
+    upper->params[id_C_SELY1] = Property(0, 1); // COMP_OUT -> PY1_VAL
+    upper->params[id_C_SELY2] = Property(0, 1); // COMP_OUT -> PY2_VAL
+    upper->params[id_C_SEL_P] = Property(1, 1); // PINY1 -> PX_VAL; COMP_OUT -> PY1_VAL; COMP_OUT -> PY2_VAL
+    upper->params[id_C_CX_I] = Property(1, 1);  // CX_VAL -> COUTX
+    upper->params[id_C_PX_I] = Property(1, 1);  // PX_VAL -> POUTX
+    upper->params[id_C_PY1_I] = Property(1, 1); // PY1_VAL -> POUTY1
+    upper->params[id_C_PY2_I] = Property(1, 1); // PY2_VAL -> POUTY2
 
     upper->params[id_C_O2] = Property(0b11, 2); // COMB2 -> OUT2
 }
