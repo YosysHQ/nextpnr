@@ -399,16 +399,26 @@ void GateMatePacker::pack_addf()
         ci_upper->constr_z = -1;
         ci_upper->constr_y = -1;
 
-        CellInfo *ci_lower = create_cell_ptr(id_CPE_CI, ctx->idf("%s$ci", root->name.c_str(ctx)));
+        CellInfo *ci_lower = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$ci", root->name.c_str(ctx)));
         root->constr_children.push_back(ci_lower);
         ci_lower->cluster = root->name;
         ci_lower->constr_abs_z = false;
         ci_lower->constr_y = -1;
-        // TODO: Maybe move this to bitstream gen
-        ci_lower->params[id_C_O1] = Property(0b11, 2);
-        ci_lower->params[id_C_SELY1] = Property(1, 1);
-        ci_lower->params[id_C_CY1_I] = Property(1, 1);
+        ci_lower->params[id_INIT_L00] = Property(0b0000, 4); // zero
         ci_lower->params[id_INIT_L10] = Property(0b1010, 4); // D0
+
+        CellInfo *ci_cplines = create_cell_ptr(id_CPE_CPLINES, ctx->idf("%s$ci_cplines", root->name.c_str(ctx)));
+        ci_cplines->params[id_C_SELY1] = Property(1, 1);
+        ci_cplines->params[id_C_CY1_I] = Property(1, 1);
+        root->constr_children.push_back(ci_cplines);
+        ci_cplines->cluster = root->name;
+        ci_cplines->constr_abs_z = true;
+        ci_cplines->constr_y = -1;
+        ci_cplines->constr_z = CPE_CPLINES_Z;
+        NetInfo *ci_out_conn = ctx->createNet(ctx->idf("%s$out", ci_lower->name.c_str(ctx)));
+        ci_lower->connectPort(id_OUT, ci_out_conn);
+        ci_cplines->connectPort(id_OUT1, ci_out_conn);
+
 
         NetInfo *ci_net = root->getPort(id_CI);
         if (ci_net->name == ctx->id("$PACKER_GND")) {
@@ -423,7 +433,7 @@ void GateMatePacker::pack_addf()
         }
 
         NetInfo *ci_conn = ctx->createNet(ctx->idf("%s$ci_net", root->name.c_str(ctx)));
-        ci_lower->connectPort(id_COUTY1, ci_conn);
+        ci_cplines->connectPort(id_COUTY1, ci_conn);
 
         root->ports[id_CINY1].name = id_CINY1;
         root->ports[id_CINY1].type = PORT_IN;

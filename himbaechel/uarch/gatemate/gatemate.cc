@@ -207,7 +207,7 @@ void GateMateImpl::postPlace()
                 rename_param(cell.second.get(), id_INIT_L03, id_INIT_L01, 4);
                 rename_param(cell.second.get(), id_INIT_L11, id_INIT_L10, 4);
             }
-        } else if (cell.second->type.in(id_CPE_L2T4, id_CPE_CI)) {
+        } else if (cell.second->type.in(id_CPE_L2T4)) {
             Loc l = ctx->getBelLocation(cell.second->bel);
             if (l.z == CPE_LT_L_Z) {
                 if (!cell.second->params.count(id_INIT_L20))
@@ -350,7 +350,7 @@ IdString GateMateImpl::getBelBucketForCellType(IdString cell_type) const
     if (cell_type.in(id_CPE_IBUF, id_CPE_OBUF, id_CPE_TOBUF, id_CPE_IOBUF, id_CPE_LVDS_IBUF, id_CPE_LVDS_TOBUF,
                      id_CPE_LVDS_OBUF, id_CPE_LVDS_IOBUF))
         return id_GPIO;
-    else if (cell_type.in(id_CPE_LT_U, id_CPE_LT_L, id_CPE_LT, id_CPE_L2T4, id_CPE_L2T5_L, id_CPE_L2T5_U, id_CPE_CI))
+    else if (cell_type.in(id_CPE_LT_U, id_CPE_LT_L, id_CPE_LT, id_CPE_L2T4, id_CPE_L2T5_L, id_CPE_L2T5_U))
         return id_CPE_LT;
     else if (cell_type.in(id_CPE_FF_U, id_CPE_FF_L, id_CPE_FF, id_CPE_LATCH))
         return id_CPE_FF;
@@ -381,7 +381,7 @@ bool GateMateImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
     else if (bel_type == id_CPE_LT_U)
         return cell_type.in(id_CPE_LT_U, id_CPE_LT, id_CPE_L2T4, id_CPE_L2T5_U, id_CPE_DUMMY);
     else if (bel_type == id_CPE_LT_L)
-        return cell_type.in(id_CPE_LT_L, id_CPE_LT, id_CPE_L2T4, id_CPE_L2T5_L, id_CPE_CI, id_CPE_DUMMY);
+        return cell_type.in(id_CPE_LT_L, id_CPE_LT, id_CPE_L2T4, id_CPE_L2T5_L, id_CPE_DUMMY);
     else if (bel_type == id_CPE_FF_U)
         return cell_type.in(id_CPE_FF_U, id_CPE_FF, id_CPE_LATCH);
     else if (bel_type == id_CPE_FF_L)

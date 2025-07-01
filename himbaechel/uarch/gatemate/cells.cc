@@ -33,14 +33,14 @@ CellInfo *GateMatePacker::create_cell_ptr(IdString type, IdString name)
         cell->ports[id].name = id;
         cell->ports[id].type = dir;
     };
-    if (type.in(id_CPE_LT, id_CPE_LT_U, id_CPE_LT_L, id_CPE_L2T4, id_CPE_L2T5_U, id_CPE_L2T5_L, id_CPE_CI,
+    if (type.in(id_CPE_LT, id_CPE_LT_U, id_CPE_LT_L, id_CPE_L2T4, id_CPE_L2T5_U, id_CPE_L2T5_L,
                 id_CPE_DUMMY)) {
         add_port(id_IN1, PORT_IN);
         add_port(id_IN2, PORT_IN);
         add_port(id_IN3, PORT_IN);
         add_port(id_IN4, PORT_IN);
         add_port(id_OUT, PORT_OUT);
-        if (type.in(id_CPE_LT_L, id_CPE_L2T5_L, id_CPE_CI)) {
+        if (type.in(id_CPE_LT_L, id_CPE_L2T5_L)) {
             add_port(id_CINX, PORT_IN);
             add_port(id_PINX, PORT_IN);
             add_port(id_CINY1, PORT_IN);
