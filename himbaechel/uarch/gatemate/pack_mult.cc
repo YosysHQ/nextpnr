@@ -48,7 +48,7 @@ struct APassThroughCell
 {
     APassThroughCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, CellInfo *cplines, IdString name);
 
-    void clean_up(Context *ctx);
+    void clean_up_cell(Context *ctx, CellInfo *cell);
 
     CellInfo *lower;
     CellInfo *upper;
@@ -161,7 +161,7 @@ APassThroughCell::APassThroughCell(CellInfo *lower, CellInfo *upper, CellInfo *c
     lower->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
     lower->params[id_INIT_L10] = Property(LUT_D0, 4);   // L02
 
-    comp->params[id_INIT_L30] = Property(LUT_ONE, 4);  // zero -> COMP_OUT (L30 is inverted)
+    comp->params[id_INIT_L30] = Property(LUT_ONE, 4); // zero -> COMP_OUT (L30 is inverted)
 
     upper->params[id_INIT_L00] = Property(LUT_D0, 4);   // IN1
     upper->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
@@ -173,32 +173,18 @@ APassThroughCell::APassThroughCell(CellInfo *lower, CellInfo *upper, CellInfo *c
     cplines->params[id_C_PX_I] = Property(1, 1);  // PX_VAL -> POUTX
 }
 
-void APassThroughCell::clean_up(Context *ctx)
+void APassThroughCell::clean_up_cell(Context *ctx, CellInfo *cell)
 {
-    auto *lower_net = lower->ports.at(id_IN1).net;
-    auto *upper_net = upper->ports.at(id_IN1).net;
+    auto *net = cell->ports.at(id_IN1).net;
 
-    NPNR_ASSERT(lower_net != nullptr);
-    NPNR_ASSERT(upper_net != nullptr);
+    NPNR_ASSERT(net != nullptr);
 
-    {
-        bool net_is_gnd = lower_net->name == ctx->idf("$PACKER_GND");
-        bool net_is_vcc = lower_net->name == ctx->idf("$PACKER_VCC");
-        if (net_is_gnd || net_is_vcc) {
-            lower->params[id_INIT_L00] = Property(LUT_ZERO, 4);
-            lower->params[id_INIT_L10] = Property(LUT_ZERO, 4);
-            lower->disconnectPort(id_IN1);
-        }
-    }
-
-    {
-        bool net_is_gnd = upper_net->name == ctx->idf("$PACKER_GND");
-        bool net_is_vcc = upper_net->name == ctx->idf("$PACKER_VCC");
-        if (net_is_gnd || net_is_vcc) {
-            upper->params[id_INIT_L00] = Property(LUT_ZERO, 4);
-            upper->params[id_INIT_L10] = Property(net_is_vcc ? LUT_ONE : LUT_ZERO, 4);
-            upper->disconnectPort(id_IN1);
-        }
+    bool net_is_gnd = net->name == ctx->idf("$PACKER_GND");
+    bool net_is_vcc = net->name == ctx->idf("$PACKER_VCC");
+    if (net_is_gnd || net_is_vcc) {
+        cell->params[id_INIT_L00] = Property(LUT_ZERO, 4);
+        cell->params[id_INIT_L10] = Property(LUT_ZERO, 4);
+        cell->disconnectPort(id_IN1);
     }
 }
 
@@ -523,10 +509,10 @@ void GateMatePacker::pack_mult()
         // Constrain A passthrough cells.
         for (int a = 0; a < a_width / 2; a++) {
             auto &a_passthru = m.a_passthrus.at(a);
-            constrain_cell(a_passthru.lower,  -1, 4 + a, CPE_LT_L_Z);
-            constrain_cell(a_passthru.upper,  -1, 4 + a, CPE_LT_U_Z);
-            constrain_cell(a_passthru.comp,   -1, 4 + a, CPE_COMP_Z);
-            constrain_cell(a_passthru.cplines,-1, 4 + a, CPE_CPLINES_Z);
+            constrain_cell(a_passthru.lower, -1, 4 + a, CPE_LT_L_Z);
+            constrain_cell(a_passthru.upper, -1, 4 + a, CPE_LT_U_Z);
+            constrain_cell(a_passthru.comp, -1, 4 + a, CPE_COMP_Z);
+            constrain_cell(a_passthru.cplines, -1, 4 + a, CPE_CPLINES_Z);
         }
 
         // Constrain multiplier columns.
@@ -560,54 +546,56 @@ void GateMatePacker::pack_mult()
         m.zero.upper->connectPort(id_OUT, zero_net);
 
         // A input.
-        for (int a = 0; a < a_width; a++) {
-            auto &a_passthru = m.a_passthrus.at(a / 2);
-            auto *cpe_half = (a % 2 == 1) ? a_passthru.upper : a_passthru.lower;
+        for (size_t a = 0; a < m.a_passthrus.size(); a++) {
+            auto &a_passthru = m.a_passthrus.at(a);
 
             // Connect A input passthrough cell.
-            mult->movePortTo(ctx->idf("A[%d]", a), cpe_half, id_IN1);
+            mult->movePortTo(ctx->idf("A[%d]", 2 * a), a_passthru.lower, id_IN1);
+            mult->movePortTo(ctx->idf("A[%d]", 2 * a + 1), a_passthru.upper, id_IN1);
 
-            // Connect A passthrough output to multiplier inputs.
-            auto *a_net = ctx->createNet(ctx->idf("%s$%s$a%d_passthru", cpe_half->name.c_str(ctx),
-                                                  cpe_half->ports.at(id_IN1).net->name.c_str(ctx), a));
-            cpe_half->connectPort(id_OUT, a_net);
+            // Prepare A passthrough nets.
+            auto lower_name = a_passthru.lower->name;
+            auto upper_name = a_passthru.upper->name;
+            auto lower_net_name = a_passthru.lower->ports.at(id_IN1).net->name;
+            auto upper_net_name = a_passthru.upper->ports.at(id_IN1).net->name;
 
-            // This may be GND/VCC; if so, clean it up.
-            if (a % 2 == 1) {
-                a_passthru.clean_up(ctx);
+            auto *lower_net = ctx->createNet(
+                    ctx->idf("%s$%s$a%d_passthru", lower_name.c_str(ctx), lower_net_name.c_str(ctx), 2 * a));
+            a_passthru.lower->connectPort(id_OUT, lower_net);
 
-                auto &mult_row = m.cols.at(0).mults.at(a / 2);
+            auto *upper_net = ctx->createNet(
+                    ctx->idf("%s$%s$a%d_passthru", upper_name.c_str(ctx), upper_net_name.c_str(ctx), 2 * a + 1));
+            a_passthru.upper->connectPort(id_OUT, upper_net);
 
-                auto *so1_net =ctx->createNet(ctx->idf("%s_so1", cpe_half->name.c_str(ctx)));
+            // Inputs may be GND/VCC; if so, clean them up.
+            a_passthru.clean_up_cell(ctx, a_passthru.lower);
+            a_passthru.clean_up_cell(ctx, a_passthru.upper);
+
+            // Connect A passthrough outputs to multiplier inputs.
+            {
+                // sum output connections.
+                auto &mult_row = m.cols.at(0).mults.at(a);
+
+                auto *so1_net = ctx->createNet(ctx->idf("%s$so1", lower_name.c_str(ctx)));
                 a_passthru.cplines->connectPort(id_COUTX, so1_net);
                 mult_row.lower->connectPort(id_CINX, so1_net);
 
-                auto *so2_net =ctx->createNet(ctx->idf("%s_so2", cpe_half->name.c_str(ctx)));
+                auto *so2_net = ctx->createNet(ctx->idf("%s$so2", upper_name.c_str(ctx)));
                 a_passthru.cplines->connectPort(id_POUTX, so2_net);
                 mult_row.lower->connectPort(id_PINX, so2_net);
             }
 
-            for (int b = 0; b < b_width / 2; b++) {
-                {
-                    auto &mult_row = m.cols.at(b).mults.at(a / 2);
-                    auto *mult_cell = (a % 2 == 1) ? mult_row.upper : mult_row.lower;
+            for (size_t b = 0; b < m.cols.size(); b++) {
+                auto &mult_row = m.cols.at(b).mults.at(a);
+                mult_row.lower->connectPort(id_IN1, lower_net);
+                mult_row.upper->connectPort(id_IN1, upper_net);
 
-                    mult_cell->connectPort(id_IN1, a_net);
-                }
-
-                // A upper out signals must also go to the CPE above.
-                if ((a % 2) == 1 && (a / 2) + 1 < (a_width / 2)) {
-                    auto &mult_col = m.cols.at(b);
-                    auto *mult_cell = mult_col.mults.at((a / 2) + 1).lower;
-                    mult_cell->connectPort(id_IN4, a_net); // IN8
-                }
-
-                // constant zero goes to LSB of multipliers.
                 if (a == 0) {
-                    auto &mult_col = m.cols.at(b);
-                    auto *mult_cell = mult_col.mults.at(0).lower;
-
-                    mult_cell->connectPort(id_IN4, zero_net);
+                    mult_row.lower->connectPort(id_IN4, zero_net);
+                } else {
+                    auto &mult_row_below = m.cols.at(b).mults.at(a - 1);
+                    auto *a_net_below = mult_row_below.upper->ports.at(id_IN1).net;
+                    mult_row.lower->connectPort(id_IN4, a_net_below);
                 }
             }
         }
