@@ -243,14 +243,14 @@ CarryGenCell::CarryGenCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, Cel
     lower->params[id_INIT_L20] = Property(is_odd_x ? LUT_OR : LUT_ZERO, 4);
     lower->params[id_C_FUNCTION] = Property(C_EN_CIN, 3);
 
-    comp->params[id_INIT_L30] = Property(LUT_INV_D0, 4); // OUT1 -> COMP_OUT
-
     upper->params[id_INIT_L00] = Property(LUT_ZERO, 4);                        // (unused)
     upper->params[id_INIT_L01] = Property(enable_cinx ? LUT_D1 : LUT_ZERO, 4); // CINX
     upper->params[id_INIT_L10] = Property(LUT_D1, 4);
     upper->params[id_C_I2] = Property(1, 1); // CINX for L01
     upper->params[id_C_I3] = Property(1, 1); // PINY1 for L02
     upper->params[id_C_FUNCTION] = Property(C_EN_CIN, 3);
+
+    comp->params[id_INIT_L30] = Property(LUT_INV_D0, 4); // OUT1 -> COMP_OUT
 
     cplines->params[id_C_PY1_I] = Property(0, 1); // PINY1 -> POUTY1
     cplines->params[id_C_CY1_I] = Property(0, 1); // CINY1 -> COUTY1
@@ -399,7 +399,7 @@ void GateMatePacker::pack_mult()
         auto *a_passthru_upper = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$a_passthru_upper", name.c_str(ctx)));
         auto *a_passthru_comp = create_cell_ptr(id_CPE_COMP, ctx->idf("%s$a_passthru_comp", name.c_str(ctx)));
         auto *a_passthru_lines = create_cell_ptr(id_CPE_CPLINES, ctx->idf("%s$a_passthru_cplines", name.c_str(ctx)));
-        NetInfo *comp_conn = ctx->createNet(ctx->idf("%s$compout", name.c_str(ctx)));
+        NetInfo *comp_conn = ctx->createNet(ctx->idf("%s$a_passthru_comp$compout", name.c_str(ctx)));
         a_passthru_comp->connectPort(id_COMPOUT, comp_conn);
         a_passthru_lines->connectPort(id_COMPOUT, comp_conn);
         return APassThroughCell{a_passthru_lower, a_passthru_upper, a_passthru_comp, a_passthru_lines, name};
@@ -415,10 +415,10 @@ void GateMatePacker::pack_mult()
             auto *b_passthru_upper = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$b_passthru_upper", name.c_str(ctx)));
             auto *b_passthru_lines =
                     create_cell_ptr(id_CPE_CPLINES, ctx->idf("%s$b_passthru_cplines", name.c_str(ctx)));
-            NetInfo *comb1_conn = ctx->createNet(ctx->idf("%s$comb1", name.c_str(ctx)));
+            NetInfo *comb1_conn = ctx->createNet(ctx->idf("%s$b_passthru$comb1", name.c_str(ctx)));
             b_passthru_lower->connectPort(id_OUT, comb1_conn);
             b_passthru_lines->connectPort(id_OUT1, comb1_conn);
-            NetInfo *comb2_conn = ctx->createNet(ctx->idf("%s$comb2", name.c_str(ctx)));
+            NetInfo *comb2_conn = ctx->createNet(ctx->idf("%s$b_passthru$comb2", name.c_str(ctx)));
             b_passthru_upper->connectPort(id_OUT, comb2_conn);
             b_passthru_lines->connectPort(id_OUT2, comb2_conn);
 
@@ -430,6 +430,10 @@ void GateMatePacker::pack_mult()
             auto *carry_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$carry_upper", name.c_str(ctx)));
             auto *carry_comp = create_cell_ptr(id_CPE_COMP, ctx->idf("%s$carry_comp", name.c_str(ctx)));
             auto *carry_lines = create_cell_ptr(id_CPE_CPLINES, ctx->idf("%s$carry_lines", name.c_str(ctx)));
+            NetInfo *comp_conn = ctx->createNet(ctx->idf("%s$carry$compout", name.c_str(ctx)));
+            carry_comp->connectPort(id_COMPOUT, comp_conn);
+            carry_lines->connectPort(id_COMPOUT, comp_conn);
+
             col.carry = CarryGenCell{carry_lower, carry_upper, carry_comp,       carry_lines,
                                      name,        !is_even_x,  carry_enable_cinx};
         }
@@ -443,6 +447,12 @@ void GateMatePacker::pack_mult()
                     create_cell_ptr(id_CPE_COMP, ctx->idf("%s$multf%c_comp", name.c_str(ctx), is_even_x ? 'a' : 'b'));
             auto *multfab_lines = create_cell_ptr(
                     id_CPE_CPLINES, ctx->idf("%s$multf%c_cplines", name.c_str(ctx), is_even_x ? 'a' : 'b'));
+
+            NetInfo *comp_conn =
+                    ctx->createNet(ctx->idf("%s$multf%c$compout", name.c_str(ctx), is_even_x ? 'a' : 'b'));
+            multfab_comp->connectPort(id_COMPOUT, comp_conn);
+            multfab_lines->connectPort(id_COMPOUT, comp_conn);
+
             col.multfab = MultfabCell{multfab_lower, multfab_upper, multfab_comp,       multfab_lines,
                                       name,          is_even_x,     multfab_enable_cinx};
         }
@@ -452,6 +462,11 @@ void GateMatePacker::pack_mult()
             auto *f_route_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$f_route_upper", name.c_str(ctx)));
             auto *f_route_comp = create_cell_ptr(id_CPE_COMP, ctx->idf("%s$f_route_comp", name.c_str(ctx)));
             auto *f_route_lines = create_cell_ptr(id_CPE_CPLINES, ctx->idf("%s$f_route_lines", name.c_str(ctx)));
+
+            NetInfo *comp_conn = ctx->createNet(ctx->idf("%s$f_route$compout", name.c_str(ctx)));
+            f_route_comp->connectPort(id_COMPOUT, comp_conn);
+            f_route_lines->connectPort(id_COMPOUT, comp_conn);
+
             col.f_route = FRoutingCell{f_route_lower, f_route_upper, f_route_comp, f_route_lines, name, is_even_x};
         }
 
@@ -467,6 +482,11 @@ void GateMatePacker::pack_mult()
             auto *msb_route_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$msb_route_upper", name.c_str(ctx)));
             auto *msb_route_comp = create_cell_ptr(id_CPE_COMP, ctx->idf("%s$msb_route_comp", name.c_str(ctx)));
             auto *msb_route_lines = create_cell_ptr(id_CPE_CPLINES, ctx->idf("%s$msb_route_lines", name.c_str(ctx)));
+
+            NetInfo *comp_conn = ctx->createNet(ctx->idf("%s$msb_route$compout", name.c_str(ctx)));
+            msb_route_comp->connectPort(id_COMPOUT, comp_conn);
+            msb_route_lines->connectPort(id_COMPOUT, comp_conn);
+
             col.msb_route = MsbRoutingCell{msb_route_lower, msb_route_upper, msb_route_comp, msb_route_lines, name};
         }
 
