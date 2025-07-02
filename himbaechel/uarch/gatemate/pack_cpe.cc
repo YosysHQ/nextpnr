@@ -419,7 +419,6 @@ void GateMatePacker::pack_addf()
         ci_lower->connectPort(id_OUT, ci_out_conn);
         ci_cplines->connectPort(id_OUT1, ci_out_conn);
 
-
         NetInfo *ci_net = root->getPort(id_CI);
         if (ci_net->name == ctx->id("$PACKER_GND")) {
             ci_lower->params[id_INIT_L00] = Property(0b0000, 4);

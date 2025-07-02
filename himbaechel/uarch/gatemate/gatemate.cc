@@ -196,7 +196,8 @@ void GateMateImpl::postPlace()
     std::vector<IdString> delete_cells;
     for (auto &cell : ctx->cells) {
         /// TODO: Remove this section when pack_mult is cleaned
-        if (cell.second->type.in(id_CPE_LT_L,id_CPE_LT_U) && int_or_default(cell.second->params, id_C_FUNCTION, 0)==0) {
+        if (cell.second->type.in(id_CPE_LT_L, id_CPE_LT_U) &&
+            int_or_default(cell.second->params, id_C_FUNCTION, 0) == 0) {
             Loc l = ctx->getBelLocation(cell.second->bel);
             if (l.z == CPE_LT_L_Z) {
                 if (!cell.second->params.count(id_INIT_L20))
@@ -411,7 +412,8 @@ struct GateMateArch : HimbaechelArch
     {
         return device.size() > 6 && device.substr(0, 6) == "CCGM1A";
     }
-    std::unique_ptr<HimbaechelAPI> create(const std::string &device, const dict<std::string, std::string> &args) override
+    std::unique_ptr<HimbaechelAPI> create(const std::string &device,
+                                          const dict<std::string, std::string> &args) override
     {
         return std::make_unique<GateMateImpl>();
     }

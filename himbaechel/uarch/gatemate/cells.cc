@@ -33,8 +33,7 @@ CellInfo *GateMatePacker::create_cell_ptr(IdString type, IdString name)
         cell->ports[id].name = id;
         cell->ports[id].type = dir;
     };
-    if (type.in(id_CPE_LT, id_CPE_LT_U, id_CPE_LT_L, id_CPE_L2T4, id_CPE_L2T5_U, id_CPE_L2T5_L,
-                id_CPE_DUMMY)) {
+    if (type.in(id_CPE_LT, id_CPE_LT_U, id_CPE_LT_L, id_CPE_L2T4, id_CPE_L2T5_U, id_CPE_L2T5_L, id_CPE_DUMMY)) {
         add_port(id_IN1, PORT_IN);
         add_port(id_IN2, PORT_IN);
         add_port(id_IN3, PORT_IN);
@@ -48,8 +47,8 @@ CellInfo *GateMatePacker::create_cell_ptr(IdString type, IdString name)
             add_port(id_CINY2, PORT_IN);
             add_port(id_PINY2, PORT_IN);
 
-            add_port(id_COUTX,  PORT_OUT);
-            add_port(id_POUTX,  PORT_OUT);
+            add_port(id_COUTX, PORT_OUT);
+            add_port(id_POUTX, PORT_OUT);
             add_port(id_COUTY1, PORT_OUT);
             add_port(id_POUTY1, PORT_OUT);
             add_port(id_COUTY2, PORT_OUT);
@@ -97,8 +96,8 @@ CellInfo *GateMatePacker::create_cell_ptr(IdString type, IdString name)
         add_port(id_CINY2, PORT_IN);
         add_port(id_PINY2, PORT_IN);
 
-        add_port(id_COUTX,  PORT_OUT);
-        add_port(id_POUTX,  PORT_OUT);
+        add_port(id_COUTX, PORT_OUT);
+        add_port(id_POUTX, PORT_OUT);
         add_port(id_COUTY1, PORT_OUT);
         add_port(id_POUTY1, PORT_OUT);
         add_port(id_COUTY2, PORT_OUT);

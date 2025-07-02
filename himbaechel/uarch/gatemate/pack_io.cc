@@ -327,8 +327,7 @@ void GateMatePacker::pack_io_sel()
     }
 
     std::vector<std::array<std::pair<CellInfo *, CellInfo *>, 9>> ddr(
-        uarch->dies, std::array<std::pair<CellInfo *, CellInfo *>, 9>{}
-    );
+            uarch->dies, std::array<std::pair<CellInfo *, CellInfo *>, 9>{});
     auto set_out_clk = [&](CellInfo *cell, CellInfo *target) -> bool {
         NetInfo *clk_net = cell->getPort(id_CLK);
         if (clk_net) {
