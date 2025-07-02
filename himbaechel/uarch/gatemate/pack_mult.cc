@@ -448,8 +448,7 @@ void GateMatePacker::pack_mult()
             auto *multfab_lines = create_cell_ptr(
                     id_CPE_CPLINES, ctx->idf("%s$multf%c_cplines", name.c_str(ctx), is_even_x ? 'a' : 'b'));
 
-            NetInfo *comp_conn =
-                    ctx->createNet(ctx->idf("%s$multf%c$compout", name.c_str(ctx), is_even_x ? 'a' : 'b'));
+            NetInfo *comp_conn = ctx->createNet(ctx->idf("%s$multf%c$compout", name.c_str(ctx), is_even_x ? 'a' : 'b'));
             multfab_comp->connectPort(id_COMPOUT, comp_conn);
             multfab_lines->connectPort(id_COMPOUT, comp_conn);
 
