@@ -634,7 +634,7 @@ void GateMatePacker::pack_mult()
                 // sum output connections.
                 auto &mult_row = m.cols.at(0).mults.at(a);
 
-                auto *so1_net = ctx->createNet(ctx->idf("%s$so1", lower_name.c_str(ctx)));
+                auto *so1_net = ctx->createNet(ctx->idf("%s$so1", upper_name.c_str(ctx)));
                 a_passthru.cplines->connectPort(id_COUTX, so1_net);
                 mult_row.lower->connectPort(id_CINX, so1_net);
 
@@ -659,23 +659,16 @@ void GateMatePacker::pack_mult()
         }
 
         // B input.
-        for (int b = 0; b < b_width; b++) {
-            auto &b_passthru = m.cols.at(b / 2).b_passthru;
-            auto *cpe_half = (b % 2 == 1) ? b_passthru.upper : b_passthru.lower;
+        for (size_t b = 0; b < m.cols.size(); b++) {
+            auto &b_passthru = m.cols.at(b).b_passthru;
 
             // Connect B input passthrough cell.
-            mult->movePortTo(ctx->idf("B[%d]", b), cpe_half, id_IN1);
+            mult->movePortTo(ctx->idf("B[%d]", 2 * b), b_passthru.upper, id_IN1);
+            mult->movePortTo(ctx->idf("B[%d]", 2 * b + 1), b_passthru.lower, id_IN1);
 
             // This may be GND/VCC; if so, clean it up.
-            if (b % 2 == 1) {
-                b_passthru.clean_up_cell(ctx, b_passthru.lower);
-                b_passthru.clean_up_cell(ctx, b_passthru.upper);
-            }
-        }
-        {
-            auto &b_passthru = m.cols.back().b_passthru;
-            mult->copyPortTo(ctx->idf("B[%d]", b_width - 1), b_passthru.upper, id_IN1);
-            mult->copyPortTo(ctx->idf("B[%d]", b_width - 1), b_passthru.lower, id_IN1);
+            b_passthru.clean_up_cell(ctx, b_passthru.lower);
+            b_passthru.clean_up_cell(ctx, b_passthru.upper);
         }
 
         // P output.
