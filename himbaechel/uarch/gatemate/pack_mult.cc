@@ -59,13 +59,14 @@ struct APassThroughCell
 // Propagate B0 through POUTY1 and B1 through COUTY1
 struct BPassThroughCell
 {
-    BPassThroughCell() : lower{nullptr}, upper{nullptr} {}
-    BPassThroughCell(CellInfo *lower, CellInfo *upper, IdString name);
+    BPassThroughCell() : lower{nullptr}, upper{nullptr}, cplines{nullptr} {}
+    BPassThroughCell(CellInfo *lower, CellInfo *upper, CellInfo *cplines, IdString name);
 
-    void clean_up(Context *ctx);
+    void clean_up_cell(Context *ctx, CellInfo *cell);
 
     CellInfo *lower;
     CellInfo *upper;
+    CellInfo *cplines;
 };
 
 // TODO: Micko points out this is an L2T4 CPE_HALF
@@ -183,57 +184,41 @@ void APassThroughCell::clean_up_cell(Context *ctx, CellInfo *cell)
     bool net_is_vcc = net->name == ctx->idf("$PACKER_VCC");
     if (net_is_gnd || net_is_vcc) {
         cell->params[id_INIT_L00] = Property(LUT_ZERO, 4);
-        cell->params[id_INIT_L10] = Property(LUT_ZERO, 4);
+        cell->params[id_INIT_L10] = Property(net_is_vcc ? LUT_ONE : LUT_ZERO, 4);
         cell->disconnectPort(id_IN1);
     }
 }
 
 // B0 -> POUTY1; B1 -> COUTY1
-BPassThroughCell::BPassThroughCell(CellInfo *lower, CellInfo *upper, IdString name) : lower{lower}, upper{upper}
+BPassThroughCell::BPassThroughCell(CellInfo *lower, CellInfo *upper, CellInfo *cplines, IdString name) : lower{lower}, upper{upper}, cplines(cplines)
 {
-    lower->params[id_INIT_L02] = Property(LUT_D0, 4);   // IN5
-    lower->params[id_INIT_L03] = Property(LUT_ZERO, 4); // (unused)
-    lower->params[id_INIT_L11] = Property(LUT_D0, 4);   // L02
-    lower->params[id_INIT_L20] = Property(LUT_D1, 4);   // L11 -> COMB1OUT
+    lower->params[id_INIT_L00] = Property(LUT_D0, 4);   // IN5
+    lower->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
+    lower->params[id_INIT_L10] = Property(LUT_D0, 4);   // L02
 
     upper->params[id_INIT_L00] = Property(LUT_D0, 4);   // IN1
     upper->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
     upper->params[id_INIT_L10] = Property(LUT_D0, 4);   // L00 -> COMB2OUT
 
-    upper->params[id_C_SEL_C] = Property(0, 1); // COMB2OUT -> CY1_VAL
-    upper->params[id_C_SEL_P] = Property(0, 1); // COMB1OUT -> PY1_VAL
-    upper->params[id_C_SELY1] = Property(0, 1); // COMB1OUT -> PY1_VAL; COMB2OUT -> CY1_VAL
-    upper->params[id_C_CY1_I] = Property(1, 1); // CY1_VAL -> COUTY1
-    upper->params[id_C_PY1_I] = Property(1, 1); // PY1_VAL -> POUTY1
-
-    upper->params[id_C_O1] = Property(0b11, 2); // COMB1OUT -> OUT1
-    upper->params[id_C_O2] = Property(0b11, 2); // COMB2OUT -> OUT2
+    cplines->params[id_C_SEL_C] = Property(0, 1); // COMB2OUT -> CY1_VAL
+    cplines->params[id_C_SEL_P] = Property(0, 1); // COMB1OUT -> PY1_VAL
+    cplines->params[id_C_SELY1] = Property(0, 1); // COMB1OUT -> PY1_VAL; COMB2OUT -> CY1_VAL
+    cplines->params[id_C_CY1_I] = Property(1, 1); // CY1_VAL -> COUTY1
+    cplines->params[id_C_PY1_I] = Property(1, 1); // PY1_VAL -> POUTY1
 }
 
-void BPassThroughCell::clean_up(Context *ctx)
+void BPassThroughCell::clean_up_cell(Context *ctx, CellInfo *cell)
 {
-    auto *lower_net = lower->ports.at(id_IN1).net;
-    auto *upper_net = upper->ports.at(id_IN1).net;
+    auto *net = cell->ports.at(id_IN1).net;
 
-    if (lower_net) {
-        bool net_is_gnd = lower_net->name == ctx->idf("$PACKER_GND");
-        bool net_is_vcc = lower_net->name == ctx->idf("$PACKER_VCC");
-        if (net_is_gnd || net_is_vcc) {
-            lower->params[id_INIT_L02] = Property(LUT_ZERO, 4);
-            lower->params[id_INIT_L11] = Property(LUT_ZERO, 4);
-            lower->params[id_INIT_L20] = Property(net_is_vcc ? LUT_ONE : LUT_ZERO, 4);
-            lower->disconnectPort(id_IN1);
-        }
-    }
+    NPNR_ASSERT(net != nullptr);
 
-    if (upper_net) {
-        bool net_is_gnd = upper_net->name == ctx->idf("$PACKER_GND");
-        bool net_is_vcc = upper_net->name == ctx->idf("$PACKER_VCC");
-        if (net_is_gnd || net_is_vcc) {
-            upper->params[id_INIT_L00] = Property(LUT_ZERO, 4);
-            upper->params[id_INIT_L10] = Property(net_is_vcc ? LUT_ONE : LUT_ZERO, 4);
-            upper->disconnectPort(id_IN1);
-        }
+    bool net_is_gnd = net->name == ctx->idf("$PACKER_GND");
+    bool net_is_vcc = net->name == ctx->idf("$PACKER_VCC");
+    if (net_is_gnd || net_is_vcc) {
+        cell->params[id_INIT_L00] = Property(LUT_ZERO, 4);
+        cell->params[id_INIT_L10] = Property(net_is_vcc ? LUT_ONE : LUT_ZERO, 4);
+        cell->disconnectPort(id_IN1);
     }
 }
 
@@ -405,9 +390,17 @@ void GateMatePacker::pack_mult()
         auto col = MultiplierColumn{};
 
         {
-            auto *b_passthru_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$b_passthru_lower", name.c_str(ctx)));
-            auto *b_passthru_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$b_passthru_upper", name.c_str(ctx)));
-            col.b_passthru = BPassThroughCell{b_passthru_lower, b_passthru_upper, name};
+            auto *b_passthru_lower = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$b_passthru_lower", name.c_str(ctx)));
+            auto *b_passthru_upper = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$b_passthru_upper", name.c_str(ctx)));
+            auto *b_passthru_lines = create_cell_ptr(id_CPE_CPLINES, ctx->idf("%s$b_passthru_cplines", name.c_str(ctx)));
+            NetInfo *comb1_conn = ctx->createNet(ctx->idf("%s$comb1", name.c_str(ctx)));
+            b_passthru_lower->connectPort(id_OUT, comb1_conn);
+            b_passthru_lines->connectPort(id_OUT1, comb1_conn);
+            NetInfo *comb2_conn = ctx->createNet(ctx->idf("%s$comb2", name.c_str(ctx)));
+            b_passthru_upper->connectPort(id_OUT, comb2_conn);
+            b_passthru_lines->connectPort(id_OUT2, comb2_conn);
+
+            col.b_passthru = BPassThroughCell{b_passthru_lower, b_passthru_upper, b_passthru_lines, name};
         }
 
         {
@@ -488,8 +481,11 @@ void GateMatePacker::pack_mult()
 
         // Step 2: constrain them together.
         // We define (0, 0) to be the B passthrough cell of column 1.
+        // we also constrain it to proper Z location
         auto *root = m.cols[0].b_passthru.upper;
         root->cluster = root->name;
+        root->constr_abs_z = true;
+        root->constr_z = CPE_LT_U_Z;
 
         auto constrain_cell = [&](CellInfo *cell, int x_offset, int y_offset, int z_offset) {
             if (cell == root)
@@ -520,6 +516,7 @@ void GateMatePacker::pack_mult()
             auto &col = m.cols.at(b);
             constrain_cell(col.b_passthru.lower, b, b, CPE_LT_L_Z);
             constrain_cell(col.b_passthru.upper, b, b, CPE_LT_U_Z);
+            constrain_cell(col.b_passthru.cplines, b, b, CPE_CPLINES_Z);
 
             constrain_cell(col.carry.lower, b, b + 1, CPE_LT_L_Z);
             constrain_cell(col.carry.upper, b, b + 1, CPE_LT_U_Z);
@@ -609,8 +606,10 @@ void GateMatePacker::pack_mult()
             mult->movePortTo(ctx->idf("B[%d]", b), cpe_half, id_IN1);
 
             // This may be GND/VCC; if so, clean it up.
-            if (b % 2 == 1)
-                b_passthru.clean_up(ctx);
+            if (b % 2 == 1) {
+                b_passthru.clean_up_cell(ctx, b_passthru.lower);
+                b_passthru.clean_up_cell(ctx, b_passthru.upper);
+            }
         }
         {
             auto &b_passthru = m.cols.back().b_passthru;
