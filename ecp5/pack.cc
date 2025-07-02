@@ -1498,33 +1498,38 @@ class Ecp5Packer
                 available_plls.erase(ctx->getBelByNameStr(ci->attrs.at(id_BEL).as_string()));
         }
         // Place PLL connected to fixed drivers such as IO close to their source
-        for (auto &cell : ctx->cells) {
-            CellInfo *ci = cell.second.get();
-            if (ci->type == id_EHXPLLL && !ci->attrs.count(id_BEL)) {
-                const NetInfo *drivernet = ci->getPort(id_CLKI);
-                if (drivernet == nullptr || drivernet->driver.cell == nullptr)
-                    continue;
-                const CellInfo *drivercell = drivernet->driver.cell;
-                if (!drivercell->attrs.count(id_BEL))
-                    continue;
-                BelId drvbel = ctx->getBelByNameStr(drivercell->attrs.at(id_BEL).as_string());
-                Loc drvloc = ctx->getBelLocation(drvbel);
-                BelId closest_pll;
-                int closest_distance = std::numeric_limits<int>::max();
-                for (auto bel : available_plls) {
-                    Loc pllloc = ctx->getBelLocation(bel);
-                    int distance = std::abs(drvloc.x - pllloc.x) + std::abs(drvloc.y - pllloc.y);
-                    if (distance < closest_distance) {
-                        closest_pll = bel;
-                        closest_distance = distance;
+        bool did_something = false;
+        do {
+            did_something = false;
+            for (auto &cell : ctx->cells) {
+                CellInfo *ci = cell.second.get();
+                if (ci->type == id_EHXPLLL && !ci->attrs.count(id_BEL)) {
+                    const NetInfo *drivernet = ci->getPort(id_CLKI);
+                    if (drivernet == nullptr || drivernet->driver.cell == nullptr)
+                        continue;
+                    const CellInfo *drivercell = drivernet->driver.cell;
+                    if (!drivercell->attrs.count(id_BEL))
+                        continue;
+                    BelId drvbel = ctx->getBelByNameStr(drivercell->attrs.at(id_BEL).as_string());
+                    Loc drvloc = ctx->getBelLocation(drvbel);
+                    BelId closest_pll;
+                    int closest_distance = std::numeric_limits<int>::max();
+                    for (auto bel : available_plls) {
+                        Loc pllloc = ctx->getBelLocation(bel);
+                        int distance = 2 * std::abs(drvloc.x - pllloc.x) + std::abs(drvloc.y - pllloc.y);
+                        if (distance < closest_distance) {
+                            closest_pll = bel;
+                            closest_distance = distance;
+                        }
                     }
+                    if (closest_pll == BelId())
+                        log_error("failed to place PLL '%s'\n", ci->name.c_str(ctx));
+                    available_plls.erase(closest_pll);
+                    ci->attrs[id_BEL] = ctx->getBelName(closest_pll).str(ctx);
+                    did_something = true;
                 }
-                if (closest_pll == BelId())
-                    log_error("failed to place PLL '%s'\n", ci->name.c_str(ctx));
-                available_plls.erase(closest_pll);
-                ci->attrs[id_BEL] = ctx->getBelName(closest_pll).str(ctx);
             }
-        }
+        } while (did_something);
         // Place PLLs driven by logic, etc, randomly
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
@@ -1773,6 +1778,28 @@ class Ecp5Packer
             return 59;
         else
             log_error("Unsupported DEL_MODE '%s'\n", del_mode.c_str());
+    }
+
+    std::vector<BelId> get_pll_eclkbs(WireId pll_clkfb)
+    {
+        std::vector<BelId> result;
+        std::queue<std::pair<WireId, int>> visit;
+        visit.emplace(pll_clkfb, 0);
+        while (!visit.empty()) {
+            auto top = visit.front();
+            visit.pop();
+            for (auto belpin : ctx->getWireBelPins(top.first)) {
+                if (ctx->getBelType(belpin.bel) == id_ECLKSYNCB && belpin.pin == id_ECLKO) {
+                    result.push_back(belpin.bel);
+                }
+            }
+            if (top.second > 6) // depth limit
+                break;
+            for (auto pip : ctx->getPipsUphill(top.first)) {
+                visit.emplace(ctx->getPipSrcWire(pip), top.second + 1);
+            }
+        }
+        return result;
     }
 
     // Pack IOLOGIC
@@ -2510,6 +2537,7 @@ class Ecp5Packer
                         }
                     }
                 }
+
             eclksync_done:
                 continue;
             } else if (ci->type == id_DDRDLLA) {
@@ -2578,6 +2606,24 @@ class Ecp5Packer
                 // Most will be dealt with above, but there might be some rogue cases
                 if (ci->attrs.count(id_BEL))
                     continue;
+                const NetInfo *eclko = ci->getPort(id_ECLKO);
+                if (eclko) {
+                    // Look at the path to PLL CLKFB (apparently used by Lattice wizard for DDR71)
+                    for (auto user : eclko->users) {
+                        if (user.cell->type == id_EHXPLLL && user.port == id_CLKFB && user.cell->attrs.count(id_BEL)) {
+                            BelId pll_bel = ctx->getBelByNameStr(user.cell->attrs.at(id_BEL).as_string());
+                            WireId clkfb_wire = ctx->getBelPinWire(pll_bel, user.port);
+                            for (auto bel : get_pll_eclkbs(clkfb_wire)) {
+                                if (used_eclksyncb.count(bel))
+                                    continue;
+                                log_info("Constraining ECLKSYNCB '%s' to bel '%s' based on CLKFB routing\n",
+                                         ctx->nameOf(ci), ctx->nameOfBel(bel));
+                                ci->attrs[id_BEL] = ctx->getBelName(bel).str(ctx);
+                                goto eclksync_ii_done;
+                            }
+                        }
+                    }
+                }
                 for (BelId bel : ctx->getBels()) {
                     if (ctx->getBelType(bel) != id_ECLKSYNCB)
                         continue;
