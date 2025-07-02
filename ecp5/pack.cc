@@ -1498,33 +1498,38 @@ class Ecp5Packer
                 available_plls.erase(ctx->getBelByNameStr(ci->attrs.at(id_BEL).as_string()));
         }
         // Place PLL connected to fixed drivers such as IO close to their source
-        for (auto &cell : ctx->cells) {
-            CellInfo *ci = cell.second.get();
-            if (ci->type == id_EHXPLLL && !ci->attrs.count(id_BEL)) {
-                const NetInfo *drivernet = ci->getPort(id_CLKI);
-                if (drivernet == nullptr || drivernet->driver.cell == nullptr)
-                    continue;
-                const CellInfo *drivercell = drivernet->driver.cell;
-                if (!drivercell->attrs.count(id_BEL))
-                    continue;
-                BelId drvbel = ctx->getBelByNameStr(drivercell->attrs.at(id_BEL).as_string());
-                Loc drvloc = ctx->getBelLocation(drvbel);
-                BelId closest_pll;
-                int closest_distance = std::numeric_limits<int>::max();
-                for (auto bel : available_plls) {
-                    Loc pllloc = ctx->getBelLocation(bel);
-                    int distance = std::abs(drvloc.x - pllloc.x) + std::abs(drvloc.y - pllloc.y);
-                    if (distance < closest_distance) {
-                        closest_pll = bel;
-                        closest_distance = distance;
+        bool did_something = false;
+        do {
+            did_something = false;
+            for (auto &cell : ctx->cells) {
+                CellInfo *ci = cell.second.get();
+                if (ci->type == id_EHXPLLL && !ci->attrs.count(id_BEL)) {
+                    const NetInfo *drivernet = ci->getPort(id_CLKI);
+                    if (drivernet == nullptr || drivernet->driver.cell == nullptr)
+                        continue;
+                    const CellInfo *drivercell = drivernet->driver.cell;
+                    if (!drivercell->attrs.count(id_BEL))
+                        continue;
+                    BelId drvbel = ctx->getBelByNameStr(drivercell->attrs.at(id_BEL).as_string());
+                    Loc drvloc = ctx->getBelLocation(drvbel);
+                    BelId closest_pll;
+                    int closest_distance = std::numeric_limits<int>::max();
+                    for (auto bel : available_plls) {
+                        Loc pllloc = ctx->getBelLocation(bel);
+                        int distance = 2 * std::abs(drvloc.x - pllloc.x) + std::abs(drvloc.y - pllloc.y);
+                        if (distance < closest_distance) {
+                            closest_pll = bel;
+                            closest_distance = distance;
+                        }
                     }
+                    if (closest_pll == BelId())
+                        log_error("failed to place PLL '%s'\n", ci->name.c_str(ctx));
+                    available_plls.erase(closest_pll);
+                    ci->attrs[id_BEL] = ctx->getBelName(closest_pll).str(ctx);
+                    did_something = true;
                 }
-                if (closest_pll == BelId())
-                    log_error("failed to place PLL '%s'\n", ci->name.c_str(ctx));
-                available_plls.erase(closest_pll);
-                ci->attrs[id_BEL] = ctx->getBelName(closest_pll).str(ctx);
             }
-        }
+        } while (did_something);
         // Place PLLs driven by logic, etc, randomly
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
