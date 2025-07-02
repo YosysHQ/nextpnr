@@ -112,11 +112,12 @@ struct FRoutingCell
 // CITE: CPE_MULT.pdf
 struct MultCell
 {
-    MultCell() : lower{nullptr}, upper{nullptr} {}
-    MultCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_msb);
+    MultCell() : lower{nullptr}, upper{nullptr}, cplines{nullptr} {}
+    MultCell(CellInfo *lower, CellInfo *upper, CellInfo *cplines, IdString name, bool is_msb);
 
     CellInfo *lower;
     CellInfo *upper;
+    CellInfo *cplines;
 };
 
 // CITE: CPE_ges_MSB-routing.pdf
@@ -201,7 +202,7 @@ void APassThroughCell::clean_up_cell(Context *ctx, CellInfo *cell)
 
 // B0 -> POUTY1; B1 -> COUTY1
 BPassThroughCell::BPassThroughCell(CellInfo *lower, CellInfo *upper, CellInfo *cplines, IdString name)
-        : lower{lower}, upper{upper}, cplines(cplines)
+        : lower{lower}, upper{upper}, cplines{cplines}
 {
     lower->params[id_INIT_L00] = Property(LUT_D0, 4);   // IN5
     lower->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
@@ -308,7 +309,7 @@ FRoutingCell::FRoutingCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, Cel
     lower->params[id_INIT_L20] = Property(LUT_D1, 4);
     lower->params[id_C_FUNCTION] = Property(C_ADDCIN, 3);
 
-    comp->params[id_INIT_L30] = Property(is_even_x ? LUT_ONE : LUT_INV_D1, 4); // OUT1 -> COMP_OUT
+    comp->params[id_INIT_L30] = Property(is_even_x ? LUT_ONE : LUT_INV_D1, 4); // L10 -> COMP_OUT
 
     upper->params[id_INIT_L00] = Property(LUT_D1, 4);  // PINY1
     upper->params[id_INIT_L01] = Property(LUT_ONE, 4); // (unused)
@@ -329,7 +330,8 @@ FRoutingCell::FRoutingCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, Cel
     upper->params[id_C_O2] = Property(0b11, 2); // COMB2OUT -> OUT2
 }
 
-MultCell::MultCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_msb) : lower{lower}, upper{upper}
+MultCell::MultCell(CellInfo *lower, CellInfo *upper, CellInfo *cplines, IdString name, bool is_msb)
+        : lower{lower}, upper{upper}, cplines{cplines}
 {
     lower->params[id_INIT_L02] = Property(LUT_AND, 4);
     lower->params[id_INIT_L03] = Property(LUT_D1, 4); // PINX
@@ -348,8 +350,11 @@ MultCell::MultCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_msb)
     upper->params[id_C_FUNCTION] = Property(C_MULT, 3);
 
     if (is_msb) {
-        upper->params[id_C_PY1_I] = Property(1, 1);
-        upper->params[id_C_C_P] = Property(1, 1);
+        cplines->params[id_C_PY1_I] = Property(1, 1);
+        cplines->params[id_C_C_P] = Property(1, 1); // TODO: check with Micko
+    } else {
+        cplines->params[id_C_PY1_I] = Property(0, 1);
+        cplines->params[id_C_C_P] = Property(0, 1); // TODO: check with Micko
     }
 
     upper->params[id_C_O1] = Property(0b10, 2); // CP_OUT1 -> OUT1
@@ -399,9 +404,11 @@ void GateMatePacker::pack_mult()
         auto *a_passthru_upper = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$a_passthru_upper", name.c_str(ctx)));
         auto *a_passthru_comp = create_cell_ptr(id_CPE_COMP, ctx->idf("%s$a_passthru_comp", name.c_str(ctx)));
         auto *a_passthru_lines = create_cell_ptr(id_CPE_CPLINES, ctx->idf("%s$a_passthru_cplines", name.c_str(ctx)));
+
         NetInfo *comp_conn = ctx->createNet(ctx->idf("%s$a_passthru_comp$compout", name.c_str(ctx)));
         a_passthru_comp->connectPort(id_COMPOUT, comp_conn);
         a_passthru_lines->connectPort(id_COMPOUT, comp_conn);
+
         return APassThroughCell{a_passthru_lower, a_passthru_upper, a_passthru_comp, a_passthru_lines, name};
     };
 
@@ -415,6 +422,7 @@ void GateMatePacker::pack_mult()
             auto *b_passthru_upper = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$b_passthru_upper", name.c_str(ctx)));
             auto *b_passthru_lines =
                     create_cell_ptr(id_CPE_CPLINES, ctx->idf("%s$b_passthru_cplines", name.c_str(ctx)));
+
             NetInfo *comb1_conn = ctx->createNet(ctx->idf("%s$b_passthru$comb1", name.c_str(ctx)));
             b_passthru_lower->connectPort(id_OUT, comb1_conn);
             b_passthru_lines->connectPort(id_OUT1, comb1_conn);
@@ -430,9 +438,14 @@ void GateMatePacker::pack_mult()
             auto *carry_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$carry_upper", name.c_str(ctx)));
             auto *carry_comp = create_cell_ptr(id_CPE_COMP, ctx->idf("%s$carry_comp", name.c_str(ctx)));
             auto *carry_lines = create_cell_ptr(id_CPE_CPLINES, ctx->idf("%s$carry_lines", name.c_str(ctx)));
-            NetInfo *comp_conn = ctx->createNet(ctx->idf("%s$carry$compout", name.c_str(ctx)));
-            carry_comp->connectPort(id_COMPOUT, comp_conn);
-            carry_lines->connectPort(id_COMPOUT, comp_conn);
+
+            NetInfo *comp_in = ctx->createNet(ctx->idf("%s$carry$comp_in", name.c_str(ctx)));
+            carry_lower->connectPort(id_OUT, comp_in);
+            carry_comp->connectPort(id_COMB1, comp_in);
+
+            NetInfo *comp_out = ctx->createNet(ctx->idf("%s$carry$comp_out", name.c_str(ctx)));
+            carry_comp->connectPort(id_COMPOUT, comp_out);
+            carry_lines->connectPort(id_COMPOUT, comp_out);
 
             col.carry = CarryGenCell{carry_lower, carry_upper, carry_comp,       carry_lines,
                                      name,        !is_even_x,  carry_enable_cinx};
@@ -448,9 +461,13 @@ void GateMatePacker::pack_mult()
             auto *multfab_lines = create_cell_ptr(
                     id_CPE_CPLINES, ctx->idf("%s$multf%c_cplines", name.c_str(ctx), is_even_x ? 'a' : 'b'));
 
-            NetInfo *comp_conn = ctx->createNet(ctx->idf("%s$multf%c$compout", name.c_str(ctx), is_even_x ? 'a' : 'b'));
-            multfab_comp->connectPort(id_COMPOUT, comp_conn);
-            multfab_lines->connectPort(id_COMPOUT, comp_conn);
+            NetInfo *comp_in = ctx->createNet(ctx->idf("%s$multf%c$comp_in", name.c_str(ctx), is_even_x ? 'a' : 'b'));
+            multfab_upper->connectPort(id_OUT, comp_in);
+            multfab_comp->connectPort(id_COMB2, comp_in);
+
+            NetInfo *comp_out = ctx->createNet(ctx->idf("%s$multf%c$comp_out", name.c_str(ctx), is_even_x ? 'a' : 'b'));
+            multfab_comp->connectPort(id_COMPOUT, comp_out);
+            multfab_lines->connectPort(id_COMPOUT, comp_out);
 
             col.multfab = MultfabCell{multfab_lower, multfab_upper, multfab_comp,       multfab_lines,
                                       name,          is_even_x,     multfab_enable_cinx};
@@ -462,9 +479,16 @@ void GateMatePacker::pack_mult()
             auto *f_route_comp = create_cell_ptr(id_CPE_COMP, ctx->idf("%s$f_route_comp", name.c_str(ctx)));
             auto *f_route_lines = create_cell_ptr(id_CPE_CPLINES, ctx->idf("%s$f_route_lines", name.c_str(ctx)));
 
-            NetInfo *comp_conn = ctx->createNet(ctx->idf("%s$f_route$compout", name.c_str(ctx)));
-            f_route_comp->connectPort(id_COMPOUT, comp_conn);
-            f_route_lines->connectPort(id_COMPOUT, comp_conn);
+            if (!is_even_x) {
+                NetInfo *comp_in = ctx->createNet(ctx->idf("%s$f_route$comp_in", name.c_str(ctx)));
+                ;
+                f_route_upper->connectPort(id_OUT, comp_in);
+                f_route_comp->connectPort(id_COMB2, comp_in);
+            }
+
+            NetInfo *comp_out = ctx->createNet(ctx->idf("%s$f_route$comp_out", name.c_str(ctx)));
+            f_route_comp->connectPort(id_COMPOUT, comp_out);
+            f_route_lines->connectPort(id_COMPOUT, comp_out);
 
             col.f_route = FRoutingCell{f_route_lower, f_route_upper, f_route_comp, f_route_lines, name, is_even_x};
         }
@@ -472,7 +496,9 @@ void GateMatePacker::pack_mult()
         for (int i = 0; i < (a_width / 2); i++) {
             auto *mult_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$row%d$mult_lower", name.c_str(ctx), i));
             auto *mult_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$row%d$mult_upper", name.c_str(ctx), i));
-            col.mults.push_back(MultCell{mult_lower, mult_upper, name, i == ((a_width / 2) - 1)});
+            auto *mult_lines = create_cell_ptr(id_CPE_CPLINES, ctx->idf("%s$row%d$mult_lines", name.c_str(ctx), i));
+
+            col.mults.push_back(MultCell{mult_lower, mult_upper, mult_lines, name, i == ((a_width / 2) - 1)});
             uarch->multipliers.push_back(mult_lower);
         }
 
@@ -589,6 +615,7 @@ void GateMatePacker::pack_mult()
             for (size_t mult_idx = 0; mult_idx < col.mults.size(); mult_idx++) {
                 constrain_cell(col.mults[mult_idx].lower, b, b + 4 + mult_idx, CPE_LT_L_Z);
                 constrain_cell(col.mults[mult_idx].upper, b, b + 4 + mult_idx, CPE_LT_U_Z);
+                constrain_cell(col.mults[mult_idx].cplines, b, b + 4 + mult_idx, CPE_CPLINES_Z);
             }
 
             constrain_cell(col.msb_route.lower, b, b + 4 + col.mults.size(), CPE_LT_L_Z);
@@ -631,7 +658,7 @@ void GateMatePacker::pack_mult()
 
             // Connect A passthrough outputs to multiplier inputs.
             {
-                // sum output connections.
+                // Sum output connections.
                 auto &mult_row = m.cols.at(0).mults.at(a);
 
                 auto *so1_net = ctx->createNet(ctx->idf("%s$so1", upper_name.c_str(ctx)));
@@ -665,10 +692,207 @@ void GateMatePacker::pack_mult()
             // Connect B input passthrough cell.
             mult->movePortTo(ctx->idf("B[%d]", 2 * b), b_passthru.upper, id_IN1);
             mult->movePortTo(ctx->idf("B[%d]", 2 * b + 1), b_passthru.lower, id_IN1);
+        }
 
-            // This may be GND/VCC; if so, clean it up.
-            b_passthru.clean_up_cell(ctx, b_passthru.lower);
-            b_passthru.clean_up_cell(ctx, b_passthru.upper);
+        // Intermediate multiplier connections.
+        for (size_t b = 0; b < m.cols.size(); b++) {
+            auto &b_passthru = m.cols.at(b).b_passthru;
+            auto &b_carry = m.cols.at(b).carry;
+            auto &b_multfab = m.cols.at(b).multfab;
+            auto &b_f_route = m.cols.at(b).f_route;
+            auto &b_msb_route = m.cols.at(b).msb_route;
+
+            auto lower_net_name = b_passthru.lower->ports.at(id_IN1).net->name;
+            auto upper_net_name = b_passthru.upper->ports.at(id_IN1).net->name;
+
+            // B Passthrough (POUTY1, COUTY1) -> Carry Gen (PINY1, CINY1)
+            {
+                auto lines_name = b_passthru.cplines->name;
+
+                auto *lower_net = ctx->createNet(
+                        ctx->idf("%s$%s$b%d_passthru", lines_name.c_str(ctx), lower_net_name.c_str(ctx), 2 * b));
+                b_passthru.cplines->connectPort(id_POUTY1, lower_net);
+                b_carry.cplines->connectPort(id_PINY1, lower_net);
+                b_carry.lower->connectPort(id_PINY1, lower_net);
+
+                auto *upper_net = ctx->createNet(
+                        ctx->idf("%s$%s$b%d_passthru", lines_name.c_str(ctx), upper_net_name.c_str(ctx), 2 * b + 1));
+                b_passthru.cplines->connectPort(id_COUTY1, upper_net);
+                b_carry.cplines->connectPort(id_CINY1, upper_net);
+            }
+
+            // Carry Gen (POUTY1, COUTY1, COUTY2) -> MULTFab (PINY1, CINY1, CINY2)
+            {
+                auto lines_name = b_carry.cplines->name;
+
+                auto *lower_net = ctx->createNet(
+                        ctx->idf("%s$%s$b%d_passthru", lines_name.c_str(ctx), lower_net_name.c_str(ctx), 2 * b));
+                b_carry.cplines->connectPort(id_POUTY1, lower_net);
+                b_multfab.cplines->connectPort(id_PINY1, lower_net);
+                b_multfab.lower->connectPort(id_PINY1, lower_net);
+
+                auto *upper_net = ctx->createNet(
+                        ctx->idf("%s$%s$b%d_passthru", lines_name.c_str(ctx), upper_net_name.c_str(ctx), 2 * b + 1));
+                b_carry.cplines->connectPort(id_COUTY1, upper_net);
+                b_multfab.cplines->connectPort(id_CINY1, upper_net);
+
+                auto *ccs_net = ctx->createNet(ctx->idf("%s$ccs", lines_name.c_str(ctx)));
+                b_carry.cplines->connectPort(id_COUTY2, ccs_net);
+                b_multfab.cplines->connectPort(id_CINY2, ccs_net);
+            }
+
+            // MULTFab (POUTY1, COUTY1, COUTY2) -> FRoute (PINY1, CINY1, CINY2)
+            {
+                auto lines_name = b_multfab.cplines->name;
+
+                auto *lower_net = ctx->createNet(
+                        ctx->idf("%s$%s$f%d", lines_name.c_str(ctx), lower_net_name.c_str(ctx), 2 * b + 1));
+                b_multfab.cplines->connectPort(id_POUTY1, lower_net);
+                b_f_route.cplines->connectPort(id_PINY1, lower_net);
+                b_f_route.lower->connectPort(id_PINY1, lower_net);
+
+                auto *upper_net =
+                        ctx->createNet(ctx->idf("%s$%s$f%d", lines_name.c_str(ctx), upper_net_name.c_str(ctx), 2 * b));
+                b_multfab.cplines->connectPort(id_COUTY1, upper_net);
+                b_f_route.cplines->connectPort(id_CINY1, upper_net);
+
+                auto *ccs_net = ctx->createNet(ctx->idf("%s$ccs", lines_name.c_str(ctx)));
+                b_multfab.cplines->connectPort(id_COUTY2, ccs_net);
+                b_f_route.cplines->connectPort(id_CINY2, ccs_net);
+            }
+
+            // MULTFab (COUTX) -> Carry Gen (CINX)
+            if (b + 1 < m.cols.size()) {
+                auto &b_carry_right = m.cols.at(b + 1).carry;
+
+                auto lines_name = b_multfab.cplines->name;
+
+                auto *cco_net = ctx->createNet(ctx->idf("%s$cco", lines_name.c_str(ctx)));
+                b_multfab.cplines->connectPort(id_COUTX, cco_net);
+                b_carry_right.cplines->connectPort(id_CINX, cco_net);
+                b_carry_right.lower->connectPort(id_CINX, cco_net);
+            }
+
+            // FRoute (POUTY1, POUTY2, COUTY1, COUTY2) -> C_MULT (PINY1, PINY2, CINY1, CINY2)
+            {
+                auto &b_mult = m.cols.at(b).mults.front();
+
+                auto lines_name = b_multfab.cplines->name;
+
+                auto *f_p1_net = ctx->createNet(
+                        ctx->idf("%s$%s$f%d_p1", lines_name.c_str(ctx), lower_net_name.c_str(ctx), 2 * b));
+                b_f_route.cplines->connectPort(id_POUTY1, f_p1_net);
+                b_mult.cplines->connectPort(id_PINY1, f_p1_net);
+
+                auto *f_p2_net = ctx->createNet(
+                        ctx->idf("%s$%s$f%d_p2", lines_name.c_str(ctx), lower_net_name.c_str(ctx), 2 * b + 1));
+                b_f_route.cplines->connectPort(id_POUTY2, f_p2_net);
+                b_mult.cplines->connectPort(id_PINY2, f_p2_net);
+
+                auto *f_c1_net = ctx->createNet(
+                        ctx->idf("%s$%s$f%d_c1", lines_name.c_str(ctx), upper_net_name.c_str(ctx), 2 * b));
+                b_f_route.cplines->connectPort(id_COUTY1, f_c1_net);
+                b_mult.cplines->connectPort(id_CINY1, f_c1_net);
+
+                auto *f_c2_net = ctx->createNet(
+                        ctx->idf("%s$%s$f%d_c2", lines_name.c_str(ctx), upper_net_name.c_str(ctx), 2 * b + 1));
+                b_f_route.cplines->connectPort(id_COUTY2, f_c2_net);
+                b_mult.cplines->connectPort(id_CINY2, f_c2_net);
+            }
+
+            // FRoute (COUTX) -> MULTFab (CINX)
+            if (b + 1 < m.cols.size()) {
+                auto &b_multfab_right = m.cols.at(b + 1).multfab;
+
+                auto lines_name = b_f_route.cplines->name;
+
+                auto *cco_net = ctx->createNet(ctx->idf("%s$cco", lines_name.c_str(ctx)));
+                b_f_route.cplines->connectPort(id_COUTX, cco_net);
+                b_multfab_right.cplines->connectPort(id_CINX, cco_net);
+                b_multfab_right.lower->connectPort(id_CINX, cco_net);
+            }
+
+            // C_MULT (POUTY1, POUTY2, COUTY1, COUTY2) -> C_MULT (PINY1, PINY2, CINY1, CINY2)
+            for (size_t row = 0; row < m.cols.at(b).mults.size() - 1; row++) {
+                auto &b_mult = m.cols.at(b).mults.at(row);
+                auto &b_mult_up = m.cols.at(b).mults.at(row + 1);
+
+                auto lines_name = b_mult.cplines->name;
+
+                auto *lower_b_net =
+                        ctx->createNet(ctx->idf("%s$%s$b%d", lines_name.c_str(ctx), lower_net_name.c_str(ctx), 2 * b));
+                b_mult.cplines->connectPort(id_POUTY1, lower_b_net);
+                b_mult_up.cplines->connectPort(id_PINY1, lower_b_net);
+                b_mult_up.lower->connectPort(id_PINY1, lower_b_net);
+
+                auto *upper_b_net = ctx->createNet(
+                        ctx->idf("%s$%s$b%d", lines_name.c_str(ctx), upper_net_name.c_str(ctx), 2 * b + 1));
+                b_mult.cplines->connectPort(id_POUTY2, upper_b_net);
+                b_mult_up.cplines->connectPort(id_PINY2, upper_b_net);
+
+                auto *lower_co_net =
+                        ctx->createNet(ctx->idf("%s$%s$co%d", lines_name.c_str(ctx), upper_net_name.c_str(ctx), 2 * b));
+                b_mult.cplines->connectPort(id_COUTY1, lower_co_net);
+                b_mult_up.cplines->connectPort(id_CINY1, lower_co_net);
+
+                auto *upper_co_net = ctx->createNet(
+                        ctx->idf("%s$%s$co%d", lines_name.c_str(ctx), upper_net_name.c_str(ctx), 2 * b + 1));
+                b_mult.cplines->connectPort(id_COUTY2, upper_co_net);
+                b_mult_up.cplines->connectPort(id_CINY2, upper_co_net);
+            }
+
+            // C_MULT (POUTX, COUTX) -> C_MULT (PINX, CINX)
+            if (b + 1 < m.cols.size()) {
+                for (size_t row = 1; row < m.cols.at(b).mults.size(); row++) {
+                    auto &b_mult = m.cols.at(b).mults.at(row);
+                    auto &b_mult_right = m.cols.at(b + 1).mults.at(row - 1);
+
+                    auto lines_name = b_mult.cplines->name;
+
+                    auto *so1_net = ctx->createNet(ctx->idf("%s$so1", lines_name.c_str(ctx)));
+                    b_mult.cplines->connectPort(id_POUTX, so1_net);
+                    b_mult_right.cplines->connectPort(id_PINX, so1_net);
+                    b_mult_right.lower->connectPort(id_PINX, so1_net);
+
+                    auto *so2_net = ctx->createNet(ctx->idf("%s$so2", lines_name.c_str(ctx)));
+                    b_mult.cplines->connectPort(id_COUTX, so2_net);
+                    b_mult_right.cplines->connectPort(id_CINX, so2_net);
+                    b_mult_right.lower->connectPort(id_CINX, so2_net);
+                }
+            }
+
+            // C_MULT (POUTY1, POUTY2) -> MsbRouting (PINY1, PINY2)
+            {
+                auto &b_mult = m.cols.at(b).mults.back();
+
+                auto lines_name = b_mult.cplines->name;
+
+                auto *lower_net =
+                        ctx->createNet(ctx->idf("%s$%s$b%d", lines_name.c_str(ctx), lower_net_name.c_str(ctx), 2 * b));
+                b_mult.cplines->connectPort(id_POUTY1, lower_net);
+                b_msb_route.cplines->connectPort(id_PINY1, lower_net);
+                b_msb_route.lower->connectPort(id_PINY1, lower_net); // TODO: verify this with Micko
+
+                auto *upper_net = ctx->createNet(
+                        ctx->idf("%s$%s$b%d", lines_name.c_str(ctx), lower_net_name.c_str(ctx), 2 * b + 1));
+                b_mult.cplines->connectPort(id_POUTY2, upper_net);
+                b_msb_route.cplines->connectPort(id_PINY2, upper_net);
+            }
+
+            // MsbRouting (POUTX, COUTX) -> C_MULT (PINX, CINX)
+            if (b + 1 < m.cols.size()) {
+                auto &b_mult_right = m.cols.at(b + 1).mults.back();
+
+                auto lines_name = b_msb_route.cplines->name;
+
+                auto *so1_net = ctx->createNet(ctx->idf("%s$so1", lines_name.c_str(ctx)));
+                b_msb_route.cplines->connectPort(id_POUTX, so1_net);
+                b_mult_right.cplines->connectPort(id_PINX, so1_net);
+
+                auto *so2_net = ctx->createNet(ctx->idf("%s$so2", lines_name.c_str(ctx)));
+                b_msb_route.cplines->connectPort(id_COUTX, so2_net);
+                b_mult_right.cplines->connectPort(id_CINX, so2_net);
+            }
         }
 
         // P output.
@@ -689,7 +913,15 @@ void GateMatePacker::pack_mult()
             mult->movePortTo(ctx->idf("P[%d]", p + diagonal_p_width), cpe_half, id_OUT);
         }
 
-        // We don't need the original cell anymore.
+        // Clean up the multiplier.
+        for (size_t b = 0; b < m.cols.size(); b++) {
+            auto &b_passthru = m.cols.at(b).b_passthru;
+
+            // This may be GND/VCC.
+            b_passthru.clean_up_cell(ctx, b_passthru.lower);
+            b_passthru.clean_up_cell(ctx, b_passthru.upper);
+        }
+
         ctx->cells.erase(mult->name);
 
         log_info("        Created %zu CPEs.\n", m.cpe_count());
