@@ -269,9 +269,9 @@ MultfabCell::MultfabCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, CellI
 {
     // TODO: perhaps C_I[1234] could be pips?
 
-    lower->params[id_INIT_L02] = Property(LUT_D1, 4);                              // PINY1
-    //lower->params[id_INIT_L03] = Property(LUT_ZERO, 4);                            // (unused)
-    lower->params[id_INIT_L11] = Property(LUT_D0, 4);                              // L02
+    lower->params[id_INIT_L00] = Property(LUT_D1, 4);                              // PINY1
+    //lower->params[id_INIT_L01] = Property(LUT_ZERO, 4);                            // (unused)
+    lower->params[id_INIT_L10] = Property(LUT_D0, 4);                              // L02
     lower->params[id_INIT_L20] = Property(is_even_x ? LUT_AND_INV_D0 : LUT_OR, 4); // L10 AND L11 -> OUT1
     lower->params[id_C_FUNCTION] = Property(C_ADDCIN, 3);
 
@@ -284,7 +284,7 @@ MultfabCell::MultfabCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, CellI
     upper->params[id_C_I1] = Property(1, 1); // PINY1 for L00
     upper->params[id_C_I2] = Property(1, 1); // CINX for L01
     lower->params[id_C_I3] = Property(1, 1); // PINY1 for L02
-    upper->params[id_C_FUNCTION] = Property(C_ADDCIN, 3);
+    //upper->params[id_C_FUNCTION] = Property(C_ADDCIN, 3);
 
     cplines->params[id_C_SELX] = Property(1, 1);  // inverted CINY2 -> CX_VAL
     cplines->params[id_C_SEL_C] = Property(1, 1); // inverted CINY2 -> CX_VAL; COMP_OUT -> CY1_VAL
@@ -304,9 +304,9 @@ FRoutingCell::FRoutingCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, Cel
 {
     // TODO: simplify AND with zero/OR with zero into something more sensical.
 
-    lower->params[id_INIT_L02] = Property(LUT_ZERO, 4); // (unused)
-    lower->params[id_INIT_L03] = Property(LUT_ZERO, 4); // (unused)
-    lower->params[id_INIT_L11] = Property(LUT_ZERO, 4);
+    lower->params[id_INIT_L00] = Property(LUT_ZERO, 4); // (unused)
+    lower->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
+    lower->params[id_INIT_L10] = Property(LUT_ZERO, 4);
     lower->params[id_INIT_L20] = Property(LUT_D1, 4);
     lower->params[id_C_FUNCTION] = Property(C_ADDCIN, 3);
 
@@ -316,7 +316,7 @@ FRoutingCell::FRoutingCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, Cel
     //upper->params[id_INIT_L01] = Property(LUT_ONE, 4); // (unused)
     upper->params[id_INIT_L10] = Property(LUT_D0, 4);
     upper->params[id_C_I1] = Property(1, 1); // PINY1 for L00
-    upper->params[id_C_FUNCTION] = Property(C_ADDCIN, 3);
+    //upper->params[id_C_FUNCTION] = Property(C_ADDCIN, 3);
 
     cplines->params[id_C_SELX] = Property(1, 1);
     cplines->params[id_C_SEL_C] = Property(1, 1);
@@ -455,9 +455,9 @@ void GateMatePacker::pack_mult()
 
         {
             auto *multfab_lower =
-                    create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$multf%c_lower", name.c_str(ctx), is_even_x ? 'a' : 'b'));
+                    create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$multf%c_lower", name.c_str(ctx), is_even_x ? 'a' : 'b'));
             auto *multfab_upper =
-                    create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$multf%c_upper", name.c_str(ctx), is_even_x ? 'a' : 'b'));
+                    create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$multf%c_upper", name.c_str(ctx), is_even_x ? 'a' : 'b'));
             auto *multfab_comp =
                     create_cell_ptr(id_CPE_COMP, ctx->idf("%s$multf%c_comp", name.c_str(ctx), is_even_x ? 'a' : 'b'));
             auto *multfab_lines = create_cell_ptr(
@@ -480,8 +480,8 @@ void GateMatePacker::pack_mult()
         }
 
         {
-            auto *f_route_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$f_route_lower", name.c_str(ctx)));
-            auto *f_route_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$f_route_upper", name.c_str(ctx)));
+            auto *f_route_lower = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$f_route_lower", name.c_str(ctx)));
+            auto *f_route_upper = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$f_route_upper", name.c_str(ctx)));
             auto *f_route_comp = create_cell_ptr(id_CPE_COMP, ctx->idf("%s$f_route_comp", name.c_str(ctx)));
             auto *f_route_lines = create_cell_ptr(id_CPE_CPLINES, ctx->idf("%s$f_route_lines", name.c_str(ctx)));
 
