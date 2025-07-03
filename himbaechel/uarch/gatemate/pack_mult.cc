@@ -245,6 +245,7 @@ CarryGenCell::CarryGenCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, Cel
     lower->params[id_INIT_L20] = Property(is_odd_x ? LUT_OR : LUT_ZERO, 4);
     lower->params[id_C_FUNCTION] = Property(C_EN_CIN, 3);
     lower->params[id_C_I3] = Property(1, 1); // PINY1 for L02
+    lower->params[id_C_HORIZ] = Property(0, 1); // CINY1 for CIN_ for L03
 
     upper->params[id_INIT_L00] = Property(LUT_ZERO, 4);                        // (unused)
     upper->params[id_INIT_L01] = Property(enable_cinx ? LUT_D1 : LUT_ZERO, 4); // CINX
@@ -728,6 +729,7 @@ void GateMatePacker::pack_mult()
                         ctx->idf("%s$%s$b%d_passthru", lines_name.c_str(ctx), upper_net_name.c_str(ctx), 2 * b + 1));
                 b_passthru.cplines->connectPort(id_COUTY1, upper_net);
                 b_carry.cplines->connectPort(id_CINY1, upper_net);
+                b_carry.lower->connectPort(id_CINY1, upper_net);
             }
 
             // Carry Gen (POUTY1, COUTY1, COUTY2) -> MULTFab (PINY1, CINY1, CINY2)
