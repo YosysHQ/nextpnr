@@ -13,7 +13,7 @@ endmacro()
 
 
 # extract target properties of all items in src_list in dst_list
-# example usage: extract_target_properties(QT_INCLUDES Qt5::Core INTERFACE_INCLUDE_DIR)
+# example usage: extract_target_properties(QT_INCLUDES Qt6::Core INTERFACE_INCLUDE_DIR)
 macro(extract_target_properties target_props target_list property)  
   set(list_var "${${target_list}}")
   # message(STATUS "list_var:     ${list_var}")

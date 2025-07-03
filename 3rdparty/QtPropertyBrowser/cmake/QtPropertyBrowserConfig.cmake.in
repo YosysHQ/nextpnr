@@ -17,7 +17,7 @@
 
 
 include(CMakeFindDependencyMacro)
-find_dependency(Qt5Widgets)
+find_dependency(Qt6Widgets)
 
 # Our library dependencies (contains definitions for IMPORTED targets)
 if(NOT TARGET QtPropertyBrowser)

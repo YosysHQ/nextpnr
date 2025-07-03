@@ -38,7 +38,7 @@ The following commands are known to work on a near-fresh Linux Mint system
 
 ```
 sudo apt install cmake clang-format libboost-all-dev build-essential
-qt5-default libeigen3-dev build-essential clang bison flex libreadline-dev
+qt6-base-dev libeigen3-dev build-essential clang bison flex libreadline-dev
 gawk tcl-dev libffi-dev git graphviz xdot pkg-config python3
 libboost-system-dev libboost-python-dev libboost-filesystem-dev zlib1g-dev
 python3-setuptools python3-serial

@@ -5,7 +5,7 @@ PROJECT(QtPropertyBrowser)
 ##################### Look for required libraries ######################
 
 # Add QT dependencies
-FIND_PACKAGE(Qt5Widgets REQUIRED)
+FIND_PACKAGE(Qt6Widgets REQUIRED)
 
 ######################### Add Primary Targets ##########################
 ADD_SUBDIRECTORY(src)
