@@ -149,7 +149,13 @@ void GateMatePacker::pack_cpe()
             ci.renamePort(id_I3, id_IN4);
 
             ci.renamePort(id_O, id_OUT);
-            ci.type = id_CPE_L2T5_L;
+            uarch->rename_param(&ci, id_INIT_L02, id_INIT_L00,4);
+            uarch->rename_param(&ci, id_INIT_L03, id_INIT_L01,4);
+            uarch->rename_param(&ci, id_INIT_L11, id_INIT_L10,4);
+            ci.cluster = ci.name;
+            ci.constr_abs_z = true;
+            ci.constr_z = CPE_LT_L_Z;
+            ci.type = id_CPE_L2T4;
         } else if (ci.type == id_CC_MX2) {
             ci.renamePort(id_D1, id_IN1);
             NetInfo *sel = ci.getPort(id_S0);
@@ -198,15 +204,20 @@ void GateMatePacker::pack_cpe()
     }
 
     for (auto ci : l2t5_list) {
-        CellInfo *upper = create_cell_ptr(id_CPE_L2T5_U, ctx->idf("%s$upper", ci->name.c_str(ctx)));
+        CellInfo *upper = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$upper", ci->name.c_str(ctx)));
         upper->cluster = ci->name;
-        upper->constr_abs_z = false;
-        upper->constr_z = -1;
-        ci->cluster = ci->name;
+        upper->constr_abs_z = true;
+        upper->constr_z = CPE_LT_U_Z;
         ci->movePortTo(id_I4, upper, id_IN1);
         upper->params[id_INIT_L00] = Property(0b1010, 4);
         upper->params[id_INIT_L10] = Property(0b1010, 4);
         ci->constr_children.push_back(upper);
+
+        NetInfo *ci_out_conn = ctx->createNet(ctx->idf("%s$combin", ci->name.c_str(ctx)));
+        upper->connectPort(id_OUT, ci_out_conn);
+        ci->ports[id_COMBIN].name = id_COMBIN;
+        ci->ports[id_COMBIN].type = PORT_IN;
+        ci->connectPort(id_COMBIN, ci_out_conn);
     }
     l2t5_list.clear();
 

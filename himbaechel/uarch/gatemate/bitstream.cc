@@ -267,14 +267,11 @@ struct BitstreamBackend
             case id_CPE_CPLINES.index:
             case id_CPE_COMP.index:
             case id_CPE_L2T4.index:
-            case id_CPE_L2T5.index:
             case id_CPE_ADDF.index:
             case id_CPE_ADDF2.index:
             case id_CPE_MULT.index:
             case id_CPE_MX4.index:
-            case id_CPE_EN_CIN.index:
             case id_CPE_CONCAT.index:
-            case id_CPE_ADDCIN.index:
             case id_CPE_FF.index:
             case id_CPE_LATCH.index:
             case id_CPE_RAMI.index:
