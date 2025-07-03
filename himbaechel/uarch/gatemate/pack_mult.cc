@@ -83,6 +83,7 @@ struct CarryGenCell
 };
 
 // This prepares B bits for multiplication.
+// CITE: CPE_MULTFab.pdf
 struct MultfabCell
 {
     MultfabCell() : lower{nullptr}, upper{nullptr}, comp{nullptr}, cplines{nullptr} {}
@@ -461,9 +462,13 @@ void GateMatePacker::pack_mult()
             auto *multfab_lines = create_cell_ptr(
                     id_CPE_CPLINES, ctx->idf("%s$multf%c_cplines", name.c_str(ctx), is_even_x ? 'a' : 'b'));
 
-            NetInfo *comp_in = ctx->createNet(ctx->idf("%s$multf%c$comp_in", name.c_str(ctx), is_even_x ? 'a' : 'b'));
-            multfab_upper->connectPort(id_OUT, comp_in);
-            multfab_comp->connectPort(id_COMB2, comp_in);
+            NetInfo *comb1_conn = ctx->createNet(ctx->idf("%s$multf%c$comb1", name.c_str(ctx), is_even_x ? 'a' : 'b'));
+            multfab_lower->connectPort(id_OUT, comb1_conn);
+            multfab_lines->connectPort(id_OUT1, comb1_conn);
+
+            NetInfo *comb2_conn = ctx->createNet(ctx->idf("%s$multf%c$comb2", name.c_str(ctx), is_even_x ? 'a' : 'b'));
+            multfab_upper->connectPort(id_OUT, comb2_conn);
+            multfab_comp->connectPort(id_COMB2, comb2_conn);
 
             NetInfo *comp_out = ctx->createNet(ctx->idf("%s$multf%c$comp_out", name.c_str(ctx), is_even_x ? 'a' : 'b'));
             multfab_comp->connectPort(id_COMPOUT, comp_out);
