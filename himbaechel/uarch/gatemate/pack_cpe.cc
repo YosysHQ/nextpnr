@@ -149,9 +149,9 @@ void GateMatePacker::pack_cpe()
             ci.renamePort(id_I3, id_IN4);
 
             ci.renamePort(id_O, id_OUT);
-            uarch->rename_param(&ci, id_INIT_L02, id_INIT_L00,4);
-            uarch->rename_param(&ci, id_INIT_L03, id_INIT_L01,4);
-            uarch->rename_param(&ci, id_INIT_L11, id_INIT_L10,4);
+            uarch->rename_param(&ci, id_INIT_L02, id_INIT_L00, 4);
+            uarch->rename_param(&ci, id_INIT_L03, id_INIT_L01, 4);
+            uarch->rename_param(&ci, id_INIT_L11, id_INIT_L10, 4);
             ci.cluster = ci.name;
             ci.constr_abs_z = true;
             ci.constr_z = CPE_LT_L_Z;

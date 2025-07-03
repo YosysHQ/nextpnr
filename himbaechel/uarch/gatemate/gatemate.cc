@@ -236,7 +236,6 @@ void GateMateImpl::postPlace()
                 cell.second->type = id_CPE_MX4;
                 break;
             case C_EN_CIN:
-                //cell.second->type = id_CPE_EN_CIN;
                 log_error("EN_CIN should be using L2T4.\n");
                 break;
             case C_CONCAT:
@@ -244,7 +243,6 @@ void GateMateImpl::postPlace()
                 break;
             case C_ADDCIN:
                 log_error("ADDCIN should be using L2T4.\n");
-                //cell.second->type = id_CPE_ADDCIN;
                 break;
             default:
                 break;
