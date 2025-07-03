@@ -334,7 +334,7 @@ ObjectController::ObjectController(QWidget *parent)
 
     d_ptr->m_browser = new QtGroupBoxPropertyBrowser(this);
     QVBoxLayout *layout = new QVBoxLayout(this);
-    layout->setMargin(0);
+    layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(scroll);
     scroll->setWidget(d_ptr->m_browser);
 */
@@ -342,7 +342,7 @@ ObjectController::ObjectController(QWidget *parent)
     browser->setRootIsDecorated(false);
     d_ptr->m_browser = browser;
     QVBoxLayout *layout = new QVBoxLayout(this);
-    layout->setMargin(0);
+    layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(d_ptr->m_browser);
 
     d_ptr->m_readOnlyManager = new QtVariantPropertyManager(this);

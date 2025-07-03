@@ -197,8 +197,8 @@ else()
 endif()
 
 if (BUILD_GUI)
-    # Find the Qt5 libraries
-    find_package(Qt5 COMPONENTS Core Widgets OpenGL REQUIRED)
+    # Find the Qt6 libraries
+    find_package(Qt6 COMPONENTS Core Widgets OpenGL OpenGLWidgets REQUIRED)
 
     # For higher quality backtraces
     set(CMAKE_ENABLE_EXPORTS ON)

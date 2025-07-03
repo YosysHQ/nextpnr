@@ -27,7 +27,7 @@ set(GUI_SOURCES
     ${family}/mainwindow.h
 )
 
-qt5_add_resources(GUI_QT_RESOURCES
+qt6_add_resources(GUI_QT_RESOURCES
     base.qrc
     ${family}/nextpnr.qrc
 )
@@ -55,13 +55,14 @@ target_include_directories(nextpnr-${target}-gui PRIVATE
 )
 
 target_link_libraries(nextpnr-${target}-gui PUBLIC
-    Qt5::Widgets
+    Qt6::Widgets
 )
 
 target_link_libraries(nextpnr-${target}-gui PRIVATE
     nextpnr-${target}-defs
     nextpnr_version
-    Qt5::OpenGL
+    Qt6::OpenGL
+    Qt6::OpenGLWidgets
     QtPropertyBrowser
     pybind11::headers
 )
