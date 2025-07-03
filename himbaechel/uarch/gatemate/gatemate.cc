@@ -261,6 +261,10 @@ void GateMateImpl::postPlace()
                 cell.second->params[id_INIT_L01] = Property(int_or_default(upper->params, id_INIT_L01, 0), 4);
             if (upper->params.count(id_INIT_L10))
                 cell.second->params[id_INIT_L10] = Property(int_or_default(upper->params, id_INIT_L10, 0), 4);
+            if (upper->params.count(id_C_I1))
+                cell.second->params[id_C_I1] = Property(int_or_default(upper->params, id_C_I1, 0), 1);
+            if (upper->params.count(id_C_I2))
+                cell.second->params[id_C_I2] = Property(int_or_default(upper->params, id_C_I2, 0), 1);
             upper->movePortTo(id_IN1, cell.second.get(), id_IN1);
             upper->movePortTo(id_IN2, cell.second.get(), id_IN2);
             upper->movePortTo(id_IN3, cell.second.get(), id_IN3);

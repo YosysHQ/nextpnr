@@ -282,7 +282,7 @@ MultfabCell::MultfabCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, CellI
 
     upper->params[id_C_I1] = Property(1, 1); // PINY1 for L00
     upper->params[id_C_I2] = Property(1, 1); // CINX for L01
-    upper->params[id_C_I3] = Property(1, 1); // PINY1 for L02
+    lower->params[id_C_I3] = Property(1, 1); // PINY1 for L02
     upper->params[id_C_FUNCTION] = Property(C_ADDCIN, 3);
 
     cplines->params[id_C_SELX] = Property(1, 1);  // inverted CINY2 -> CX_VAL
@@ -345,8 +345,8 @@ MultCell::MultCell(CellInfo *lower, CellInfo *upper, CellInfo *cplines, IdString
 
     upper->params[id_C_I1] = Property(1, 1); // PINY1 for L00
     upper->params[id_C_I2] = Property(1, 1); // CINX for L01
-    upper->params[id_C_I3] = Property(1, 1); // PINY1 for L02
-    upper->params[id_C_I4] = Property(1, 1); // PINX for L03
+    lower->params[id_C_I3] = Property(1, 1); // PINY1 for L02
+    lower->params[id_C_I4] = Property(1, 1); // PINX for L03
     upper->params[id_C_FUNCTION] = Property(C_MULT, 3);
 
     if (is_msb) {
