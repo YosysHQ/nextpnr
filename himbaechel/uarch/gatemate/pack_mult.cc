@@ -95,7 +95,7 @@ struct MultfabCell
     CellInfo *cplines;
 };
 
-// CITE: CPE_ges_f-routing-1.pdf
+// CITE: CPE_ges_f-routing1.pdf for !is_even_x; CPE_ges_f-routing2 for is_even_x
 struct FRoutingCell
 {
     FRoutingCell() : lower{nullptr}, upper{nullptr}, comp{nullptr}, cplines{nullptr} {}
