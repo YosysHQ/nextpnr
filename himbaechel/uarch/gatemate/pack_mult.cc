@@ -303,10 +303,10 @@ FRoutingCell::FRoutingCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, Cel
 {
     // TODO: simplify AND with zero/OR with zero into something more sensical.
 
-    //lower->params[id_INIT_L02] = Property(LUT_ZERO, 4); // (unused)
-    //lower->params[id_INIT_L03] = Property(LUT_ONE, 4);  // (unused)
-    //lower->params[id_INIT_L11] = Property(LUT_AND, 4);
-    //lower->params[id_INIT_L20] = Property(LUT_D1, 4);
+    lower->params[id_INIT_L02] = Property(LUT_ZERO, 4); // (unused)
+    lower->params[id_INIT_L03] = Property(LUT_ONE, 4);  // (unused)
+    lower->params[id_INIT_L11] = Property(LUT_AND, 4);
+    lower->params[id_INIT_L20] = Property(LUT_D1, 4);
     lower->params[id_C_FUNCTION] = Property(C_ADDCIN, 3);
 
     comp->params[id_INIT_L30] = Property(is_even_x ? LUT_ONE : LUT_INV_D1, 4); // L10 -> COMP_OUT

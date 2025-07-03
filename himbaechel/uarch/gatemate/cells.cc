@@ -43,8 +43,9 @@ CellInfo *GateMatePacker::create_cell_ptr(IdString type, IdString name)
         add_port(id_CINX, PORT_IN);
         add_port(id_PINX, PORT_IN);
         add_port(id_PINY1, PORT_IN);
+        // For EN_CIN input 
+        add_port(id_CINY1, PORT_IN);
         if (type.in(id_CPE_LT_L, id_CPE_L2T5_L)) {
-            add_port(id_CINY1, PORT_IN);
             add_port(id_CINY2, PORT_IN);
             add_port(id_PINY2, PORT_IN);
 

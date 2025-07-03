@@ -530,13 +530,13 @@ void GateMatePacker::pack_addf()
                 co_upper->constr_abs_z = false;
                 co_upper->constr_z = -1;
                 co_upper->constr_y = +i + 1;
-                CellInfo *co_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$co", cy->name.c_str(ctx)));
+                CellInfo *co_lower = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$co", cy->name.c_str(ctx)));
                 co_lower->cluster = root->name;
                 root->constr_children.push_back(co_lower);
                 co_lower->constr_abs_z = false;
                 co_lower->constr_y = +i + 1;
                 co_lower->params[id_C_FUNCTION] = Property(C_EN_CIN, 3);
-                co_lower->params[id_INIT_L11] = Property(0b1100, 4);
+                co_lower->params[id_INIT_L10] = Property(0b1100, 4);
                 co_lower->params[id_INIT_L20] = Property(0b1100, 4);
 
                 NetInfo *co_conn = ctx->createNet(ctx->idf("%s$co_net", cy->name.c_str(ctx)));
