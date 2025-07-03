@@ -303,8 +303,8 @@ FRoutingCell::FRoutingCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, Cel
     // TODO: simplify AND with zero/OR with zero into something more sensical.
 
     lower->params[id_INIT_L02] = Property(LUT_ZERO, 4); // (unused)
-    lower->params[id_INIT_L03] = Property(LUT_ONE, 4);  // (unused)
-    lower->params[id_INIT_L11] = Property(LUT_AND, 4);
+    lower->params[id_INIT_L03] = Property(LUT_ZERO, 4); // (unused)
+    lower->params[id_INIT_L11] = Property(LUT_ZERO, 4);
     lower->params[id_INIT_L20] = Property(LUT_D1, 4);
     lower->params[id_C_FUNCTION] = Property(C_ADDCIN, 3);
 
@@ -425,6 +425,7 @@ void GateMatePacker::pack_mult()
             NetInfo *comb1_conn = ctx->createNet(ctx->idf("%s$b_passthru$comb1", name.c_str(ctx)));
             b_passthru_lower->connectPort(id_OUT, comb1_conn);
             b_passthru_lines->connectPort(id_OUT1, comb1_conn);
+
             NetInfo *comb2_conn = ctx->createNet(ctx->idf("%s$b_passthru$comb2", name.c_str(ctx)));
             b_passthru_upper->connectPort(id_OUT, comb2_conn);
             b_passthru_lines->connectPort(id_OUT2, comb2_conn);
@@ -478,11 +479,15 @@ void GateMatePacker::pack_mult()
             auto *f_route_comp = create_cell_ptr(id_CPE_COMP, ctx->idf("%s$f_route_comp", name.c_str(ctx)));
             auto *f_route_lines = create_cell_ptr(id_CPE_CPLINES, ctx->idf("%s$f_route_lines", name.c_str(ctx)));
 
+            NetInfo *comb1_conn = ctx->createNet(ctx->idf("%s$f_route$comb1", name.c_str(ctx)));
+            f_route_lower->connectPort(id_OUT, comb1_conn);
+            f_route_lines->connectPort(id_COMB1, comb1_conn);
+
+            NetInfo *comb2_conn = ctx->createNet(ctx->idf("%s$f_route$comb2", name.c_str(ctx)));
+            f_route_upper->connectPort(id_OUT, comb2_conn);
+            f_route_lines->connectPort(id_COMB2, comb2_conn);
             if (!is_even_x) {
-                NetInfo *comp_in = ctx->createNet(ctx->idf("%s$f_route$comp_in", name.c_str(ctx)));
-                ;
-                f_route_upper->connectPort(id_OUT, comp_in);
-                f_route_comp->connectPort(id_COMB2, comp_in);
+                f_route_comp->connectPort(id_COMB2, comb2_conn);
             }
 
             NetInfo *comp_out = ctx->createNet(ctx->idf("%s$f_route$comp_out", name.c_str(ctx)));
