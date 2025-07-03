@@ -85,7 +85,7 @@ QT_BEGIN_NAMESPACE
     Returns the type id for an enum property.
 
     Note that the property's value type can be retrieved using the
-    valueType() function (which is QVariant::Int for the enum property
+    valueType() function (which is QMetaType::Int for the enum property
     type).
 
     \sa propertyType(), valueType()
@@ -99,7 +99,7 @@ int QtVariantPropertyManager::enumTypeId()
     Returns the type id for a flag property.
 
     Note that the property's value type can be retrieved using the
-    valueType() function (which is QVariant::Int for the flag property
+    valueType() function (which is QMetaType::Int for the flag property
     type).
 
     \sa propertyType(), valueType()
@@ -113,7 +113,7 @@ int QtVariantPropertyManager::flagTypeId()
     Returns the type id for a group property.
 
     Note that the property's value type can be retrieved using the
-    valueType() function (which is QVariant::Invalid for the group
+    valueType() function (which is QMetaType::UnknownType for the group
     property type, since it doesn't provide any value).
 
     \sa propertyType(), valueType()
@@ -403,13 +403,13 @@ int QtVariantPropertyManagerPrivate::internalPropertyToType(QtProperty *property
     int type = 0;
     QtAbstractPropertyManager *internPropertyManager = property->propertyManager();
     if (qobject_cast<QtIntPropertyManager *>(internPropertyManager))
-        type = QVariant::Int;
+        type = QMetaType::Int;
     else if (qobject_cast<QtEnumPropertyManager *>(internPropertyManager))
         type = QtVariantPropertyManager::enumTypeId();
     else if (qobject_cast<QtBoolPropertyManager *>(internPropertyManager))
-        type = QVariant::Bool;
+        type = QMetaType::Bool;
     else if (qobject_cast<QtDoublePropertyManager *>(internPropertyManager))
-        type = QVariant::Double;
+        type = QMetaType::Double;
     return type;
 }
 
@@ -708,13 +708,13 @@ void QtVariantPropertyManagerPrivate::slotFlagNamesChanged(QtProperty *property,
     the type of its value, can be retrieved using the propertyType()
     and valueType() functions respectively.
 
-    A property's type is a QVariant::Type enumerator value, and
+    A property's type is a QMetaType::Type enumerator value, and
     usually a property's type is the same as its value type. But for
     some properties the types differ, for example for enums, flags and
     group types in which case QtVariantPropertyManager provides the
     enumTypeId(), flagTypeId() and groupTypeId() functions,
     respectively, to identify their property type (the value types are
-    QVariant::Int for the enum and flag types, and QVariant::Invalid
+    QMetaType::Int for the enum and flag types, and QMetaType::UnknownType
     for the group type).
 
     Use the isPropertyTypeSupported() function to check if a particular
@@ -727,64 +727,64 @@ void QtVariantPropertyManagerPrivate::slotFlagNamesChanged(QtProperty *property,
         \o Property Type Id
     \row
         \o int
-        \o QVariant::Int
+        \o QMetaType::Int
     \row
         \o double
-        \o QVariant::Double
+        \o QMetaType::Double
     \row
         \o bool
-        \o QVariant::Bool
+        \o QMetaType::Bool
     \row
         \o QString
-        \o QVariant::String
+        \o QMetaType::QString
     \row
         \o QDate
-        \o QVariant::Date
+        \o QMetaType::QDate
     \row
         \o QTime
-        \o QVariant::Time
+        \o QMetaType::QTime
     \row
         \o QDateTime
-        \o QVariant::DateTime
+        \o QMetaType::QDateTime
     \row
         \o QKeySequence
-        \o QVariant::KeySequence
+        \o QMetaType::QKeySequence
     \row
         \o QChar
-        \o QVariant::Char
+        \o QMetaType::QChar
     \row
         \o QLocale
-        \o QVariant::Locale
+        \o QMetaType::QLocale
     \row
         \o QPoint
-        \o QVariant::Point
+        \o QMetaType::QPoint
     \row
         \o QPointF
-        \o QVariant::PointF
+        \o QMetaType::QPointF
     \row
         \o QSize
-        \o QVariant::Size
+        \o QMetaType::QSize
     \row
         \o QSizeF
-        \o QVariant::SizeF
+        \o QMetaType::QSizeF
     \row
         \o QRect
-        \o QVariant::Rect
+        \o QMetaType::QRect
     \row
         \o QRectF
-        \o QVariant::RectF
+        \o QMetaType::QRectF
     \row
         \o QColor
-        \o QVariant::Color
+        \o QMetaType::QColor
     \row
         \o QSizePolicy
-        \o QVariant::SizePolicy
+        \o QMetaType::QSizePolicy
     \row
         \o QFont
-        \o QVariant::Font
+        \o QMetaType::QFont
     \row
         \o QCursor
-        \o QVariant::Cursor
+        \o QMetaType::QCursor
     \row
         \o enum
         \o enumTypeId()
@@ -797,7 +797,7 @@ void QtVariantPropertyManagerPrivate::slotFlagNamesChanged(QtProperty *property,
     \endtable
 
     Each property type can provide additional attributes,
-    e.g. QVariant::Int and QVariant::Double provides minimum and
+    e.g. QMetaType::Int and QMetaType::Double provides minimum and
     maximum values. The currently supported attributes are:
 
     \table
@@ -808,83 +808,83 @@ void QtVariantPropertyManagerPrivate::slotFlagNamesChanged(QtProperty *property,
     \row
         \o \c int
         \o minimum
-        \o QVariant::Int
+        \o QMetaType::Int
     \row
         \o
         \o maximum
-        \o QVariant::Int
+        \o QMetaType::Int
     \row
         \o
         \o singleStep
-        \o QVariant::Int
+        \o QMetaType::Int
     \row
         \o \c double
         \o minimum
-        \o QVariant::Double
+        \o QMetaType::Double
     \row
         \o
         \o maximum
-        \o QVariant::Double
+        \o QMetaType::Double
     \row
         \o
         \o singleStep
-        \o QVariant::Double
+        \o QMetaType::Double
     \row
         \o
         \o decimals
-        \o QVariant::Int
+        \o QMetaType::Int
     \row
         \o QString
         \o regExp
-        \o QVariant::RegExp
+        \o QMetaType::QRegularExpression
     \row
         \o QDate
         \o minimum
-        \o QVariant::Date
+        \o QMetaType::QDate
     \row
         \o
         \o maximum
-        \o QVariant::Date
+        \o QMetaType::QDate
     \row
         \o QPointF
         \o decimals
-        \o QVariant::Int
+        \o QMetaType::Int
     \row
         \o QSize
         \o minimum
-        \o QVariant::Size
+        \o QMetaType::QSize
     \row
         \o
         \o maximum
-        \o QVariant::Size
+        \o QMetaType::QSize
     \row
         \o QSizeF
         \o minimum
-        \o QVariant::SizeF
+        \o QMetaType::QSizeF
     \row
         \o
         \o maximum
-        \o QVariant::SizeF
+        \o QMetaType::QSizeF
     \row
         \o
         \o decimals
-        \o QVariant::Int
+        \o QMetaType::Int
     \row
         \o QRect
         \o constraint
-        \o QVariant::Rect
+        \o QMetaType::QRect
     \row
         \o QRectF
         \o constraint
-        \o QVariant::RectF
+        \o QMetaType::QRectF
     \row
         \o
         \o decimals
-        \o QVariant::Int
+        \o QMetaType::Int
     \row
         \o \c enum
         \o enumNames
-        \o QVariant::StringList
+        \o QMetaType::QStringList
     \row
         \o
         \o enumIcons
@@ -892,7 +892,7 @@ void QtVariantPropertyManagerPrivate::slotFlagNamesChanged(QtProperty *property,
     \row
         \o \c flag
         \o flagNames
-        \o QVariant::StringList
+        \o QMetaType::QStringList
     \endtable
 
     The attributes for a given property type can be retrieved using
@@ -946,11 +946,11 @@ QtVariantPropertyManager::QtVariantPropertyManager(QObject *parent)
 
     // IntPropertyManager
     QtIntPropertyManager *intPropertyManager = new QtIntPropertyManager(this);
-    d_ptr->m_typeToPropertyManager[QVariant::Int] = intPropertyManager;
-    d_ptr->m_typeToAttributeToAttributeType[QVariant::Int][d_ptr->m_minimumAttribute] = QVariant::Int;
-    d_ptr->m_typeToAttributeToAttributeType[QVariant::Int][d_ptr->m_maximumAttribute] = QVariant::Int;
-    d_ptr->m_typeToAttributeToAttributeType[QVariant::Int][d_ptr->m_singleStepAttribute] = QVariant::Int;
-    d_ptr->m_typeToValueType[QVariant::Int] = QVariant::Int;
+    d_ptr->m_typeToPropertyManager[QMetaType::Int] = intPropertyManager;
+    d_ptr->m_typeToAttributeToAttributeType[QMetaType::Int][d_ptr->m_minimumAttribute] = QMetaType::Int;
+    d_ptr->m_typeToAttributeToAttributeType[QMetaType::Int][d_ptr->m_maximumAttribute] = QMetaType::Int;
+    d_ptr->m_typeToAttributeToAttributeType[QMetaType::Int][d_ptr->m_singleStepAttribute] = QMetaType::Int;
+    d_ptr->m_typeToValueType[QMetaType::Int] = QMetaType::Int;
     connect(intPropertyManager, SIGNAL(valueChanged(QtProperty *, int)),
                 this, SLOT(slotValueChanged(QtProperty *, int)));
     connect(intPropertyManager, SIGNAL(rangeChanged(QtProperty *, int, int)),
@@ -959,16 +959,16 @@ QtVariantPropertyManager::QtVariantPropertyManager(QObject *parent)
                 this, SLOT(slotSingleStepChanged(QtProperty *, int)));
     // DoublePropertyManager
     QtDoublePropertyManager *doublePropertyManager = new QtDoublePropertyManager(this);
-    d_ptr->m_typeToPropertyManager[QVariant::Double] = doublePropertyManager;
-    d_ptr->m_typeToAttributeToAttributeType[QVariant::Double][d_ptr->m_minimumAttribute] =
-            QVariant::Double;
-    d_ptr->m_typeToAttributeToAttributeType[QVariant::Double][d_ptr->m_maximumAttribute] =
-            QVariant::Double;
-    d_ptr->m_typeToAttributeToAttributeType[QVariant::Double][d_ptr->m_singleStepAttribute] =
-            QVariant::Double;
-    d_ptr->m_typeToAttributeToAttributeType[QVariant::Double][d_ptr->m_decimalsAttribute] =
-            QVariant::Int;
-    d_ptr->m_typeToValueType[QVariant::Double] = QVariant::Double;
+    d_ptr->m_typeToPropertyManager[QMetaType::Double] = doublePropertyManager;
+    d_ptr->m_typeToAttributeToAttributeType[QMetaType::Double][d_ptr->m_minimumAttribute] =
+            QMetaType::Double;
+    d_ptr->m_typeToAttributeToAttributeType[QMetaType::Double][d_ptr->m_maximumAttribute] =
+            QMetaType::Double;
+    d_ptr->m_typeToAttributeToAttributeType[QMetaType::Double][d_ptr->m_singleStepAttribute] =
+            QMetaType::Double;
+    d_ptr->m_typeToAttributeToAttributeType[QMetaType::Double][d_ptr->m_decimalsAttribute] =
+            QMetaType::Int;
+    d_ptr->m_typeToValueType[QMetaType::Double] = QMetaType::Double;
     connect(doublePropertyManager, SIGNAL(valueChanged(QtProperty *, double)),
                 this, SLOT(slotValueChanged(QtProperty *, double)));
     connect(doublePropertyManager, SIGNAL(rangeChanged(QtProperty *, double, double)),
@@ -979,15 +979,15 @@ QtVariantPropertyManager::QtVariantPropertyManager(QObject *parent)
                 this, SLOT(slotDecimalsChanged(QtProperty *, int)));
     // BoolPropertyManager
     QtBoolPropertyManager *boolPropertyManager = new QtBoolPropertyManager(this);
-    d_ptr->m_typeToPropertyManager[QVariant::Bool] = boolPropertyManager;
-    d_ptr->m_typeToValueType[QVariant::Bool] = QVariant::Bool;
+    d_ptr->m_typeToPropertyManager[QMetaType::Bool] = boolPropertyManager;
+    d_ptr->m_typeToValueType[QMetaType::Bool] = QMetaType::Bool;
     connect(boolPropertyManager, SIGNAL(valueChanged(QtProperty *, bool)),
                 this, SLOT(slotValueChanged(QtProperty *, bool)));
     // StringPropertyManager
     QtStringPropertyManager *stringPropertyManager = new QtStringPropertyManager(this);
-    d_ptr->m_typeToPropertyManager[QVariant::String] = stringPropertyManager;
-    d_ptr->m_typeToValueType[QVariant::String] = QVariant::String;
-    d_ptr->m_typeToAttributeToAttributeType[QVariant::String][d_ptr->m_regExpAttribute] =
+    d_ptr->m_typeToPropertyManager[QMetaType::QString] = stringPropertyManager;
+    d_ptr->m_typeToValueType[QMetaType::QString] = QMetaType::QString;
+    d_ptr->m_typeToAttributeToAttributeType[QMetaType::QString][d_ptr->m_regExpAttribute] =
             QMetaType::QRegularExpression;
     connect(stringPropertyManager, SIGNAL(valueChanged(QtProperty *, const QString &)),
                 this, SLOT(slotValueChanged(QtProperty *, const QString &)));
@@ -995,44 +995,44 @@ QtVariantPropertyManager::QtVariantPropertyManager(QObject *parent)
                 this, SLOT(slotRegExpChanged(QtProperty *, const QRegularExpression &)));
     // DatePropertyManager
     QtDatePropertyManager *datePropertyManager = new QtDatePropertyManager(this);
-    d_ptr->m_typeToPropertyManager[QVariant::Date] = datePropertyManager;
-    d_ptr->m_typeToValueType[QVariant::Date] = QVariant::Date;
-    d_ptr->m_typeToAttributeToAttributeType[QVariant::Date][d_ptr->m_minimumAttribute] =
-            QVariant::Date;
-    d_ptr->m_typeToAttributeToAttributeType[QVariant::Date][d_ptr->m_maximumAttribute] =
-            QVariant::Date;
+    d_ptr->m_typeToPropertyManager[QMetaType::QDate] = datePropertyManager;
+    d_ptr->m_typeToValueType[QMetaType::QDate] = QMetaType::QDate;
+    d_ptr->m_typeToAttributeToAttributeType[QMetaType::QDate][d_ptr->m_minimumAttribute] =
+            QMetaType::QDate;
+    d_ptr->m_typeToAttributeToAttributeType[QMetaType::QDate][d_ptr->m_maximumAttribute] =
+            QMetaType::QDate;
     connect(datePropertyManager, SIGNAL(valueChanged(QtProperty *, const QDate &)),
                 this, SLOT(slotValueChanged(QtProperty *, const QDate &)));
     connect(datePropertyManager, SIGNAL(rangeChanged(QtProperty *, const QDate &, const QDate &)),
                 this, SLOT(slotRangeChanged(QtProperty *, const QDate &, const QDate &)));
     // TimePropertyManager
     QtTimePropertyManager *timePropertyManager = new QtTimePropertyManager(this);
-    d_ptr->m_typeToPropertyManager[QVariant::Time] = timePropertyManager;
-    d_ptr->m_typeToValueType[QVariant::Time] = QVariant::Time;
+    d_ptr->m_typeToPropertyManager[QMetaType::QTime] = timePropertyManager;
+    d_ptr->m_typeToValueType[QMetaType::QTime] = QMetaType::QTime;
     connect(timePropertyManager, SIGNAL(valueChanged(QtProperty *, const QTime &)),
                 this, SLOT(slotValueChanged(QtProperty *, const QTime &)));
     // DateTimePropertyManager
     QtDateTimePropertyManager *dateTimePropertyManager = new QtDateTimePropertyManager(this);
-    d_ptr->m_typeToPropertyManager[QVariant::DateTime] = dateTimePropertyManager;
-    d_ptr->m_typeToValueType[QVariant::DateTime] = QVariant::DateTime;
+    d_ptr->m_typeToPropertyManager[QMetaType::QDateTime] = dateTimePropertyManager;
+    d_ptr->m_typeToValueType[QMetaType::QDateTime] = QMetaType::QDateTime;
     connect(dateTimePropertyManager, SIGNAL(valueChanged(QtProperty *, const QDateTime &)),
                 this, SLOT(slotValueChanged(QtProperty *, const QDateTime &)));
     // KeySequencePropertyManager
     QtKeySequencePropertyManager *keySequencePropertyManager = new QtKeySequencePropertyManager(this);
-    d_ptr->m_typeToPropertyManager[QVariant::KeySequence] = keySequencePropertyManager;
-    d_ptr->m_typeToValueType[QVariant::KeySequence] = QVariant::KeySequence;
+    d_ptr->m_typeToPropertyManager[QMetaType::QKeySequence] = keySequencePropertyManager;
+    d_ptr->m_typeToValueType[QMetaType::QKeySequence] = QMetaType::QKeySequence;
     connect(keySequencePropertyManager, SIGNAL(valueChanged(QtProperty *, const QKeySequence &)),
                 this, SLOT(slotValueChanged(QtProperty *, const QKeySequence &)));
     // CharPropertyManager
     QtCharPropertyManager *charPropertyManager = new QtCharPropertyManager(this);
-    d_ptr->m_typeToPropertyManager[QVariant::Char] = charPropertyManager;
-    d_ptr->m_typeToValueType[QVariant::Char] = QVariant::Char;
+    d_ptr->m_typeToPropertyManager[QMetaType::QChar] = charPropertyManager;
+    d_ptr->m_typeToValueType[QMetaType::QChar] = QMetaType::QChar;
     connect(charPropertyManager, SIGNAL(valueChanged(QtProperty *, const QChar &)),
                 this, SLOT(slotValueChanged(QtProperty *, const QChar &)));
     // LocalePropertyManager
     QtLocalePropertyManager *localePropertyManager = new QtLocalePropertyManager(this);
-    d_ptr->m_typeToPropertyManager[QVariant::Locale] = localePropertyManager;
-    d_ptr->m_typeToValueType[QVariant::Locale] = QVariant::Locale;
+    d_ptr->m_typeToPropertyManager[QMetaType::QLocale] = localePropertyManager;
+    d_ptr->m_typeToValueType[QMetaType::QLocale] = QMetaType::QLocale;
     connect(localePropertyManager, SIGNAL(valueChanged(QtProperty *, const QLocale &)),
                 this, SLOT(slotValueChanged(QtProperty *, const QLocale &)));
     connect(localePropertyManager->subEnumPropertyManager(), SIGNAL(valueChanged(QtProperty *, int)),
@@ -1043,8 +1043,8 @@ QtVariantPropertyManager::QtVariantPropertyManager(QObject *parent)
                 this, SLOT(slotPropertyRemoved(QtProperty *, QtProperty *)));
     // PointPropertyManager
     QtPointPropertyManager *pointPropertyManager = new QtPointPropertyManager(this);
-    d_ptr->m_typeToPropertyManager[QVariant::Point] = pointPropertyManager;
-    d_ptr->m_typeToValueType[QVariant::Point] = QVariant::Point;
+    d_ptr->m_typeToPropertyManager[QMetaType::QPoint] = pointPropertyManager;
+    d_ptr->m_typeToValueType[QMetaType::QPoint] = QMetaType::QPoint;
     connect(pointPropertyManager, SIGNAL(valueChanged(QtProperty *, const QPoint &)),
                 this, SLOT(slotValueChanged(QtProperty *, const QPoint &)));
     connect(pointPropertyManager->subIntPropertyManager(), SIGNAL(valueChanged(QtProperty *, int)),
@@ -1055,10 +1055,10 @@ QtVariantPropertyManager::QtVariantPropertyManager(QObject *parent)
                 this, SLOT(slotPropertyRemoved(QtProperty *, QtProperty *)));
     // PointFPropertyManager
     QtPointFPropertyManager *pointFPropertyManager = new QtPointFPropertyManager(this);
-    d_ptr->m_typeToPropertyManager[QVariant::PointF] = pointFPropertyManager;
-    d_ptr->m_typeToValueType[QVariant::PointF] = QVariant::PointF;
-    d_ptr->m_typeToAttributeToAttributeType[QVariant::PointF][d_ptr->m_decimalsAttribute] =
-            QVariant::Int;
+    d_ptr->m_typeToPropertyManager[QMetaType::QPointF] = pointFPropertyManager;
+    d_ptr->m_typeToValueType[QMetaType::QPointF] = QMetaType::QPointF;
+    d_ptr->m_typeToAttributeToAttributeType[QMetaType::QPointF][d_ptr->m_decimalsAttribute] =
+            QMetaType::Int;
     connect(pointFPropertyManager, SIGNAL(valueChanged(QtProperty *, const QPointF &)),
                 this, SLOT(slotValueChanged(QtProperty *, const QPointF &)));
     connect(pointFPropertyManager, SIGNAL(decimalsChanged(QtProperty *, int)),
@@ -1071,12 +1071,12 @@ QtVariantPropertyManager::QtVariantPropertyManager(QObject *parent)
                 this, SLOT(slotPropertyRemoved(QtProperty *, QtProperty *)));
     // SizePropertyManager
     QtSizePropertyManager *sizePropertyManager = new QtSizePropertyManager(this);
-    d_ptr->m_typeToPropertyManager[QVariant::Size] = sizePropertyManager;
-    d_ptr->m_typeToValueType[QVariant::Size] = QVariant::Size;
-    d_ptr->m_typeToAttributeToAttributeType[QVariant::Size][d_ptr->m_minimumAttribute] =
-            QVariant::Size;
-    d_ptr->m_typeToAttributeToAttributeType[QVariant::Size][d_ptr->m_maximumAttribute] =
-            QVariant::Size;
+    d_ptr->m_typeToPropertyManager[QMetaType::QSize] = sizePropertyManager;
+    d_ptr->m_typeToValueType[QMetaType::QSize] = QMetaType::QSize;
+    d_ptr->m_typeToAttributeToAttributeType[QMetaType::QSize][d_ptr->m_minimumAttribute] =
+            QMetaType::QSize;
+    d_ptr->m_typeToAttributeToAttributeType[QMetaType::QSize][d_ptr->m_maximumAttribute] =
+            QMetaType::QSize;
     connect(sizePropertyManager, SIGNAL(valueChanged(QtProperty *, const QSize &)),
                 this, SLOT(slotValueChanged(QtProperty *, const QSize &)));
     connect(sizePropertyManager, SIGNAL(rangeChanged(QtProperty *, const QSize &, const QSize &)),
@@ -1091,14 +1091,14 @@ QtVariantPropertyManager::QtVariantPropertyManager(QObject *parent)
                 this, SLOT(slotPropertyRemoved(QtProperty *, QtProperty *)));
     // SizeFPropertyManager
     QtSizeFPropertyManager *sizeFPropertyManager = new QtSizeFPropertyManager(this);
-    d_ptr->m_typeToPropertyManager[QVariant::SizeF] = sizeFPropertyManager;
-    d_ptr->m_typeToValueType[QVariant::SizeF] = QVariant::SizeF;
-    d_ptr->m_typeToAttributeToAttributeType[QVariant::SizeF][d_ptr->m_minimumAttribute] =
-            QVariant::SizeF;
-    d_ptr->m_typeToAttributeToAttributeType[QVariant::SizeF][d_ptr->m_maximumAttribute] =
-            QVariant::SizeF;
-    d_ptr->m_typeToAttributeToAttributeType[QVariant::SizeF][d_ptr->m_decimalsAttribute] =
-            QVariant::Int;
+    d_ptr->m_typeToPropertyManager[QMetaType::QSizeF] = sizeFPropertyManager;
+    d_ptr->m_typeToValueType[QMetaType::QSizeF] = QMetaType::QSizeF;
+    d_ptr->m_typeToAttributeToAttributeType[QMetaType::QSizeF][d_ptr->m_minimumAttribute] =
+            QMetaType::QSizeF;
+    d_ptr->m_typeToAttributeToAttributeType[QMetaType::QSizeF][d_ptr->m_maximumAttribute] =
+            QMetaType::QSizeF;
+    d_ptr->m_typeToAttributeToAttributeType[QMetaType::QSizeF][d_ptr->m_decimalsAttribute] =
+            QMetaType::Int;
     connect(sizeFPropertyManager, SIGNAL(valueChanged(QtProperty *, const QSizeF &)),
                 this, SLOT(slotValueChanged(QtProperty *, const QSizeF &)));
     connect(sizeFPropertyManager, SIGNAL(rangeChanged(QtProperty *, const QSizeF &, const QSizeF &)),
@@ -1115,10 +1115,10 @@ QtVariantPropertyManager::QtVariantPropertyManager(QObject *parent)
                 this, SLOT(slotPropertyRemoved(QtProperty *, QtProperty *)));
     // RectPropertyManager
     QtRectPropertyManager *rectPropertyManager = new QtRectPropertyManager(this);
-    d_ptr->m_typeToPropertyManager[QVariant::Rect] = rectPropertyManager;
-    d_ptr->m_typeToValueType[QVariant::Rect] = QVariant::Rect;
-    d_ptr->m_typeToAttributeToAttributeType[QVariant::Rect][d_ptr->m_constraintAttribute] =
-            QVariant::Rect;
+    d_ptr->m_typeToPropertyManager[QMetaType::QRect] = rectPropertyManager;
+    d_ptr->m_typeToValueType[QMetaType::QRect] = QMetaType::QRect;
+    d_ptr->m_typeToAttributeToAttributeType[QMetaType::QRect][d_ptr->m_constraintAttribute] =
+            QMetaType::QRect;
     connect(rectPropertyManager, SIGNAL(valueChanged(QtProperty *, const QRect &)),
                 this, SLOT(slotValueChanged(QtProperty *, const QRect &)));
     connect(rectPropertyManager, SIGNAL(constraintChanged(QtProperty *, const QRect &)),
@@ -1133,12 +1133,12 @@ QtVariantPropertyManager::QtVariantPropertyManager(QObject *parent)
                 this, SLOT(slotPropertyRemoved(QtProperty *, QtProperty *)));
     // RectFPropertyManager
     QtRectFPropertyManager *rectFPropertyManager = new QtRectFPropertyManager(this);
-    d_ptr->m_typeToPropertyManager[QVariant::RectF] = rectFPropertyManager;
-    d_ptr->m_typeToValueType[QVariant::RectF] = QVariant::RectF;
-    d_ptr->m_typeToAttributeToAttributeType[QVariant::RectF][d_ptr->m_constraintAttribute] =
-            QVariant::RectF;
-    d_ptr->m_typeToAttributeToAttributeType[QVariant::RectF][d_ptr->m_decimalsAttribute] =
-            QVariant::Int;
+    d_ptr->m_typeToPropertyManager[QMetaType::QRectF] = rectFPropertyManager;
+    d_ptr->m_typeToValueType[QMetaType::QRectF] = QMetaType::QRectF;
+    d_ptr->m_typeToAttributeToAttributeType[QMetaType::QRectF][d_ptr->m_constraintAttribute] =
+            QMetaType::QRectF;
+    d_ptr->m_typeToAttributeToAttributeType[QMetaType::QRectF][d_ptr->m_decimalsAttribute] =
+            QMetaType::Int;
     connect(rectFPropertyManager, SIGNAL(valueChanged(QtProperty *, const QRectF &)),
                 this, SLOT(slotValueChanged(QtProperty *, const QRectF &)));
     connect(rectFPropertyManager, SIGNAL(constraintChanged(QtProperty *, const QRectF &)),
@@ -1155,8 +1155,8 @@ QtVariantPropertyManager::QtVariantPropertyManager(QObject *parent)
                 this, SLOT(slotPropertyRemoved(QtProperty *, QtProperty *)));
     // ColorPropertyManager
     QtColorPropertyManager *colorPropertyManager = new QtColorPropertyManager(this);
-    d_ptr->m_typeToPropertyManager[QVariant::Color] = colorPropertyManager;
-    d_ptr->m_typeToValueType[QVariant::Color] = QVariant::Color;
+    d_ptr->m_typeToPropertyManager[QMetaType::QColor] = colorPropertyManager;
+    d_ptr->m_typeToValueType[QMetaType::QColor] = QMetaType::QColor;
     connect(colorPropertyManager, SIGNAL(valueChanged(QtProperty *, const QColor &)),
                 this, SLOT(slotValueChanged(QtProperty *, const QColor &)));
     connect(colorPropertyManager->subIntPropertyManager(), SIGNAL(valueChanged(QtProperty *, int)),
@@ -1169,9 +1169,9 @@ QtVariantPropertyManager::QtVariantPropertyManager(QObject *parent)
     int enumId = enumTypeId();
     QtEnumPropertyManager *enumPropertyManager = new QtEnumPropertyManager(this);
     d_ptr->m_typeToPropertyManager[enumId] = enumPropertyManager;
-    d_ptr->m_typeToValueType[enumId] = QVariant::Int;
+    d_ptr->m_typeToValueType[enumId] = QMetaType::Int;
     d_ptr->m_typeToAttributeToAttributeType[enumId][d_ptr->m_enumNamesAttribute] =
-            QVariant::StringList;
+            QMetaType::QStringList;
     d_ptr->m_typeToAttributeToAttributeType[enumId][d_ptr->m_enumIconsAttribute] =
             iconMapTypeId();
     connect(enumPropertyManager, SIGNAL(valueChanged(QtProperty *, int)),
@@ -1182,8 +1182,8 @@ QtVariantPropertyManager::QtVariantPropertyManager(QObject *parent)
                 this, SLOT(slotEnumIconsChanged(QtProperty *, const QMap<int, QIcon> &)));
     // SizePolicyPropertyManager
     QtSizePolicyPropertyManager *sizePolicyPropertyManager = new QtSizePolicyPropertyManager(this);
-    d_ptr->m_typeToPropertyManager[QVariant::SizePolicy] = sizePolicyPropertyManager;
-    d_ptr->m_typeToValueType[QVariant::SizePolicy] = QVariant::SizePolicy;
+    d_ptr->m_typeToPropertyManager[QMetaType::QSizePolicy] = sizePolicyPropertyManager;
+    d_ptr->m_typeToValueType[QMetaType::QSizePolicy] = QMetaType::QSizePolicy;
     connect(sizePolicyPropertyManager, SIGNAL(valueChanged(QtProperty *, const QSizePolicy &)),
                 this, SLOT(slotValueChanged(QtProperty *, const QSizePolicy &)));
     connect(sizePolicyPropertyManager->subIntPropertyManager(), SIGNAL(valueChanged(QtProperty *, int)),
@@ -1201,8 +1201,8 @@ QtVariantPropertyManager::QtVariantPropertyManager(QObject *parent)
                 this, SLOT(slotPropertyRemoved(QtProperty *, QtProperty *)));
     // FontPropertyManager
     QtFontPropertyManager *fontPropertyManager = new QtFontPropertyManager(this);
-    d_ptr->m_typeToPropertyManager[QVariant::Font] = fontPropertyManager;
-    d_ptr->m_typeToValueType[QVariant::Font] = QVariant::Font;
+    d_ptr->m_typeToPropertyManager[QMetaType::QFont] = fontPropertyManager;
+    d_ptr->m_typeToValueType[QMetaType::QFont] = QMetaType::QFont;
     connect(fontPropertyManager, SIGNAL(valueChanged(QtProperty *, const QFont &)),
                 this, SLOT(slotValueChanged(QtProperty *, const QFont &)));
     connect(fontPropertyManager->subIntPropertyManager(), SIGNAL(valueChanged(QtProperty *, int)),
@@ -1222,17 +1222,17 @@ QtVariantPropertyManager::QtVariantPropertyManager(QObject *parent)
                 this, SLOT(slotPropertyRemoved(QtProperty *, QtProperty *)));
     // CursorPropertyManager
     QtCursorPropertyManager *cursorPropertyManager = new QtCursorPropertyManager(this);
-    d_ptr->m_typeToPropertyManager[QVariant::Cursor] = cursorPropertyManager;
-    d_ptr->m_typeToValueType[QVariant::Cursor] = QVariant::Cursor;
+    d_ptr->m_typeToPropertyManager[QMetaType::QCursor] = cursorPropertyManager;
+    d_ptr->m_typeToValueType[QMetaType::QCursor] = QMetaType::QCursor;
     connect(cursorPropertyManager, SIGNAL(valueChanged(QtProperty *, const QCursor &)),
                 this, SLOT(slotValueChanged(QtProperty *, const QCursor &)));
     // FlagPropertyManager
     int flagId = flagTypeId();
     QtFlagPropertyManager *flagPropertyManager = new QtFlagPropertyManager(this);
     d_ptr->m_typeToPropertyManager[flagId] = flagPropertyManager;
-    d_ptr->m_typeToValueType[flagId] = QVariant::Int;
+    d_ptr->m_typeToValueType[flagId] = QMetaType::Int;
     d_ptr->m_typeToAttributeToAttributeType[flagId][d_ptr->m_flagNamesAttribute] =
-            QVariant::StringList;
+            QMetaType::QStringList;
     connect(flagPropertyManager, SIGNAL(valueChanged(QtProperty *, int)),
                 this, SLOT(slotValueChanged(QtProperty *, int)));
     connect(flagPropertyManager, SIGNAL(flagNamesChanged(QtProperty *, const QStringList &)),
@@ -1247,7 +1247,7 @@ QtVariantPropertyManager::QtVariantPropertyManager(QObject *parent)
     int groupId = groupTypeId();
     QtGroupPropertyManager *groupPropertyManager = new QtGroupPropertyManager(this);
     d_ptr->m_typeToPropertyManager[groupId] = groupPropertyManager;
-    d_ptr->m_typeToValueType[groupId] = QVariant::Invalid;
+    d_ptr->m_typeToValueType[groupId] = QMetaType::UnknownType;
 }
 
 /*!
@@ -1599,7 +1599,7 @@ QStringList QtVariantPropertyManager::attributes(int propertyType) const
 
     If the given \a propertyType is not supported by \e this manager,
     or if the given \a propertyType does not possess the specified \a
-    attribute, this function returns QVariant::Invalid.
+    attribute, this function returns QMetaType::UnknownType.
 
     \sa attributes(), valueType()
 */
@@ -2007,52 +2007,52 @@ QtVariantEditorFactory::QtVariantEditorFactory(QObject *parent)
     d_ptr->q_ptr = this;
 
     d_ptr->m_spinBoxFactory = new QtSpinBoxFactory(this);
-    d_ptr->m_factoryToType[d_ptr->m_spinBoxFactory] = QVariant::Int;
-    d_ptr->m_typeToFactory[QVariant::Int] = d_ptr->m_spinBoxFactory;
+    d_ptr->m_factoryToType[d_ptr->m_spinBoxFactory] = QMetaType::Int;
+    d_ptr->m_typeToFactory[QMetaType::Int] = d_ptr->m_spinBoxFactory;
 
     d_ptr->m_doubleSpinBoxFactory = new QtDoubleSpinBoxFactory(this);
-    d_ptr->m_factoryToType[d_ptr->m_doubleSpinBoxFactory] = QVariant::Double;
-    d_ptr->m_typeToFactory[QVariant::Double] = d_ptr->m_doubleSpinBoxFactory;
+    d_ptr->m_factoryToType[d_ptr->m_doubleSpinBoxFactory] = QMetaType::Double;
+    d_ptr->m_typeToFactory[QMetaType::Double] = d_ptr->m_doubleSpinBoxFactory;
 
     d_ptr->m_checkBoxFactory = new QtCheckBoxFactory(this);
-    d_ptr->m_factoryToType[d_ptr->m_checkBoxFactory] = QVariant::Bool;
-    d_ptr->m_typeToFactory[QVariant::Bool] = d_ptr->m_checkBoxFactory;
+    d_ptr->m_factoryToType[d_ptr->m_checkBoxFactory] = QMetaType::Bool;
+    d_ptr->m_typeToFactory[QMetaType::Bool] = d_ptr->m_checkBoxFactory;
 
     d_ptr->m_lineEditFactory = new QtLineEditFactory(this);
-    d_ptr->m_factoryToType[d_ptr->m_lineEditFactory] = QVariant::String;
-    d_ptr->m_typeToFactory[QVariant::String] = d_ptr->m_lineEditFactory;
+    d_ptr->m_factoryToType[d_ptr->m_lineEditFactory] = QMetaType::QString;
+    d_ptr->m_typeToFactory[QMetaType::QString] = d_ptr->m_lineEditFactory;
 
     d_ptr->m_dateEditFactory = new QtDateEditFactory(this);
-    d_ptr->m_factoryToType[d_ptr->m_dateEditFactory] = QVariant::Date;
-    d_ptr->m_typeToFactory[QVariant::Date] = d_ptr->m_dateEditFactory;
+    d_ptr->m_factoryToType[d_ptr->m_dateEditFactory] = QMetaType::QDate;
+    d_ptr->m_typeToFactory[QMetaType::QDate] = d_ptr->m_dateEditFactory;
 
     d_ptr->m_timeEditFactory = new QtTimeEditFactory(this);
-    d_ptr->m_factoryToType[d_ptr->m_timeEditFactory] = QVariant::Time;
-    d_ptr->m_typeToFactory[QVariant::Time] = d_ptr->m_timeEditFactory;
+    d_ptr->m_factoryToType[d_ptr->m_timeEditFactory] = QMetaType::QTime;
+    d_ptr->m_typeToFactory[QMetaType::QTime] = d_ptr->m_timeEditFactory;
 
     d_ptr->m_dateTimeEditFactory = new QtDateTimeEditFactory(this);
-    d_ptr->m_factoryToType[d_ptr->m_dateTimeEditFactory] = QVariant::DateTime;
-    d_ptr->m_typeToFactory[QVariant::DateTime] = d_ptr->m_dateTimeEditFactory;
+    d_ptr->m_factoryToType[d_ptr->m_dateTimeEditFactory] = QMetaType::QDateTime;
+    d_ptr->m_typeToFactory[QMetaType::QDateTime] = d_ptr->m_dateTimeEditFactory;
 
     d_ptr->m_keySequenceEditorFactory = new QtKeySequenceEditorFactory(this);
-    d_ptr->m_factoryToType[d_ptr->m_keySequenceEditorFactory] = QVariant::KeySequence;
-    d_ptr->m_typeToFactory[QVariant::KeySequence] = d_ptr->m_keySequenceEditorFactory;
+    d_ptr->m_factoryToType[d_ptr->m_keySequenceEditorFactory] = QMetaType::QKeySequence;
+    d_ptr->m_typeToFactory[QMetaType::QKeySequence] = d_ptr->m_keySequenceEditorFactory;
 
     d_ptr->m_charEditorFactory = new QtCharEditorFactory(this);
-    d_ptr->m_factoryToType[d_ptr->m_charEditorFactory] = QVariant::Char;
-    d_ptr->m_typeToFactory[QVariant::Char] = d_ptr->m_charEditorFactory;
+    d_ptr->m_factoryToType[d_ptr->m_charEditorFactory] = QMetaType::QChar;
+    d_ptr->m_typeToFactory[QMetaType::QChar] = d_ptr->m_charEditorFactory;
 
     d_ptr->m_cursorEditorFactory = new QtCursorEditorFactory(this);
-    d_ptr->m_factoryToType[d_ptr->m_cursorEditorFactory] = QVariant::Cursor;
-    d_ptr->m_typeToFactory[QVariant::Cursor] = d_ptr->m_cursorEditorFactory;
+    d_ptr->m_factoryToType[d_ptr->m_cursorEditorFactory] = QMetaType::QCursor;
+    d_ptr->m_typeToFactory[QMetaType::QCursor] = d_ptr->m_cursorEditorFactory;
 
     d_ptr->m_colorEditorFactory = new QtColorEditorFactory(this);
-    d_ptr->m_factoryToType[d_ptr->m_colorEditorFactory] = QVariant::Color;
-    d_ptr->m_typeToFactory[QVariant::Color] = d_ptr->m_colorEditorFactory;
+    d_ptr->m_factoryToType[d_ptr->m_colorEditorFactory] = QMetaType::QColor;
+    d_ptr->m_typeToFactory[QMetaType::QColor] = d_ptr->m_colorEditorFactory;
 
     d_ptr->m_fontEditorFactory = new QtFontEditorFactory(this);
-    d_ptr->m_factoryToType[d_ptr->m_fontEditorFactory] = QVariant::Font;
-    d_ptr->m_typeToFactory[QVariant::Font] = d_ptr->m_fontEditorFactory;
+    d_ptr->m_factoryToType[d_ptr->m_fontEditorFactory] = QMetaType::QFont;
+    d_ptr->m_typeToFactory[QMetaType::QFont] = d_ptr->m_fontEditorFactory;
 
     d_ptr->m_comboBoxFactory = new QtEnumEditorFactory(this);
     const int enumId = QtVariantPropertyManager::enumTypeId();
