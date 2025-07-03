@@ -481,11 +481,11 @@ void GateMatePacker::pack_mult()
 
             NetInfo *comb1_conn = ctx->createNet(ctx->idf("%s$f_route$comb1", name.c_str(ctx)));
             f_route_lower->connectPort(id_OUT, comb1_conn);
-            f_route_lines->connectPort(id_COMB1, comb1_conn);
+            f_route_lines->connectPort(id_OUT1, comb1_conn);
 
             NetInfo *comb2_conn = ctx->createNet(ctx->idf("%s$f_route$comb2", name.c_str(ctx)));
             f_route_upper->connectPort(id_OUT, comb2_conn);
-            f_route_lines->connectPort(id_COMB2, comb2_conn);
+            f_route_lines->connectPort(id_OUT2, comb2_conn);
             if (!is_even_x) {
                 f_route_comp->connectPort(id_COMB2, comb2_conn);
             }
