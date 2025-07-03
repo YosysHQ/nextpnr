@@ -385,7 +385,7 @@ MsbRoutingCell::MsbRoutingCell(CellInfo *lower, CellInfo *upper, CellInfo *comp,
     cplines->params[id_C_PY1_I] = Property(1, 1); // PY1_VAL -> POUTY1
     cplines->params[id_C_PY2_I] = Property(1, 1); // PY2_VAL -> POUTY2
 
-    upper->params[id_C_O2] = Property(0b11, 2); // COMB2 -> OUT2
+    //upper->params[id_C_O2] = Property(0b11, 2); // COMB2 -> OUT2
 }
 
 void GateMatePacker::pack_mult()
