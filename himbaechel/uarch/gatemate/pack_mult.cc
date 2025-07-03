@@ -781,7 +781,7 @@ void GateMatePacker::pack_mult()
                 auto *cco_net = ctx->createNet(ctx->idf("%s$cco", lines_name.c_str(ctx)));
                 b_multfab.cplines->connectPort(id_COUTX, cco_net);
                 b_carry_right.cplines->connectPort(id_CINX, cco_net);
-                b_carry_right.lower->connectPort(id_CINX, cco_net);
+                b_carry_right.upper->connectPort(id_CINX, cco_net);
             }
 
             // FRoute (POUTY1, POUTY2, COUTY1, COUTY2) -> C_MULT (PINY1, PINY2, CINY1, CINY2)
