@@ -357,8 +357,8 @@ MultCell::MultCell(CellInfo *lower, CellInfo *upper, CellInfo *cplines, IdString
         lower->params[id_C_C_P] = Property(0, 1);
     }
 
-    upper->params[id_C_O1] = Property(0b10, 2); // CP_OUT1 -> OUT1
-    upper->params[id_C_O2] = Property(0b10, 2); // CP_OUT2 -> OUT2
+    //upper->params[id_C_O1] = Property(0b10, 2); // CP_OUT1 -> OUT1
+    //upper->params[id_C_O2] = Property(0b10, 2); // CP_OUT2 -> OUT2
 }
 
 MsbRoutingCell::MsbRoutingCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, CellInfo *cplines, IdString name)
@@ -912,14 +912,14 @@ void GateMatePacker::pack_mult()
             auto &mult_cell = m.cols[p / 2].mults[0];
             auto *cpe_half = (p % 2 == 1) ? mult_cell.upper : mult_cell.lower;
 
-            mult->movePortTo(ctx->idf("P[%d]", p), cpe_half, id_OUT);
+            mult->movePortTo(ctx->idf("P[%d]", p), cpe_half, id_CPOUT);
         }
 
         for (int p = 0; p < vertical_p_width; p++) {
             auto &mult_cell = m.cols.back().mults[1 + (p / 2)];
             auto *cpe_half = (p % 2 == 1) ? mult_cell.upper : mult_cell.lower;
 
-            mult->movePortTo(ctx->idf("P[%d]", p + diagonal_p_width), cpe_half, id_OUT);
+            mult->movePortTo(ctx->idf("P[%d]", p + diagonal_p_width), cpe_half, id_CPOUT);
         }
 
         // Clean up the multiplier.

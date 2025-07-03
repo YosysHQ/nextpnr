@@ -39,6 +39,7 @@ CellInfo *GateMatePacker::create_cell_ptr(IdString type, IdString name)
         add_port(id_IN3, PORT_IN);
         add_port(id_IN4, PORT_IN);
         add_port(id_OUT, PORT_OUT);
+        add_port(id_CPOUT, PORT_OUT);
         // These are used to propagate alternate inputs for first LUT2 levels
         add_port(id_CINX, PORT_IN);
         add_port(id_PINX, PORT_IN);
