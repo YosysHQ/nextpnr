@@ -799,6 +799,7 @@ void GateMatePacker::pack_mult()
                         ctx->idf("%s$%s$f%d_p1", lines_name.c_str(ctx), lower_net_name.c_str(ctx), 2 * b));
                 b_f_route.cplines->connectPort(id_POUTY1, f_p1_net);
                 b_mult.cplines->connectPort(id_PINY1, f_p1_net);
+                b_mult.lower->connectPort(id_PINY1, f_p1_net);
 
                 auto *f_p2_net = ctx->createNet(
                         ctx->idf("%s$%s$f%d_p2", lines_name.c_str(ctx), lower_net_name.c_str(ctx), 2 * b + 1));
