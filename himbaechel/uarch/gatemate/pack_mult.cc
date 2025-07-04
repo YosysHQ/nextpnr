@@ -113,12 +113,11 @@ struct FRoutingCell
 // CITE: CPE_MULT.pdf
 struct MultCell
 {
-    MultCell() : lower{nullptr}, upper{nullptr}, cplines{nullptr} {}
-    MultCell(CellInfo *lower, CellInfo *upper, CellInfo *cplines, IdString name, bool is_msb);
+    MultCell() : lower{nullptr}, upper{nullptr} {}
+    MultCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_msb);
 
     CellInfo *lower;
     CellInfo *upper;
-    CellInfo *cplines;
 };
 
 // CITE: CPE_ges_MSB-routing.pdf
@@ -333,8 +332,8 @@ FRoutingCell::FRoutingCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, Cel
     // upper->params[id_C_O2] = Property(0b11, 2); // COMB2OUT -> OUT2
 }
 
-MultCell::MultCell(CellInfo *lower, CellInfo *upper, CellInfo *cplines, IdString name, bool is_msb)
-        : lower{lower}, upper{upper}, cplines{cplines}
+MultCell::MultCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_msb)
+        : lower{lower}, upper{upper}
 {
     lower->params[id_INIT_L02] = Property(LUT_AND, 4);
     lower->params[id_INIT_L03] = Property(LUT_D1, 4); // PINX
@@ -353,10 +352,10 @@ MultCell::MultCell(CellInfo *lower, CellInfo *upper, CellInfo *cplines, IdString
     upper->params[id_C_FUNCTION] = Property(C_MULT, 3);
 
     if (is_msb) {
-        cplines->params[id_C_PY1_I] = Property(1, 1);
+        lower->params[id_C_PY1_I] = Property(1, 1);
         lower->params[id_C_C_P] = Property(1, 1);
     } else {
-        cplines->params[id_C_PY1_I] = Property(0, 1);
+        lower->params[id_C_PY1_I] = Property(0, 1);
         lower->params[id_C_C_P] = Property(0, 1);
     }
 
@@ -508,9 +507,8 @@ void GateMatePacker::pack_mult()
         for (int i = 0; i < (a_width / 2); i++) {
             auto *mult_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$row%d$mult_lower", name.c_str(ctx), i));
             auto *mult_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$row%d$mult_upper", name.c_str(ctx), i));
-            auto *mult_lines = create_cell_ptr(id_CPE_CPLINES, ctx->idf("%s$row%d$mult_lines", name.c_str(ctx), i));
 
-            col.mults.push_back(MultCell{mult_lower, mult_upper, mult_lines, name, i == ((a_width / 2) - 1)});
+            col.mults.push_back(MultCell{mult_lower, mult_upper, name, i == ((a_width / 2) - 1)});
             uarch->multipliers.push_back(mult_lower);
         }
 
@@ -627,7 +625,6 @@ void GateMatePacker::pack_mult()
             for (size_t mult_idx = 0; mult_idx < col.mults.size(); mult_idx++) {
                 constrain_cell(col.mults[mult_idx].lower, b, b + 4 + mult_idx, CPE_LT_L_Z);
                 constrain_cell(col.mults[mult_idx].upper, b, b + 4 + mult_idx, CPE_LT_U_Z);
-                constrain_cell(col.mults[mult_idx].cplines, b, b + 4 + mult_idx, CPE_CPLINES_Z);
             }
 
             constrain_cell(col.msb_route.lower, b, b + 4 + col.mults.size(), CPE_LT_L_Z);
@@ -798,23 +795,22 @@ void GateMatePacker::pack_mult()
                 auto *f_p1_net = ctx->createNet(
                         ctx->idf("%s$%s$f%d_p1", lines_name.c_str(ctx), lower_net_name.c_str(ctx), 2 * b));
                 b_f_route.cplines->connectPort(id_POUTY1, f_p1_net);
-                b_mult.cplines->connectPort(id_PINY1, f_p1_net);
                 b_mult.lower->connectPort(id_PINY1, f_p1_net);
 
                 auto *f_p2_net = ctx->createNet(
                         ctx->idf("%s$%s$f%d_p2", lines_name.c_str(ctx), lower_net_name.c_str(ctx), 2 * b + 1));
                 b_f_route.cplines->connectPort(id_POUTY2, f_p2_net);
-                b_mult.cplines->connectPort(id_PINY2, f_p2_net);
+                b_mult.lower->connectPort(id_PINY2, f_p2_net);
 
                 auto *f_c1_net = ctx->createNet(
                         ctx->idf("%s$%s$f%d_c1", lines_name.c_str(ctx), upper_net_name.c_str(ctx), 2 * b));
                 b_f_route.cplines->connectPort(id_COUTY1, f_c1_net);
-                b_mult.cplines->connectPort(id_CINY1, f_c1_net);
+                b_mult.lower->connectPort(id_CINY1, f_c1_net);
 
                 auto *f_c2_net = ctx->createNet(
                         ctx->idf("%s$%s$f%d_c2", lines_name.c_str(ctx), upper_net_name.c_str(ctx), 2 * b + 1));
                 b_f_route.cplines->connectPort(id_COUTY2, f_c2_net);
-                b_mult.cplines->connectPort(id_CINY2, f_c2_net);
+                b_mult.lower->connectPort(id_CINY2, f_c2_net);
             }
 
             // FRoute (COUTX) -> MULTFab (CINX)
@@ -834,28 +830,27 @@ void GateMatePacker::pack_mult()
                 auto &b_mult = m.cols.at(b).mults.at(row);
                 auto &b_mult_up = m.cols.at(b).mults.at(row + 1);
 
-                auto lines_name = b_mult.cplines->name;
+                auto lines_name = b_mult.lower->name;
 
                 auto *lower_b_net =
                         ctx->createNet(ctx->idf("%s$%s$b%d", lines_name.c_str(ctx), lower_net_name.c_str(ctx), 2 * b));
-                b_mult.cplines->connectPort(id_POUTY1, lower_b_net);
-                b_mult_up.cplines->connectPort(id_PINY1, lower_b_net);
+                b_mult.lower->connectPort(id_POUTY1, lower_b_net);
                 b_mult_up.lower->connectPort(id_PINY1, lower_b_net);
 
                 auto *upper_b_net = ctx->createNet(
                         ctx->idf("%s$%s$b%d", lines_name.c_str(ctx), upper_net_name.c_str(ctx), 2 * b + 1));
-                b_mult.cplines->connectPort(id_POUTY2, upper_b_net);
-                b_mult_up.cplines->connectPort(id_PINY2, upper_b_net);
+                b_mult.lower->connectPort(id_POUTY2, upper_b_net);
+                b_mult_up.lower->connectPort(id_PINY2, upper_b_net);
 
                 auto *lower_co_net =
                         ctx->createNet(ctx->idf("%s$%s$co%d", lines_name.c_str(ctx), upper_net_name.c_str(ctx), 2 * b));
-                b_mult.cplines->connectPort(id_COUTY1, lower_co_net);
-                b_mult_up.cplines->connectPort(id_CINY1, lower_co_net);
+                b_mult.lower->connectPort(id_COUTY1, lower_co_net);
+                b_mult_up.lower->connectPort(id_CINY1, lower_co_net);
 
                 auto *upper_co_net = ctx->createNet(
                         ctx->idf("%s$%s$co%d", lines_name.c_str(ctx), upper_net_name.c_str(ctx), 2 * b + 1));
-                b_mult.cplines->connectPort(id_COUTY2, upper_co_net);
-                b_mult_up.cplines->connectPort(id_CINY2, upper_co_net);
+                b_mult.lower->connectPort(id_COUTY2, upper_co_net);
+                b_mult_up.lower->connectPort(id_CINY2, upper_co_net);
             }
 
             // C_MULT (POUTX, COUTX) -> C_MULT (PINX, CINX)
@@ -864,16 +859,14 @@ void GateMatePacker::pack_mult()
                     auto &b_mult = m.cols.at(b).mults.at(row);
                     auto &b_mult_right = m.cols.at(b + 1).mults.at(row - 1);
 
-                    auto lines_name = b_mult.cplines->name;
+                    auto lines_name = b_mult.lower->name;
 
                     auto *so1_net = ctx->createNet(ctx->idf("%s$so1", lines_name.c_str(ctx)));
-                    b_mult.cplines->connectPort(id_POUTX, so1_net);
-                    b_mult_right.cplines->connectPort(id_PINX, so1_net);
+                    b_mult.lower->connectPort(id_POUTX, so1_net);
                     b_mult_right.lower->connectPort(id_PINX, so1_net);
 
                     auto *so2_net = ctx->createNet(ctx->idf("%s$so2", lines_name.c_str(ctx)));
-                    b_mult.cplines->connectPort(id_COUTX, so2_net);
-                    b_mult_right.cplines->connectPort(id_CINX, so2_net);
+                    b_mult.lower->connectPort(id_COUTX, so2_net);
                     b_mult_right.lower->connectPort(id_CINX, so2_net);
                 }
             }
@@ -882,17 +875,17 @@ void GateMatePacker::pack_mult()
             {
                 auto &b_mult = m.cols.at(b).mults.back();
 
-                auto lines_name = b_mult.cplines->name;
+                auto lines_name = b_mult.lower->name;
 
                 auto *lower_net =
                         ctx->createNet(ctx->idf("%s$%s$b%d", lines_name.c_str(ctx), lower_net_name.c_str(ctx), 2 * b));
-                b_mult.cplines->connectPort(id_POUTY1, lower_net);
+                b_mult.lower->connectPort(id_POUTY1, lower_net);
                 b_msb_route.cplines->connectPort(id_PINY1, lower_net);
                 b_msb_route.upper->connectPort(id_PINY1, lower_net);
 
                 auto *upper_net = ctx->createNet(
                         ctx->idf("%s$%s$b%d", lines_name.c_str(ctx), lower_net_name.c_str(ctx), 2 * b + 1));
-                b_mult.cplines->connectPort(id_POUTY2, upper_net);
+                b_mult.lower->connectPort(id_POUTY2, upper_net);
                 b_msb_route.cplines->connectPort(id_PINY2, upper_net);
             }
 
@@ -904,11 +897,11 @@ void GateMatePacker::pack_mult()
 
                 auto *so1_net = ctx->createNet(ctx->idf("%s$so1", lines_name.c_str(ctx)));
                 b_msb_route.cplines->connectPort(id_POUTX, so1_net);
-                b_mult_right.cplines->connectPort(id_PINX, so1_net);
+                b_mult_right.lower->connectPort(id_PINX, so1_net);
 
                 auto *so2_net = ctx->createNet(ctx->idf("%s$so2", lines_name.c_str(ctx)));
                 b_msb_route.cplines->connectPort(id_COUTX, so2_net);
-                b_mult_right.cplines->connectPort(id_CINX, so2_net);
+                b_mult_right.lower->connectPort(id_CINX, so2_net);
             }
         }
 
