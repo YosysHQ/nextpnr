@@ -63,6 +63,7 @@ struct GateMateImpl : HimbaechelAPI
     bool isPipInverting(PipId pip) const override;
 
     const GateMateTileExtraDataPOD *tile_extra_data(int tile) const;
+    void rename_param(CellInfo *cell, IdString name, IdString new_name, int width);
 
     std::set<IdString> available_pads;
     std::map<BelId, const PadInfoPOD *> bel_to_pad;
@@ -70,6 +71,7 @@ struct GateMateImpl : HimbaechelAPI
     dict<std::pair<IdString, int>, Loc> locations;
     int dies;
     int preferred_die;
+    std::vector<CellInfo *> multipliers;
 
   private:
     bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
@@ -80,7 +82,6 @@ struct GateMateImpl : HimbaechelAPI
     void parse_ccf(const std::string &filename);
 
     void assign_cell_info();
-    void rename_param(CellInfo *cell, IdString name, IdString new_name, int width);
     void route_clock();
 
     const GateMateBelExtraDataPOD *bel_extra_data(BelId bel) const;

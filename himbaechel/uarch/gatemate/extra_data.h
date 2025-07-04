@@ -85,6 +85,19 @@ enum CPEFunction
     C_ADDCIN = 7,
 };
 
+enum CPE_Z
+{
+    CPE_LT_U_Z = 0,
+    CPE_LT_L_Z = 1,
+    CPE_FF_U_Z = 2,
+    CPE_FF_L_Z = 3,
+    CPE_RAMIO_U_Z = 4,
+    CPE_RAMIO_L_Z = 5,
+    CPE_COMP_Z = 6,
+    CPE_CPLINES_Z = 7,
+    CPE_LT_FULL_Z = 8,
+};
+
 enum ClusterPlacement
 {
     PLACE_DB_CONSTR = 32,
