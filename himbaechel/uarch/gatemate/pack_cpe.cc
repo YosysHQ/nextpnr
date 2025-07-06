@@ -96,10 +96,18 @@ void GateMatePacker::dff_to_cpe(CellInfo *dff)
     if (sr_net) {
         if (sr_net->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC"))) {
             bool sr_signal = sr_net->name == ctx->id("$PACKER_VCC");
-            if (sr_signal ^ invert)
-                log_error("Currently unsupported DFF configuration for '%s'\n.", dff->name.c_str(ctx));
-            dff->params[id_C_CPE_RES] = Property(0b11, 2);
-            dff->params[id_C_CPE_SET] = Property(0b11, 2);
+            if (sr_signal ^ invert) {
+                if (sr_val) {
+                    dff->params[id_C_CPE_RES] = Property(0b11, 2);
+                    dff->params[id_C_CPE_SET] = Property(0b00, 2);
+                } else {
+                    dff->params[id_C_CPE_RES] = Property(0b00, 2);
+                    dff->params[id_C_CPE_SET] = Property(0b11, 2);
+                }
+            } else {
+                dff->params[id_C_CPE_RES] = Property(0b11, 2);
+                dff->params[id_C_CPE_SET] = Property(0b11, 2);
+            }
             dff->disconnectPort(id_SR);
         } else {
             if (sr_val) {
