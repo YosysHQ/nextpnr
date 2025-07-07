@@ -306,19 +306,19 @@ struct BitstreamBackend
                             update_cpe_mux(cell.second.get(), id_IN2, id_INIT_L11, 1, params);
                             update_cpe_mux(cell.second.get(), id_IN3, id_INIT_L11, 2, params);
                             update_cpe_mux(cell.second.get(), id_IN4, id_INIT_L11, 3, params);
-                            update_cpe_lt(cell.second.get(), id_IN5, id_INIT_L02, params,true);
-                            update_cpe_lt(cell.second.get(), c_i3 ? id_PINY1 : id_IN6, id_INIT_L02, params,false);
-                            update_cpe_lt(cell.second.get(), id_IN7, id_INIT_L03, params,true);
-                            update_cpe_lt(cell.second.get(), c_i4 ? id_PINX : id_IN8, id_INIT_L03, params,false);
+                            update_cpe_lt(cell.second.get(), id_IN5, id_INIT_L02, params, true);
+                            update_cpe_lt(cell.second.get(), c_i3 ? id_PINY1 : id_IN6, id_INIT_L02, params, false);
+                            update_cpe_lt(cell.second.get(), id_IN7, id_INIT_L03, params, true);
+                            update_cpe_lt(cell.second.get(), c_i4 ? id_PINX : id_IN8, id_INIT_L03, params, false);
                         } else {
-                            update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L00, params,true);
-                            update_cpe_lt(cell.second.get(), c_i1 ? id_PINY1 : id_IN2, id_INIT_L00, params,false);
-                            update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L01, params,true);
-                            update_cpe_lt(cell.second.get(), c_i2 ? id_CINX : id_IN4, id_INIT_L01, params,false);
-                            update_cpe_lt(cell.second.get(), id_IN5, id_INIT_L02, params,true);
-                            update_cpe_lt(cell.second.get(), c_i3 ? id_PINY1 : id_IN6, id_INIT_L02, params,false);
-                            update_cpe_lt(cell.second.get(), id_IN7, id_INIT_L03, params,true);
-                            update_cpe_lt(cell.second.get(), c_i4 ? id_PINX : id_IN8, id_INIT_L03, params,false);
+                            update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L00, params, true);
+                            update_cpe_lt(cell.second.get(), c_i1 ? id_PINY1 : id_IN2, id_INIT_L00, params, false);
+                            update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L01, params, true);
+                            update_cpe_lt(cell.second.get(), c_i2 ? id_CINX : id_IN4, id_INIT_L01, params, false);
+                            update_cpe_lt(cell.second.get(), id_IN5, id_INIT_L02, params, true);
+                            update_cpe_lt(cell.second.get(), c_i3 ? id_PINY1 : id_IN6, id_INIT_L02, params, false);
+                            update_cpe_lt(cell.second.get(), id_IN7, id_INIT_L03, params, true);
+                            update_cpe_lt(cell.second.get(), c_i4 ? id_PINX : id_IN8, id_INIT_L03, params, false);
                         }
                     }
                 }

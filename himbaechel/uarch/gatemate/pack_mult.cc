@@ -249,7 +249,8 @@ CarryGenCell::CarryGenCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, Cel
     upper->params[id_INIT_L00] = Property(LUT_ZERO, 4);                        // (unused)
     upper->params[id_INIT_L01] = Property(enable_cinx ? LUT_D1 : LUT_ZERO, 4); // CINX
     upper->params[id_INIT_L10] = Property(LUT_D1, 4);
-    if (enable_cinx) upper->params[id_C_I2] = Property(1, 1); // CINX for L01
+    if (enable_cinx)
+        upper->params[id_C_I2] = Property(1, 1); // CINX for L01
 
     comp->params[id_INIT_L30] = Property(LUT_INV_D0, 4); // OUT1 -> COMP_OUT
 
@@ -282,8 +283,9 @@ MultfabCell::MultfabCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, CellI
     upper->params[id_INIT_L10] = Property(LUT_XOR, 4);                         // XOR
 
     upper->params[id_C_I1] = Property(1, 1); // PINY1 for L00
-    if (enable_cinx) upper->params[id_C_I2] = Property(1, 1); // CINX for L01
-    lower->params[id_C_I3] = Property(1, 1); // PINY1 for L02
+    if (enable_cinx)
+        upper->params[id_C_I2] = Property(1, 1); // CINX for L01
+    lower->params[id_C_I3] = Property(1, 1);     // PINY1 for L02
     // upper->params[id_C_FUNCTION] = Property(C_ADDCIN, 3);
 
     cplines->params[id_C_SELX] = Property(1, 1);  // inverted CINY2 -> CX_VAL
@@ -332,8 +334,7 @@ FRoutingCell::FRoutingCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, Cel
     // upper->params[id_C_O2] = Property(0b11, 2); // COMB2OUT -> OUT2
 }
 
-MultCell::MultCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_msb)
-        : lower{lower}, upper{upper}
+MultCell::MultCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_msb) : lower{lower}, upper{upper}
 {
     lower->params[id_INIT_L02] = Property(LUT_AND, 4);
     lower->params[id_INIT_L03] = Property(LUT_D1, 4); // PINX
