@@ -24,6 +24,26 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+enum CPELut
+{
+    LUT_ZERO = 0b0000,
+    LUT_NOR = 0b0001,
+    LUT_AND_INV_D1 = 0b0010,
+    LUT_INV_D1 = 0b0011,
+    LUT_AND_INV_D0 = 0b0100,
+    LUT_INV_D0 = 0b0101,
+    LUT_XOR = 0b0110,
+    LUT_NAND = 0b0111,
+    LUT_AND = 0b1000,
+    LUT_XNOR = 0b1001,
+    LUT_D0 = 0b1010,
+    LUT_NAND_INV_D0 = 0b1011,
+    LUT_D1 = 0b1100,
+    LUT_NAND_INV_D1 = 0b1101,
+    LUT_OR = 0b1110,
+    LUT_ONE = 0b1111
+};
+
 struct GateMatePacker
 {
     GateMatePacker(Context *ctx, GateMateImpl *uarch) : ctx(ctx), uarch(uarch) { h.init(ctx); };
@@ -37,6 +57,7 @@ struct GateMatePacker
     void insert_pll_bufg();
     void pack_pll();
     void pack_misc();
+    void pack_mult();
     void pack_constants();
     void pack_ram();
     void pack_serdes();
@@ -46,18 +67,22 @@ struct GateMatePacker
     void remove_not_used();
 
   private:
-    void dff_to_cpe(CellInfo *dff, CellInfo *cpe);
+    void dff_to_cpe(CellInfo *dff);
     void insert_bufg(CellInfo *cell, IdString port);
     void disconnect_if_gnd(CellInfo *cell, IdString input);
     void pll_out(CellInfo *cell, IdString origPort, Loc fixed);
 
     PllCfgRecord get_pll_settings(double f_ref, double f_core, int mode, int low_jitter, bool pdiv0_mux, bool feedback);
 
-    CellInfo *move_ram_i(CellInfo *cell, IdString origPort, bool place = true);
-    CellInfo *move_ram_o(CellInfo *cell, IdString origPort, bool place = true);
-    CellInfo *move_ram_i_fixed(CellInfo *cell, IdString origPort, Loc fixed);
-    CellInfo *move_ram_o_fixed(CellInfo *cell, IdString origPort, Loc fixed);
-    CellInfo *move_ram_io(CellInfo *cell, IdString iPort, IdString oPort, bool place = true);
+    std::pair<CellInfo *, CellInfo *> move_ram_i(CellInfo *cell, IdString origPort, bool place = true,
+                                                 Loc cpe_loc = Loc());
+    std::pair<CellInfo *, CellInfo *> move_ram_o(CellInfo *cell, IdString origPort, bool place = true,
+                                                 Loc cpe_loc = Loc());
+    std::pair<CellInfo *, CellInfo *> move_ram_io(CellInfo *cell, IdString iPort, IdString oPort, bool place = true,
+                                                  Loc cpe_loc = Loc());
+    std::pair<CellInfo *, CellInfo *> move_ram_i_fixed(CellInfo *cell, IdString origPort, Loc fixed);
+    std::pair<CellInfo *, CellInfo *> move_ram_o_fixed(CellInfo *cell, IdString origPort, Loc fixed);
+    std::pair<CellInfo *, CellInfo *> move_ram_io_fixed(CellInfo *cell, IdString iPort, IdString oPort, Loc fixed);
     uint8_t ram_ctrl_signal(CellInfo *cell, IdString port, bool alt);
     uint8_t ram_clk_signal(CellInfo *cell, IdString port);
     bool is_gpio_valid_dff(CellInfo *dff);

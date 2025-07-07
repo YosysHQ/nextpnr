@@ -134,32 +134,101 @@ def set_timings(ch):
     speed = "DEFAULT"
     tmg = ch.set_speed_grades([speed])
 
-    lut = ch.timing.add_cell_variant(speed, "CPE_HALF_L")
+    lut = ch.timing.add_cell_variant(speed, "CPE_LT_L")
     lut.add_comb_arc("IN1", "OUT", TimingValue(416, 418)) # IN5 to OUT1
     lut.add_comb_arc("IN2", "OUT", TimingValue(413, 422)) # IN6 to OUT1
     lut.add_comb_arc("IN3", "OUT", TimingValue(372, 374)) # IN7 to OUT1
     lut.add_comb_arc("IN4", "OUT", TimingValue(275, 385)) # IN8 to OUT1
 
-    lut = ch.timing.add_cell_variant(speed, "CPE_HALF_U")
+    lut = ch.timing.add_cell_variant(speed, "CPE_LT_U")
     lut.add_comb_arc("IN1", "OUT", TimingValue(479, 484)) # to OUT2
     lut.add_comb_arc("IN2", "OUT", TimingValue(471, 488)) # to OUT2
     lut.add_comb_arc("IN3", "OUT", TimingValue(446, 449)) # to OUT2
     lut.add_comb_arc("IN4", "OUT", TimingValue(443, 453)) # to OUT2
 
-    lut = ch.timing.add_cell_variant(speed, "CPE_HALF")
+    lut = ch.timing.add_cell_variant(speed, "CPE_LT")
     lut.add_comb_arc("IN1", "OUT", TimingValue(479, 484)) # to OUT2
     lut.add_comb_arc("IN2", "OUT", TimingValue(471, 488)) # to OUT2
     lut.add_comb_arc("IN3", "OUT", TimingValue(446, 449)) # to OUT2
     lut.add_comb_arc("IN4", "OUT", TimingValue(443, 453)) # to OUT2
 
-    dff = ch.timing.add_cell_variant(speed, "CPE_DFF")
-    dff.add_setup_hold("CLK", "IN1", ClockEdge.RISING, TimingValue(60), TimingValue(50))
-    dff.add_setup_hold("CLK", "IN2", ClockEdge.RISING, TimingValue(60), TimingValue(50))
-    dff.add_setup_hold("CLK", "IN3", ClockEdge.RISING, TimingValue(60), TimingValue(50))
-    dff.add_setup_hold("CLK", "IN4", ClockEdge.RISING, TimingValue(60), TimingValue(50))
-    dff.add_clock_out("CLK", "OUT", ClockEdge.RISING, TimingValue(60))
+    lut = ch.timing.add_cell_variant(speed, "CPE_L2T4")
+    lut.add_comb_arc("IN1", "OUT", TimingValue(479, 484)) # to OUT2
+    lut.add_comb_arc("IN2", "OUT", TimingValue(471, 488)) # to OUT2
+    lut.add_comb_arc("IN3", "OUT", TimingValue(446, 449)) # to OUT2
+    lut.add_comb_arc("IN4", "OUT", TimingValue(443, 453)) # to OUT2
 
-EXPECTED_VERSION = 1.2
+    lut = ch.timing.add_cell_variant(speed, "CPE_L2T5")
+    lut.add_comb_arc("IN1", "OUT1", TimingValue(479, 484)) # to OUT2
+    lut.add_comb_arc("IN2", "OUT1", TimingValue(471, 488)) # to OUT2
+    lut.add_comb_arc("IN3", "OUT1", TimingValue(446, 449)) # to OUT2
+    lut.add_comb_arc("IN4", "OUT1", TimingValue(443, 453)) # to OUT2
+    lut.add_comb_arc("IN5", "OUT1", TimingValue(416, 418)) # IN5 to OUT1
+    lut.add_comb_arc("IN6", "OUT1", TimingValue(413, 422)) # IN6 to OUT1
+    lut.add_comb_arc("IN7", "OUT1", TimingValue(372, 374)) # IN7 to OUT1
+    lut.add_comb_arc("IN8", "OUT1", TimingValue(275, 385)) # IN8 to OUT1
+
+    lut = ch.timing.add_cell_variant(speed, "CPE_MX4")
+    lut.add_comb_arc("IN1", "OUT1", TimingValue(479, 484)) # to OUT2
+    lut.add_comb_arc("IN2", "OUT1", TimingValue(471, 488)) # to OUT2
+    lut.add_comb_arc("IN3", "OUT1", TimingValue(446, 449)) # to OUT2
+    lut.add_comb_arc("IN4", "OUT1", TimingValue(443, 453)) # to OUT2
+    lut.add_comb_arc("IN5", "OUT1", TimingValue(416, 418)) # IN5 to OUT1
+    lut.add_comb_arc("IN6", "OUT1", TimingValue(413, 422)) # IN6 to OUT1
+    lut.add_comb_arc("IN7", "OUT1", TimingValue(372, 374)) # IN7 to OUT1
+    lut.add_comb_arc("IN8", "OUT1", TimingValue(275, 385)) # IN8 to OUT1
+
+    lut = ch.timing.add_cell_variant(speed, "CPE_CI")
+    lut.add_comb_arc("IN1", "COUTY1", TimingValue(479, 484)) # to OUT2
+    lut.add_comb_arc("IN2", "COUTY1", TimingValue(471, 488)) # to OUT2
+    lut.add_comb_arc("IN3", "COUTY1", TimingValue(446, 449)) # to OUT2
+    lut.add_comb_arc("IN4", "COUTY1", TimingValue(443, 453)) # to OUT2
+
+    lut = ch.timing.add_cell_variant(speed, "CPE_EN_CIN")
+    lut.add_comb_arc("CINY1", "OUT1", TimingValue(479, 484)) # to OUT2
+
+    lut = ch.timing.add_cell_variant(speed, "CPE_ADDF")
+    lut.add_comb_arc("IN1", "OUT2", TimingValue(479, 484)) # to OUT2
+    lut.add_comb_arc("IN2", "OUT2", TimingValue(471, 488)) # to OUT2
+    lut.add_comb_arc("IN3", "OUT2", TimingValue(446, 449)) # to OUT2
+    lut.add_comb_arc("IN4", "OUT2", TimingValue(443, 453)) # to OUT2
+    lut.add_comb_arc("IN5", "OUT1", TimingValue(416, 418)) # IN5 to OUT1
+    lut.add_comb_arc("IN6", "OUT1", TimingValue(413, 422)) # IN6 to OUT1
+    lut.add_comb_arc("IN7", "OUT1", TimingValue(372, 374)) # IN7 to OUT1
+    lut.add_comb_arc("IN8", "OUT1", TimingValue(275, 385)) # IN8 to OUT1
+    lut.add_comb_arc("CINY1", "COUTY1", TimingValue(479, 484))
+
+    lut = ch.timing.add_cell_variant(speed, "CPE_ADDF2")
+    lut.add_comb_arc("IN1", "OUT2", TimingValue(479, 484)) # to OUT2
+    lut.add_comb_arc("IN2", "OUT2", TimingValue(471, 488)) # to OUT2
+    lut.add_comb_arc("IN3", "OUT2", TimingValue(446, 449)) # to OUT2
+    lut.add_comb_arc("IN4", "OUT2", TimingValue(443, 453)) # to OUT2
+    lut.add_comb_arc("IN5", "OUT1", TimingValue(416, 418)) # IN5 to OUT1
+    lut.add_comb_arc("IN6", "OUT1", TimingValue(413, 422)) # IN6 to OUT1
+    lut.add_comb_arc("IN7", "OUT1", TimingValue(372, 374)) # IN7 to OUT1
+    lut.add_comb_arc("IN8", "OUT1", TimingValue(275, 385)) # IN8 to OUT1
+    lut.add_comb_arc("CINY1", "COUTY1", TimingValue(479, 484))
+
+    dff = ch.timing.add_cell_variant(speed, "CPE_FF")
+    dff.add_setup_hold("CLK", "DIN", ClockEdge.RISING, TimingValue(60), TimingValue(50))
+    dff.add_clock_out("CLK", "DOUT", ClockEdge.RISING, TimingValue(60))
+
+    dff = ch.timing.add_cell_variant(speed, "CPE_LATCH")
+    dff.add_setup_hold("CLK", "DIN", ClockEdge.RISING, TimingValue(60), TimingValue(50))
+    dff.add_clock_out("CLK", "DOUT", ClockEdge.RISING, TimingValue(60))
+
+    lut = ch.timing.add_cell_variant(speed, "CPE_RAMI")
+    lut.add_comb_arc("RAM_I", "OUT", TimingValue(0, 0))
+
+    lut = ch.timing.add_cell_variant(speed, "CPE_RAMO")
+    lut.add_comb_arc("I", "RAM_O", TimingValue(0, 0))
+
+    lut = ch.timing.add_cell_variant(speed, "CPE_RAMIO")
+    #lut.add_comb_arc("I", "OUT", TimingValue(0, 0))
+    lut.add_comb_arc("I", "RAM_O", TimingValue(0, 0))
+    lut.add_comb_arc("RAM_I", "OUT", TimingValue(0, 0))
+
+EXPECTED_VERSION = 1.3
 
 def main():
     # Range needs to be +1, but we are adding +2 more to coordinates, since 
@@ -199,9 +268,11 @@ def main():
             tt.create_wire(wire.name, wire.type)
         for prim in sorted(die.get_primitives_for_type(type_name)):
             bel = tt.create_bel(prim.name, prim.type, prim.z)
+            if (prim.name in ["CPE_LT_FULL"]):
+                bel.flags |= BEL_FLAG_HIDDEN     
             extra = BelExtraData()
             for constr in sorted(die.get_pins_constraint(type_name, prim.name, prim.type)):
-                extra.add_constraints(ch.strs.id(constr.name),constr.rel_x,constr.rel_y,0 if constr.pin_num==2 else 1)
+                extra.add_constraints(ch.strs.id(constr.name),constr.rel_x,constr.rel_y,4 if constr.pin_num==2 else 5)
             bel.extra_data = extra
             for pin in sorted(die.get_primitive_pins(prim.type)):
                 tt.add_bel_pin(bel, pin.name, die.get_pin_connection_name(prim,pin), pin.dir)
@@ -239,7 +310,7 @@ def main():
         pkg = ch.create_package(package)
         for pad in sorted(dev.get_package_pads(package)):
             pp = pkg.create_pad(pad.name, f"X{pad.x+2}Y{pad.y+2}", pad.bel, pad.function, pad.bank, pad.flags)
-            pp.extra_data = PadExtraData(pad.ddr.x+2, pad.ddr.y+2, pad.ddr.z)
+            pp.extra_data = PadExtraData(pad.ddr.x+2, pad.ddr.y+2, 4 if pad.ddr.z==0 else 5)
 
     ch.write_bba(args.bba)
 

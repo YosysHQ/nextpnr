@@ -30,6 +30,7 @@ void GateMateTest::SetUp()
 {
     init_share_dirname();
     chipArgs.device = "CCGM1A1";
+    chipArgs.options.emplace("allow-unconstrained", "");
     ctx = new Context(chipArgs);
     ctx->uarch->init(ctx);
     ctx->late_init();

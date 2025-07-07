@@ -199,17 +199,20 @@ void GateMatePacker::pack_bufg()
                 if (user_glb) {
                     ci.movePortTo(id_I, glbout[die], ctx->idf("USR_GLB%d", i));
                     move_ram_o_fixed(glbout[die], ctx->idf("USR_GLB%d", i), ctx->getBelLocation(glbout[die]->bel));
-                    glbout[die]->params[ctx->idf("USR_GLB%d", i)] = Property(Property::State::S1);
+                    glbout[die]->params[ctx->idf("USR_GLB%d_EN", i)] = Property(Property::State::S1);
                 }
             } else {
                 // SER_CLK
                 clkin[die]->params[ctx->idf("REF%d", i)] = Property(0b100, 3);
                 clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
+                NetInfo *conn = ctx->createNet(ci.name);
+                clkin[die]->connectPort(ctx->idf("CLK_REF%d", i), conn);
+                glbout[die]->connectPort(ctx->idf("CLK_REF_OUT%d", i), conn);
             }
 
             ci.movePortTo(id_O, glbout[die], ctx->idf("GLB%d", i));
             glbout[die]->params[ctx->idf("GLB%d_EN", i)] = Property(Property::State::S1);
-            glbout[die]->params[ctx->idf("GLB%d", i)] = Property(glb_mux, 3);
+            glbout[die]->params[ctx->idf("GLB%d_CFG", i)] = Property(glb_mux, 3);
             packed_cells.emplace(ci.name);
         }
     }
@@ -222,10 +225,10 @@ void GateMatePacker::pack_bufg()
                 if (!global_signals.count(feedback_net)) {
                     pll[i]->movePortTo(id_CLK_FEEDBACK, glbout[die], ctx->idf("USR_FB%d", i));
                     move_ram_o_fixed(glbout[die], ctx->idf("USR_FB%d", i), ctx->getBelLocation(glbout[die]->bel));
-                    glbout[die]->params[ctx->idf("USR_FB%d", i)] = Property(Property::State::S1);
+                    glbout[die]->params[ctx->idf("USR_FB%d_EN", i)] = Property(Property::State::S1);
                 } else {
                     int index = global_signals[feedback_net];
-                    glbout[die]->params[ctx->idf("FB%d", i)] = Property(index, 2);
+                    glbout[die]->params[ctx->idf("FB%d_CFG", i)] = Property(index, 2);
                     pll[i]->disconnectPort(id_CLK_FEEDBACK);
                 }
                 NetInfo *conn =

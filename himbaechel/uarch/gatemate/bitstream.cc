@@ -81,12 +81,12 @@ struct BitstreamBackend
         return invert;
     }
 
-    void update_cpe_lt(CellInfo *cell, IdString port, IdString init, dict<IdString, Property> &params)
+    void update_cpe_lt(CellInfo *cell, IdString port, IdString init, dict<IdString, Property> &params, bool even)
     {
         unsigned init_val = int_or_default(params, init);
         bool invert = need_inversion(cell, port);
         if (invert) {
-            if (port.in(id_IN1, id_IN3))
+            if (even)
                 init_val = (init_val & 0b1010) >> 1 | (init_val & 0b0101) << 1;
             else
                 init_val = (init_val & 0b0011) << 2 | (init_val & 0b1100) >> 2;
@@ -106,10 +106,8 @@ struct BitstreamBackend
     void update_cpe_mux(CellInfo *cell, IdString port, IdString param, int bit, dict<IdString, Property> &params)
     {
         // Mux inversion data is contained in other CPE half
-        Loc l = ctx->getBelLocation(cell->bel);
-        CellInfo *cell_u = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(l.x, l.y, 0)));
         unsigned init_val = int_or_default(params, param);
-        bool invert = need_inversion(cell_u, port);
+        bool invert = need_inversion(cell, port);
         if (invert) {
             int old = (init_val >> bit) & 1;
             int val = (init_val & (~(1 << bit) & 0xf)) | ((!old) << bit);
@@ -178,10 +176,10 @@ struct BitstreamBackend
                     Loc l;
                     auto ti = *tile_extra_data(pip.tile);
                     tile_xy(ctx->chip_info, pip.tile, l.x, l.y);
-                    l.z = 0;
+                    l.z = CPE_LT_U_Z;
                     BelId cpe_bel = ctx->getBelByLocation(l);
                     // Only if switchbox is inside core (same as sharing location with CPE)
-                    if (cpe_bel != BelId() && ctx->getBelType(cpe_bel).in(id_CPE_HALF_L, id_CPE_HALF_U)) {
+                    if (cpe_bel != BelId() && ctx->getBelType(cpe_bel) == id_CPE_LT_U) {
                         // Bitstream data for certain SB_DRIVES is located in other tiles
                         switch (word[14]) {
                         case '3':
@@ -219,8 +217,33 @@ struct BitstreamBackend
         }
     }
 
+    void check_multipliers()
+    {
+        for (auto *mult : uarch->multipliers) {
+            NPNR_ASSERT(mult != nullptr);
+
+            auto should_be_inverted = mult->constr_x % 2 == 1;
+
+            // TODO: these are errors, but downgraded to allow providing *some* output.
+
+            // IN8
+            if (need_inversion(mult, id_IN8) != should_be_inverted)
+                log_warning("%s.IN8 has wrong inversion state\n", mult->name.c_str(ctx));
+
+            // IN5
+            if (need_inversion(mult, id_IN5) != should_be_inverted)
+                log_warning("%s.IN5 has wrong inversion state\n", mult->name.c_str(ctx));
+
+            // IN1
+            if (need_inversion(mult, id_IN1) != should_be_inverted)
+                log_warning("%s.IN1 has wrong inversion state\n", mult->name.c_str(ctx));
+        }
+    }
+
     void write_bitstream()
     {
+        check_multipliers();
+
         ChipConfig cc;
         cc.chip_name = device;
         std::vector<std::array<int, 9>> bank(uarch->dies);
@@ -241,30 +264,66 @@ struct BitstreamBackend
                     cc.tiles[loc].add_word(stringf("GPIO.%s", p.first.c_str(ctx)), p.second.as_bits());
                 }
                 break;
-            case id_CPE_HALF_U.index:
-            case id_CPE_HALF_L.index: {
+            case id_CPE_CPLINES.index:
+            case id_CPE_COMP.index:
+            case id_CPE_L2T4.index:
+            case id_CPE_ADDF.index:
+            case id_CPE_ADDF2.index:
+            case id_CPE_MULT.index:
+            case id_CPE_MX4.index:
+            case id_CPE_CONCAT.index:
+            case id_CPE_FF.index:
+            case id_CPE_LATCH.index:
+            case id_CPE_RAMI.index:
+            case id_CPE_RAMO.index:
+            case id_CPE_RAMIO.index: {
                 // Update configuration bits based on signal inversion
                 dict<IdString, Property> params = cell.second->params;
-                uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
-                if (cell.second->type.in(id_CPE_HALF_U) && func != C_MX4) {
-                    update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L00, params);
-                    update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L00, params);
-                    update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L01, params);
-                    update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L01, params);
-                }
-                if (cell.second->type.in(id_CPE_HALF_L)) {
-                    update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L02, params);
-                    update_cpe_lt(cell.second.get(), id_IN2, id_INIT_L02, params);
-                    update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L03, params);
-                    update_cpe_lt(cell.second.get(), id_IN4, id_INIT_L03, params);
-                    if (func == C_MX4) {
-                        update_cpe_mux(cell.second.get(), id_IN1, id_INIT_L11, 0, params);
-                        update_cpe_mux(cell.second.get(), id_IN2, id_INIT_L11, 1, params);
-                        update_cpe_mux(cell.second.get(), id_IN3, id_INIT_L11, 2, params);
-                        update_cpe_mux(cell.second.get(), id_IN4, id_INIT_L11, 3, params);
+                Loc l = ctx->getBelLocation(cell.second->bel);
+                params.erase(id_L2T4_UPPER);
+                int c_i1 = int_or_default(params, id_C_I1, 0);
+                int c_i2 = int_or_default(params, id_C_I2, 0);
+                int c_i3 = int_or_default(params, id_C_I3, 0);
+                int c_i4 = int_or_default(params, id_C_I4, 0);
+                if (cell.second->type.in(id_CPE_L2T4, id_CPE_LT_L, id_CPE_LT_U)) {
+                    if (l.z == CPE_LT_U_Z) {
+                        update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L00, params, true);
+                        update_cpe_lt(cell.second.get(), c_i1 ? id_PINY1 : id_IN2, id_INIT_L00, params, false);
+                        update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L01, params, true);
+                        update_cpe_lt(cell.second.get(), c_i2 ? id_CINX : id_IN4, id_INIT_L01, params, false);
+                    } else {
+                        // These will be renamed later
+                        update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L00, params, true);
+                        update_cpe_lt(cell.second.get(), c_i3 ? id_PINY1 : id_IN2, id_INIT_L00, params, false);
+                        update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L01, params, true);
+                        update_cpe_lt(cell.second.get(), c_i4 ? id_PINX : id_IN4, id_INIT_L01, params, false);
                     }
                 }
-                if (cell.second->type.in(id_CPE_HALF_U, id_CPE_HALF_L)) {
+                if (l.z == CPE_LT_FULL_Z) {
+                    if (!cell.second->type.in(id_CPE_MULT)) {
+                        if (cell.second->type.in(id_CPE_MX4)) {
+                            update_cpe_mux(cell.second.get(), id_IN1, id_INIT_L11, 0, params);
+                            update_cpe_mux(cell.second.get(), id_IN2, id_INIT_L11, 1, params);
+                            update_cpe_mux(cell.second.get(), id_IN3, id_INIT_L11, 2, params);
+                            update_cpe_mux(cell.second.get(), id_IN4, id_INIT_L11, 3, params);
+                            update_cpe_lt(cell.second.get(), id_IN5, id_INIT_L02, params, true);
+                            update_cpe_lt(cell.second.get(), c_i3 ? id_PINY1 : id_IN6, id_INIT_L02, params, false);
+                            update_cpe_lt(cell.second.get(), id_IN7, id_INIT_L03, params, true);
+                            update_cpe_lt(cell.second.get(), c_i4 ? id_PINX : id_IN8, id_INIT_L03, params, false);
+                        } else {
+                            update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L00, params, true);
+                            update_cpe_lt(cell.second.get(), c_i1 ? id_PINY1 : id_IN2, id_INIT_L00, params, false);
+                            update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L01, params, true);
+                            update_cpe_lt(cell.second.get(), c_i2 ? id_CINX : id_IN4, id_INIT_L01, params, false);
+                            update_cpe_lt(cell.second.get(), id_IN5, id_INIT_L02, params, true);
+                            update_cpe_lt(cell.second.get(), c_i3 ? id_PINY1 : id_IN6, id_INIT_L02, params, false);
+                            update_cpe_lt(cell.second.get(), id_IN7, id_INIT_L03, params, true);
+                            update_cpe_lt(cell.second.get(), c_i4 ? id_PINX : id_IN8, id_INIT_L03, params, false);
+                        }
+                    }
+                }
+
+                if (cell.second->type.in(id_CPE_FF, id_CPE_LATCH)) {
                     update_cpe_inv(cell.second.get(), id_CLK, id_C_CPE_CLK, params);
                     update_cpe_inv(cell.second.get(), id_EN, id_C_CPE_EN, params);
                     bool set = int_or_default(params, id_C_EN_SR, 0) == 1;
@@ -275,7 +334,43 @@ struct BitstreamBackend
                 }
                 int id = tile_extra_data(cell.second.get()->bel.tile)->prim_id;
                 for (auto &p : params) {
-                    cc.tiles[loc].add_word(stringf("CPE%d.%s", id, p.first.c_str(ctx)), p.second.as_bits());
+                    IdString name = p.first;
+                    switch (l.z) {
+                    case CPE_LT_L_Z:
+                        switch (p.first.index) {
+                        case id_INIT_L00.index:
+                            name = id_INIT_L02;
+                            break;
+                        case id_INIT_L01.index:
+                            name = id_INIT_L03;
+                            break;
+                        case id_INIT_L10.index:
+                            name = id_INIT_L11;
+                            break;
+                        }
+                        break;
+                    case CPE_RAMIO_U_Z:
+                        switch (p.first.index) {
+                        case id_C_RAM_I.index:
+                            name = id_C_RAM_I2;
+                            break;
+                        case id_C_RAM_O.index:
+                            name = id_C_RAM_O2;
+                            break;
+                        }
+                        break;
+                    case CPE_RAMIO_L_Z:
+                        switch (p.first.index) {
+                        case id_C_RAM_I.index:
+                            name = id_C_RAM_I1;
+                            break;
+                        case id_C_RAM_O.index:
+                            name = id_C_RAM_O1;
+                            break;
+                        }
+                        break;
+                    }
+                    cc.tiles[loc].add_word(stringf("CPE%d.%s", id, name.c_str(ctx)), p.second.as_bits());
                 }
             } break;
             case id_CLKIN.index: {
