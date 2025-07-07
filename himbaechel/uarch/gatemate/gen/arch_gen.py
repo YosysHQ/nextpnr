@@ -268,6 +268,8 @@ def main():
             tt.create_wire(wire.name, wire.type)
         for prim in sorted(die.get_primitives_for_type(type_name)):
             bel = tt.create_bel(prim.name, prim.type, prim.z)
+            if (prim.name in ["CPE_LT_FULL"]):
+                bel.flags |= BEL_FLAG_HIDDEN     
             extra = BelExtraData()
             for constr in sorted(die.get_pins_constraint(type_name, prim.name, prim.type)):
                 extra.add_constraints(ch.strs.id(constr.name),constr.rel_x,constr.rel_y,4 if constr.pin_num==2 else 5)

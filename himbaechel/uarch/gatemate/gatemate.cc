@@ -18,7 +18,6 @@
  */
 
 #include "gatemate.h"
-#include "design_utils.h"
 #include "log.h"
 #include "placer_heap.h"
 
@@ -289,7 +288,6 @@ void GateMateImpl::preRoute() { route_clock(); }
 void GateMateImpl::postRoute()
 {
     ctx->assignArchInfo();
-    print_utilisation(ctx);
 
     const ArchArgs &args = ctx->args;
     if (args.options.count("out")) {
