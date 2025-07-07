@@ -297,27 +297,35 @@ void GateMatePacker::optimize_lut()
 {
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
-        if (!ci.type.in(id_CC_LUT1))
+        if (!ci.type.in(id_CC_LUT1, id_CC_LUT2))
             continue;
-        uint8_t val = int_or_default(ci.params, id_INIT, 0);
         NetInfo *o_net = ci.getPort(id_O);
         if (!o_net) {
             packed_cells.insert(ci.name);
             count++;
             continue;
         }
+
+        uint8_t val = int_or_default(ci.params, id_INIT, 0);
+        if (ci.type == id_CC_LUT1)
+            val = val << 2 | val;
         switch (val) {
-        case 0: // constant 0
+        case LUT_ZERO: // constant 0
             move_connections(o_net, gnd_net);
             packed_cells.insert(ci.name);
             count++;
             break;
-        case 2: // propagate
+        case LUT_D0: // propagate
             move_connections(o_net, ci.getPort(id_I0));
             packed_cells.insert(ci.name);
             count++;
             break;
-        case 3: // constant 1
+        case LUT_D1: // propagate
+            move_connections(o_net, ci.getPort(id_I1));
+            packed_cells.insert(ci.name);
+            count++;
+            break;
+        case LUT_ONE: // constant 1
             move_connections(o_net, vcc_net);
             packed_cells.insert(ci.name);
             count++;
