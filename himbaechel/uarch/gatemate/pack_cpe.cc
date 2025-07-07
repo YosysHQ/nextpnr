@@ -597,6 +597,8 @@ void GateMatePacker::pack_constants()
     const dict<IdString, Property> gnd_params = {{id_INIT_L10, Property(0b0000, 4)}};
 
     h.replace_constants(CellTypePort(id_CPE_L2T4, id_OUT), CellTypePort(id_CPE_L2T4, id_OUT), vcc_params, gnd_params);
+    vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
+    gnd_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
 }
 
 void GateMatePacker::remove_constants()

@@ -66,11 +66,16 @@ struct GateMatePacker
     void remove_clocking();
     void remove_not_used();
 
+    void cleanup();
+
   private:
     void dff_to_cpe(CellInfo *dff);
     void insert_bufg(CellInfo *cell, IdString port);
     void disconnect_if_gnd(CellInfo *cell, IdString input);
     void pll_out(CellInfo *cell, IdString origPort, Loc fixed);
+
+    void optimize_lut();
+    void move_connections(NetInfo *from_net, NetInfo *to_net);
 
     PllCfgRecord get_pll_settings(double f_ref, double f_core, int mode, int low_jitter, bool pdiv0_mux, bool feedback);
 
@@ -101,6 +106,9 @@ struct GateMatePacker
     GateMateImpl *uarch;
 
     HimbaechelHelpers h;
+    NetInfo *vcc_net;
+    NetInfo *gnd_net;
+    int count;
 };
 
 NEXTPNR_NAMESPACE_END

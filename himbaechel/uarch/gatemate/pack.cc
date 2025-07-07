@@ -260,6 +260,7 @@ void GateMatePacker::remove_not_used()
                 NetInfo *net = ci.getPort(p.first);
                 if (net && net->users.entries() == 0) {
                     ci.disconnectPort(p.first);
+                    count++;
                 }
             }
         }
@@ -283,6 +284,61 @@ void GateMatePacker::copy_constraint(NetInfo *in_net, NetInfo *out_net)
     }
 }
 
+void GateMatePacker::move_connections(NetInfo *from_net, NetInfo *to_net)
+{
+    for (const auto &usr : from_net->users) {
+        IdString port = usr.port;
+        usr.cell->disconnectPort(port);
+        usr.cell->connectPort(port, to_net);
+    }
+}
+
+void GateMatePacker::optimize_lut()
+{
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_CC_LUT1))
+            continue;
+        uint8_t val = int_or_default(ci.params, id_INIT, 0);
+        NetInfo *o_net = ci.getPort(id_O);
+        if (!o_net) {
+            packed_cells.insert(ci.name);
+            count++;
+            continue;
+        }
+        switch (val) {
+        case 0: // constant 0
+            move_connections(o_net, gnd_net);
+            packed_cells.insert(ci.name);
+            count++;
+            break;
+        case 2: // propagate
+            move_connections(o_net, ci.getPort(id_I0));
+            packed_cells.insert(ci.name);
+            count++;
+            break;
+        case 3: // constant 1
+            move_connections(o_net, vcc_net);
+            packed_cells.insert(ci.name);
+            count++;
+            break;
+        default:
+            break;
+        }
+    }
+    flush_cells();
+}
+
+void GateMatePacker::cleanup()
+{
+    log_info("Running cleanups..\n");
+    do {
+        count = 0;
+        remove_not_used();
+        optimize_lut();
+    } while (count != 0);
+}
+
 void GateMateImpl::pack()
 {
     const ArchArgs &args = ctx->args;
@@ -292,7 +348,7 @@ void GateMateImpl::pack()
 
     GateMatePacker packer(ctx, this);
     packer.pack_constants();
-    packer.remove_not_used();
+    packer.cleanup();
     packer.pack_io();
     packer.insert_pll_bufg();
     packer.sort_bufg();
