@@ -333,7 +333,7 @@ void GateMatePacker::remove_clocking()
 void GateMatePacker::pack_pll()
 {
     std::vector<int> pll_index(uarch->dies);
-    log_info("Packing PLLss..\n");
+    log_info("Packing PLLs..\n");
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_PLL, id_CC_PLL_ADV))

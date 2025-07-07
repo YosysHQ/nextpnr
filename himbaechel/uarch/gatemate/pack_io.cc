@@ -33,6 +33,7 @@ std::string get_die_name(int total_dies, int die)
 
 void GateMatePacker::pack_io()
 {
+    log_info("Packing IOs..\n");
     // Trim nextpnr IOBs - assume IO buffer insertion has been done in synthesis
     for (auto &port : ctx->ports) {
         if (!ctx->cells.count(port.first))
