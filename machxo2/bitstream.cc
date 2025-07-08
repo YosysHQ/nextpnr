@@ -214,8 +214,8 @@ struct MachXO2Bitgen
         static const std::set<std::string> pio_l = {"PIC_L0",       "PIC_L1",        "PIC_L2",        "PIC_L3",
                                                     "PIC_LS0",      "PIC_L0_VREF3",  "PIC_L0_VREF4",  "PIC_L0_VREF5",
                                                     "PIC_L1_VREF3", "PIC_L1_VREF4",  "PIC_L1_VREF5",  "PIC_L2_VREF4",
-                                                    "PIC_L2_VREF5", "PIC_L3_VREF4",  "PIC_L3_VREF5",  "LLC0PIC",
-                                                    "LLC1PIC",      "LLC0PIC_VREF3", "LLC3PIC_VREF3", "ULC3PIC"};
+                                                    "PIC_L2_VREF5", "PIC_L3_VREF4",  "PIC_L3_VREF5",  "LLC0PIC", "LLC0PIC_I3C_VREF3",
+                                                    "LLC1PIC",      "LLC0PIC_VREF3", "LLC3PIC_VREF3", "ULC3PIC", "PIC_L0_I3C"};
         static const std::set<std::string> pio_r = {"PIC_R0",      "PIC_R1",   "PIC_RS0",  "PIC_R0_256", "PIC_R1_640",
                                                     "PIC_RS0_256", "LRC1PIC1", "LRC1PIC2", "URC1PIC"};
 
@@ -267,7 +267,7 @@ struct MachXO2Bitgen
         if (name == "LPLL") {
             tiles.push_back(ctx->get_tile_by_type_loc(loc.y - 1, loc.x - 1, "GPLL_L0"));
         } else if (name == "RPLL") {
-            tiles.push_back(ctx->get_tile_by_type_loc(loc.y + 1, loc.x - 1, "GPLL_R0"));
+            tiles.push_back(ctx->get_tile_by_type_loc(loc.y - 1, loc.x + 1, "GPLL_R0"));
         } else {
             NPNR_ASSERT_FALSE_STR("bad PLL loc " + name);
         }
