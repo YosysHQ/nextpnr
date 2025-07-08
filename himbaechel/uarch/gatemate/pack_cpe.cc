@@ -422,6 +422,38 @@ void GateMatePacker::pack_addf()
     }
     flush_cells();
 
+    auto merge_input = [&](CellInfo *cell, CellInfo *target, IdString port, IdString config, IdString in1,
+                           IdString in2) -> void {
+        NetInfo *net = cell->getPort(port);
+        if (net->name == ctx->id("$PACKER_GND")) {
+            target->params[config] = Property(LUT_ZERO, 4);
+            cell->disconnectPort(port);
+        } else if (net->name == ctx->id("$PACKER_VCC")) {
+            target->params[config] = Property(LUT_ONE, 4);
+            cell->disconnectPort(port);
+        } else {
+            if (net && net->driver.cell && net->driver.cell->type.in(id_CC_LUT1, id_CC_LUT2) &&
+                (net->users.entries() == 1)) {
+                CellInfo *lut2 = net->driver.cell;
+                uint8_t val = int_or_default(lut2->params, id_INIT, 0);
+                if (lut2->type == id_CC_LUT1)
+                    val = val << 2 | val;
+
+                target->params[config] = Property(val, 4);
+                lut2->movePortTo(id_I0, target, in1);
+                lut2->movePortTo(id_I1, target, in2);
+                cell->disconnectPort(port);
+                packed_cells.insert(lut2->name);
+            } else {
+                if (cell == target)
+                    cell->renamePort(port, in1);
+                else
+                    cell->movePortTo(port, target, in1);
+                target->params[config] = Property(LUT_D0, 4);
+            }
+        }
+    };
+
     for (auto &grp : splitNestedVector(groups)) {
         CellInfo *root = grp.front();
         root->cluster = root->name;
@@ -484,28 +516,8 @@ void GateMatePacker::pack_addf()
 
             bool merged = cy->type != id_CC_ADDF;
             if (merged) {
-                NetInfo *a_net = cy->getPort(id_A2);
-                if (a_net->name == ctx->id("$PACKER_GND")) {
-                    cy->params[id_INIT_L02] = Property(LUT_ZERO, 4);
-                    cy->disconnectPort(id_A2);
-                } else if (a_net->name == ctx->id("$PACKER_VCC")) {
-                    cy->params[id_INIT_L02] = Property(LUT_ONE, 4);
-                    cy->disconnectPort(id_A2);
-                } else {
-                    cy->renamePort(id_A2, id_IN1);
-                    cy->params[id_INIT_L02] = Property(LUT_D0, 4); // IN1
-                }
-                NetInfo *b_net = cy->getPort(id_B2);
-                if (b_net->name == ctx->id("$PACKER_GND")) {
-                    cy->params[id_INIT_L03] = Property(LUT_ZERO, 4);
-                    cy->disconnectPort(id_B2);
-                } else if (b_net->name == ctx->id("$PACKER_VCC")) {
-                    cy->params[id_INIT_L03] = Property(LUT_ONE, 4);
-                    cy->disconnectPort(id_B2);
-                } else {
-                    cy->renamePort(id_B2, id_IN3);
-                    cy->params[id_INIT_L03] = Property(LUT_D0, 4); // IN3
-                }
+                merge_input(cy, cy, id_A2, id_INIT_L02, id_IN1, id_IN2);
+                merge_input(cy, cy, id_B2, id_INIT_L03, id_IN3, id_IN4);
                 cy->params[id_INIT_L11] = Property(LUT_XOR, 4);
                 cy->renamePort(id_S2, id_OUT);
             } else {
@@ -528,30 +540,8 @@ void GateMatePacker::pack_addf()
             } else {
                 cy->renamePort(id_S, id_OUT);
             }
-
-            NetInfo *a_net = cy->getPort(id_A);
-            if (a_net->name == ctx->id("$PACKER_GND")) {
-                upper->params[id_INIT_L00] = Property(LUT_ZERO, 4);
-                cy->disconnectPort(id_A);
-            } else if (a_net->name == ctx->id("$PACKER_VCC")) {
-                upper->params[id_INIT_L00] = Property(LUT_ONE, 4);
-                cy->disconnectPort(id_A);
-            } else {
-                cy->movePortTo(id_A, upper, id_IN1);
-                upper->params[id_INIT_L00] = Property(LUT_D0, 4); // IN1
-            }
-            NetInfo *b_net = cy->getPort(id_B);
-            if (b_net->name == ctx->id("$PACKER_GND")) {
-                upper->params[id_INIT_L01] = Property(LUT_ZERO, 4);
-                cy->disconnectPort(id_B);
-            } else if (b_net->name == ctx->id("$PACKER_VCC")) {
-                upper->params[id_INIT_L01] = Property(LUT_ONE, 4);
-                cy->disconnectPort(id_B);
-            } else {
-                cy->movePortTo(id_B, upper, id_IN3);
-                upper->params[id_INIT_L01] = Property(LUT_D0, 4); // IN3
-            }
-
+            merge_input(cy, upper, id_A, id_INIT_L00, id_IN1, id_IN2);
+            merge_input(cy, upper, id_B, id_INIT_L01, id_IN3, id_IN4);
             upper->params[id_INIT_L10] = Property(LUT_XOR, 4); // XOR
             upper->params[id_C_FUNCTION] = Property(merged ? C_ADDF2 : C_ADDF, 3);
 
@@ -602,6 +592,7 @@ void GateMatePacker::pack_addf()
             }
         }
     }
+    flush_cells();
 }
 
 void GateMatePacker::pack_constants()
