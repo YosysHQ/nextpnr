@@ -423,7 +423,7 @@ void GateMatePacker::pack_addf()
     flush_cells();
 
     auto merge_input = [&](CellInfo *cell, CellInfo *target, IdString port, IdString config, IdString in1,
-                           IdString in2) -> void {
+                           IdString in2) {
         NetInfo *net = cell->getPort(port);
         if (net->name == ctx->id("$PACKER_GND")) {
             target->params[config] = Property(LUT_ZERO, 4);
@@ -450,6 +450,23 @@ void GateMatePacker::pack_addf()
                 else
                     cell->movePortTo(port, target, in1);
                 target->params[config] = Property(LUT_D0, 4);
+            }
+        }
+    };
+
+    auto merge_dff = [&](CellInfo *cell, IdString port) {
+        NetInfo *o = cell->getPort(port);
+        if (o) {
+            CellInfo *dff = net_only_drives(ctx, o, is_dff, id_D, true);
+            if (dff) {
+                dff->cluster = cell->cluster;
+                dff->constr_abs_z = false;
+                dff->constr_z = +2;
+                cell->constr_children.push_back(dff);
+                dff->renamePort(id_D, id_DIN);
+                dff->renamePort(id_Q, id_DOUT);
+                dff_to_cpe(dff);
+                dff->type = (dff->type == id_CC_DLT) ? id_CPE_LATCH : id_CPE_FF;
             }
         }
     };
@@ -519,7 +536,6 @@ void GateMatePacker::pack_addf()
                 merge_input(cy, cy, id_A2, id_INIT_L02, id_IN1, id_IN2); // IN5,IN6
                 merge_input(cy, cy, id_B2, id_INIT_L03, id_IN3, id_IN4); // IN7,IN8
                 cy->params[id_INIT_L11] = Property(LUT_XOR, 4);
-                cy->renamePort(id_S2, id_OUT);
             } else {
                 cy->params[id_INIT_L02] = Property(LUT_ZERO, 4);
                 cy->params[id_INIT_L03] = Property(LUT_ZERO, 4);
@@ -537,9 +553,12 @@ void GateMatePacker::pack_addf()
             upper->constr_z = -1;
             if (merged) {
                 cy->movePortTo(id_S, upper, id_OUT);
+                cy->renamePort(id_S2, id_OUT);
+                merge_dff(upper, id_OUT);
             } else {
                 cy->renamePort(id_S, id_OUT);
             }
+            merge_dff(cy, id_OUT);
             merge_input(cy, upper, id_A, id_INIT_L00, id_IN1, id_IN2);
             merge_input(cy, upper, id_B, id_INIT_L01, id_IN3, id_IN4);
             upper->params[id_INIT_L10] = Property(LUT_XOR, 4); // XOR
