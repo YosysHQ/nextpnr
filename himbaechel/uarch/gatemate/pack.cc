@@ -26,12 +26,14 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void GateMatePacker::flush_cells()
+void GateMatePacker::flush_cells(bool unbind)
 {
     for (auto pcell : packed_cells) {
         for (auto &port : ctx->cells[pcell]->ports) {
             ctx->cells[pcell]->disconnectPort(port.first);
         }
+        if (unbind)
+            ctx->unbindBel(ctx->cells[pcell]->bel);
         ctx->cells.erase(pcell);
     }
     packed_cells.clear();
@@ -347,6 +349,98 @@ void GateMatePacker::cleanup()
     } while (count != 0);
 }
 
+void GateMatePacker::rename_param(CellInfo *cell, IdString name, IdString new_name, int width)
+{
+    if (cell->params.count(name)) {
+        cell->params[new_name] = Property(int_or_default(cell->params, name, 0), width);
+        cell->unsetParam(name);
+    }
+}
+
+void GateMatePacker::repack()
+{
+    for (auto &cell : ctx->cells) {
+        if (cell.second->type.in(id_CPE_L2T4)) {
+            Loc l = ctx->getBelLocation(cell.second->bel);
+            if (l.z == CPE_LT_L_Z) {
+                if (!cell.second->params.count(id_INIT_L20))
+                    cell.second->params[id_INIT_L20] = Property(LUT_D1, 4);
+            }
+            cell.second->params[id_L2T4_UPPER] = Property((l.z == CPE_LT_U_Z) ? 1 : 0, 1);
+        } else if (cell.second->type.in(id_CPE_LT_L)) {
+            BelId bel = cell.second->bel;
+            PlaceStrength strength = cell.second->belStrength;
+            uint8_t func = int_or_default(cell.second->params, id_C_FUNCTION, 0);
+            Loc loc = ctx->getBelLocation(bel);
+            loc.z = CPE_LT_FULL_Z;
+            ctx->unbindBel(bel);
+            ctx->bindBel(ctx->getBelByLocation(loc), cell.second.get(), strength);
+            cell.second->renamePort(id_IN1, id_IN5);
+            cell.second->renamePort(id_IN2, id_IN6);
+            cell.second->renamePort(id_IN3, id_IN7);
+            cell.second->renamePort(id_IN4, id_IN8);
+            cell.second->renamePort(id_OUT, id_OUT1);
+            cell.second->renamePort(id_CPOUT, id_CPOUT1);
+            if (!cell.second->params.count(id_INIT_L20))
+                cell.second->params[id_INIT_L20] = Property(LUT_D1, 4);
+            rename_param(cell.second.get(), id_INIT_L00, id_INIT_L02, 4);
+            rename_param(cell.second.get(), id_INIT_L01, id_INIT_L03, 4);
+            rename_param(cell.second.get(), id_INIT_L10, id_INIT_L11, 4);
+
+            switch (func) {
+            case C_ADDF:
+                cell.second->type = id_CPE_ADDF;
+                break;
+            case C_ADDF2:
+                cell.second->type = id_CPE_ADDF2;
+                break;
+            case C_MULT:
+                cell.second->type = id_CPE_MULT;
+                break;
+            case C_MX4:
+                cell.second->type = id_CPE_MX4;
+                break;
+            case C_EN_CIN:
+                log_error("EN_CIN should be using L2T4.\n");
+                break;
+            case C_CONCAT:
+                cell.second->type = id_CPE_CONCAT;
+                break;
+            case C_ADDCIN:
+                log_error("ADDCIN should be using L2T4.\n");
+                break;
+            default:
+                break;
+            }
+
+            loc.z = CPE_LT_U_Z;
+            CellInfo *upper = ctx->getBoundBelCell(ctx->getBelByLocation(loc));
+            if (upper->params.count(id_INIT_L00))
+                cell.second->params[id_INIT_L00] = Property(int_or_default(upper->params, id_INIT_L00, 0), 4);
+            if (upper->params.count(id_INIT_L01))
+                cell.second->params[id_INIT_L01] = Property(int_or_default(upper->params, id_INIT_L01, 0), 4);
+            if (upper->params.count(id_INIT_L10))
+                cell.second->params[id_INIT_L10] = Property(int_or_default(upper->params, id_INIT_L10, 0), 4);
+            if (upper->params.count(id_C_I1))
+                cell.second->params[id_C_I1] = Property(int_or_default(upper->params, id_C_I1, 0), 1);
+            if (upper->params.count(id_C_I2))
+                cell.second->params[id_C_I2] = Property(int_or_default(upper->params, id_C_I2, 0), 1);
+            upper->movePortTo(id_IN1, cell.second.get(), id_IN1);
+            upper->movePortTo(id_IN2, cell.second.get(), id_IN2);
+            upper->movePortTo(id_IN3, cell.second.get(), id_IN3);
+            upper->movePortTo(id_IN4, cell.second.get(), id_IN4);
+            upper->movePortTo(id_OUT, cell.second.get(), id_OUT2);
+            upper->movePortTo(id_CPOUT, cell.second.get(), id_CPOUT2);
+
+        }
+        // Mark for deletion
+        else if (cell.second->type.in(id_CPE_LT_U, id_CPE_DUMMY)) {
+            packed_cells.insert(cell.second->name);
+        }
+    }
+    flush_cells(true);
+}
+
 void GateMateImpl::pack()
 {
     const ArchArgs &args = ctx->args;
@@ -371,6 +465,12 @@ void GateMateImpl::pack()
     packer.pack_cpe();
     packer.remove_constants();
     packer.remove_clocking();
+}
+
+void GateMateImpl::repack()
+{
+    GateMatePacker packer(ctx, this);
+    packer.repack();
 }
 
 NEXTPNR_NAMESPACE_END

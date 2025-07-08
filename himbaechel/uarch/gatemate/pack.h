@@ -67,8 +67,10 @@ struct GateMatePacker
     void remove_not_used();
 
     void cleanup();
+    void repack();
 
   private:
+    void rename_param(CellInfo *cell, IdString name, IdString new_name, int width);
     void dff_to_cpe(CellInfo *dff);
     void insert_bufg(CellInfo *cell, IdString port);
     void disconnect_if_gnd(CellInfo *cell, IdString input);
@@ -93,7 +95,7 @@ struct GateMatePacker
     bool is_gpio_valid_dff(CellInfo *dff);
     // Cell creating
     CellInfo *create_cell_ptr(IdString type, IdString name);
-    void flush_cells();
+    void flush_cells(bool unbind = false);
     void pack_ram_cell(CellInfo &ci, CellInfo *cell, int num, bool is_split);
     void copy_constraint(NetInfo *in_net, NetInfo *out_net);
 
