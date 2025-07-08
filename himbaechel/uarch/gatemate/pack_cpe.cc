@@ -173,9 +173,9 @@ void GateMatePacker::pack_cpe()
             ci.connectPort(id_IN3, sel);
             ci.renamePort(id_D0, id_IN4);
             ci.disconnectPort(id_D1);
-            ci.params[id_INIT_L00] = Property(0b1000, 4); // AND
-            ci.params[id_INIT_L01] = Property(0b0100, 4); // AND inv D0
-            ci.params[id_INIT_L10] = Property(0b1110, 4); // OR
+            ci.params[id_INIT_L00] = Property(LUT_AND, 4);
+            ci.params[id_INIT_L01] = Property(LUT_AND_INV_D0, 4);
+            ci.params[id_INIT_L10] = Property(LUT_OR, 4);
             ci.renamePort(id_Y, id_OUT);
             ci.type = id_CPE_L2T4;
         } else {
@@ -190,7 +190,7 @@ void GateMatePacker::pack_cpe()
                     val = val << 2 | val;
                 ci.params[id_INIT_L00] = Property(val, 4);
                 ci.unsetParam(id_INIT);
-                ci.params[id_INIT_L10] = Property(0b1010, 4);
+                ci.params[id_INIT_L10] = Property(LUT_D0, 4);
             }
             ci.type = id_CPE_L2T4;
         }
@@ -217,8 +217,8 @@ void GateMatePacker::pack_cpe()
         upper->constr_abs_z = true;
         upper->constr_z = CPE_LT_U_Z;
         ci->movePortTo(id_I4, upper, id_IN1);
-        upper->params[id_INIT_L00] = Property(0b1010, 4);
-        upper->params[id_INIT_L10] = Property(0b1010, 4);
+        upper->params[id_INIT_L00] = Property(LUT_D0, 4);
+        upper->params[id_INIT_L10] = Property(LUT_D0, 4);
         ci->constr_children.push_back(upper);
 
         NetInfo *ci_out_conn = ctx->createNet(ctx->idf("%s$combin", ci->name.c_str(ctx)));
@@ -261,10 +261,10 @@ void GateMatePacker::pack_cpe()
             }
         }
         ci.params[id_C_FUNCTION] = Property(C_MX4, 3);
-        ci.params[id_INIT_L02] = Property(0b1100, 4); // IN6
-        ci.params[id_INIT_L03] = Property(0b1100, 4); // IN8
+        ci.params[id_INIT_L02] = Property(LUT_D1, 4); // IN6
+        ci.params[id_INIT_L03] = Property(LUT_D1, 4); // IN8
         ci.params[id_INIT_L11] = Property(invert, 4); // Inversion bits
-        // ci.params[id_INIT_L20] = Property(0b1100, 4); // Always D1
+        // ci.params[id_INIT_L20] = Property(LUT_D1, 4); // Always D1
         ci.type = id_CPE_LT_L;
 
         CellInfo *upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$upper", ci.name.c_str(ctx)));
@@ -300,15 +300,15 @@ void GateMatePacker::pack_cpe()
         ci.renamePort(id_Q, id_DOUT);
         NetInfo *d_net = ci.getPort(id_D);
         if (d_net->name == ctx->id("$PACKER_GND")) {
-            lt->params[id_INIT_L00] = Property(0b0000, 4);
+            lt->params[id_INIT_L00] = Property(LUT_ZERO, 4);
             ci.disconnectPort(id_D);
         } else if (d_net->name == ctx->id("$PACKER_VCC")) {
-            lt->params[id_INIT_L00] = Property(0b1111, 4);
+            lt->params[id_INIT_L00] = Property(LUT_ONE, 4);
             ci.disconnectPort(id_D);
         } else {
-            lt->params[id_INIT_L00] = Property(0b1010, 4);
+            lt->params[id_INIT_L00] = Property(LUT_D0, 4);
         }
-        lt->params[id_INIT_L10] = Property(0b1010, 4);
+        lt->params[id_INIT_L10] = Property(LUT_D0, 4);
         ci.movePortTo(id_D, lt, id_IN1);
         dff_to_cpe(&ci);
         ci.type = (ci.type == id_CC_DLT) ? id_CPE_LATCH : id_CPE_FF;
@@ -423,8 +423,8 @@ void GateMatePacker::pack_addf()
         ci_lower->cluster = root->name;
         ci_lower->constr_abs_z = false;
         ci_lower->constr_y = -1;
-        ci_lower->params[id_INIT_L00] = Property(0b0000, 4); // zero
-        ci_lower->params[id_INIT_L10] = Property(0b1010, 4); // D0
+        ci_lower->params[id_INIT_L00] = Property(LUT_ZERO, 4);
+        ci_lower->params[id_INIT_L10] = Property(LUT_D0, 4);
 
         CellInfo *ci_cplines = create_cell_ptr(id_CPE_CPLINES, ctx->idf("%s$ci_cplines", root->name.c_str(ctx)));
         ci_cplines->params[id_C_SELY1] = Property(1, 1);
@@ -440,14 +440,14 @@ void GateMatePacker::pack_addf()
 
         NetInfo *ci_net = root->getPort(id_CI);
         if (ci_net->name == ctx->id("$PACKER_GND")) {
-            ci_lower->params[id_INIT_L00] = Property(0b0000, 4);
+            ci_lower->params[id_INIT_L00] = Property(LUT_ZERO, 4);
             root->disconnectPort(id_CI);
         } else if (ci_net->name == ctx->id("$PACKER_VCC")) {
-            ci_lower->params[id_INIT_L00] = Property(0b1111, 4);
+            ci_lower->params[id_INIT_L00] = Property(LUT_ONE, 4);
             root->disconnectPort(id_CI);
         } else {
             root->movePortTo(id_CI, ci_lower, id_IN1);
-            ci_lower->params[id_INIT_L00] = Property(0b1010, 4); // IN5
+            ci_lower->params[id_INIT_L00] = Property(LUT_D0, 4); // IN5
         }
 
         NetInfo *ci_conn = ctx->createNet(ctx->idf("%s$ci_net", root->name.c_str(ctx)));
@@ -471,33 +471,33 @@ void GateMatePacker::pack_addf()
             if (merged) {
                 NetInfo *a_net = cy->getPort(id_A2);
                 if (a_net->name == ctx->id("$PACKER_GND")) {
-                    cy->params[id_INIT_L02] = Property(0b0000, 4);
+                    cy->params[id_INIT_L02] = Property(LUT_ZERO, 4);
                     cy->disconnectPort(id_A2);
                 } else if (a_net->name == ctx->id("$PACKER_VCC")) {
-                    cy->params[id_INIT_L02] = Property(0b1111, 4);
+                    cy->params[id_INIT_L02] = Property(LUT_ONE, 4);
                     cy->disconnectPort(id_A2);
                 } else {
                     cy->renamePort(id_A2, id_IN1);
-                    cy->params[id_INIT_L02] = Property(0b1010, 4); // IN1
+                    cy->params[id_INIT_L02] = Property(LUT_D0, 4); // IN1
                 }
                 NetInfo *b_net = cy->getPort(id_B2);
                 if (b_net->name == ctx->id("$PACKER_GND")) {
-                    cy->params[id_INIT_L03] = Property(0b0000, 4);
+                    cy->params[id_INIT_L03] = Property(LUT_ZERO, 4);
                     cy->disconnectPort(id_B2);
                 } else if (b_net->name == ctx->id("$PACKER_VCC")) {
-                    cy->params[id_INIT_L03] = Property(0b1111, 4);
+                    cy->params[id_INIT_L03] = Property(LUT_ONE, 4);
                     cy->disconnectPort(id_B2);
                 } else {
                     cy->renamePort(id_B2, id_IN3);
-                    cy->params[id_INIT_L03] = Property(0b1010, 4); // IN3
+                    cy->params[id_INIT_L03] = Property(LUT_D0, 4); // IN3
                 }
-                cy->params[id_INIT_L11] = Property(0b0110, 4); // XOR
+                cy->params[id_INIT_L11] = Property(LUT_XOR, 4);
                 cy->renamePort(id_S2, id_OUT);
             } else {
-                cy->params[id_INIT_L02] = Property(0b0000, 4); // 0
-                cy->params[id_INIT_L03] = Property(0b0000, 4); // 0
-                cy->params[id_INIT_L11] = Property(0b0110, 4); // XOR
-                cy->params[id_INIT_L20] = Property(0b0110, 4); // XOR
+                cy->params[id_INIT_L02] = Property(LUT_ZERO, 4);
+                cy->params[id_INIT_L03] = Property(LUT_ZERO, 4);
+                cy->params[id_INIT_L11] = Property(LUT_XOR, 4);
+                cy->params[id_INIT_L20] = Property(LUT_XOR, 4);
             }
             cy->params[id_C_FUNCTION] = Property(merged ? C_ADDF2 : C_ADDF, 3);
             cy->type = id_CPE_LT_L;
@@ -516,28 +516,28 @@ void GateMatePacker::pack_addf()
 
             NetInfo *a_net = cy->getPort(id_A);
             if (a_net->name == ctx->id("$PACKER_GND")) {
-                upper->params[id_INIT_L00] = Property(0b0000, 4);
+                upper->params[id_INIT_L00] = Property(LUT_ZERO, 4);
                 cy->disconnectPort(id_A);
             } else if (a_net->name == ctx->id("$PACKER_VCC")) {
-                upper->params[id_INIT_L00] = Property(0b1111, 4);
+                upper->params[id_INIT_L00] = Property(LUT_ONE, 4);
                 cy->disconnectPort(id_A);
             } else {
                 cy->movePortTo(id_A, upper, id_IN1);
-                upper->params[id_INIT_L00] = Property(0b1010, 4); // IN1
+                upper->params[id_INIT_L00] = Property(LUT_D0, 4); // IN1
             }
             NetInfo *b_net = cy->getPort(id_B);
             if (b_net->name == ctx->id("$PACKER_GND")) {
-                upper->params[id_INIT_L01] = Property(0b0000, 4);
+                upper->params[id_INIT_L01] = Property(LUT_ZERO, 4);
                 cy->disconnectPort(id_B);
             } else if (b_net->name == ctx->id("$PACKER_VCC")) {
-                upper->params[id_INIT_L01] = Property(0b1111, 4);
+                upper->params[id_INIT_L01] = Property(LUT_ONE, 4);
                 cy->disconnectPort(id_B);
             } else {
                 cy->movePortTo(id_B, upper, id_IN3);
-                upper->params[id_INIT_L01] = Property(0b1010, 4); // IN3
+                upper->params[id_INIT_L01] = Property(LUT_D0, 4); // IN3
             }
 
-            upper->params[id_INIT_L10] = Property(0b0110, 4); // XOR
+            upper->params[id_INIT_L10] = Property(LUT_XOR, 4); // XOR
             upper->params[id_C_FUNCTION] = Property(merged ? C_ADDF2 : C_ADDF, 3);
 
             if (i == grp.size() - 1) {
@@ -555,8 +555,8 @@ void GateMatePacker::pack_addf()
                 co_lower->constr_abs_z = false;
                 co_lower->constr_y = +i + 1;
                 co_lower->params[id_C_FUNCTION] = Property(C_EN_CIN, 3);
-                co_lower->params[id_INIT_L10] = Property(0b1100, 4);
-                co_lower->params[id_INIT_L20] = Property(0b1100, 4);
+                co_lower->params[id_INIT_L10] = Property(LUT_D1, 4);
+                co_lower->params[id_INIT_L20] = Property(LUT_D1, 4);
 
                 NetInfo *co_conn = ctx->createNet(ctx->idf("%s$co_net", cy->name.c_str(ctx)));
 
@@ -593,8 +593,8 @@ void GateMatePacker::pack_constants()
 {
     log_info("Packing constants..\n");
     // Replace constants with LUTs
-    const dict<IdString, Property> vcc_params = {{id_INIT_L10, Property(0b1111, 4)}};
-    const dict<IdString, Property> gnd_params = {{id_INIT_L10, Property(0b0000, 4)}};
+    const dict<IdString, Property> vcc_params = {{id_INIT_L10, Property(LUT_ONE, 4)}};
+    const dict<IdString, Property> gnd_params = {{id_INIT_L10, Property(LUT_ZERO, 4)}};
 
     h.replace_constants(CellTypePort(id_CPE_L2T4, id_OUT), CellTypePort(id_CPE_L2T4, id_OUT), vcc_params, gnd_params);
     vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();

@@ -523,7 +523,7 @@ void GateMatePacker::pack_io_sel()
         for (int i = 0; i < 4; i++) {
             CellInfo *cpe = move_ram_o_fixed(&ci, ctx->idf("OUT%d", i + 1), root_loc).first;
             if (cpe && i == 2)
-                cpe->params[id_INIT_L10] = Property(0b0101, 4); // Invert CPE out for output enable (OUT3)
+                cpe->params[id_INIT_L10] = Property(LUT_INV_D0, 4); // Invert CPE out for output enable (OUT3)
         }
     }
     flush_cells();
