@@ -516,8 +516,8 @@ void GateMatePacker::pack_addf()
 
             bool merged = cy->type != id_CC_ADDF;
             if (merged) {
-                merge_input(cy, cy, id_A2, id_INIT_L02, id_IN1, id_IN2);
-                merge_input(cy, cy, id_B2, id_INIT_L03, id_IN3, id_IN4);
+                merge_input(cy, cy, id_A2, id_INIT_L02, id_IN1, id_IN2); // IN5,IN6
+                merge_input(cy, cy, id_B2, id_INIT_L03, id_IN3, id_IN4); // IN7,IN8
                 cy->params[id_INIT_L11] = Property(LUT_XOR, 4);
                 cy->renamePort(id_S2, id_OUT);
             } else {
