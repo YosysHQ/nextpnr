@@ -279,6 +279,21 @@ void GateMatePacker::pack_cpe()
         ci.movePortTo(id_D2, upper, id_IN3);
         ci.movePortTo(id_D3, upper, id_IN4);
         ci.constr_children.push_back(upper);
+
+        NetInfo *o = ci.getPort(id_OUT);
+        if (o) {
+            CellInfo *dff = net_only_drives(ctx, o, is_dff, id_D, true);
+            if (dff) {
+                dff->cluster = ci.name;
+                dff->constr_abs_z = false;
+                dff->constr_z = +2;
+                ci.constr_children.push_back(dff);
+                dff->renamePort(id_D, id_DIN);
+                dff->renamePort(id_Q, id_DOUT);
+                dff_to_cpe(dff);
+                dff->type = (dff->type == id_CC_DLT) ? id_CPE_LATCH : id_CPE_FF;
+            }
+        }
     }
     mux_list.clear();
 
