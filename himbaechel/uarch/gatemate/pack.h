@@ -78,6 +78,7 @@ struct GateMatePacker
     void pll_out(CellInfo *cell, IdString origPort, Loc fixed);
 
     void optimize_lut();
+    void optimize_ff();
     void move_connections(NetInfo *from_net, NetInfo *to_net);
 
     PllCfgRecord get_pll_settings(double f_ref, double f_core, int mode, int low_jitter, bool pdiv0_mux, bool feedback);

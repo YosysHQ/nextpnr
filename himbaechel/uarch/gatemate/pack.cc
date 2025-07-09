@@ -172,6 +172,63 @@ void GateMatePacker::optimize_lut()
     flush_cells();
 }
 
+void GateMatePacker::optimize_ff()
+{
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_CC_DFF, id_CC_DLT))
+            continue;
+
+        NetInfo *q_net = ci.getPort(id_Q);
+        if (!q_net) {
+            packed_cells.insert(ci.name);
+            count++;
+            continue;
+        }
+
+        int cpe_clk = int_or_default(ci.params, id_C_CPE_CLK, 0);
+        int cpe_en = int_or_default(ci.params, id_C_CPE_EN, 0);
+        int cpe_res = int_or_default(ci.params, id_C_CPE_RES, 0);
+        int cpe_set = int_or_default(ci.params, id_C_CPE_SET, 0);
+        int ff_init = int_or_default(ci.params, id_FF_INIT, 0);
+        bool ff_has_init = (ff_init >> 1) & 1;
+        bool ff_init_value = ff_init & 1;
+
+        if (cpe_res == 0) { // RES is always ON
+            move_connections(q_net, gnd_net);
+            packed_cells.insert(ci.name);
+            count++;
+            continue;
+        }
+        if (cpe_set == 0) { // SET is always ON
+            move_connections(q_net, vcc_net);
+            packed_cells.insert(ci.name);
+            count++;
+            continue;
+        }
+
+        if (ci.type == id_CC_DFF) {
+            if ((cpe_en == 0 || cpe_clk == 0) && ci.getPort(id_SR) == nullptr) {
+                // Only when there is no SR signal
+                // EN always OFF (never loads) or CLK never triggers
+                move_connections(q_net, ff_has_init ? (ff_init_value ? vcc_net : gnd_net) : gnd_net);
+                packed_cells.insert(ci.name);
+                count++;
+                continue;
+            }
+        } else {
+            if (cpe_clk == 3 && ci.getPort(id_SR) == nullptr && cpe_res == 3 && cpe_set == 3) {
+                // Clamp G if there is no set or reset
+                move_connections(q_net, ci.getPort(id_D));
+                packed_cells.insert(ci.name);
+                count++;
+                continue;
+            }
+        }
+    }
+    flush_cells();
+}
+
 void GateMatePacker::cleanup()
 {
     log_info("Running cleanups..\n");
@@ -180,6 +237,7 @@ void GateMatePacker::cleanup()
         count = 0;
         remove_not_used();
         optimize_lut();
+        optimize_ff();
     } while (count != 0);
 }
 
