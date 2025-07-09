@@ -72,6 +72,7 @@ struct GateMatePacker
   private:
     void rename_param(CellInfo *cell, IdString name, IdString new_name, int width);
     void dff_to_cpe(CellInfo *dff);
+    void dff_update_params();
     void insert_bufg(CellInfo *cell, IdString port);
     void disconnect_if_gnd(CellInfo *cell, IdString input);
     void pll_out(CellInfo *cell, IdString origPort, Loc fixed);

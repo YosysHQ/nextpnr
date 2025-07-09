@@ -141,6 +141,16 @@ void GateMatePacker::dff_to_cpe(CellInfo *dff)
     }
 }
 
+void GateMatePacker::dff_update_params()
+{
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_CC_DFF, id_CC_DLT))
+            continue;
+        dff_to_cpe(&ci);
+    }
+}
+
 void GateMatePacker::pack_cpe()
 {
     log_info("Packing CPEs..\n");
@@ -205,7 +215,6 @@ void GateMatePacker::pack_cpe()
                 ci.constr_children.push_back(dff);
                 dff->renamePort(id_D, id_DIN);
                 dff->renamePort(id_Q, id_DOUT);
-                dff_to_cpe(dff);
                 dff->type = (dff->type == id_CC_DLT) ? id_CPE_LATCH : id_CPE_FF;
             }
         }
@@ -290,7 +299,6 @@ void GateMatePacker::pack_cpe()
                 ci.constr_children.push_back(dff);
                 dff->renamePort(id_D, id_DIN);
                 dff->renamePort(id_Q, id_DOUT);
-                dff_to_cpe(dff);
                 dff->type = (dff->type == id_CC_DLT) ? id_CPE_LATCH : id_CPE_FF;
             }
         }
@@ -325,7 +333,6 @@ void GateMatePacker::pack_cpe()
         }
         lt->params[id_INIT_L10] = Property(LUT_D0, 4);
         ci.movePortTo(id_D, lt, id_IN1);
-        dff_to_cpe(&ci);
         ci.type = (ci.type == id_CC_DLT) ? id_CPE_LATCH : id_CPE_FF;
         NetInfo *conn = ctx->createNet(ctx->idf("%s$di", ci.name.c_str(ctx)));
         lt->connectPort(id_OUT, conn);
@@ -465,7 +472,6 @@ void GateMatePacker::pack_addf()
                 cell->constr_children.push_back(dff);
                 dff->renamePort(id_D, id_DIN);
                 dff->renamePort(id_Q, id_DOUT);
-                dff_to_cpe(dff);
                 dff->type = (dff->type == id_CC_DLT) ? id_CPE_LATCH : id_CPE_FF;
             }
         }

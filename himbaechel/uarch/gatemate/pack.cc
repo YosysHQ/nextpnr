@@ -175,6 +175,7 @@ void GateMatePacker::optimize_lut()
 void GateMatePacker::cleanup()
 {
     log_info("Running cleanups..\n");
+    dff_update_params();
     do {
         count = 0;
         remove_not_used();
