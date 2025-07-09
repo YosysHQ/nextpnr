@@ -78,6 +78,7 @@ struct GateMatePacker
 
     void disconnect_not_used();
     void optimize_lut();
+    void optimize_mx();
     void optimize_ff();
     void count_cell(CellInfo &ci);
     void move_connections(NetInfo *from_net, NetInfo *to_net);

@@ -176,6 +176,50 @@ void GateMatePacker::optimize_lut()
     flush_cells();
 }
 
+void GateMatePacker::optimize_mx()
+{
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.type.in(id_CC_MX2, id_CC_MX4))
+            continue;
+        NetInfo *y_net = ci.getPort(id_Y);
+        if (!y_net) {
+            count_cell(ci);
+            continue;
+        }
+        if (ci.type == id_CC_MX2) {
+            if (ci.getPort(id_S0) == gnd_net) {
+                move_connections(y_net, ci.getPort(id_D0));
+                count_cell(ci);
+                continue;
+            } else if (ci.getPort(id_S0) == vcc_net) {
+                move_connections(y_net, ci.getPort(id_D1));
+                count_cell(ci);
+                continue;
+            }
+        } else {
+            if ((ci.getPort(id_S1) == gnd_net) && (ci.getPort(id_S0) == gnd_net)) {
+                move_connections(y_net, ci.getPort(id_D0));
+                count_cell(ci);
+                continue;
+            } else if ((ci.getPort(id_S1) == gnd_net) && (ci.getPort(id_S0) == vcc_net)) {
+                move_connections(y_net, ci.getPort(id_D1));
+                count_cell(ci);
+                continue;
+            } else if ((ci.getPort(id_S1) == vcc_net) && (ci.getPort(id_S0) == gnd_net)) {
+                move_connections(y_net, ci.getPort(id_D2));
+                count_cell(ci);
+                continue;
+            } else if ((ci.getPort(id_S1) == vcc_net) && (ci.getPort(id_S0) == vcc_net)) {
+                move_connections(y_net, ci.getPort(id_D3));
+                count_cell(ci);
+                continue;
+            }
+        }
+    }
+    flush_cells();
+}
+
 void GateMatePacker::optimize_ff()
 {
     for (auto &cell : ctx->cells) {
@@ -237,6 +281,7 @@ void GateMatePacker::cleanup()
         count = 0;
         disconnect_not_used();
         optimize_lut();
+        optimize_mx();
         optimize_ff();
         for (auto c : count_per_type)
             log_info("    %6d %s cells removed (iteration %d)\n", c.second, c.first.c_str(ctx), i);
