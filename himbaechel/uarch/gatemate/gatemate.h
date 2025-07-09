@@ -64,6 +64,8 @@ struct GateMateImpl : HimbaechelAPI
 
     const GateMateTileExtraDataPOD *tile_extra_data(int tile) const;
 
+    int get_dff_config(CellInfo *dff) const;
+
     std::set<IdString> available_pads;
     std::map<BelId, const PadInfoPOD *> bel_to_pad;
     pool<IdString> ddr_nets;

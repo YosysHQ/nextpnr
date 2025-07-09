@@ -205,6 +205,25 @@ void GateMateImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
     cfg.placeAllAtOnce = true;
 }
 
+int GateMateImpl::get_dff_config(CellInfo *dff) const
+{
+    int val = 0;
+    val |= int_or_default(dff->params, id_C_CPE_EN, 0);
+    val <<= 2;
+    val |= int_or_default(dff->params, id_C_CPE_CLK, 0);
+    val <<= 2;
+    val |= int_or_default(dff->params, id_C_CPE_RES, 0);
+    val <<= 2;
+    val |= int_or_default(dff->params, id_C_CPE_SET, 0);
+    val <<= 2;
+    val |= int_or_default(dff->params, id_C_EN_SR, 0);
+    val <<= 1;
+    val |= int_or_default(dff->params, id_C_L_D, 0);
+    val <<= 1;
+    val |= int_or_default(dff->params, id_FF_INIT, 0);
+    return val;
+}
+
 void GateMateImpl::assign_cell_info()
 {
     fast_cell_info.resize(ctx->cells.size());
@@ -215,20 +234,7 @@ void GateMateImpl::assign_cell_info()
             fc.ff_en = ci->getPort(id_EN);
             fc.ff_clk = ci->getPort(id_CLK);
             fc.ff_sr = ci->getPort(id_SR);
-            fc.ff_config = 0;
-            fc.ff_config |= int_or_default(ci->params, id_C_CPE_EN, 0);
-            fc.ff_config <<= 2;
-            fc.ff_config |= int_or_default(ci->params, id_C_CPE_CLK, 0);
-            fc.ff_config <<= 2;
-            fc.ff_config |= int_or_default(ci->params, id_C_CPE_RES, 0);
-            fc.ff_config <<= 2;
-            fc.ff_config |= int_or_default(ci->params, id_C_CPE_SET, 0);
-            fc.ff_config <<= 2;
-            fc.ff_config |= int_or_default(ci->params, id_C_EN_SR, 0);
-            fc.ff_config <<= 1;
-            fc.ff_config |= int_or_default(ci->params, id_C_L_D, 0);
-            fc.ff_config <<= 1;
-            fc.ff_config |= int_or_default(ci->params, id_FF_INIT, 0);
+            fc.ff_config = get_dff_config(ci);
             fc.dff_used = true;
         }
     }

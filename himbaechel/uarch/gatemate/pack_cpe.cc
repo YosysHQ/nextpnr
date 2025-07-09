@@ -461,11 +461,21 @@ void GateMatePacker::pack_addf()
         }
     };
 
-    auto merge_dff = [&](CellInfo *cell, IdString port) {
+    auto merge_dff = [&](CellInfo *cell, IdString port, CellInfo *other) -> CellInfo * {
         NetInfo *o = cell->getPort(port);
         if (o) {
             CellInfo *dff = net_only_drives(ctx, o, is_dff, id_D, true);
             if (dff) {
+                if (other) {
+                    if (dff->getPort(id_CLK) != other->getPort(id_CLK))
+                        return nullptr;
+                    if (dff->getPort(id_EN) != other->getPort(id_EN))
+                        return nullptr;
+                    if (dff->getPort(id_SR) != other->getPort(id_SR))
+                        return nullptr;
+                    if (uarch->get_dff_config(dff) != uarch->get_dff_config(other))
+                        return nullptr;
+                }
                 dff->cluster = cell->cluster;
                 dff->constr_abs_z = false;
                 dff->constr_z = +2;
@@ -473,8 +483,10 @@ void GateMatePacker::pack_addf()
                 dff->renamePort(id_D, id_DIN);
                 dff->renamePort(id_Q, id_DOUT);
                 dff->type = (dff->type == id_CC_DLT) ? id_CPE_LATCH : id_CPE_FF;
+                return dff;
             }
         }
+        return nullptr;
     };
 
     for (auto &grp : splitNestedVector(groups)) {
@@ -557,14 +569,15 @@ void GateMatePacker::pack_addf()
             upper->constr_abs_z = false;
             upper->constr_y = +i;
             upper->constr_z = -1;
+            CellInfo *other_dff = nullptr;
             if (merged) {
                 cy->movePortTo(id_S, upper, id_OUT);
                 cy->renamePort(id_S2, id_OUT);
-                merge_dff(upper, id_OUT);
+                other_dff = merge_dff(upper, id_OUT, other_dff);
             } else {
                 cy->renamePort(id_S, id_OUT);
             }
-            merge_dff(cy, id_OUT);
+            merge_dff(cy, id_OUT, other_dff);
             merge_input(cy, upper, id_A, id_INIT_L00, id_IN1, id_IN2);
             merge_input(cy, upper, id_B, id_INIT_L01, id_IN3, id_IN4);
             upper->params[id_INIT_L10] = Property(LUT_XOR, 4); // XOR
