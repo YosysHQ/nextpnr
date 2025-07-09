@@ -64,7 +64,6 @@ struct GateMatePacker
 
     void remove_constants();
     void remove_clocking();
-    void remove_not_used();
 
     void cleanup();
     void repack();
@@ -77,8 +76,10 @@ struct GateMatePacker
     void disconnect_if_gnd(CellInfo *cell, IdString input);
     void pll_out(CellInfo *cell, IdString origPort, Loc fixed);
 
+    void disconnect_not_used();
     void optimize_lut();
     void optimize_ff();
+    void count_cell(CellInfo &ci);
     void move_connections(NetInfo *from_net, NetInfo *to_net);
 
     PllCfgRecord get_pll_settings(double f_ref, double f_core, int mode, int low_jitter, bool pdiv0_mux, bool feedback);
@@ -113,6 +114,7 @@ struct GateMatePacker
     NetInfo *vcc_net;
     NetInfo *gnd_net;
     int count;
+    std::map<IdString, int> count_per_type;
 };
 
 NEXTPNR_NAMESPACE_END

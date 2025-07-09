@@ -86,7 +86,7 @@ void GateMatePacker::pack_misc()
     }
 }
 
-void GateMatePacker::remove_not_used()
+void GateMatePacker::disconnect_not_used()
 {
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
@@ -95,7 +95,6 @@ void GateMatePacker::remove_not_used()
                 NetInfo *net = ci.getPort(p.first);
                 if (net && net->users.entries() == 0) {
                     ci.disconnectPort(p.first);
-                    count++;
                 }
             }
         }
@@ -128,6 +127,16 @@ void GateMatePacker::move_connections(NetInfo *from_net, NetInfo *to_net)
     }
 }
 
+void GateMatePacker::count_cell(CellInfo &ci)
+{
+    packed_cells.insert(ci.name);
+    if (!count_per_type.count(ci.type))
+        count_per_type[ci.type] = 1;
+    else
+        count_per_type[ci.type]++;
+    count++;
+}
+
 void GateMatePacker::optimize_lut()
 {
     for (auto &cell : ctx->cells) {
@@ -136,8 +145,7 @@ void GateMatePacker::optimize_lut()
             continue;
         NetInfo *o_net = ci.getPort(id_O);
         if (!o_net) {
-            packed_cells.insert(ci.name);
-            count++;
+            count_cell(ci);
             continue;
         }
 
@@ -147,23 +155,19 @@ void GateMatePacker::optimize_lut()
         switch (val) {
         case LUT_ZERO: // constant 0
             move_connections(o_net, gnd_net);
-            packed_cells.insert(ci.name);
-            count++;
+            count_cell(ci);
             break;
         case LUT_D0: // propagate
             move_connections(o_net, ci.getPort(id_I0));
-            packed_cells.insert(ci.name);
-            count++;
+            count_cell(ci);
             break;
         case LUT_D1: // propagate
             move_connections(o_net, ci.getPort(id_I1));
-            packed_cells.insert(ci.name);
-            count++;
+            count_cell(ci);
             break;
         case LUT_ONE: // constant 1
             move_connections(o_net, vcc_net);
-            packed_cells.insert(ci.name);
-            count++;
+            count_cell(ci);
             break;
         default:
             break;
@@ -181,8 +185,7 @@ void GateMatePacker::optimize_ff()
 
         NetInfo *q_net = ci.getPort(id_Q);
         if (!q_net) {
-            packed_cells.insert(ci.name);
-            count++;
+            count_cell(ci);
             continue;
         }
 
@@ -196,14 +199,12 @@ void GateMatePacker::optimize_ff()
 
         if (cpe_res == 0) { // RES is always ON
             move_connections(q_net, gnd_net);
-            packed_cells.insert(ci.name);
-            count++;
+            count_cell(ci);
             continue;
         }
         if (cpe_set == 0) { // SET is always ON
             move_connections(q_net, vcc_net);
-            packed_cells.insert(ci.name);
-            count++;
+            count_cell(ci);
             continue;
         }
 
@@ -212,16 +213,14 @@ void GateMatePacker::optimize_ff()
                 // Only when there is no SR signal
                 // EN always OFF (never loads) or CLK never triggers
                 move_connections(q_net, ff_has_init ? (ff_init_value ? vcc_net : gnd_net) : gnd_net);
-                packed_cells.insert(ci.name);
-                count++;
+                count_cell(ci);
                 continue;
             }
         } else {
             if (cpe_clk == 3 && ci.getPort(id_SR) == nullptr && cpe_res == 3 && cpe_set == 3) {
                 // Clamp G if there is no set or reset
                 move_connections(q_net, ci.getPort(id_D));
-                packed_cells.insert(ci.name);
-                count++;
+                count_cell(ci);
                 continue;
             }
         }
@@ -233,11 +232,16 @@ void GateMatePacker::cleanup()
 {
     log_info("Running cleanups..\n");
     dff_update_params();
+    int i = 1;
     do {
         count = 0;
-        remove_not_used();
+        disconnect_not_used();
         optimize_lut();
         optimize_ff();
+        for (auto c : count_per_type)
+            log_info("    %6d %s cells removed (iteration %d)\n", c.second, c.first.c_str(ctx), i);
+        count_per_type.clear();
+        i++;
     } while (count != 0);
 }
 
