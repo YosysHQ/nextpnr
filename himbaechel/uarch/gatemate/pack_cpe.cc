@@ -29,6 +29,21 @@ NEXTPNR_NAMESPACE_BEGIN
 // Return true if a cell is a flipflop
 inline bool is_dff(const BaseCtx *ctx, const CellInfo *cell) { return cell->type.in(id_CC_DFF, id_CC_DLT); }
 
+bool GateMatePacker::are_ffs_compatible(CellInfo *dff, CellInfo *other)
+{
+    if (!other)
+        return true;
+    if (dff->getPort(id_CLK) != other->getPort(id_CLK))
+        return false;
+    if (dff->getPort(id_EN) != other->getPort(id_EN))
+        return false;
+    if (dff->getPort(id_SR) != other->getPort(id_SR))
+        return false;
+    if (uarch->get_dff_config(dff) != uarch->get_dff_config(other))
+        return false;
+    return true;
+}
+
 void GateMatePacker::dff_to_cpe(CellInfo *dff)
 {
     bool invert;
@@ -158,10 +173,24 @@ void GateMatePacker::pack_cpe()
     int l2t4_created = 0;
     int mx4_created = 0;
     int ff_created = 0;
+
+    auto merge_dff = [&](CellInfo &ci, CellInfo *dff) {
+        dff->cluster = ci.name;
+        dff->constr_abs_z = false;
+        dff->constr_z = +2;
+        ci.cluster = ci.name;
+        ci.constr_children.push_back(dff);
+        dff->renamePort(id_D, id_DIN);
+        dff->renamePort(id_Q, id_DOUT);
+        dff->type = (dff->type == id_CC_DLT) ? id_CPE_LATCH : id_CPE_FF;
+        ff_created++;
+    };
+
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_L2T4, id_CC_L2T5, id_CC_LUT2, id_CC_LUT1, id_CC_MX2))
             continue;
+        bool is_l2t5 = false;
         if (ci.type == id_CC_L2T5) {
             l2t5_list.push_back(&ci);
             ci.renamePort(id_I0, id_IN1);
@@ -178,6 +207,7 @@ void GateMatePacker::pack_cpe()
             ci.constr_z = CPE_LT_L_Z;
             ci.type = id_CPE_L2T4;
             l2t4_created++;
+            is_l2t5 = true;
         } else if (ci.type == id_CC_MX2) {
             ci.renamePort(id_D1, id_IN1);
             NetInfo *sel = ci.getPort(id_S0);
@@ -212,17 +242,48 @@ void GateMatePacker::pack_cpe()
         }
         NetInfo *o = ci.getPort(id_OUT);
         if (o) {
-            CellInfo *dff = net_only_drives(ctx, o, is_dff, id_D, true);
-            if (dff) {
-                dff->cluster = ci.name;
-                dff->constr_abs_z = false;
-                dff->constr_z = +2;
-                ci.cluster = ci.name;
-                ci.constr_children.push_back(dff);
-                dff->renamePort(id_D, id_DIN);
-                dff->renamePort(id_Q, id_DOUT);
-                dff->type = (dff->type == id_CC_DLT) ? id_CPE_LATCH : id_CPE_FF;
-                ff_created++;
+            if (o->users.entries() == 1) {
+                // When only it is driving FF
+                CellInfo *dff = net_only_drives(ctx, o, is_dff, id_D, true);
+                if (dff)
+                    merge_dff(ci, dff);
+            } else if (!is_l2t5) {
+                CellInfo *dff = net_only_drives(ctx, o, is_dff, id_D, false);
+                // When driving FF + other logic
+                if (dff) {
+                    // Make sure main logic is in upper half
+                    ci.constr_abs_z = true;
+                    ci.constr_z = CPE_LT_U_Z;
+
+                    merge_dff(ci, dff);
+
+                    // Lower half propagate output from upper one
+                    CellInfo *lower = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$lower", ci.name.c_str(ctx)));
+                    ci.constr_children.push_back(lower);
+                    lower->cluster = ci.name;
+                    lower->constr_abs_z = true;
+                    lower->constr_z = CPE_LT_L_Z;
+                    lower->params[id_INIT_L20] = Property(LUT_D0, 4);
+                    ci.movePortTo(id_OUT, lower, id_OUT);
+                    l2t4_created++;
+
+                    // Reconnect net
+                    NetInfo *ci_out_conn = ctx->createNet(ctx->idf("%s$out", ci.name.c_str(ctx)));
+                    ci.connectPort(id_OUT, ci_out_conn);
+                    lower->ports[id_COMBIN].name = id_COMBIN;
+                    lower->ports[id_COMBIN].type = PORT_IN;
+                    lower->connectPort(id_COMBIN, ci_out_conn);
+                    dff->disconnectPort(id_DIN);
+                    dff->connectPort(id_DIN, ci_out_conn);
+
+                    // Attach if only remaining cell is FF
+                    CellInfo *other = net_only_drives(ctx, o, is_dff, id_D, true);
+                    if (other && are_ffs_compatible(dff, other)) {
+                        merge_dff(ci, other);
+                        other->constr_abs_z = true;
+                        other->constr_z = 3;
+                    }
+                }
             }
         }
     }
@@ -300,16 +361,8 @@ void GateMatePacker::pack_cpe()
         NetInfo *o = ci.getPort(id_OUT);
         if (o) {
             CellInfo *dff = net_only_drives(ctx, o, is_dff, id_D, true);
-            if (dff) {
-                dff->cluster = ci.name;
-                dff->constr_abs_z = false;
-                dff->constr_z = +2;
-                ci.constr_children.push_back(dff);
-                dff->renamePort(id_D, id_DIN);
-                dff->renamePort(id_Q, id_DOUT);
-                dff->type = (dff->type == id_CC_DLT) ? id_CPE_LATCH : id_CPE_FF;
-                ff_created++;
-            }
+            if (dff)
+                merge_dff(ci, dff);
         }
     }
     mux_list.clear();
@@ -490,17 +543,7 @@ void GateMatePacker::pack_addf()
         NetInfo *o = cell->getPort(port);
         if (o) {
             CellInfo *dff = net_only_drives(ctx, o, is_dff, id_D, true);
-            if (dff) {
-                if (other) {
-                    if (dff->getPort(id_CLK) != other->getPort(id_CLK))
-                        return nullptr;
-                    if (dff->getPort(id_EN) != other->getPort(id_EN))
-                        return nullptr;
-                    if (dff->getPort(id_SR) != other->getPort(id_SR))
-                        return nullptr;
-                    if (uarch->get_dff_config(dff) != uarch->get_dff_config(other))
-                        return nullptr;
-                }
+            if (dff && are_ffs_compatible(dff, other)) {
                 dff->cluster = cell->cluster;
                 dff->constr_abs_z = false;
                 dff->constr_z = +2;
@@ -670,7 +713,7 @@ void GateMatePacker::pack_addf()
     if (l2t4_created)
         log_info("    %6d L2T4s created\n", l2t4_created);
     if (ff_created)
-        log_info("    %6d DFFs created\n", ff_created);
+        log_info("    %6d FFs created\n", ff_created);
     if (lut2_merged)
         log_info("    %6d LUT2s removed\n", lut2_merged);
 }
