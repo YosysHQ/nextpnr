@@ -341,7 +341,7 @@ void GateMatePacker::pack_cpe()
         ci.params[id_INIT_L02] = Property(LUT_D1, 4); // IN6
         ci.params[id_INIT_L03] = Property(LUT_D1, 4); // IN8
         ci.params[id_INIT_L11] = Property(invert, 4); // Inversion bits
-        // ci.params[id_INIT_L20] = Property(LUT_D1, 4); // Always D1
+        ci.params[id_INIT_L20] = Property(LUT_D1, 4); // Always D1
         ci.type = id_CPE_LT_L;
 
         CellInfo *upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$upper", ci.name.c_str(ctx)));
@@ -598,8 +598,8 @@ void GateMatePacker::pack_addf()
             ci_lower->params[id_INIT_L00] = Property(LUT_ONE, 4);
             root->disconnectPort(id_CI);
         } else {
-            root->movePortTo(id_CI, ci_lower, id_IN1);
-            ci_lower->params[id_INIT_L00] = Property(LUT_D0, 4); // IN5
+            root->movePortTo(id_CI, ci_lower, id_IN1); // IN5
+            ci_lower->params[id_INIT_L00] = Property(LUT_D0, 4);
         }
 
         NetInfo *ci_conn = ctx->createNet(ctx->idf("%s$ci_net", root->name.c_str(ctx)));
@@ -654,7 +654,7 @@ void GateMatePacker::pack_addf()
             merge_dff(cy, id_OUT, other_dff);
             merge_input(cy, upper, id_A, id_INIT_L00, id_IN1, id_IN2);
             merge_input(cy, upper, id_B, id_INIT_L01, id_IN3, id_IN4);
-            upper->params[id_INIT_L10] = Property(LUT_XOR, 4); // XOR
+            upper->params[id_INIT_L10] = Property(LUT_XOR, 4);
             upper->params[id_C_FUNCTION] = Property(merged ? C_ADDF2 : C_ADDF, 3);
 
             if (i == grp.size() - 1) {

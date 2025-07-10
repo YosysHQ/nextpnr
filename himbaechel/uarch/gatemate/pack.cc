@@ -41,12 +41,8 @@ void GateMatePacker::flush_cells(bool unbind)
 
 void GateMatePacker::disconnect_if_gnd(CellInfo *cell, IdString input)
 {
-    NetInfo *net = cell->getPort(input);
-    if (!net)
-        return;
-    if (net == net_PACKER_GND) {
+    if (cell->getPort(input) == net_PACKER_GND)
         cell->disconnectPort(input);
-    }
 }
 
 void GateMatePacker::pack_misc()
