@@ -572,11 +572,11 @@ void GateMatePacker::pack_pll()
                     out_clk_max = out_clk;
             }
             NetInfo *select_net = ci.getPort(id_USR_SEL_A_B);
-            if (select_net == nullptr || select_net->name == ctx->id("$PACKER_GND")) {
+            if (select_net == nullptr || select_net == net_PACKER_GND) {
                 ci.params[ctx->id("SET_SEL")] = Property(0b0, 1);
                 ci.params[ctx->id("USR_SET")] = Property(0b0, 1);
                 ci.disconnectPort(id_USR_SEL_A_B);
-            } else if (select_net->name == ctx->id("$PACKER_VCC")) {
+            } else if (select_net == net_PACKER_VCC) {
                 ci.params[ctx->id("SET_SEL")] = Property(0b1, 1);
                 ci.params[ctx->id("USR_SET")] = Property(0b0, 1);
                 ci.disconnectPort(id_USR_SEL_A_B);

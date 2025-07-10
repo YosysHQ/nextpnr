@@ -44,7 +44,7 @@ void GateMatePacker::disconnect_if_gnd(CellInfo *cell, IdString input)
     NetInfo *net = cell->getPort(input);
     if (!net)
         return;
-    if (net->name.in(ctx->id("$PACKER_GND"))) {
+    if (net == net_PACKER_GND) {
         cell->disconnectPort(input);
     }
 }
@@ -154,7 +154,7 @@ void GateMatePacker::optimize_lut()
             val = val << 2 | val;
         switch (val) {
         case LUT_ZERO: // constant 0
-            move_connections(o_net, gnd_net);
+            move_connections(o_net, net_PACKER_GND);
             count_cell(ci);
             break;
         case LUT_D0: // propagate
@@ -166,7 +166,7 @@ void GateMatePacker::optimize_lut()
             count_cell(ci);
             break;
         case LUT_ONE: // constant 1
-            move_connections(o_net, vcc_net);
+            move_connections(o_net, net_PACKER_VCC);
             count_cell(ci);
             break;
         default:
@@ -188,29 +188,29 @@ void GateMatePacker::optimize_mx()
             continue;
         }
         if (ci.type == id_CC_MX2) {
-            if (ci.getPort(id_S0) == gnd_net) {
+            if (ci.getPort(id_S0) == net_PACKER_GND) {
                 move_connections(y_net, ci.getPort(id_D0));
                 count_cell(ci);
                 continue;
-            } else if (ci.getPort(id_S0) == vcc_net) {
+            } else if (ci.getPort(id_S0) == net_PACKER_VCC) {
                 move_connections(y_net, ci.getPort(id_D1));
                 count_cell(ci);
                 continue;
             }
         } else {
-            if ((ci.getPort(id_S1) == gnd_net) && (ci.getPort(id_S0) == gnd_net)) {
+            if ((ci.getPort(id_S1) == net_PACKER_GND) && (ci.getPort(id_S0) == net_PACKER_GND)) {
                 move_connections(y_net, ci.getPort(id_D0));
                 count_cell(ci);
                 continue;
-            } else if ((ci.getPort(id_S1) == gnd_net) && (ci.getPort(id_S0) == vcc_net)) {
+            } else if ((ci.getPort(id_S1) == net_PACKER_GND) && (ci.getPort(id_S0) == net_PACKER_VCC)) {
                 move_connections(y_net, ci.getPort(id_D1));
                 count_cell(ci);
                 continue;
-            } else if ((ci.getPort(id_S1) == vcc_net) && (ci.getPort(id_S0) == gnd_net)) {
+            } else if ((ci.getPort(id_S1) == net_PACKER_VCC) && (ci.getPort(id_S0) == net_PACKER_GND)) {
                 move_connections(y_net, ci.getPort(id_D2));
                 count_cell(ci);
                 continue;
-            } else if ((ci.getPort(id_S1) == vcc_net) && (ci.getPort(id_S0) == vcc_net)) {
+            } else if ((ci.getPort(id_S1) == net_PACKER_VCC) && (ci.getPort(id_S0) == net_PACKER_VCC)) {
                 move_connections(y_net, ci.getPort(id_D3));
                 count_cell(ci);
                 continue;
@@ -242,12 +242,12 @@ void GateMatePacker::optimize_ff()
         bool ff_init_value = ff_init & 1;
 
         if (cpe_res == 0) { // RES is always ON
-            move_connections(q_net, gnd_net);
+            move_connections(q_net, net_PACKER_GND);
             count_cell(ci);
             continue;
         }
         if (cpe_set == 0) { // SET is always ON
-            move_connections(q_net, vcc_net);
+            move_connections(q_net, net_PACKER_VCC);
             count_cell(ci);
             continue;
         }
@@ -256,7 +256,8 @@ void GateMatePacker::optimize_ff()
             if ((cpe_en == 0 || cpe_clk == 0) && ci.getPort(id_SR) == nullptr) {
                 // Only when there is no SR signal
                 // EN always OFF (never loads) or CLK never triggers
-                move_connections(q_net, ff_has_init ? (ff_init_value ? vcc_net : gnd_net) : gnd_net);
+                move_connections(q_net,
+                                 ff_has_init ? (ff_init_value ? net_PACKER_VCC : net_PACKER_GND) : net_PACKER_GND);
                 count_cell(ci);
                 continue;
             }

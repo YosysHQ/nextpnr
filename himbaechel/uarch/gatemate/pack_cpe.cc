@@ -37,10 +37,10 @@ void GateMatePacker::dff_to_cpe(CellInfo *dff)
         NetInfo *g_net = dff->getPort(id_G);
         invert = bool_or_default(dff->params, id_G_INV, 0);
         if (g_net) {
-            if (g_net->name == ctx->id("$PACKER_GND")) {
+            if (g_net == net_PACKER_GND) {
                 dff->params[id_C_CPE_CLK] = Property(invert ? 0b11 : 0b00, 2);
                 dff->disconnectPort(id_G);
-            } else if (g_net->name == ctx->id("$PACKER_VCC")) {
+            } else if (g_net == net_PACKER_VCC) {
                 dff->params[id_C_CPE_CLK] = Property(invert ? 0b00 : 0b11, 2);
                 dff->disconnectPort(id_G);
             } else {
@@ -58,10 +58,10 @@ void GateMatePacker::dff_to_cpe(CellInfo *dff)
         NetInfo *en_net = dff->getPort(id_EN);
         bool invert = bool_or_default(dff->params, id_EN_INV, 0);
         if (en_net) {
-            if (en_net->name == ctx->id("$PACKER_GND")) {
+            if (en_net == net_PACKER_GND) {
                 dff->params[id_C_CPE_EN] = Property(invert ? 0b11 : 0b00, 2);
                 dff->disconnectPort(id_EN);
-            } else if (en_net->name == ctx->id("$PACKER_VCC")) {
+            } else if (en_net == net_PACKER_VCC) {
                 dff->params[id_C_CPE_EN] = Property(invert ? 0b00 : 0b11, 2);
                 dff->disconnectPort(id_EN);
             } else {
@@ -75,10 +75,10 @@ void GateMatePacker::dff_to_cpe(CellInfo *dff)
         NetInfo *clk_net = dff->getPort(id_CLK);
         invert = bool_or_default(dff->params, id_CLK_INV, 0);
         if (clk_net) {
-            if (clk_net->name == ctx->id("$PACKER_GND")) {
+            if (clk_net == net_PACKER_GND) {
                 dff->params[id_C_CPE_CLK] = Property(invert ? 0b11 : 0b00, 2);
                 dff->disconnectPort(id_CLK);
-            } else if (clk_net->name == ctx->id("$PACKER_VCC")) {
+            } else if (clk_net == net_PACKER_VCC) {
                 dff->params[id_C_CPE_CLK] = Property(invert ? 0b00 : 0b11, 2);
                 dff->disconnectPort(id_CLK);
             } else {
@@ -94,8 +94,8 @@ void GateMatePacker::dff_to_cpe(CellInfo *dff)
     invert = bool_or_default(dff->params, id_SR_INV, 0);
     bool sr_val = bool_or_default(dff->params, id_SR_VAL, 0);
     if (sr_net) {
-        if (sr_net->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC"))) {
-            bool sr_signal = sr_net->name == ctx->id("$PACKER_VCC");
+        if (sr_net == net_PACKER_VCC || sr_net == net_PACKER_GND) {
+            bool sr_signal = sr_net == net_PACKER_VCC;
             if (sr_signal ^ invert) {
                 if (sr_val) {
                     dff->params[id_C_CPE_RES] = Property(0b11, 2);
@@ -266,9 +266,10 @@ void GateMatePacker::pack_cpe()
         for (int i = 0; i < 4; i++) {
             NetInfo *net = ci.getPort(ctx->idf("D%d", i));
             if (net) {
-                if (net->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC"))) {
-                    if (net->name == ctx->id("$PACKER_VCC"))
-                        invert |= 1 << i;
+                if (net == net_PACKER_GND) {
+                    ci.disconnectPort(ctx->idf("D%d", i));
+                } else if (net == net_PACKER_VCC) {
+                    invert |= 1 << i;
                     ci.disconnectPort(ctx->idf("D%d", i));
                 } else {
                     select |= 1 << i;
@@ -330,10 +331,10 @@ void GateMatePacker::pack_cpe()
         ci.constr_children.push_back(lt);
         ci.renamePort(id_Q, id_DOUT);
         NetInfo *d_net = ci.getPort(id_D);
-        if (d_net->name == ctx->id("$PACKER_GND")) {
+        if (d_net == net_PACKER_GND) {
             lt->params[id_INIT_L00] = Property(LUT_ZERO, 4);
             ci.disconnectPort(id_D);
-        } else if (d_net->name == ctx->id("$PACKER_VCC")) {
+        } else if (d_net == net_PACKER_VCC) {
             lt->params[id_INIT_L00] = Property(LUT_ONE, 4);
             ci.disconnectPort(id_D);
         } else {
@@ -455,10 +456,10 @@ void GateMatePacker::pack_addf()
     auto merge_input = [&](CellInfo *cell, CellInfo *target, IdString port, IdString config, IdString in1,
                            IdString in2) {
         NetInfo *net = cell->getPort(port);
-        if (net->name == ctx->id("$PACKER_GND")) {
+        if (net == net_PACKER_GND) {
             target->params[config] = Property(LUT_ZERO, 4);
             cell->disconnectPort(port);
-        } else if (net->name == ctx->id("$PACKER_VCC")) {
+        } else if (net == net_PACKER_VCC) {
             target->params[config] = Property(LUT_ONE, 4);
             cell->disconnectPort(port);
         } else {
@@ -547,10 +548,10 @@ void GateMatePacker::pack_addf()
         ci_cplines->connectPort(id_OUT1, ci_out_conn);
 
         NetInfo *ci_net = root->getPort(id_CI);
-        if (ci_net->name == ctx->id("$PACKER_GND")) {
+        if (ci_net == net_PACKER_GND) {
             ci_lower->params[id_INIT_L00] = Property(LUT_ZERO, 4);
             root->disconnectPort(id_CI);
-        } else if (ci_net->name == ctx->id("$PACKER_VCC")) {
+        } else if (ci_net == net_PACKER_VCC) {
             ci_lower->params[id_INIT_L00] = Property(LUT_ONE, 4);
             root->disconnectPort(id_CI);
         } else {
@@ -682,8 +683,8 @@ void GateMatePacker::pack_constants()
     const dict<IdString, Property> gnd_params = {{id_INIT_L10, Property(LUT_ZERO, 4)}};
 
     h.replace_constants(CellTypePort(id_CPE_L2T4, id_OUT), CellTypePort(id_CPE_L2T4, id_OUT), vcc_params, gnd_params);
-    vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
-    gnd_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
+    net_PACKER_VCC = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
+    net_PACKER_GND = ctx->nets.at(ctx->id("$PACKER_GND")).get();
 }
 
 void GateMatePacker::remove_constants()
@@ -779,10 +780,10 @@ std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_o(CellInfo *cell, IdS
             BelId b = ctx->getBelByLocation(Loc(cpe_loc.x, cpe_loc.y, cpe_loc.z - 4));
             ctx->bindBel(b, cpe_half, PlaceStrength::STRENGTH_FIXED);
         }
-        if (net->name == ctx->id("$PACKER_GND")) {
+        if (net == net_PACKER_GND) {
             cpe_half->params[id_INIT_L00] = Property(LUT_ZERO, 4);
             cell->disconnectPort(origPort);
-        } else if (net->name == ctx->id("$PACKER_VCC")) {
+        } else if (net == net_PACKER_VCC) {
             cpe_half->params[id_INIT_L00] = Property(LUT_ONE, 4);
             cell->disconnectPort(origPort);
         } else {
@@ -834,10 +835,10 @@ std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_io(CellInfo *cell, Id
     }
 
     if (o_net) {
-        if (o_net->name == ctx->id("$PACKER_GND")) {
+        if (o_net == net_PACKER_GND) {
             cpe_half->params[id_INIT_L00] = Property(LUT_ZERO, 4);
             cell->disconnectPort(oPort);
-        } else if (o_net->name == ctx->id("$PACKER_VCC")) {
+        } else if (o_net == net_PACKER_VCC) {
             cpe_half->params[id_INIT_L00] = Property(LUT_ONE, 4);
             cell->disconnectPort(oPort);
         } else {

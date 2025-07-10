@@ -31,10 +31,10 @@ uint8_t GateMatePacker::ram_ctrl_signal(CellInfo *cell, IdString port, bool alt)
 {
     NetInfo *net = cell->getPort(port);
     if (net) {
-        if (net->name == ctx->id("$PACKER_GND")) {
+        if (net == net_PACKER_GND) {
             cell->disconnectPort(port);
             return 0b00000011;
-        } else if (net->name == ctx->id("$PACKER_VCC")) {
+        } else if (net == net_PACKER_VCC) {
             cell->disconnectPort(port);
             return 0b00010011;
         } else {
