@@ -63,7 +63,7 @@ int extract_bits(const dict<KeyType, Property> &ct, const KeyType &key, int star
 }
 
 template <typename T>
-std::vector<std::vector<T>> splitNestedVector(const std::vector<std::vector<T>> &input, size_t maxSize = 32)
+std::vector<std::vector<T>> splitNestedVector(const std::vector<std::vector<T>> &input, size_t maxSize = 64)
 {
     std::vector<std::vector<T>> result;
 
@@ -73,6 +73,8 @@ std::vector<std::vector<T>> splitNestedVector(const std::vector<std::vector<T>> 
             size_t end = std::min(i + maxSize, inner.size());
             result.emplace_back(inner.begin() + i, inner.begin() + end);
             i = end;
+            if (i < inner.size())
+                log_warning("Carry chain has been split, expect timing penalty.\n");
         }
     }
 

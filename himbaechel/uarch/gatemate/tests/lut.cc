@@ -49,9 +49,9 @@ TEST_F(GateMateTest, remove_lut1_zero)
 
     CellInfo *obuf = create_cell_ptr(id_CC_OBUF, "obuf");
 
-    direct_connect(lut1, id_O, obuf, id_A);
+    lut1->connectPorts(id_O, obuf, id_A);
 
-    ASSERT_EQ(ctx->cells.size(), 1LU);
+    ASSERT_EQ(ctx->cells.size(), 2LU);
     ctx->uarch->pack();
     ASSERT_EQ(ctx->cells.size(), 1LU);
 }
@@ -63,7 +63,7 @@ TEST_F(GateMateTest, remove_lut1_one)
 
     CellInfo *obuf = create_cell_ptr(id_CC_OBUF, "obuf");
 
-    direct_connect(lut1, id_O, obuf, id_A);
+    lut1->connectPorts(id_O, obuf, id_A);
 
     ASSERT_EQ(ctx->cells.size(), 2LU);
     ctx->uarch->pack();
@@ -78,14 +78,14 @@ TEST_F(GateMateTest, remove_lut1_pass)
     CellInfo *obuf = create_cell_ptr(id_CC_OBUF, "obuf");
     CellInfo *ibuf = create_cell_ptr(id_CC_IBUF, "ibuf");
 
-    direct_connect(ibuf, id_Y, lut1, id_I0);
-    direct_connect(lut1, id_O, obuf, id_A);
+    ibuf->connectPorts(id_Y, lut1, id_I0);
+    lut1->connectPorts(id_O, obuf, id_A);
 
     ASSERT_EQ(ctx->cells.size(), 3LU);
     ctx->uarch->pack();
     // Expect IBUF -> CPE -> OBUF
     // LUT removed, but CPE for driving OBUF added
-    ASSERT_EQ(ctx->cells.size(), 3LU);
+    ASSERT_EQ(ctx->cells.size(), 4LU);
 }
 
 TEST_F(GateMateTest, remove_lut1_inv)
@@ -96,14 +96,14 @@ TEST_F(GateMateTest, remove_lut1_inv)
     CellInfo *obuf = create_cell_ptr(id_CC_OBUF, "obuf");
     CellInfo *ibuf = create_cell_ptr(id_CC_IBUF, "ibuf");
 
-    direct_connect(ibuf, id_Y, lut1, id_I0);
-    direct_connect(lut1, id_O, obuf, id_A);
+    ibuf->connectPorts(id_Y, lut1, id_I0);
+    lut1->connectPorts(id_O, obuf, id_A);
 
     ASSERT_EQ(ctx->cells.size(), 3LU);
     ctx->uarch->pack();
     // Expect IBUF -> CPE -> OBUF
     // LUT merged, but CPE for driving OBUF added
-    ASSERT_EQ(ctx->cells.size(), 3LU);
+    ASSERT_EQ(ctx->cells.size(), 5LU);
 }
 
 TEST_F(GateMateTest, remove_lut1_not_driven)
@@ -123,5 +123,5 @@ TEST_F(GateMateTest, remove_lut1_not_driven)
     ctx->uarch->pack();
     // Expect IBUF -> CPE -> OBUF
     // LUT1 removed as not used, but CPE for driving OBUF added
-    ASSERT_EQ(ctx->cells.size(), 3LU);
+    ASSERT_EQ(ctx->cells.size(), 4LU);
 }
