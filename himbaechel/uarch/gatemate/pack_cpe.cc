@@ -689,7 +689,7 @@ void GateMatePacker::pack_constants()
 
 void GateMatePacker::remove_constants()
 {
-    log_info("Removing constants..\n");
+    log_info("Removing unused constants..\n");
     auto fnd_cell = ctx->cells.find(ctx->id("$PACKER_VCC_DRV"));
     if (fnd_cell != ctx->cells.end()) {
         auto fnd_net = ctx->nets.find(ctx->id("$PACKER_VCC"));

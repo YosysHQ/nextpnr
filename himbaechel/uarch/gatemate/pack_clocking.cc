@@ -39,6 +39,7 @@ void GateMatePacker::sort_bufg()
         ItemBufG(CellInfo *cell, int32_t fan_out) : cell(cell), fan_out(fan_out) {}
     };
 
+    log_info("Sort BUFGs..\n");
     std::vector<ItemBufG> bufg;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
@@ -281,6 +282,7 @@ void GateMatePacker::insert_bufg(CellInfo *cell, IdString port)
 
 void GateMatePacker::insert_pll_bufg()
 {
+    log_info("Insert BUFGs for PLLs..\n");
     for (int i = 0; i < uarch->dies; i++) {
         Loc fixed_loc = uarch->locations[std::make_pair(id_CLKIN, i)];
         clkin.push_back(create_cell_ptr(id_CLKIN, ctx->idf("CLKIN%d", i)));
@@ -308,6 +310,7 @@ void GateMatePacker::insert_pll_bufg()
 
 void GateMatePacker::remove_clocking()
 {
+    log_info("Remove unused clocking cells..\n");
     auto remove_unused_cells = [&](std::vector<CellInfo *> &cells, const char *type) {
         for (auto cell : cells) {
             bool used = false;

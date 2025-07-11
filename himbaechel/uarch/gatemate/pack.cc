@@ -47,6 +47,7 @@ void GateMatePacker::disconnect_if_gnd(CellInfo *cell, IdString input)
 
 void GateMatePacker::pack_misc()
 {
+    log_info("Packing misc..\n");
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_USR_RSTN))
@@ -297,6 +298,7 @@ void GateMatePacker::rename_param(CellInfo *cell, IdString name, IdString new_na
 
 void GateMatePacker::repack()
 {
+    log_info("Repacking CPEs..\n");
     for (auto &cell : ctx->cells) {
         if (cell.second->type.in(id_CPE_L2T4)) {
             Loc l = ctx->getBelLocation(cell.second->bel);
