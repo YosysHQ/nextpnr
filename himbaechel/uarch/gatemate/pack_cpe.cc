@@ -170,9 +170,6 @@ void GateMatePacker::pack_cpe()
 {
     log_info("Packing CPEs..\n");
     std::vector<CellInfo *> l2t5_list;
-    int l2t4_created = 0;
-    int mx4_created = 0;
-    int ff_created = 0;
 
     auto merge_dff = [&](CellInfo &ci, CellInfo *dff) {
         dff->cluster = ci.name;
@@ -183,7 +180,6 @@ void GateMatePacker::pack_cpe()
         dff->renamePort(id_D, id_DIN);
         dff->renamePort(id_Q, id_DOUT);
         dff->type = (dff->type == id_CC_DLT) ? id_CPE_LATCH : id_CPE_FF;
-        ff_created++;
     };
 
     for (auto &cell : ctx->cells) {
@@ -206,7 +202,6 @@ void GateMatePacker::pack_cpe()
             ci.constr_abs_z = true;
             ci.constr_z = CPE_LT_L_Z;
             ci.type = id_CPE_L2T4;
-            l2t4_created++;
             is_l2t5 = true;
         } else if (ci.type == id_CC_MX2) {
             ci.renamePort(id_D1, id_IN1);
@@ -222,7 +217,6 @@ void GateMatePacker::pack_cpe()
             ci.params[id_INIT_L10] = Property(LUT_OR, 4);
             ci.renamePort(id_Y, id_OUT);
             ci.type = id_CPE_L2T4;
-            l2t4_created++;
         } else {
             ci.renamePort(id_I0, id_IN1);
             ci.renamePort(id_I1, id_IN2);
@@ -238,7 +232,6 @@ void GateMatePacker::pack_cpe()
                 ci.params[id_INIT_L10] = Property(LUT_D0, 4);
             }
             ci.type = id_CPE_L2T4;
-            l2t4_created++;
         }
         NetInfo *o = ci.getPort(id_OUT);
         if (o) {
@@ -265,7 +258,6 @@ void GateMatePacker::pack_cpe()
                     lower->constr_z = CPE_LT_L_Z;
                     lower->params[id_INIT_L20] = Property(LUT_D0, 4);
                     ci.movePortTo(id_OUT, lower, id_OUT);
-                    l2t4_created++;
 
                     // Reconnect net
                     NetInfo *ci_out_conn = ctx->createNet(ctx->idf("%s$out", ci.name.c_str(ctx)));
@@ -302,7 +294,6 @@ void GateMatePacker::pack_cpe()
         ci->ports[id_COMBIN].name = id_COMBIN;
         ci->ports[id_COMBIN].type = PORT_IN;
         ci->connectPort(id_COMBIN, ci_out_conn);
-        l2t4_created++;
     }
     l2t5_list.clear();
     flush_cells();
@@ -356,7 +347,6 @@ void GateMatePacker::pack_cpe()
         ci.movePortTo(id_D2, upper, id_IN3);
         ci.movePortTo(id_D3, upper, id_IN4);
         ci.constr_children.push_back(upper);
-        mx4_created++;
 
         NetInfo *o = ci.getPort(id_OUT);
         if (o) {
@@ -401,17 +391,8 @@ void GateMatePacker::pack_cpe()
         ci.ports[id_DIN].name = id_DIN;
         ci.ports[id_DIN].type = PORT_IN;
         ci.connectPort(id_DIN, conn);
-        l2t4_created++;
-        ff_created++;
     }
     dff_list.clear();
-
-    if (l2t4_created)
-        log_info("    %6d L2T4s created\n", l2t4_created);
-    if (mx4_created)
-        log_info("    %6d MX4s created\n", mx4_created);
-    if (ff_created)
-        log_info("    %6d FFs created\n", ff_created);
 }
 
 static bool is_addf_ci(NetInfo *net)
@@ -500,12 +481,6 @@ void GateMatePacker::pack_addf()
     }
     flush_cells();
 
-    int addf_created = 0;
-    int addf2_created = 0;
-    int l2t4_created = 0;
-    int lut2_merged = 0;
-    int ff_created = 0;
-
     auto merge_input = [&](CellInfo *cell, CellInfo *target, IdString port, IdString config, IdString in1,
                            IdString in2) {
         NetInfo *net = cell->getPort(port);
@@ -528,7 +503,6 @@ void GateMatePacker::pack_addf()
                 lut2->movePortTo(id_I1, target, in2);
                 cell->disconnectPort(port);
                 packed_cells.insert(lut2->name);
-                lut2_merged++;
             } else {
                 if (cell == target)
                     cell->renamePort(port, in1);
@@ -551,7 +525,6 @@ void GateMatePacker::pack_addf()
                 dff->renamePort(id_D, id_DIN);
                 dff->renamePort(id_Q, id_DOUT);
                 dff->type = (dff->type == id_CC_DLT) ? id_CPE_LATCH : id_CPE_FF;
-                ff_created++;
                 return dff;
             }
         }
@@ -576,7 +549,6 @@ void GateMatePacker::pack_addf()
         ci_lower->constr_y = -1;
         ci_lower->params[id_INIT_L00] = Property(LUT_ZERO, 4);
         ci_lower->params[id_INIT_L10] = Property(LUT_D0, 4);
-        l2t4_created++;
 
         CellInfo *ci_cplines = create_cell_ptr(id_CPE_CPLINES, ctx->idf("%s$ci_cplines", root->name.c_str(ctx)));
         ci_cplines->params[id_C_SELY1] = Property(1, 1);
@@ -632,10 +604,6 @@ void GateMatePacker::pack_addf()
             }
             cy->params[id_C_FUNCTION] = Property(merged ? C_ADDF2 : C_ADDF, 3);
             cy->type = id_CPE_LT_L;
-            if (merged)
-                addf2_created++;
-            else
-                addf_created++;
 
             CellInfo *upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$upper", cy->name.c_str(ctx)));
             upper->cluster = root->name;
@@ -674,7 +642,6 @@ void GateMatePacker::pack_addf()
                 co_lower->params[id_C_FUNCTION] = Property(C_EN_CIN, 3);
                 co_lower->params[id_INIT_L10] = Property(LUT_D1, 4);
                 co_lower->params[id_INIT_L20] = Property(LUT_D1, 4);
-                l2t4_created++;
 
                 NetInfo *co_conn = ctx->createNet(ctx->idf("%s$co_net", cy->name.c_str(ctx)));
 
@@ -706,16 +673,6 @@ void GateMatePacker::pack_addf()
         }
     }
     flush_cells();
-    if (addf_created)
-        log_info("    %6d ADDF created\n", addf_created);
-    if (addf2_created)
-        log_info("    %6d ADDF2 created\n", addf2_created);
-    if (l2t4_created)
-        log_info("    %6d L2T4s created\n", l2t4_created);
-    if (ff_created)
-        log_info("    %6d FFs created\n", ff_created);
-    if (lut2_merged)
-        log_info("    %6d LUT2s removed\n", lut2_merged);
 }
 
 void GateMatePacker::pack_constants()
