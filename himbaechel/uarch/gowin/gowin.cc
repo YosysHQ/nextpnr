@@ -209,6 +209,11 @@ void GowinImpl::init(Context *ctx)
     if (args.options.count("ioreg_in_iob")) {
         ctx->settings[id_IOREG_IN_IOB] = Property(1);
     }
+
+    // smart clock routing
+    if (args.options.count("disable_gp_clock_routing")) {
+        ctx->settings[id_NO_GP_CLOCK_ROUTING] = Property(1);
+    }
 }
 
 // We do not allow the use of global wires that bypass a special router.

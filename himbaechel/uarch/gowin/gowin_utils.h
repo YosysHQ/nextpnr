@@ -67,6 +67,24 @@ struct GowinUtils
         return ni->users.entries() != 0;
     }
 
+    // net sources
+    inline bool driver_is_io(const PortRef &driver) { return CellTypePort(driver) == CellTypePort(id_IBUF, id_O); }
+    inline bool driver_is_buf(const PortRef &driver) { return CellTypePort(driver) == CellTypePort(id_BUFG, id_O); }
+    inline bool driver_is_dqce(const PortRef &driver)
+    {
+        return CellTypePort(driver) == CellTypePort(id_DQCE, id_CLKOUT);
+    }
+    inline bool driver_is_dcs(const PortRef &driver) { return CellTypePort(driver) == CellTypePort(id_DCS, id_CLKOUT); }
+    inline bool driver_is_dhcen(const PortRef &driver)
+    {
+        return CellTypePort(driver) == CellTypePort(id_DHCEN, id_CLKOUT);
+    }
+    inline bool driver_is_mipi(const PortRef &driver)
+    {
+        return CellTypePort(driver) == CellTypePort(id_IOBUF, id_O) && driver.cell->params.count(id_MIPI_IBUF);
+    }
+    bool driver_is_clksrc(const PortRef &driver);
+
     // BSRAM
     bool has_SP32(void);
     bool need_SP_fix(void);

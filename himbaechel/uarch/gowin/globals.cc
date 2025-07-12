@@ -248,69 +248,6 @@ struct GowinGlobalRouter
         }
     }
 
-    bool driver_is_buf(const PortRef &driver) { return CellTypePort(driver) == CellTypePort(id_BUFG, id_O); }
-    bool driver_is_dqce(const PortRef &driver) { return CellTypePort(driver) == CellTypePort(id_DQCE, id_CLKOUT); }
-    bool driver_is_dcs(const PortRef &driver) { return CellTypePort(driver) == CellTypePort(id_DCS, id_CLKOUT); }
-    bool driver_is_dhcen(const PortRef &driver) { return CellTypePort(driver) == CellTypePort(id_DHCEN, id_CLKOUT); }
-    bool driver_is_mipi(const PortRef &driver)
-    {
-        return CellTypePort(driver) == CellTypePort(id_IOBUF, id_O) && driver.cell->params.count(id_MIPI_IBUF);
-    }
-    bool driver_is_clksrc(const PortRef &driver)
-    {
-        // dedicated pins
-        if (CellTypePort(driver) == CellTypePort(id_IBUF, id_O)) {
-
-            NPNR_ASSERT(driver.cell->bel != BelId());
-            IdStringList pin_func = gwu.get_pin_funcs(driver.cell->bel);
-            for (size_t i = 0; i < pin_func.size(); ++i) {
-                if (ctx->debug) {
-                    log_info("bel:%s, pin func: %zu:%s\n", ctx->nameOfBel(driver.cell->bel), i,
-                             pin_func[i].str(ctx).c_str());
-                }
-                if (pin_func[i].str(ctx).rfind("GCLKT", 0) == 0) {
-                    if (ctx->debug) {
-                        log_info("Clock pin:%s:%s\n", ctx->getBelName(driver.cell->bel).str(ctx).c_str(),
-                                 pin_func[i].c_str(ctx));
-                    }
-                    return true;
-                }
-            }
-        }
-        // PLL outputs
-        if (driver.cell->type.in(id_rPLL, id_PLLVR)) {
-            if (driver.port.in(id_CLKOUT, id_CLKOUTD, id_CLKOUTD3, id_CLKOUTP)) {
-                if (ctx->debug) {
-                    log_info("PLL out:%s:%s\n", ctx->getBelName(driver.cell->bel).str(ctx).c_str(),
-                             driver.port.c_str(ctx));
-                }
-                return true;
-            }
-        }
-        // HCLK outputs
-        if (driver.cell->type.in(id_CLKDIV, id_CLKDIV2)) {
-            if (driver.port.in(id_CLKOUT)) {
-                if (ctx->debug) {
-                    log_info("%s out:%s:%s:%s\n", driver.cell->type.c_str(ctx),
-                             ctx->getBelName(driver.cell->bel).str(ctx).c_str(), driver.port.c_str(ctx),
-                             ctx->nameOfWire(ctx->getBelPinWire(driver.cell->bel, driver.port)));
-                }
-                return true;
-            }
-        }
-        // DLLDLY outputs
-        if (driver.cell->type == id_DLLDLY) {
-            if (driver.port.in(id_CLKOUT)) {
-                if (ctx->debug) {
-                    log_info("%s out:%s:%s\n", driver.cell->type.c_str(ctx),
-                             ctx->getBelName(driver.cell->bel).str(ctx).c_str(), driver.port.c_str(ctx));
-                }
-                return true;
-            }
-        }
-        return false;
-    }
-
     enum RouteResult
     {
         NOT_ROUTED = 0,
@@ -367,11 +304,11 @@ struct GowinGlobalRouter
         NPNR_ASSERT(net_before_dqce != nullptr);
 
         PortRef driver = net_before_dqce->driver;
-        NPNR_ASSERT_MSG(driver_is_buf(driver) || driver_is_clksrc(driver),
+        NPNR_ASSERT_MSG(gwu.driver_is_buf(driver) || gwu.driver_is_clksrc(driver),
                         stringf("The input source for %s is not a clock.", ctx->nameOf(dqce_ci)).c_str());
         WireId src;
         // use BUF input if there is one
-        if (driver_is_buf(driver)) {
+        if (gwu.driver_is_buf(driver)) {
             src = ctx->getBelPinWire(driver.cell->bel, id_I);
         } else {
             src = ctx->getBelPinWire(driver.cell->bel, driver.port);
@@ -463,7 +400,7 @@ struct GowinGlobalRouter
                 continue;
             }
             driver = net_before_dcs->driver;
-            if (driver_is_buf(driver) || driver_is_clksrc(driver)) {
+            if (gwu.driver_is_buf(driver) || gwu.driver_is_clksrc(driver)) {
                 break;
             }
             net_before_dcs = nullptr;
@@ -472,7 +409,7 @@ struct GowinGlobalRouter
 
         WireId src;
         // use BUF input if there is one
-        if (driver_is_buf(driver)) {
+        if (gwu.driver_is_buf(driver)) {
             src = ctx->getBelPinWire(driver.cell->bel, id_I);
         } else {
             src = ctx->getBelPinWire(driver.cell->bel, driver.port);
@@ -574,12 +511,14 @@ struct GowinGlobalRouter
         NPNR_ASSERT(net_before_dhcen != nullptr);
 
         PortRef driver = net_before_dhcen->driver;
-        NPNR_ASSERT_MSG(driver_is_buf(driver) || driver_is_clksrc(driver) || driver_is_mipi(driver),
-                        stringf("The input source for %s is not a clock.", ctx->nameOf(dhcen_ci)).c_str());
+        NPNR_ASSERT_MSG(gwu.driver_is_buf(driver) || gwu.driver_is_clksrc(driver) || gwu.driver_is_mipi(driver),
+                        stringf("The input source (%s:%s) for %s is not a clock.", ctx->nameOf(driver.cell),
+                                driver.port.c_str(ctx), ctx->nameOf(dhcen_ci))
+                                .c_str());
 
         IdString port;
         // use BUF input if there is one
-        if (driver_is_buf(driver)) {
+        if (gwu.driver_is_buf(driver)) {
             port = id_I;
         } else {
             port = driver.port;
@@ -588,7 +527,7 @@ struct GowinGlobalRouter
 
         std::vector<PipId> path;
         RouteResult route_result;
-        if (driver_is_mipi(driver)) {
+        if (gwu.driver_is_mipi(driver)) {
             route_result = route_direct_net(
                     net, [&](PipId pip, WireId src_wire) { return segment_wire_filter(pip) && dcs_input_filter(pip); },
                     src, &path);
@@ -637,7 +576,7 @@ struct GowinGlobalRouter
             hw_dhcen->setAttr(id_DHCEN_USED, 1);
             dhcen_ci->copyPortTo(id_CE, hw_dhcen, id_CE);
         }
-        if (driver_is_mipi(driver)) {
+        if (gwu.driver_is_mipi(driver)) {
             ctx->bindWire(src, net_before_dhcen, STRENGTH_LOCKED);
         }
 
@@ -673,7 +612,7 @@ struct GowinGlobalRouter
                     return global_pip_filter(pip, src_wire) && segment_wire_filter(pip) && dcs_input_filter(pip);
                 },
                 src);
-        if (route_result == NOT_ROUTED || route_result == ROUTED_PARTIALLY) {
+        if (route_result == NOT_ROUTED) {
             log_error("Can't route the %s net. It might be worth removing the BUFG buffer flag.\n", ctx->nameOf(net));
         }
 
@@ -1249,19 +1188,19 @@ struct GowinGlobalRouter
                 }
                 continue;
             }
-            if (driver_is_buf(ni->driver)) {
+            if (gwu.driver_is_buf(ni->driver)) {
                 buf_nets.push_back(net.first);
             } else {
-                if (driver_is_clksrc(ni->driver)) {
+                if (gwu.driver_is_clksrc(ni->driver)) {
                     clk_nets.push_back(net.first);
                 } else {
-                    if (driver_is_dqce(ni->driver)) {
+                    if (gwu.driver_is_dqce(ni->driver)) {
                         dqce_nets.push_back(net.first);
                     } else {
-                        if (driver_is_dcs(ni->driver)) {
+                        if (gwu.driver_is_dcs(ni->driver)) {
                             dcs_nets.push_back(net.first);
                         } else {
-                            if (driver_is_dhcen(ni->driver)) {
+                            if (gwu.driver_is_dhcen(ni->driver)) {
                                 dhcen_nets.push_back(net.first);
                             } else {
                                 seg_nets.push_back(net.first);
