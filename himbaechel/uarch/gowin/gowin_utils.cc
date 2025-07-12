@@ -12,6 +12,75 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+// clock sources
+bool GowinUtils::driver_is_clksrc(const PortRef &driver)
+{
+    // dedicated pins
+    if (CellTypePort(driver) == CellTypePort(id_IBUF, id_O)) {
+
+        NPNR_ASSERT(driver.cell->bel != BelId());
+        IdStringList pin_func = get_pin_funcs(driver.cell->bel);
+        for (size_t i = 0; i < pin_func.size(); ++i) {
+            if (ctx->debug) {
+                log_info("bel:%s, pin func: %zu:%s\n", ctx->nameOfBel(driver.cell->bel), i,
+                         pin_func[i].str(ctx).c_str());
+            }
+            if (pin_func[i].str(ctx).rfind("GCLKT", 0) == 0) {
+                if (ctx->debug) {
+                    log_info("Clock pin:%s:%s\n", ctx->getBelName(driver.cell->bel).str(ctx).c_str(),
+                             pin_func[i].c_str(ctx));
+                }
+                return true;
+            }
+        }
+    }
+    // PLL outputs
+    if (driver.cell->type.in(id_rPLL, id_PLLVR)) {
+        if (driver.port.in(id_CLKOUT, id_CLKOUTD, id_CLKOUTD3, id_CLKOUTP)) {
+            if (ctx->debug) {
+                if (driver.cell->bel != BelId()) {
+                    log_info("PLL out bel:%s:%s\n", ctx->nameOfBel(driver.cell->bel), driver.port.c_str(ctx));
+                } else {
+                    log_info("PLL out:%s:%s\n", ctx->nameOf(driver.cell), driver.port.c_str(ctx));
+                }
+            }
+            return true;
+        }
+    }
+    // HCLK outputs
+    if (driver.cell->type.in(id_CLKDIV, id_CLKDIV2)) {
+        if (driver.port.in(id_CLKOUT)) {
+            if (ctx->debug) {
+                if (driver.cell->bel != BelId()) {
+                    log_info("%s out bel:%s:%s:%s\n", driver.cell->type.c_str(ctx),
+                             ctx->getBelName(driver.cell->bel).str(ctx).c_str(), driver.port.c_str(ctx),
+                             ctx->nameOfWire(ctx->getBelPinWire(driver.cell->bel, driver.port)));
+                } else {
+                    log_info("%s out:%s:%s\n", driver.cell->type.c_str(ctx), ctx->nameOf(driver.cell),
+                             driver.port.c_str(ctx));
+                }
+            }
+            return true;
+        }
+    }
+    // DLLDLY outputs
+    if (driver.cell->type == id_DLLDLY) {
+        if (driver.port.in(id_CLKOUT)) {
+            if (ctx->debug) {
+                if (driver.cell->bel != BelId()) {
+                    log_info("%s out bel:%s:%s\n", driver.cell->type.c_str(ctx),
+                             ctx->getBelName(driver.cell->bel).str(ctx).c_str(), driver.port.c_str(ctx));
+                } else {
+                    log_info("%s out:%s:%s\n", driver.cell->type.c_str(ctx), ctx->nameOf(driver.cell),
+                             driver.port.c_str(ctx));
+                }
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
 // Segments
 int GowinUtils::get_segments_count(void) const
 {

@@ -3860,9 +3860,33 @@ struct GowinPacker
         log_info("Pack buffered nets...\n");
 
         for (auto &net : ctx->nets) {
-            auto &ni = *net.second;
-            if (ni.driver.cell == nullptr || ni.attrs.count(id_CLOCK) == 0 || ni.users.empty()) {
+            NetInfo *ni = net.second.get();
+            if (ni->driver.cell == nullptr || ni->users.empty() || net.first == ctx->id("$PACKER_GND") ||
+                net.first == ctx->id("$PACKER_VCC")) {
                 continue;
+            }
+            if (ni->attrs.count(id_CLOCK) == 0) {
+                if (ctx->settings.count(id_NO_GP_CLOCK_ROUTING)) {
+                    continue;
+                }
+                if (gwu.driver_is_clksrc(ni->driver) || (!gwu.driver_is_io(ni->driver))) {
+                    // no need for buffering
+                    continue;
+                }
+                // check users for the clock inputs
+                bool has_clock_users = false;
+                for (auto usr : ni->users) {
+                    if (usr.port.in(id_CLKIN, id_CLK, id_CLK0, id_CLK1, id_CLK2, id_CLK3, id_CLKFB)) {
+                        has_clock_users = true;
+                        break;
+                    }
+                }
+                if (!has_clock_users) {
+                    continue;
+                }
+                if (ctx->verbose) {
+                    log_info("Add buffering to a potentially clock network '%s'\n", ctx->nameOf(ni));
+                }
             }
 
             // make new BUF cell single user for the net driver
@@ -3871,8 +3895,8 @@ struct GowinPacker
             CellInfo *buf_ci = ctx->cells.at(buf_name).get();
             buf_ci->addInput(id_I);
             // move driver
-            CellInfo *driver_cell = ni.driver.cell;
-            IdString driver_port = ni.driver.port;
+            CellInfo *driver_cell = ni->driver.cell;
+            IdString driver_port = ni->driver.port;
 
             driver_cell->movePortTo(driver_port, buf_ci, id_O);
             buf_ci->connectPorts(id_I, driver_cell, driver_port);
