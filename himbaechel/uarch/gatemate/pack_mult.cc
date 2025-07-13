@@ -412,6 +412,8 @@ void GateMatePacker::pack_mult()
         a_passthru_comp->connectPort(id_COMPOUT, comp_conn);
         a_passthru_lines->connectPort(id_COMPOUT, comp_conn);
 
+        uarch->multiplier_a_passthrus.push_back({a_passthru_lower, a_passthru_upper});
+
         return APassThroughCell{a_passthru_lower, a_passthru_upper, a_passthru_comp, a_passthru_lines, name};
     };
 
