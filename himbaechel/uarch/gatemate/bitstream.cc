@@ -219,24 +219,52 @@ struct BitstreamBackend
 
     void check_multipliers()
     {
+        pool<IdString> multiplier_nets;
+
         for (auto *mult : uarch->multipliers) {
             NPNR_ASSERT(mult != nullptr);
 
-            auto should_be_inverted = mult->constr_x % 2 == 1;
+            multiplier_nets.insert(mult->ports.at(id_IN8).net->name);
+            multiplier_nets.insert(mult->ports.at(id_IN5).net->name);
+            multiplier_nets.insert(mult->ports.at(id_IN1).net->name);
+        }
 
-            // TODO: these are errors, but downgraded to allow providing *some* output.
+        for (auto net_name : multiplier_nets) {
+            auto *net = ctx->nets.at(net_name).get();
 
-            // IN8
-            if (need_inversion(mult, id_IN8) != should_be_inverted)
-                log_warning("%s.IN8 has wrong inversion state\n", mult->name.c_str(ctx));
+            bool all_correct = true;
+            bool all_inverted = true;
 
-            // IN5
-            if (need_inversion(mult, id_IN5) != should_be_inverted)
-                log_warning("%s.IN5 has wrong inversion state\n", mult->name.c_str(ctx));
+            for (PortRef user : net->users) {
+                auto should_be_inverted = user.cell->constr_x % 2 == 1;
+                auto inversion = need_inversion(user.cell, user.port);
+                all_correct &= (inversion == should_be_inverted);
+                all_inverted &= (inversion != should_be_inverted);
+            }
 
-            // IN1
-            if (need_inversion(mult, id_IN1) != should_be_inverted)
-                log_warning("%s.IN1 has wrong inversion state\n", mult->name.c_str(ctx));
+            NPNR_ASSERT(!(all_correct && all_inverted) && "net doesn't drive any ports?");
+
+            if (!all_correct && !all_inverted) {
+                log_warning("multiplier net '%s' has inconsistent inversion\n", net_name.c_str(ctx));
+
+                log_warning("  these ports are not inverted:\n");
+                for (PortRef user : net->users) {
+                    auto should_be_inverted = user.cell->constr_x % 2 == 1;
+                    auto inversion = need_inversion(user.cell, user.port);
+                    if (inversion == should_be_inverted)
+                        log_warning("    %s.%s\n", user.cell->name.c_str(ctx), user.port.c_str(ctx));
+                }
+
+                log_warning("  these ports are inverted:\n");
+                for (PortRef user : net->users) {
+                    auto should_be_inverted = user.cell->constr_x % 2 == 1;
+                    auto inversion = need_inversion(user.cell, user.port);
+                    if (inversion != should_be_inverted)
+                        log_warning("    %s.%s\n", user.cell->name.c_str(ctx), user.port.c_str(ctx));
+                }
+            } else if (all_inverted) {
+                log_info("multiplier net '%s' has fixable inversion (but I haven't implemented it yet)\n", net_name.c_str(ctx));
+            }
         }
     }
 
