@@ -212,8 +212,11 @@ void GateMateImpl::preRoute()
             NPNR_ASSERT(from != WireId());
             NPNR_ASSERT(to != WireId());
             for (auto pip : ctx->getPipsDownhill(from)) {
-                if (ctx->getPipDstWire(pip) == to)
+                if (ctx->getPipDstWire(pip) == to) {
+                    log_info("    pip %s\n", ctx->nameOfPip(pip));
+
                     return pip;
+                }
             }
             log_error("Couldn't find pip from %s to %s\n", ctx->nameOfWire(from), ctx->nameOfWire(to));
         };
@@ -276,6 +279,9 @@ void GateMateImpl::preRoute()
                 ctx->bindPip(find_downhill_pip(in_mux_p04, in_mux_p08), upper_out, STRENGTH_USER);
                 ctx->bindPip(find_downhill_pip(in_mux_p08, cpe_in8_int), upper_out, STRENGTH_USER);
             }
+        } else {
+            log_info("  don't know how to route net '%s'\n", lower_out->name.c_str(ctx));
+            log_info("  don't know how to route net '%s'\n", upper_out->name.c_str(ctx));
         }
     }
 }
