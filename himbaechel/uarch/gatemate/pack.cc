@@ -26,13 +26,13 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-void GateMatePacker::flush_cells(bool unbind)
+void GateMatePacker::flush_cells()
 {
     for (auto pcell : packed_cells) {
         for (auto &port : ctx->cells[pcell]->ports) {
             ctx->cells[pcell]->disconnectPort(port.first);
         }
-        if (unbind)
+        if (ctx->cells[pcell]->bel != BelId())
             ctx->unbindBel(ctx->cells[pcell]->bel);
         ctx->cells.erase(pcell);
     }
@@ -127,10 +127,7 @@ void GateMatePacker::move_connections(NetInfo *from_net, NetInfo *to_net)
 void GateMatePacker::count_cell(CellInfo &ci)
 {
     packed_cells.insert(ci.name);
-    if (!count_per_type.count(ci.type))
-        count_per_type[ci.type] = 1;
-    else
-        count_per_type[ci.type]++;
+    count_per_type[ci.type]++;
     count++;
 }
 
@@ -378,7 +375,7 @@ void GateMatePacker::repack()
             packed_cells.insert(cell.second->name);
         }
     }
-    flush_cells(true);
+    flush_cells();
 }
 
 void GateMateImpl::pack()
