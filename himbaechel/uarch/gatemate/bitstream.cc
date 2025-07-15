@@ -23,6 +23,8 @@
 #include "config.h"
 #include "gatemate.h"
 #include "gatemate_util.h"
+#include "property.h"
+#include "uarch/gatemate/pack.h"
 
 #define HIMBAECHEL_CONSTIDS "uarch/gatemate/constids.inc"
 #include "himbaechel_constids.h"
@@ -232,11 +234,15 @@ struct BitstreamBackend
         for (auto net_name : multiplier_nets) {
             auto *net = ctx->nets.at(net_name).get();
 
+            int64_t driver_l10 = net->driver.cell->params[id_INIT_L10].as_int64();
+            bool driver_is_inverted = driver_l10 == LUT_ONE || driver_l10 == LUT_INV_D0;
+
             bool all_correct = true;
             bool all_inverted = true;
 
             for (PortRef user : net->users) {
-                auto should_be_inverted = user.cell->constr_x % 2 == 1;
+                auto column_parity = user.cell->constr_x % 2;
+                auto should_be_inverted = driver_is_inverted ? column_parity == 0 : column_parity == 1;
                 auto inversion = need_inversion(user.cell, user.port);
                 all_correct &= (inversion == should_be_inverted);
                 all_inverted &= (inversion != should_be_inverted);
@@ -249,21 +255,30 @@ struct BitstreamBackend
 
                 log_warning("  these ports are not inverted:\n");
                 for (PortRef user : net->users) {
+                    auto loc = ctx->getBelLocation(user.cell->bel);
+                    auto x_fourgroup = (loc.x - 3) % 4;
+                    auto y_fourgroup = (loc.y - 3) % 4;
+
                     auto should_be_inverted = user.cell->constr_x % 2 == 1;
                     auto inversion = need_inversion(user.cell, user.port);
                     if (inversion == should_be_inverted)
-                        log_warning("    %s.%s\n", user.cell->name.c_str(ctx), user.port.c_str(ctx));
+                        log_warning("    %s.%s with four-group (%d, %d)\n", user.cell->name.c_str(ctx), user.port.c_str(ctx), x_fourgroup, y_fourgroup);
                 }
 
                 log_warning("  these ports are inverted:\n");
                 for (PortRef user : net->users) {
+                    auto loc = ctx->getBelLocation(user.cell->bel);
+                    auto x_fourgroup = (loc.x - 3) % 4;
+                    auto y_fourgroup = (loc.y - 3) % 4;
+
                     auto should_be_inverted = user.cell->constr_x % 2 == 1;
                     auto inversion = need_inversion(user.cell, user.port);
                     if (inversion != should_be_inverted)
-                        log_warning("    %s.%s\n", user.cell->name.c_str(ctx), user.port.c_str(ctx));
+                        log_warning("    %s.%s with four-group (%d, %d)\n", user.cell->name.c_str(ctx), user.port.c_str(ctx), x_fourgroup, y_fourgroup);
                 }
             } else if (all_inverted) {
-                log_info("multiplier net '%s' has fixable inversion (but I haven't implemented it yet)\n", net_name.c_str(ctx));
+                net->driver.cell->params[id_INIT_L10] = Property(~driver_l10 & 0b1111, 4);
+                log_info("multiplier net '%s': fixed inversion\n", net_name.c_str(ctx));
             }
         }
     }
