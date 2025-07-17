@@ -85,6 +85,7 @@ struct GateMateImpl : HimbaechelAPI
 
     void assign_cell_info();
     void route_clock();
+    void route_mult();
     void repack();
 
     const GateMateBelExtraDataPOD *bel_extra_data(BelId bel) const;
