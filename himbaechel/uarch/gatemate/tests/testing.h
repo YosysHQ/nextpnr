@@ -34,7 +34,6 @@ class GateMateTest : public ::testing::Test
     virtual void TearDown() override;
 
     CellInfo *create_cell_ptr(IdString type, std::string name);
-    void direct_connect(CellInfo *o_cell, IdString o_port, CellInfo *i_cell, IdString i_port);
 
     ArchArgs chipArgs;
     Context *ctx;

@@ -293,6 +293,7 @@ static const DefaultParam serdes_defaults[] = {
 
 void GateMatePacker::pack_serdes()
 {
+    log_info("Packing SERDES..\n");
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_SERDES))

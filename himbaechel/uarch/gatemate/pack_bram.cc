@@ -31,10 +31,10 @@ uint8_t GateMatePacker::ram_ctrl_signal(CellInfo *cell, IdString port, bool alt)
 {
     NetInfo *net = cell->getPort(port);
     if (net) {
-        if (net->name == ctx->id("$PACKER_GND")) {
+        if (net == net_PACKER_GND) {
             cell->disconnectPort(port);
             return 0b00000011;
-        } else if (net->name == ctx->id("$PACKER_VCC")) {
+        } else if (net == net_PACKER_VCC) {
             cell->disconnectPort(port);
             return 0b00010011;
         } else {
@@ -242,6 +242,7 @@ void GateMatePacker::pack_ram()
     std::vector<std::pair<CellInfo *, CellInfo *>> rams;
     std::vector<std::pair<CellInfo *, CellInfo *>> rams_merged[2];
     std::map<CellInfo *, CellInfo *> ram_cascade;
+    log_info("Packing RAMs..\n");
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_BRAM_20K, id_CC_BRAM_40K, id_CC_FIFO_40K))

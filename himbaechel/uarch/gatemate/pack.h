@@ -64,13 +64,24 @@ struct GateMatePacker
 
     void remove_constants();
     void remove_clocking();
-    void remove_not_used();
+
+    void cleanup();
+    void repack();
 
   private:
+    void rename_param(CellInfo *cell, IdString name, IdString new_name, int width);
     void dff_to_cpe(CellInfo *dff);
+    void dff_update_params();
     void insert_bufg(CellInfo *cell, IdString port);
     void disconnect_if_gnd(CellInfo *cell, IdString input);
     void pll_out(CellInfo *cell, IdString origPort, Loc fixed);
+
+    void disconnect_not_used();
+    void optimize_lut();
+    void optimize_mx();
+    void optimize_ff();
+    void count_cell(CellInfo &ci);
+    void move_connections(NetInfo *from_net, NetInfo *to_net);
 
     PllCfgRecord get_pll_settings(double f_ref, double f_core, int mode, int low_jitter, bool pdiv0_mux, bool feedback);
 
@@ -86,6 +97,8 @@ struct GateMatePacker
     uint8_t ram_ctrl_signal(CellInfo *cell, IdString port, bool alt);
     uint8_t ram_clk_signal(CellInfo *cell, IdString port);
     bool is_gpio_valid_dff(CellInfo *dff);
+    bool are_ffs_compatible(CellInfo *dff, CellInfo *other);
+
     // Cell creating
     CellInfo *create_cell_ptr(IdString type, IdString name);
     void flush_cells();
@@ -101,6 +114,10 @@ struct GateMatePacker
     GateMateImpl *uarch;
 
     HimbaechelHelpers h;
+    NetInfo *net_PACKER_VCC;
+    NetInfo *net_PACKER_GND;
+    int count;
+    std::map<IdString, int> count_per_type;
 };
 
 NEXTPNR_NAMESPACE_END

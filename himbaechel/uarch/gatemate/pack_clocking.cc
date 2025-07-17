@@ -39,6 +39,7 @@ void GateMatePacker::sort_bufg()
         ItemBufG(CellInfo *cell, int32_t fan_out) : cell(cell), fan_out(fan_out) {}
     };
 
+    log_info("Sort BUFGs..\n");
     std::vector<ItemBufG> bufg;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
@@ -281,6 +282,7 @@ void GateMatePacker::insert_bufg(CellInfo *cell, IdString port)
 
 void GateMatePacker::insert_pll_bufg()
 {
+    log_info("Insert BUFGs for PLLs..\n");
     for (int i = 0; i < uarch->dies; i++) {
         Loc fixed_loc = uarch->locations[std::make_pair(id_CLKIN, i)];
         clkin.push_back(create_cell_ptr(id_CLKIN, ctx->idf("CLKIN%d", i)));
@@ -308,6 +310,7 @@ void GateMatePacker::insert_pll_bufg()
 
 void GateMatePacker::remove_clocking()
 {
+    log_info("Remove unused clocking cells..\n");
     auto remove_unused_cells = [&](std::vector<CellInfo *> &cells, const char *type) {
         for (auto cell : cells) {
             bool used = false;
@@ -333,7 +336,7 @@ void GateMatePacker::remove_clocking()
 void GateMatePacker::pack_pll()
 {
     std::vector<int> pll_index(uarch->dies);
-    log_info("Packing PLLss..\n");
+    log_info("Packing PLLs..\n");
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_PLL, id_CC_PLL_ADV))
@@ -572,11 +575,11 @@ void GateMatePacker::pack_pll()
                     out_clk_max = out_clk;
             }
             NetInfo *select_net = ci.getPort(id_USR_SEL_A_B);
-            if (select_net == nullptr || select_net->name == ctx->id("$PACKER_GND")) {
+            if (select_net == nullptr || select_net == net_PACKER_GND) {
                 ci.params[ctx->id("SET_SEL")] = Property(0b0, 1);
                 ci.params[ctx->id("USR_SET")] = Property(0b0, 1);
                 ci.disconnectPort(id_USR_SEL_A_B);
-            } else if (select_net->name == ctx->id("$PACKER_VCC")) {
+            } else if (select_net == net_PACKER_VCC) {
                 ci.params[ctx->id("SET_SEL")] = Property(0b1, 1);
                 ci.params[ctx->id("USR_SET")] = Property(0b0, 1);
                 ci.disconnectPort(id_USR_SEL_A_B);

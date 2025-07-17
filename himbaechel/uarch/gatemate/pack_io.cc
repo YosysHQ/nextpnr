@@ -33,6 +33,7 @@ std::string get_die_name(int total_dies, int die)
 
 void GateMatePacker::pack_io()
 {
+    log_info("Packing IOs..\n");
     // Trim nextpnr IOBs - assume IO buffer insertion has been done in synthesis
     for (auto &port : ctx->ports) {
         if (!ctx->cells.count(port.first))
@@ -317,6 +318,7 @@ void GateMatePacker::pack_io()
 
 void GateMatePacker::pack_io_sel()
 {
+    log_info("Packing IO SELs..\n");
     std::vector<CellInfo *> cells;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
@@ -331,9 +333,9 @@ void GateMatePacker::pack_io_sel()
     auto set_out_clk = [&](CellInfo *cell, CellInfo *target) -> bool {
         NetInfo *clk_net = cell->getPort(id_CLK);
         if (clk_net) {
-            if (clk_net->name == ctx->id("$PACKER_GND")) {
+            if (clk_net == net_PACKER_GND) {
                 cell->disconnectPort(id_CLK);
-            } else if (clk_net->name == ctx->id("$PACKER_VCC")) {
+            } else if (clk_net == net_PACKER_VCC) {
                 cell->disconnectPort(id_CLK);
             } else {
                 if (!global_signals.count(clk_net)) {
@@ -352,9 +354,9 @@ void GateMatePacker::pack_io_sel()
     auto set_in_clk = [&](CellInfo *cell, CellInfo *target) {
         NetInfo *clk_net = cell->getPort(id_CLK);
         if (clk_net) {
-            if (clk_net->name == ctx->id("$PACKER_GND")) {
+            if (clk_net == net_PACKER_GND) {
                 cell->disconnectPort(id_CLK);
-            } else if (clk_net->name == ctx->id("$PACKER_VCC")) {
+            } else if (clk_net == net_PACKER_VCC) {
                 cell->disconnectPort(id_CLK);
             } else {
                 if (!global_signals.count(clk_net)) {
@@ -439,9 +441,11 @@ void GateMatePacker::pack_io_sel()
         NetInfo *do_net = ci.getPort(id_A);
         bool use_custom_clock = false;
         if (do_net) {
-            if (do_net->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC"))) {
-                ci.params[id_OUT23_14_SEL] =
-                        Property(do_net->name == ctx->id("$PACKER_VCC") ? Property::State::S1 : Property::State::S0);
+            if (do_net == net_PACKER_GND) {
+                ci.params[id_OUT23_14_SEL] = Property(Property::State::S0);
+                ci.disconnectPort(id_A);
+            } else if (do_net == net_PACKER_VCC) {
+                ci.params[id_OUT23_14_SEL] = Property(Property::State::S1);
                 ci.disconnectPort(id_A);
             } else {
                 ci.params[id_OUT_SIGNAL] = Property(Property::State::S1);
@@ -522,7 +526,7 @@ void GateMatePacker::pack_io_sel()
         for (int i = 0; i < 4; i++) {
             CellInfo *cpe = move_ram_o_fixed(&ci, ctx->idf("OUT%d", i + 1), root_loc).first;
             if (cpe && i == 2)
-                cpe->params[id_INIT_L10] = Property(0b0101, 4); // Invert CPE out for output enable (OUT3)
+                cpe->params[id_INIT_L10] = Property(LUT_INV_D0, 4); // Invert CPE out for output enable (OUT3)
         }
     }
     flush_cells();
@@ -533,11 +537,11 @@ bool GateMatePacker::is_gpio_valid_dff(CellInfo *dff)
     NetInfo *en_net = dff->getPort(id_EN);
     bool invert = bool_or_default(dff->params, id_EN_INV, 0);
     if (en_net) {
-        if (en_net->name == ctx->id("$PACKER_GND")) {
+        if (en_net == net_PACKER_GND) {
             if (!invert)
                 return false;
             dff->disconnectPort(id_EN);
-        } else if (en_net->name == ctx->id("$PACKER_VCC")) {
+        } else if (en_net == net_PACKER_VCC) {
             if (invert)
                 return false;
             dff->disconnectPort(id_EN);
@@ -550,8 +554,8 @@ bool GateMatePacker::is_gpio_valid_dff(CellInfo *dff)
     NetInfo *sr_net = dff->getPort(id_SR);
     invert = bool_or_default(dff->params, id_SR_INV, 0);
     if (sr_net) {
-        if (sr_net->name.in(ctx->id("$PACKER_GND"), ctx->id("$PACKER_VCC"))) {
-            bool sr_signal = sr_net->name == ctx->id("$PACKER_VCC");
+        if ((sr_net == net_PACKER_GND) || (sr_net == net_PACKER_VCC)) {
+            bool sr_signal = sr_net == net_PACKER_VCC;
             if (sr_signal ^ invert)
                 log_error("Currently unsupported DFF configuration for '%s'\n.", dff->name.c_str(ctx));
             dff->disconnectPort(id_SR);
@@ -565,9 +569,9 @@ bool GateMatePacker::is_gpio_valid_dff(CellInfo *dff)
     // Sanity check for CLK signal, that it must exist
     NetInfo *clk_net = dff->getPort(id_CLK);
     if (clk_net) {
-        if (clk_net->name == ctx->id("$PACKER_GND")) {
+        if (clk_net == net_PACKER_GND) {
             return false;
-        } else if (clk_net->name == ctx->id("$PACKER_VCC")) {
+        } else if (clk_net == net_PACKER_VCC) {
             return false;
         }
     } else {
