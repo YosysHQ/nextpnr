@@ -20,6 +20,7 @@ set(SOURCES
     pack.h
     pll.cc
     route_clock.cc
+    route_mult.cc
 )
 
 set(TEST_SOURCES
