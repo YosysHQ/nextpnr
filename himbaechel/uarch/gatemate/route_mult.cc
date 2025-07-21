@@ -81,75 +81,114 @@ void GateMateImpl::route_mult() {
             log_error("Couldn't find pip from %s to %s\n", ctx->nameOfWire(from), ctx->nameOfWire(to));
         };
 
-        if (is_fourgroup_a) {
-            if (x_within_fourgroup == 0 && y_within_fourgroup == 0) {
-                auto cpe_combout1 = ctx->getBelPinWire(lower->bel, id_OUT);
-                auto cpe_out1_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("CPE.OUT1_int")));
 
-                ctx->bindWire(cpe_combout1, lower_out, STRENGTH_LOCKED);
-                ctx->bindPip(find_downhill_pip(cpe_combout1, cpe_out1_int), lower_out, STRENGTH_LOCKED);
+        if (x_within_fourgroup == 0 && y_within_fourgroup == 0) {
+            auto cpe_combout1 = ctx->getBelPinWire(lower->bel, id_OUT);
+            auto cpe_out1_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("CPE.OUT1_int")));
 
-                auto cpe_combout2 = ctx->getBelPinWire(upper->bel, id_OUT);
-                auto cpe_out2_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("CPE.OUT2_int")));
+            ctx->bindWire(cpe_combout1, lower_out, STRENGTH_LOCKED);
+            ctx->bindPip(find_downhill_pip(cpe_combout1, cpe_out1_int), lower_out, STRENGTH_LOCKED);
 
-                ctx->bindWire(cpe_combout2, upper_out, STRENGTH_LOCKED);
-                ctx->bindPip(find_downhill_pip(cpe_combout2, cpe_out2_int), upper_out, STRENGTH_LOCKED);
+            auto cpe_combout2 = ctx->getBelPinWire(upper->bel, id_OUT);
+            auto cpe_out2_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("CPE.OUT2_int")));
 
-                {
-                    log_info("  routing net '%s' -> IN5\n", lower_out->name.c_str(ctx));
+            ctx->bindWire(cpe_combout2, upper_out, STRENGTH_LOCKED);
+            ctx->bindPip(find_downhill_pip(cpe_combout2, cpe_out2_int), upper_out, STRENGTH_LOCKED);
 
+            {
+                log_info("  routing net '%s' -> IN5\n", lower_out->name.c_str(ctx));
+
+                auto in_mux = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("IM.P05.D0")));
+                auto cpe_in5 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("CPE.IN5")));
+                auto cpe_in5_int = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("CPE.IN5_int")));
+
+                if (is_fourgroup_a) {
                     auto sb_big = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P05.D0")));
-                    auto in_mux = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("IM.P05.D0")));
-                    auto cpe_in5 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("CPE.IN5")));
-                    auto cpe_in5_int = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("CPE.IN5_int")));
 
                     ctx->bindPip(find_downhill_pip(cpe_out1_int, sb_big), lower_out, STRENGTH_LOCKED);
                     ctx->bindPip(find_downhill_pip(sb_big, in_mux), lower_out, STRENGTH_LOCKED); // inverting
-                    ctx->bindPip(find_downhill_pip(in_mux, cpe_in5), lower_out, STRENGTH_LOCKED); // inverting
-                    ctx->bindPip(find_downhill_pip(cpe_in5, cpe_in5_int), lower_out, STRENGTH_LOCKED);
+                } else {
+                    auto sb_sml_d0 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P05.D0")));
+                    auto sb_sml_y1_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P05.Y1_int")));
+
+                    ctx->bindPip(find_downhill_pip(cpe_out1_int, sb_sml_d0), lower_out, STRENGTH_LOCKED);
+                    ctx->bindPip(find_downhill_pip(sb_sml_d0, sb_sml_y1_int), lower_out, STRENGTH_LOCKED);
+                    ctx->bindPip(find_downhill_pip(sb_sml_y1_int, in_mux), lower_out, STRENGTH_LOCKED); // inverting
                 }
 
-                {
-                    log_info("  routing net '%s' -> IN1\n", upper_out->name.c_str(ctx));
+                ctx->bindPip(find_downhill_pip(in_mux, cpe_in5), lower_out, STRENGTH_LOCKED); // inverting
+                ctx->bindPip(find_downhill_pip(cpe_in5, cpe_in5_int), lower_out, STRENGTH_LOCKED);
+            }
 
+            {
+                log_info("  routing net '%s' -> IN1\n", upper_out->name.c_str(ctx));
+
+                auto in_mux = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("IM.P01.D0")));
+                auto cpe_in1 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("CPE.IN1")));
+                auto cpe_in1_int = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("CPE.IN1_int")));
+
+                if (is_fourgroup_a) {
                     auto sb_big = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P01.D0")));
-                    auto in_mux = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("IM.P01.D0")));
-                    auto cpe_in1 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("CPE.IN1")));
-                    auto cpe_in1_int = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("CPE.IN1_int")));
 
                     ctx->bindPip(find_downhill_pip(cpe_out2_int, sb_big), upper_out, STRENGTH_LOCKED);
                     ctx->bindPip(find_downhill_pip(sb_big, in_mux), upper_out, STRENGTH_LOCKED); // inverting
-                    ctx->bindPip(find_downhill_pip(in_mux, cpe_in1), upper_out, STRENGTH_LOCKED); // inverting
-                    ctx->bindPip(find_downhill_pip(cpe_in1, cpe_in1_int), upper_out, STRENGTH_LOCKED);
+                } else {
+                    auto sb_sml_d0 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P01.D0")));
+                    auto sb_sml_y1_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P01.Y1_int")));
+
+                    ctx->bindPip(find_downhill_pip(cpe_out2_int, sb_sml_d0), upper_out, STRENGTH_LOCKED);
+                    ctx->bindPip(find_downhill_pip(sb_sml_d0, sb_sml_y1_int), upper_out, STRENGTH_LOCKED);
+                    ctx->bindPip(find_downhill_pip(sb_sml_y1_int, in_mux), upper_out, STRENGTH_LOCKED); // inverting
                 }
 
-                if (needs_in8_route) {
-                    log_info("  routing net '%s' -> IN8\n", upper_out->name.c_str(ctx));
+                ctx->bindPip(find_downhill_pip(in_mux, cpe_in1), upper_out, STRENGTH_LOCKED); // inverting
+                ctx->bindPip(find_downhill_pip(cpe_in1, cpe_in1_int), upper_out, STRENGTH_LOCKED);
+            }
 
-                    auto out_mux_d0 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("OM.P12.D0")));
-                    auto out_mux_y = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("OM.P12.Y")));
+            if (needs_in8_route) {
+                log_info("  routing net '%s' -> IN8\n", upper_out->name.c_str(ctx));
+
+                auto out_mux_d0 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("OM.P12.D0")));
+                auto out_mux_y = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("OM.P12.Y")));
+                auto in_mux_p12 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P12.D2")));
+                auto in_mux_p04 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P04.D7"))); // aka IM.P12.Y
+                auto in_mux_p08 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P08.D6"))); // aka IM.P04.Y
+                auto in_mux_p08_y = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P08.Y")));
+                auto cpe_in8_int = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("CPE.IN8_int")));
+
+                ctx->bindPip(find_downhill_pip(out_mux_d0, out_mux_y), upper_out, STRENGTH_LOCKED); // inverting
+
+                if (is_fourgroup_a) {
                     auto sb_sml = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("SB_SML.P12.Y1_int")));
                     auto sb_big_d2_1 = ctx->getWireByName(IdStringList::concat(x4y2, ctx->idf("SB_BIG.P12.D2_1")));
                     auto sb_big_y1 = ctx->getWireByName(IdStringList::concat(x4y2, ctx->idf("SB_BIG.P12.Y1")));
                     auto sb_big_ydiag = ctx->getWireByName(IdStringList::concat(x4y2, ctx->idf("SB_BIG.P12.YDIAG")));
-                    auto in_mux_p12 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P12.D2")));
-                    auto in_mux_p04 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P04.D7"))); // aka IM.P12.Y
-                    auto in_mux_p08 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P08.D6"))); // aka IM.P04.Y
-                    auto in_mux_p08_y = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P08.Y")));
-                    auto cpe_in8_int = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("CPE.IN8_int")));
 
-                    ctx->bindPip(find_downhill_pip(out_mux_d0, out_mux_y), upper_out, STRENGTH_LOCKED); // inverting
                     ctx->bindPip(find_downhill_pip(out_mux_y, sb_sml), upper_out, STRENGTH_LOCKED);
                     ctx->bindPip(find_downhill_pip(sb_sml, sb_big_d2_1), upper_out, STRENGTH_LOCKED); // inverting
                     ctx->bindPip(find_downhill_pip(sb_big_d2_1, sb_big_y1), upper_out, STRENGTH_LOCKED); // inverting
                     ctx->bindPip(find_downhill_pip(sb_big_y1, sb_big_ydiag), upper_out, STRENGTH_LOCKED); // inverting
                     ctx->bindPip(find_downhill_pip(sb_big_ydiag, in_mux_p12), upper_out, STRENGTH_LOCKED); // inverting
-                    ctx->bindPip(find_downhill_pip(in_mux_p12, in_mux_p04), upper_out, STRENGTH_LOCKED); // inverting
-                    ctx->bindPip(find_downhill_pip(in_mux_p04, in_mux_p08), upper_out, STRENGTH_LOCKED); // inverting
-                    ctx->bindPip(find_downhill_pip(in_mux_p08, in_mux_p08_y), upper_out, STRENGTH_LOCKED); // inverting
-                    ctx->bindPip(find_downhill_pip(in_mux_p08_y, cpe_in8_int), upper_out, STRENGTH_LOCKED);
+                } else {
+                    auto sb_big = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("SB_BIG.P12.Y1"))); // aka x4y2/SB_SML.P12.D2_1
+                    auto sb_sml_y1_int = ctx->getWireByName(IdStringList::concat(x4y2, ctx->idf("SB_SML.P12.Y1_int")));
+                    auto sb_sml_ydiag_int = ctx->getWireByName(IdStringList::concat(x4y2, ctx->idf("SB_SML.P12.YDIAG_int")));
+                    auto sb_sml_y3_int = ctx->getWireByName(IdStringList::concat(x4y2, ctx->idf("SB_SML.P12.Y3_int")));
+
+                    ctx->bindPip(find_downhill_pip(out_mux_y, sb_big), upper_out, STRENGTH_LOCKED); // inverting
+                    ctx->bindPip(find_downhill_pip(sb_big, sb_sml_y1_int), upper_out, STRENGTH_LOCKED);
+                    ctx->bindPip(find_downhill_pip(sb_sml_y1_int, sb_sml_ydiag_int), upper_out, STRENGTH_LOCKED);
+                    ctx->bindPip(find_downhill_pip(sb_sml_ydiag_int, sb_sml_y3_int), upper_out, STRENGTH_LOCKED);
+                    ctx->bindPip(find_downhill_pip(sb_sml_y3_int, in_mux_p12), upper_out, STRENGTH_LOCKED); // inverting
                 }
-            } else if (x_within_fourgroup == 0 && y_within_fourgroup == 1) {
+
+                ctx->bindPip(find_downhill_pip(in_mux_p12, in_mux_p04), upper_out, STRENGTH_LOCKED); // inverting
+                ctx->bindPip(find_downhill_pip(in_mux_p04, in_mux_p08), upper_out, STRENGTH_LOCKED); // inverting
+                ctx->bindPip(find_downhill_pip(in_mux_p08, in_mux_p08_y), upper_out, STRENGTH_LOCKED); // inverting
+                ctx->bindPip(find_downhill_pip(in_mux_p08_y, cpe_in8_int), upper_out, STRENGTH_LOCKED);
+            }
+        } else if (is_fourgroup_a) {
+            if (x_within_fourgroup == 0 && y_within_fourgroup == 1) {
                 /* auto cpe_combout1 = ctx->getBelPinWire(lower->bel, id_OUT);
                 auto cpe_out1_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("CPE.OUT1_int")));
 
@@ -192,7 +231,7 @@ void GateMateImpl::route_mult() {
                     ctx->bindPip(find_downhill_pip(in_mux_p08, in_mux_p08_y), upper_out, STRENGTH_LOCKED); // inverting
                     ctx->bindPip(find_downhill_pip(in_mux_p08_y, cpe_in8_int), upper_out, STRENGTH_LOCKED);
                 }
-            } else if (x_within_fourgroup == 0 && y_within_fourgroup == 1) {
+            } else if (false && x_within_fourgroup == 0 && y_within_fourgroup == 1) {
                 /* auto cpe_combout1 = ctx->getBelPinWire(lower->bel, id_OUT);
                 auto cpe_out1_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("CPE.OUT1_int")));
 
@@ -215,81 +254,8 @@ void GateMateImpl::route_mult() {
                 log_info("  don't know how to route net '%s' (it's four-group A, (%d, %d))\n", upper_out->name.c_str(ctx), x_within_fourgroup, y_within_fourgroup);
             }
         } else {
-            if (x_within_fourgroup == 0 && y_within_fourgroup == 0) {
-                auto cpe_combout1 = ctx->getBelPinWire(lower->bel, id_OUT);
-                auto cpe_out1_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("CPE.OUT1_int")));
-
-                ctx->bindWire(cpe_combout1, lower_out, STRENGTH_LOCKED);
-                ctx->bindPip(find_downhill_pip(cpe_combout1, cpe_out1_int), lower_out, STRENGTH_LOCKED);
-
-                auto cpe_combout2 = ctx->getBelPinWire(upper->bel, id_OUT);
-                auto cpe_out2_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("CPE.OUT2_int")));
-
-                ctx->bindWire(cpe_combout2, upper_out, STRENGTH_LOCKED);
-                ctx->bindPip(find_downhill_pip(cpe_combout2, cpe_out2_int), upper_out, STRENGTH_LOCKED);
-
-                {
-                    log_info("  routing net '%s' -> IN5\n", lower_out->name.c_str(ctx));
-
-                    auto sb_sml_d0 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P05.D0")));
-                    auto sb_sml_y1_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P05.Y1_int")));
-                    auto in_mux = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("IM.P05.D0")));
-                    auto cpe_in5 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("CPE.IN5")));
-                    auto cpe_in5_int = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("CPE.IN5_int")));
-
-                    ctx->bindPip(find_downhill_pip(cpe_out1_int, sb_sml_d0), lower_out, STRENGTH_LOCKED);
-                    ctx->bindPip(find_downhill_pip(sb_sml_d0, sb_sml_y1_int), lower_out, STRENGTH_LOCKED);
-                    ctx->bindPip(find_downhill_pip(sb_sml_y1_int, in_mux), lower_out, STRENGTH_LOCKED); // inverting
-                    ctx->bindPip(find_downhill_pip(in_mux, cpe_in5), lower_out, STRENGTH_LOCKED); // inverting
-                    ctx->bindPip(find_downhill_pip(cpe_in5, cpe_in5_int), lower_out, STRENGTH_LOCKED);
-                }
-
-                {
-                    log_info("  routing net '%s' -> IN1\n", upper_out->name.c_str(ctx));
-
-                    auto sb_sml_d0 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P01.D0")));
-                    auto sb_sml_y1_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P01.Y1_int")));
-                    auto in_mux = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("IM.P01.D0")));
-                    auto cpe_in1 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("CPE.IN1")));
-                    auto cpe_in1_int = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("CPE.IN1_int")));
-
-                    ctx->bindPip(find_downhill_pip(cpe_out2_int, sb_sml_d0), upper_out, STRENGTH_LOCKED);
-                    ctx->bindPip(find_downhill_pip(sb_sml_d0, sb_sml_y1_int), upper_out, STRENGTH_LOCKED);
-                    ctx->bindPip(find_downhill_pip(sb_sml_y1_int, in_mux), upper_out, STRENGTH_LOCKED); // inverting
-                    ctx->bindPip(find_downhill_pip(in_mux, cpe_in1), upper_out, STRENGTH_LOCKED); // inverting
-                    ctx->bindPip(find_downhill_pip(cpe_in1, cpe_in1_int), upper_out, STRENGTH_LOCKED);
-                }
-
-                if (needs_in8_route) {
-                    log_info("  routing net '%s' -> IN8\n", upper_out->name.c_str(ctx));
-
-                    auto out_mux_d0 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("OM.P12.D0")));
-                    auto out_mux_y = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("OM.P12.Y")));
-                    auto sb_big = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("SB_BIG.P12.Y1"))); // aka x4y2/SB_SML.P12.D2_1
-                    auto sb_sml_y1_int = ctx->getWireByName(IdStringList::concat(x4y2, ctx->idf("SB_SML.P12.Y1_int")));
-                    auto sb_sml_ydiag_int = ctx->getWireByName(IdStringList::concat(x4y2, ctx->idf("SB_SML.P12.YDIAG_int")));
-                    auto sb_sml_y3_int = ctx->getWireByName(IdStringList::concat(x4y2, ctx->idf("SB_SML.P12.Y3_int")));
-                    auto in_mux_p12 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P12.D2")));
-                    auto in_mux_p04 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P04.D7"))); // aka IM.P12.Y
-                    auto in_mux_p08 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P08.D6"))); // aka IM.P04.Y
-                    auto in_mux_p08_y = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P08.Y")));
-                    auto cpe_in8_int = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("CPE.IN8_int")));
-
-                    ctx->bindPip(find_downhill_pip(out_mux_d0, out_mux_y), upper_out, STRENGTH_LOCKED); // inverting
-                    ctx->bindPip(find_downhill_pip(out_mux_y, sb_big), upper_out, STRENGTH_LOCKED); // inverting
-                    ctx->bindPip(find_downhill_pip(sb_big, sb_sml_y1_int), upper_out, STRENGTH_LOCKED);
-                    ctx->bindPip(find_downhill_pip(sb_sml_y1_int, sb_sml_ydiag_int), upper_out, STRENGTH_LOCKED);
-                    ctx->bindPip(find_downhill_pip(sb_sml_ydiag_int, sb_sml_y3_int), upper_out, STRENGTH_LOCKED);
-                    ctx->bindPip(find_downhill_pip(sb_sml_y3_int, in_mux_p12), upper_out, STRENGTH_LOCKED); // inverting
-                    ctx->bindPip(find_downhill_pip(in_mux_p12, in_mux_p04), upper_out, STRENGTH_LOCKED); // inverting
-                    ctx->bindPip(find_downhill_pip(in_mux_p04, in_mux_p08), upper_out, STRENGTH_LOCKED); // inverting
-                    ctx->bindPip(find_downhill_pip(in_mux_p08, in_mux_p08_y), upper_out, STRENGTH_LOCKED); // inverting
-                    ctx->bindPip(find_downhill_pip(in_mux_p08_y, cpe_in8_int), upper_out, STRENGTH_LOCKED);
-                }
-            } else {
-                log_info("  don't know how to route net '%s' (it's four-group B, (%d, %d))\n", lower_out->name.c_str(ctx), x_within_fourgroup, y_within_fourgroup);
-                log_info("  don't know how to route net '%s' (it's four-group B, (%d, %d))\n", upper_out->name.c_str(ctx), x_within_fourgroup, y_within_fourgroup);
-            }
+            log_info("  don't know how to route net '%s' (it's four-group B, (%d, %d))\n", lower_out->name.c_str(ctx), x_within_fourgroup, y_within_fourgroup);
+            log_info("  don't know how to route net '%s' (it's four-group B, (%d, %d))\n", upper_out->name.c_str(ctx), x_within_fourgroup, y_within_fourgroup);
         }
     }
 }
