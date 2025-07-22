@@ -129,8 +129,10 @@ void GowinImpl::init_database(Arch *arch)
         if (GW2) {
             log_error("For the GW2A series you need to specify --vopt family=GW2A-18 or --vopt family=GW2A-18C\n");
         } else {
-            if (args.device.rfind("GW5A", 0) == 0) {
-                family = "GW5A-25A";
+            std::regex devicere = std::regex("GW5A(T|ST)?-LV(25|60|138)[A-Z]*.*");
+            std::smatch match;
+            if (std::regex_match(args.device, match, devicere)) {
+                family = stringf("GW5A%s-%sA", match[1].str().c_str(), match[2].str().c_str());
             } else {
                 std::regex devicere = std::regex("GW1N([SZ]?)[A-Z]*-(LV|UV|UX)([0-9])(C?).*");
                 std::smatch match;
