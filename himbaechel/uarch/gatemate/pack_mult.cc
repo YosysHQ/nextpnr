@@ -399,6 +399,9 @@ void GateMatePacker::pack_mult()
     auto create_zero_driver = [&](IdString name) {
         auto *zero_lower = create_cell_ptr(id_CPE_DUMMY, ctx->idf("%s$zero_lower", name.c_str(ctx)));
         auto *zero_upper = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$zero", name.c_str(ctx)));
+
+        uarch->multiplier_zero_drivers.push_back(zero_upper);
+
         return ZeroDriver{zero_lower, zero_upper, name};
     };
 

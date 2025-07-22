@@ -74,6 +74,7 @@ struct GateMateImpl : HimbaechelAPI
     int preferred_die;
     std::vector<CellInfo *> multipliers;
     std::vector<std::pair<CellInfo *, CellInfo *>> multiplier_a_passthrus;
+    std::vector<CellInfo *> multiplier_zero_drivers;
 
   private:
     bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,

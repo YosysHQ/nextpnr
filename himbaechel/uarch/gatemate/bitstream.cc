@@ -221,6 +221,27 @@ struct BitstreamBackend
 
     void check_multipliers()
     {
+        for (auto *mult : uarch->multipliers) {
+            NPNR_ASSERT(mult != nullptr);
+
+            auto should_be_inverted = mult->constr_x % 2 == 1;
+
+            // TODO: these are errors, but downgraded to allow providing *some* output.
+
+            // IN8
+            if (need_inversion(mult, id_IN8) != should_be_inverted)
+                log_warning("%s.IN8 has wrong inversion state\n", mult->name.c_str(ctx));
+
+            // IN5
+            if (need_inversion(mult, id_IN5) != should_be_inverted)
+                log_warning("%s.IN5 has wrong inversion state\n", mult->name.c_str(ctx));
+
+            // IN1
+            if (need_inversion(mult, id_IN1) != should_be_inverted)
+                log_warning("%s.IN1 has wrong inversion state\n", mult->name.c_str(ctx));
+        }
+        log_info("===\n");
+
         pool<IdString> multiplier_nets;
 
         for (auto *mult : uarch->multipliers) {
