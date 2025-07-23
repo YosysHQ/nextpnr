@@ -129,14 +129,21 @@ void GowinImpl::init_database(Arch *arch)
         if (GW2) {
             log_error("For the GW2A series you need to specify --vopt family=GW2A-18 or --vopt family=GW2A-18C\n");
         } else {
-            std::regex devicere = std::regex("GW1N([SZ]?)[A-Z]*-(LV|UV|UX)([0-9])(C?).*");
+            std::regex devicere = std::regex("GW5A(T|ST)?-LV(25|60|138)[A-Z]*.*");
             std::smatch match;
-            if (!std::regex_match(args.device, match, devicere)) {
-                log_error("Invalid device %s\n", args.device.c_str());
-            }
-            family = stringf("GW1N%s-%s", match[1].str().c_str(), match[3].str().c_str());
-            if (family.rfind("GW1N-9", 0) == 0) {
-                log_error("For the GW1N-9 series you need to specify --vopt family=GW1N-9 or --vopt family=GW1N-9C\n");
+            if (std::regex_match(args.device, match, devicere)) {
+                family = stringf("GW5A%s-%sA", match[1].str().c_str(), match[2].str().c_str());
+            } else {
+                std::regex devicere = std::regex("GW1N([SZ]?)[A-Z]*-(LV|UV|UX)([0-9])(C?).*");
+                std::smatch match;
+                if (!std::regex_match(args.device, match, devicere)) {
+                    log_error("Invalid device %s\n", args.device.c_str());
+                }
+                family = stringf("GW1N%s-%s", match[1].str().c_str(), match[3].str().c_str());
+                if (family.rfind("GW1N-9", 0) == 0) {
+                    log_error("For the GW1N-9 series you need to specify --vopt family=GW1N-9 or --vopt "
+                              "family=GW1N-9C\n");
+                }
             }
         }
     }
@@ -175,17 +182,17 @@ void GowinImpl::init(Context *ctx)
         spd = ctx->id(match[2]);
         ctx->set_speed_grade(match[2]);
     } else {
-        if (pn.length() > 2 && pn.compare(pn.length() - 2, 2, "ES")) {
-            package_idx = ctx->id(pn.substr(pn.length() - 2));
+        if (pn.length() > 2 && pn.compare(pn.length() - 3, 2, "ES")) {
+            package_idx = ctx->id(pn.substr(0, pn.length() - 2));
             spd = ctx->id("ES");
             ctx->set_speed_grade("ES");
         }
     }
 
-    // log_info("packages:%ld\n", ctx->chip_info->packages.ssize());
+    // log_info("search for %s, packages:%ld\n", package_idx.c_str(ctx), ctx->chip_info->packages.ssize());
     for (int i = 0; i < ctx->chip_info->packages.ssize(); ++i) {
+        // log_info("i:%d %s\n", i, IdString(ctx->chip_info->packages[i].name).c_str(ctx));
         if (IdString(ctx->chip_info->packages[i].name) == package_idx) {
-            // log_info("i:%d %s\n", i, package_idx.c_str(ctx));
             ctx->package_info = &ctx->chip_info->packages[i];
             break;
         }

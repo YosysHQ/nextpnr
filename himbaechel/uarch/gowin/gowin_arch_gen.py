@@ -512,7 +512,7 @@ def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
             tt.create_pip(src, dst, get_tm_class(db, src))
 
     # clock wires
-    for dst, srcs in db.grid[y][x].pure_clock_pips.items():
+    for dst, srcs in db.grid[y][x].clock_pips.items():
         if not tt.has_wire(dst):
             tt.create_wire(dst, "GLOBAL_CLK")
         for src in srcs.keys():
@@ -1426,7 +1426,7 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
         return TimingValue(min(ff, fr, rf, rr), max(ff, fr, rf, rr))
 
     speed_grades = []
-    for speed, _ in db.timing.items():
+    for speed in db.timing.keys():
         speed_grades.append(speed)
 
     tmg = chip.set_speed_grades(speed_grades)
