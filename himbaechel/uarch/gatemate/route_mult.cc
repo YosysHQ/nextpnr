@@ -43,10 +43,10 @@ namespace {
         log_error("Couldn't find pip from %s to %s\n", ctx->nameOfWire(from), ctx->nameOfWire(to));
     }
 
-    void route_mult_diag(Context *ctx, NetInfo *net, Loc loc, WireId last_wire, int plane) {
-        log_info("  routing diagonal\n");
+    void route_mult_diag(Context *ctx, NetInfo *net, Loc loc, WireId last_wire, int plane, int hops) {
+        log_info("  routing diagonal: %d hops\n", hops);
 
-        for (int i = 0; i < net->users.entries(); i++) {
+        for (int i = 0; i < hops; i++) {
             auto cpe_in = ctx->getWireByName(IdStringList::concat(ctx->idf("X%dY%d", loc.x + i, loc.y + i), ctx->idf("CPE.IN%d", plane)));
             auto cpe_in_int = ctx->getWireByName(IdStringList::concat(ctx->idf("X%dY%d", loc.x + i, loc.y + i), ctx->idf("CPE.IN%d_int", plane)));
 
@@ -84,7 +84,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_sml_y1_int, in_mux, net); // inverting
         }
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 5);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 5, net->users.entries());
     }
 
     void route_mult_x1y1_upper_in1(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a) {
@@ -114,7 +114,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_sml_y1_int, in_mux, net); // inverting
         }
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 1);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 1, net->users.entries() / 2);
     }
 
     void route_mult_x1y1_upper_in8(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a, bool bind_route_start = false) {
@@ -168,7 +168,7 @@ namespace {
         find_and_bind_downhill_pip(ctx, in_mux_p12, in_mux_p04, net); // inverting
         find_and_bind_downhill_pip(ctx, in_mux_p04, in_mux_p08, net); // inverting
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y + 1, 0}, in_mux_p08, 8);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y + 1, 0}, in_mux_p08, 8, bind_route_start ? net->users.entries() : net->users.entries() / 2);
     }
 
     void route_mult_x1y2_lower(Context *ctx, NetInfo *net, CellInfo* lower, Loc loc, bool is_fourgroup_a) {
@@ -228,7 +228,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_sml_y3_int, in_mux, net);
         }
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 5);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 5, net->users.entries());
     }
 
     void route_mult_x1y2_upper_in1(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a) {
@@ -289,7 +289,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_sml_y3, in_mux, net);
         }
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 1);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 1, net->users.entries() / 2);
     }
 
     void route_mult_x1y2_upper_in8(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a, bool bind_route_start = false) {
@@ -333,7 +333,7 @@ namespace {
         find_and_bind_downhill_pip(ctx, in_mux_p12, in_mux_p04, net); // inverting
         find_and_bind_downhill_pip(ctx, in_mux_p04, in_mux_p08, net); // inverting
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y + 1, 0}, in_mux_p08, 8);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y + 1, 0}, in_mux_p08, 8, bind_route_start ? net->users.entries() : net->users.entries() / 2);
     }
 
     void route_mult_x2y1_lower(Context *ctx, NetInfo *net, CellInfo* lower, Loc loc, bool is_fourgroup_a) {
@@ -385,7 +385,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_sml_p05_y1_int, in_mux, net);
         }
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 5);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 5, net->users.entries());
     }
 
     void route_mult_x2y1_upper_in1(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a) {
@@ -437,7 +437,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_sml_p01_y1_int, in_mux, net);
         }
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 1);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 1, net->users.entries() / 2);
     }
 
     void route_mult_x2y1_upper_in8(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a, bool bind_route_start = false) {
@@ -446,7 +446,6 @@ namespace {
         auto x1y1 = ctx->idf("X%dY%d", loc.x, loc.y);
         auto x1y2 = ctx->idf("X%dY%d", loc.x, loc.y + 1);
         auto x2y2 = ctx->idf("X%dY%d", loc.x + 1, loc.y + 1);
-        auto x3y2 = ctx->idf("X%dY%d", loc.x + 2, loc.y + 1);
 
         auto cpe_combout2 = ctx->getBelPinWire(upper->bel, id_OUT);
         auto cpe_out2_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("CPE.OUT2_int")));
@@ -474,15 +473,15 @@ namespace {
             find_and_bind_downhill_pip(ctx, out_mux_y, in_mux_p09, net); // inverting
         }
 
-        auto in_mux_p12 = ctx->getWireByName(IdStringList::concat(x3y2, ctx->idf("IM.P12.D7"))); // aka IM.P09.Y
-        auto in_mux_p04 = ctx->getWireByName(IdStringList::concat(x3y2, ctx->idf("IM.P04.D7"))); // aka IM.P12.Y
-        auto in_mux_p08 = ctx->getWireByName(IdStringList::concat(x3y2, ctx->idf("IM.P08.D6"))); // aka IM.P04.Y
+        auto in_mux_p12 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P12.D7"))); // aka IM.P09.Y
+        auto in_mux_p04 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P04.D7"))); // aka IM.P12.Y
+        auto in_mux_p08 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P08.D6"))); // aka IM.P04.Y
 
         find_and_bind_downhill_pip(ctx, in_mux_p09, in_mux_p12, net); // inverting
         find_and_bind_downhill_pip(ctx, in_mux_p12, in_mux_p04, net); // inverting
         find_and_bind_downhill_pip(ctx, in_mux_p04, in_mux_p08, net); // inverting
 
-        route_mult_diag(ctx, net, Loc{loc.x + 2, loc.y + 1, 0}, in_mux_p08, 8);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y + 1, 0}, in_mux_p08, 8, bind_route_start ? net->users.entries() : net->users.entries() / 2);
     }
 
     void route_mult_x2y2_lower(Context *ctx, NetInfo *net, CellInfo* lower, Loc loc, bool is_fourgroup_a) {
@@ -539,7 +538,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_big_p05_ydiag, in_mux, net);
         }
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 5);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 5, net->users.entries());
     }
 
     void route_mult_x2y2_upper_in1(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a) {
@@ -596,7 +595,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_big_p01_ydiag, in_mux, net);
         }
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 1);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 1, net->users.entries() / 2);
     }
 
     void route_mult_x2y2_upper_in8(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a, bool bind_route_start = false) {
@@ -622,15 +621,13 @@ namespace {
             auto sb_sml_y1_int = ctx->getWireByName(IdStringList::concat(x2y0, ctx->idf("SB_SML.P08.Y1_int")));
             auto sb_sml_ydiag_int = ctx->getWireByName(IdStringList::concat(x2y0, ctx->idf("SB_SML.P08.YDIAG_int")));
             auto sb_sml_y2_int = ctx->getWireByName(IdStringList::concat(x2y0, ctx->idf("SB_SML.P08.Y2_int")));
-            auto sb_sml_y2 = ctx->getWireByName(IdStringList::concat(x2y0, ctx->idf("SB_SML.P08.Y2")));
 
             find_and_bind_downhill_pip(ctx, cpe_out2_int, sb_big_d0, net);
             find_and_bind_downhill_pip(ctx, sb_big_d0, sb_big_y1, net);
             find_and_bind_downhill_pip(ctx, sb_big_y1, sb_sml_y1_int, net);
             find_and_bind_downhill_pip(ctx, sb_sml_y1_int, sb_sml_ydiag_int, net);
             find_and_bind_downhill_pip(ctx, sb_sml_ydiag_int, sb_sml_y2_int, net);
-            find_and_bind_downhill_pip(ctx, sb_sml_y2_int, sb_sml_y2, net);
-            find_and_bind_downhill_pip(ctx, sb_sml_y2, in_mux, net);
+            find_and_bind_downhill_pip(ctx, sb_sml_y2_int, in_mux, net);
         } else {
             auto sb_sml_d0 = ctx->getWireByName(IdStringList::concat(x0y0, ctx->idf("SB_SML.P08.D0")));
             auto sb_sml_y1_int = ctx->getWireByName(IdStringList::concat(x0y0, ctx->idf("SB_SML.P08.Y1_int")));
@@ -647,7 +644,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_big_ydiag, in_mux, net);
         }
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y + 1, 0}, in_mux, 8);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y + 1, 0}, in_mux, 8, bind_route_start ? net->users.entries() : net->users.entries() / 2);
     }
 }
 
@@ -679,14 +676,17 @@ void GateMateImpl::route_mult() {
         log_info("  A passthrough at (%d, %d) has 4-group %c\n", loc.x, loc.y, is_fourgroup_a ? 'A' : 'B');
 
         log_info("    lower.OUT [OUT1] = %s\n", ctx->nameOfWire(ctx->getBelPinWire(lower->bel, id_OUT)));
-        for (auto sink_port : lower->ports.at(id_OUT).net->users)
-            log_info("      -> %s.%s\n", sink_port.cell->name.c_str(ctx), sink_port.port.c_str(ctx));
+        for (auto sink_port : lower->ports.at(id_OUT).net->users) {
+            auto sink_loc = ctx->getBelLocation(sink_port.cell->bel);
+            log_info("      -> %s.%s at (%d, %d)\n", sink_port.cell->name.c_str(ctx), sink_port.port.c_str(ctx), sink_loc.x, sink_loc.y);
+        }
 
         log_info("    upper.OUT [OUT2] = %s\n", ctx->nameOfWire(ctx->getBelPinWire(upper->bel, id_OUT)));
         for (auto sink_port : upper->ports.at(id_OUT).net->users) {
             if (sink_port.port == id_IN8)
                 needs_in8_route = true;
-            log_info("      -> %s.%s\n", sink_port.cell->name.c_str(ctx), sink_port.port.c_str(ctx));
+            auto sink_loc = ctx->getBelLocation(sink_port.cell->bel);
+            log_info("      -> %s.%s at (%d, %d)\n", sink_port.cell->name.c_str(ctx), sink_port.port.c_str(ctx), sink_loc.x, sink_loc.y);
         }
 
         if (x_within_fourgroup == 0 && y_within_fourgroup == 0) {
@@ -712,7 +712,7 @@ void GateMateImpl::route_mult() {
         }
     }
 
-    for (auto &zero_driver : this->multiplier_zero_drivers) {
+    for (auto *zero_driver : this->multiplier_zero_drivers) {
         auto *out = zero_driver->ports.at(id_OUT).net;
 
         auto loc = ctx->getBelLocation(zero_driver->bel);
@@ -726,8 +726,10 @@ void GateMateImpl::route_mult() {
         log_info("  Zero driver at (%d, %d) has 4-group %c\n", loc.x, loc.y, is_fourgroup_a ? 'A' : 'B');
 
         log_info("    zero_driver.OUT [OUT2] = %s\n", ctx->nameOfWire(ctx->getBelPinWire(zero_driver->bel, id_OUT)));
-        for (auto sink_port : zero_driver->ports.at(id_OUT).net->users)
-            log_info("      -> %s.%s\n", sink_port.cell->name.c_str(ctx), sink_port.port.c_str(ctx));
+        for (auto sink_port : zero_driver->ports.at(id_OUT).net->users) {
+            auto sink_loc = ctx->getBelLocation(sink_port.cell->bel);
+            log_info("      -> %s.%s at (%d, %d)\n", sink_port.cell->name.c_str(ctx), sink_port.port.c_str(ctx), sink_loc.x, sink_loc.y);
+        }
 
         if (x_within_fourgroup == 0 && y_within_fourgroup == 0) {
             route_mult_x1y1_upper_in8(ctx, out, zero_driver, loc, is_fourgroup_a, /* bind_route_start=*/true);
