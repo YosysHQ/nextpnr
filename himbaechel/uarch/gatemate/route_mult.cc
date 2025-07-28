@@ -43,6 +43,20 @@ namespace {
         log_error("Couldn't find pip from %s to %s\n", ctx->nameOfWire(from), ctx->nameOfWire(to));
     }
 
+    void route_mult_diag(Context *ctx, NetInfo *net, Loc loc, WireId last_wire, int plane) {
+        log_info("  routing diagonal\n");
+
+        for (int i = 0; i < net->users.entries(); i++) {
+            auto cpe_in = ctx->getWireByName(IdStringList::concat(ctx->idf("X%dY%d", loc.x + i, loc.y + i), ctx->idf("CPE.IN%d", plane)));
+            auto cpe_in_int = ctx->getWireByName(IdStringList::concat(ctx->idf("X%dY%d", loc.x + i, loc.y + i), ctx->idf("CPE.IN%d_int", plane)));
+
+            find_and_bind_downhill_pip(ctx, last_wire, cpe_in, net); // inverting
+            find_and_bind_downhill_pip(ctx, cpe_in, cpe_in_int, net);
+
+            last_wire = cpe_in;
+        }
+    }
+
     void route_mult_x1y1_lower(Context *ctx, NetInfo *net, CellInfo* lower, Loc loc, bool is_fourgroup_a) {
         log_info("  routing net '%s' -> IN5 using x1y1\n", net->name.c_str(ctx));
 
@@ -70,11 +84,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_sml_y1_int, in_mux, net); // inverting
         }
 
-        auto cpe_in5 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("CPE.IN5")));
-        auto cpe_in5_int = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("CPE.IN5_int")));
-
-        find_and_bind_downhill_pip(ctx, in_mux, cpe_in5, net); // inverting
-        find_and_bind_downhill_pip(ctx, cpe_in5, cpe_in5_int, net);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 5);
     }
 
     void route_mult_x1y1_upper_in1(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a) {
@@ -104,11 +114,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_sml_y1_int, in_mux, net); // inverting
         }
 
-        auto cpe_in1 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("CPE.IN1")));
-        auto cpe_in1_int = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("CPE.IN1_int")));
-
-        find_and_bind_downhill_pip(ctx, in_mux, cpe_in1, net); // inverting
-        find_and_bind_downhill_pip(ctx, cpe_in1, cpe_in1_int, net);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 1);
     }
 
     void route_mult_x1y1_upper_in8(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a, bool bind_route_start = false) {
@@ -158,13 +164,11 @@ namespace {
 
         auto in_mux_p04 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P04.D7"))); // aka IM.P12.Y
         auto in_mux_p08 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P08.D6"))); // aka IM.P04.Y
-        auto in_mux_p08_y = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P08.Y")));
-        auto cpe_in8_int = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("CPE.IN8_int")));
 
         find_and_bind_downhill_pip(ctx, in_mux_p12, in_mux_p04, net); // inverting
         find_and_bind_downhill_pip(ctx, in_mux_p04, in_mux_p08, net); // inverting
-        find_and_bind_downhill_pip(ctx, in_mux_p08, in_mux_p08_y, net); // inverting
-        find_and_bind_downhill_pip(ctx, in_mux_p08_y, cpe_in8_int, net);
+
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y + 1, 0}, in_mux_p08, 8);
     }
 
     void route_mult_x1y2_lower(Context *ctx, NetInfo *net, CellInfo* lower, Loc loc, bool is_fourgroup_a) {
@@ -224,11 +228,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_sml_y3_int, in_mux, net);
         }
 
-        auto in_mux_y = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("IM.P05.Y")));
-        auto cpe_in5_int = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("CPE.IN5_int")));
-
-        find_and_bind_downhill_pip(ctx, in_mux, in_mux_y, net);
-        find_and_bind_downhill_pip(ctx, in_mux_y, cpe_in5_int, net);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 5);
     }
 
     void route_mult_x1y2_upper_in1(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a) {
@@ -289,11 +289,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_sml_y3, in_mux, net);
         }
 
-        auto in_mux_y = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("IM.P01.Y")));
-        auto cpe_in1_int = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("CPE.IN1_int")));
-
-        find_and_bind_downhill_pip(ctx, in_mux, in_mux_y, net);
-        find_and_bind_downhill_pip(ctx, in_mux_y, cpe_in1_int, net);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 1);
     }
 
     void route_mult_x1y2_upper_in8(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a, bool bind_route_start = false) {
@@ -332,14 +328,12 @@ namespace {
         auto in_mux_p12 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P12.D6"))); // aka IM.P10.Y
         auto in_mux_p04 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P04.D7"))); // aka IM.P12.Y
         auto in_mux_p08 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P08.D6"))); // aka IM.P04.Y
-        auto in_mux_p08_y = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P08.Y")));
-        auto cpe_in8_int = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("CPE.IN8_int")));
 
         find_and_bind_downhill_pip(ctx, in_mux_p10, in_mux_p12, net); // inverting
         find_and_bind_downhill_pip(ctx, in_mux_p12, in_mux_p04, net); // inverting
         find_and_bind_downhill_pip(ctx, in_mux_p04, in_mux_p08, net); // inverting
-        find_and_bind_downhill_pip(ctx, in_mux_p08, in_mux_p08_y, net); // inverting
-        find_and_bind_downhill_pip(ctx, in_mux_p08_y, cpe_in8_int, net);
+
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y + 1, 0}, in_mux_p08, 8);
     }
 
     void route_mult_x2y1_lower(Context *ctx, NetInfo *net, CellInfo* lower, Loc loc, bool is_fourgroup_a) {
@@ -391,11 +385,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_sml_p05_y1_int, in_mux, net);
         }
 
-        auto in_mux_y = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("IM.P05.Y")));
-        auto cpe_in5_int = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("CPE.IN5_int")));
-
-        find_and_bind_downhill_pip(ctx, in_mux, in_mux_y, net);
-        find_and_bind_downhill_pip(ctx, in_mux_y, cpe_in5_int, net);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 5);
     }
 
     void route_mult_x2y1_upper_in1(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a) {
@@ -447,11 +437,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_sml_p01_y1_int, in_mux, net);
         }
 
-        auto in_mux_y = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("IM.P01.Y")));
-        auto cpe_in1_int = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("CPE.IN1_int")));
-
-        find_and_bind_downhill_pip(ctx, in_mux, in_mux_y, net);
-        find_and_bind_downhill_pip(ctx, in_mux_y, cpe_in1_int, net);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 1);
     }
 
     void route_mult_x2y1_upper_in8(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a, bool bind_route_start = false) {
@@ -491,14 +477,12 @@ namespace {
         auto in_mux_p12 = ctx->getWireByName(IdStringList::concat(x3y2, ctx->idf("IM.P12.D7"))); // aka IM.P09.Y
         auto in_mux_p04 = ctx->getWireByName(IdStringList::concat(x3y2, ctx->idf("IM.P04.D7"))); // aka IM.P12.Y
         auto in_mux_p08 = ctx->getWireByName(IdStringList::concat(x3y2, ctx->idf("IM.P08.D6"))); // aka IM.P04.Y
-        auto in_mux_p08_y = ctx->getWireByName(IdStringList::concat(x3y2, ctx->idf("IM.P08.Y")));
-        auto cpe_in8_int = ctx->getWireByName(IdStringList::concat(x3y2, ctx->idf("CPE.IN8_int")));
 
         find_and_bind_downhill_pip(ctx, in_mux_p09, in_mux_p12, net); // inverting
         find_and_bind_downhill_pip(ctx, in_mux_p12, in_mux_p04, net); // inverting
         find_and_bind_downhill_pip(ctx, in_mux_p04, in_mux_p08, net); // inverting
-        find_and_bind_downhill_pip(ctx, in_mux_p08, in_mux_p08_y, net); // inverting
-        find_and_bind_downhill_pip(ctx, in_mux_p08_y, cpe_in8_int, net);
+
+        route_mult_diag(ctx, net, Loc{loc.x + 2, loc.y + 1, 0}, in_mux_p08, 8);
     }
 
     void route_mult_x2y2_lower(Context *ctx, NetInfo *net, CellInfo* lower, Loc loc, bool is_fourgroup_a) {
@@ -555,11 +539,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_big_p05_ydiag, in_mux, net);
         }
 
-        auto in_mux_y = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("IM.P05.Y")));
-        auto cpe_in5_int = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("CPE.IN5_int")));
-
-        find_and_bind_downhill_pip(ctx, in_mux, in_mux_y, net);
-        find_and_bind_downhill_pip(ctx, in_mux_y, cpe_in5_int, net);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 5);
     }
 
     void route_mult_x2y2_upper_in1(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a) {
@@ -616,11 +596,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_big_p01_ydiag, in_mux, net);
         }
 
-        auto in_mux_y = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("IM.P01.Y")));
-        auto cpe_in1_int = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("CPE.IN1_int")));
-
-        find_and_bind_downhill_pip(ctx, in_mux, in_mux_y, net);
-        find_and_bind_downhill_pip(ctx, in_mux_y, cpe_in1_int, net);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 1);
     }
 
     void route_mult_x2y2_upper_in8(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a, bool bind_route_start = false) {
@@ -671,11 +647,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_big_ydiag, in_mux, net);
         }
 
-        auto in_mux_y = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P08.Y")));
-        auto cpe_in8_int = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("CPE.IN8_int")));
-
-        find_and_bind_downhill_pip(ctx, in_mux, in_mux_y, net);
-        find_and_bind_downhill_pip(ctx, in_mux_y, cpe_in8_int, net);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y + 1, 0}, in_mux, 8);
     }
 }
 
