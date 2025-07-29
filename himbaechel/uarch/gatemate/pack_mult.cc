@@ -528,6 +528,10 @@ void GateMatePacker::pack_mult()
             msb_route_comp->connectPort(id_COMPOUT, comp_conn);
             msb_route_lines->connectPort(id_COMPOUT, comp_conn);
 
+            NetInfo *out_conn = ctx->createNet(ctx->idf("%s$msb_route$out", name.c_str(ctx)));
+            msb_route_upper->connectPort(id_OUT, out_conn);
+            msb_route_lines->connectPort(id_OUT2, out_conn);
+
             col.msb_route = MsbRoutingCell{msb_route_lower, msb_route_upper, msb_route_comp, msb_route_lines, name};
         }
 
