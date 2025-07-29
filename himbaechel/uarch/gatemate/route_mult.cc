@@ -620,6 +620,13 @@ namespace {
         if (bind_route_start) {
             ctx->bindWire(cpe_combout2, net, STRENGTH_LOCKED);
             find_and_bind_downhill_pip(ctx, cpe_combout2, cpe_out2_int, net);
+            if (is_fourgroup_a) {
+                auto sb_big_d0 = ctx->getWireByName(IdStringList::concat(x0y0, ctx->idf("SB_BIG.P08.D0")));
+                find_and_bind_downhill_pip(ctx, cpe_out2_int, sb_big_d0, net);
+            } else {
+                auto sb_sml_d0 = ctx->getWireByName(IdStringList::concat(x0y0, ctx->idf("SB_SML.P08.D0")));
+                find_and_bind_downhill_pip(ctx, cpe_out2_int, sb_sml_d0, net);
+            }
         }
 
         if (is_fourgroup_a) {
@@ -629,7 +636,6 @@ namespace {
             auto sb_sml_ydiag_int = ctx->getWireByName(IdStringList::concat(x2y0, ctx->idf("SB_SML.P08.YDIAG_int")));
             auto sb_sml_y2_int = ctx->getWireByName(IdStringList::concat(x2y0, ctx->idf("SB_SML.P08.Y2_int")));
 
-            find_and_bind_downhill_pip(ctx, cpe_out2_int, sb_big_d0, net);
             find_and_bind_downhill_pip(ctx, sb_big_d0, sb_big_y1, net);
             find_and_bind_downhill_pip(ctx, sb_big_y1, sb_sml_y1_int, net);
             find_and_bind_downhill_pip(ctx, sb_sml_y1_int, sb_sml_ydiag_int, net);
@@ -643,7 +649,6 @@ namespace {
             auto sb_big_ydiag = ctx->getWireByName(IdStringList::concat(x2y0, ctx->idf("SB_BIG.P08.YDIAG")));
             // x2y2/IM.P08.D0 is x2y0/SB_BIG.P08.Y2
 
-            find_and_bind_downhill_pip(ctx, cpe_out2_int, sb_sml_d0, net);
             find_and_bind_downhill_pip(ctx, sb_sml_d0, sb_sml_y1_int, net);
             find_and_bind_downhill_pip(ctx, sb_sml_y1_int, sb_sml_y1, net);
             find_and_bind_downhill_pip(ctx, sb_sml_y1, sb_big_y1, net);
