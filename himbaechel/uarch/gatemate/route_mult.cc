@@ -512,14 +512,14 @@ namespace {
             find_and_bind_downhill_pip(ctx, cpe_out1_int, sb_sml_p08_d0, net);
             find_and_bind_downhill_pip(ctx, sb_sml_p08_d0, sb_sml_p08_y1_int, net);
             find_and_bind_downhill_pip(ctx, sb_sml_p08_y1_int, sb_sml_p08_ydiag_int, net);
-            find_and_bind_downhill_pip(ctx, sb_sml_p08_ydiag_int, sb_sml_p08_ydiag, net);
+            find_and_bind_downhill_pip(ctx, sb_sml_p08_ydiag_int, sb_sml_p08_ydiag, net); // inverting
             find_and_bind_downhill_pip(ctx, sb_sml_p08_ydiag, sb_sml_p07_ydiag_int, net);
-            find_and_bind_downhill_pip(ctx, sb_sml_p07_ydiag_int, sb_sml_p07_ydiag, net);
+            find_and_bind_downhill_pip(ctx, sb_sml_p07_ydiag_int, sb_sml_p07_ydiag, net); // inverting
             find_and_bind_downhill_pip(ctx, sb_sml_p07_ydiag, sb_sml_p06_ydiag_int, net);
-            find_and_bind_downhill_pip(ctx, sb_sml_p06_ydiag_int, sb_sml_p06_ydiag, net);
+            find_and_bind_downhill_pip(ctx, sb_sml_p06_ydiag_int, sb_sml_p06_ydiag, net); // inverting
             find_and_bind_downhill_pip(ctx, sb_sml_p06_ydiag, sb_sml_p05_ydiag_int, net);
             find_and_bind_downhill_pip(ctx, sb_sml_p05_ydiag_int, sb_sml_p05_y1_int, net);
-            find_and_bind_downhill_pip(ctx, sb_sml_p05_y1_int, in_mux, net);
+            find_and_bind_downhill_pip(ctx, sb_sml_p05_y1_int, in_mux, net); // inverting
         } else {
             auto sb_big_p08_d0 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P08.D0")));
             auto sb_big_p08_y1 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P08.Y1")));
@@ -732,9 +732,9 @@ void GateMateImpl::route_mult() {
         }
 
         if (x_within_fourgroup == 0 && y_within_fourgroup == 0) {
-            route_mult_x1y1_upper_in8(ctx, out, zero_driver, loc, is_fourgroup_a, /* bind_route_start=*/true);
+            route_mult_x1y1_upper_in8(ctx, out, zero_driver, loc, is_fourgroup_a, /*bind_route_start=*/true);
         } else if (x_within_fourgroup == 0 && y_within_fourgroup == 1) {
-            route_mult_x1y2_upper_in8(ctx, out, zero_driver, loc, is_fourgroup_a, /* bind_route_start=*/true);
+            route_mult_x1y2_upper_in8(ctx, out, zero_driver, loc, is_fourgroup_a, /*bind_route_start=*/true);
         } else if (x_within_fourgroup == 1 && y_within_fourgroup == 0) {
             route_mult_x2y1_upper_in8(ctx, out, zero_driver, loc, is_fourgroup_a, /*bind_route_start=*/true);
         } else /* if (x_within_fourgroup == 1 && y_within_fourgroup == 1) */ {
