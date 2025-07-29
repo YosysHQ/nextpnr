@@ -43,7 +43,14 @@ namespace {
         log_error("Couldn't find pip from %s to %s\n", ctx->nameOfWire(from), ctx->nameOfWire(to));
     }
 
-    void route_mult_diag(Context *ctx, NetInfo *net, Loc loc, WireId last_wire, int plane, int hops) {
+    void route_mult_diag(Context *ctx, NetInfo *net, Loc loc, WireId last_wire, int plane) {
+        auto hops = 0;
+        auto in_port = ctx->idf("IN%d", plane);
+        for (auto user : net->users) {
+            if (user.port == in_port)
+                hops++;
+        }
+
         log_info("  routing diagonal: %d hops\n", hops);
 
         for (int i = 0; i < hops; i++) {
@@ -84,7 +91,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_sml_y1_int, in_mux, net); // inverting
         }
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 5, net->users.entries());
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 5);
     }
 
     void route_mult_x1y1_upper_in1(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a) {
@@ -114,7 +121,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_sml_y1_int, in_mux, net); // inverting
         }
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 1, net->users.entries() / 2);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 1);
     }
 
     void route_mult_x1y1_upper_in8(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a, bool bind_route_start = false) {
@@ -168,7 +175,7 @@ namespace {
         find_and_bind_downhill_pip(ctx, in_mux_p12, in_mux_p04, net); // inverting
         find_and_bind_downhill_pip(ctx, in_mux_p04, in_mux_p08, net); // inverting
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y + 1, 0}, in_mux_p08, 8, bind_route_start ? net->users.entries() : net->users.entries() / 2);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y + 1, 0}, in_mux_p08, 8);
     }
 
     void route_mult_x1y2_lower(Context *ctx, NetInfo *net, CellInfo* lower, Loc loc, bool is_fourgroup_a) {
@@ -228,7 +235,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_sml_y3_int, in_mux, net);
         }
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 5, net->users.entries());
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 5);
     }
 
     void route_mult_x1y2_upper_in1(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a) {
@@ -289,7 +296,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_sml_y3, in_mux, net);
         }
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 1, net->users.entries() / 2);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 1);
     }
 
     void route_mult_x1y2_upper_in8(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a, bool bind_route_start = false) {
@@ -333,7 +340,7 @@ namespace {
         find_and_bind_downhill_pip(ctx, in_mux_p12, in_mux_p04, net); // inverting
         find_and_bind_downhill_pip(ctx, in_mux_p04, in_mux_p08, net); // inverting
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y + 1, 0}, in_mux_p08, 8, bind_route_start ? net->users.entries() : net->users.entries() / 2);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y + 1, 0}, in_mux_p08, 8);
     }
 
     void route_mult_x2y1_lower(Context *ctx, NetInfo *net, CellInfo* lower, Loc loc, bool is_fourgroup_a) {
@@ -385,7 +392,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_sml_p05_y1_int, in_mux, net);
         }
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 5, net->users.entries());
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 5);
     }
 
     void route_mult_x2y1_upper_in1(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a) {
@@ -437,7 +444,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_sml_p01_y1_int, in_mux, net);
         }
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 1, net->users.entries() / 2);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 1);
     }
 
     void route_mult_x2y1_upper_in8(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a, bool bind_route_start = false) {
@@ -481,7 +488,7 @@ namespace {
         find_and_bind_downhill_pip(ctx, in_mux_p12, in_mux_p04, net); // inverting
         find_and_bind_downhill_pip(ctx, in_mux_p04, in_mux_p08, net); // inverting
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y + 1, 0}, in_mux_p08, 8, bind_route_start ? net->users.entries() : net->users.entries() / 2);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y + 1, 0}, in_mux_p08, 8);
     }
 
     void route_mult_x2y2_lower(Context *ctx, NetInfo *net, CellInfo* lower, Loc loc, bool is_fourgroup_a) {
@@ -538,7 +545,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_big_p05_ydiag, in_mux, net);
         }
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 5, net->users.entries());
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 5);
     }
 
     void route_mult_x2y2_upper_in1(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a) {
@@ -595,7 +602,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_big_p01_ydiag, in_mux, net);
         }
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 1, net->users.entries() / 2);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 1);
     }
 
     void route_mult_x2y2_upper_in8(Context *ctx, NetInfo *net, CellInfo* upper, Loc loc, bool is_fourgroup_a, bool bind_route_start = false) {
@@ -644,7 +651,7 @@ namespace {
             find_and_bind_downhill_pip(ctx, sb_big_ydiag, in_mux, net);
         }
 
-        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y + 1, 0}, in_mux, 8, bind_route_start ? net->users.entries() : net->users.entries() / 2);
+        route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y + 1, 0}, in_mux, 8);
     }
 }
 

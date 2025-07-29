@@ -23,6 +23,7 @@
 #include "config.h"
 #include "gatemate.h"
 #include "gatemate_util.h"
+#include "log.h"
 #include "property.h"
 #include "uarch/gatemate/pack.h"
 
@@ -274,28 +275,27 @@ struct BitstreamBackend
             if (!all_correct && !all_inverted) {
                 log_warning("multiplier net '%s' has inconsistent inversion\n", net_name.c_str(ctx));
 
+                auto driver_loc = ctx->getBelLocation(net->driver.cell->bel);
+                log_warning("net is driven from (%d, %d)\n", driver_loc.x, driver_loc.y);
+
                 log_warning("  these ports are not inverted:\n");
                 for (PortRef user : net->users) {
                     auto loc = ctx->getBelLocation(user.cell->bel);
-                    auto x_fourgroup = (loc.x - 3) % 4;
-                    auto y_fourgroup = (loc.y - 3) % 4;
 
                     auto should_be_inverted = user.cell->constr_x % 2 == 1;
                     auto inversion = need_inversion(user.cell, user.port);
                     if (inversion == should_be_inverted)
-                        log_warning("    %s.%s with four-group (%d, %d)\n", user.cell->name.c_str(ctx), user.port.c_str(ctx), x_fourgroup, y_fourgroup);
+                        log_warning("    %s.%s at (%d, %d)\n", user.cell->name.c_str(ctx), user.port.c_str(ctx), loc.x, loc.y);
                 }
 
                 log_warning("  these ports are inverted:\n");
                 for (PortRef user : net->users) {
                     auto loc = ctx->getBelLocation(user.cell->bel);
-                    auto x_fourgroup = (loc.x - 3) % 4;
-                    auto y_fourgroup = (loc.y - 3) % 4;
 
                     auto should_be_inverted = user.cell->constr_x % 2 == 1;
                     auto inversion = need_inversion(user.cell, user.port);
                     if (inversion != should_be_inverted)
-                        log_warning("    %s.%s with four-group (%d, %d)\n", user.cell->name.c_str(ctx), user.port.c_str(ctx), x_fourgroup, y_fourgroup);
+                        log_warning("    %s.%s at (%d, %d)\n", user.cell->name.c_str(ctx), user.port.c_str(ctx), loc.x, loc.y);
                 }
             } else if (all_inverted) {
                 net->driver.cell->params[id_INIT_L10] = Property(~driver_l10 & 0b1111, 4);
