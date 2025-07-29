@@ -263,7 +263,7 @@ PllCfgRecord GateMatePacker::get_pll_settings(double f_ref, double f_core, int m
                         if (pll_cfg_arr[0].f_core_delta == 0) {
                             get_DCO_ext_feedback(f_core, f_ref, pll_cfg_arr[0], f_dco_min, f_dco_max, f_dco,
                                                  max_input_freq);
-                            log_info("PLL fout= %.4f MHz (fout error %.5f%% of requested %.4f MHz)\n",
+                            log_info("    PLL fout= %.4f MHz (fout error %.5f%% of requested %.4f MHz)\n",
                                      pll_cfg_arr[0].f_core,
                                      100 - (100 * std::min(pll_cfg_arr[0].f_core, f_core_par) /
                                             std::max(pll_cfg_arr[0].f_core, f_core_par)),
@@ -344,7 +344,7 @@ PllCfgRecord GateMatePacker::get_pll_settings(double f_ref, double f_core, int m
                 return a.core_weight < b.core_weight;
             });
     PllCfgRecord val = pll_cfg_arr.at(std::distance(pll_cfg_arr.begin(), it));
-    log_info("PLL fout= %.4f MHz (fout error %.5f%% of requested %.4f MHz)\n", val.f_core,
+    log_info("    PLL fout= %.4f MHz (fout error %.5f%% of requested %.4f MHz)\n", val.f_core,
              100 - (100 * std::min(val.f_core, f_core_par) / std::max(val.f_core, f_core_par)), f_core);
     return val;
 }
