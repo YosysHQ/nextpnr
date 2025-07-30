@@ -75,6 +75,9 @@ struct GateMateImpl : HimbaechelAPI
     pool<IdString> multiplier_a_passthru_lowers;
     pool<IdString> multiplier_a_passthru_uppers;
     pool<IdString> multiplier_zero_drivers;
+    std::vector<CellInfo *> multipliers;
+    int fpga_mode;
+    int timing_mode;
 
   private:
     bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
