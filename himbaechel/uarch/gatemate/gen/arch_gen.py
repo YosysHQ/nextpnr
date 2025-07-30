@@ -41,6 +41,9 @@ sys.path += args.lib
 import chip
 import die
 
+pip_tmg_names = set()
+node_tmg_names = set()
+
 @dataclass
 class TileExtraData(BBAStruct):
     die : int = 0
@@ -131,8 +134,19 @@ class PadExtraData(BBAStruct):
         bba.u16(0)
 
 def set_timings(ch):
-    speed = "DEFAULT"
-    tmg = ch.set_speed_grades([speed])
+    speed_grades = ["best_lpr", "best_eco", "best_spd",
+                    "typ_lpr", "typ_eco", "typ_spd",
+                    "worst_lpr", "worst_eco", "worst_spd"]
+    tmg = ch.set_speed_grades(speed_grades)
+    for speed in speed_grades:
+        print(f"Loading timings for {speed}...")
+        timing = dict(sorted(chip.get_timings(speed).items()))
+        #for k in node_tmg_names:
+        #    assert k in timing, f"node class {k} not found in timing data"
+        #    tmg.set_node_class(grade=speed, name=k, delay=TimingValue(timing[k].rise.min, timing[k].rise.max))
+        #for k in pip_tmg_names:
+        #    assert k in timing, f"pip class {k} not found in timing data"
+        #    tmg.set_pip_class(grade=speed, name=k, delay=TimingValue(timing[k].rise.min, timing[k].rise.max))
 
     lut = ch.timing.add_cell_variant(speed, "CPE_LT_L")
     lut.add_comb_arc("IN1", "OUT", TimingValue(416, 418)) # IN5 to OUT1
@@ -277,7 +291,9 @@ def main():
             for pin in sorted(die.get_primitive_pins(prim.type)):
                 tt.add_bel_pin(bel, pin.name, die.get_pin_connection_name(prim,pin), pin.dir)
         for mux in sorted(die.get_mux_connections_for_type(type_name)):
-            pp = tt.create_pip(mux.src, mux.dst)
+            if len(mux.delay)>0:
+                pip_tmg_names.add(mux.delay)
+            pp = tt.create_pip(mux.src, mux.dst, mux.delay)
             if mux.name:
                 mux_flags = MUX_INVERT if mux.invert else 0
                 mux_flags |= MUX_VISIBLE if mux.visible else 0
@@ -301,9 +317,14 @@ def main():
     # Create nodes between tiles
     for _,nodes in dev.get_connections():
         node = []
+        timing = ""
         for conn in sorted(nodes):
             node.append(NodeWire(conn.x + 2, conn.y + 2, conn.name))
-        ch.add_node(node)
+            # for now update to last one we have defined
+            if len(conn.delay)>0:
+                timing = conn.delay
+                node_tmg_names.add(conn.delay)
+        ch.add_node(node, timing)
     set_timings(ch)
 
     for package in dev.get_packages():
