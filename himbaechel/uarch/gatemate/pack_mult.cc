@@ -709,8 +709,8 @@ void GateMatePacker::pack_mult()
             auto &b_passthru = m.cols.at(b).b_passthru;
 
             // Connect B input passthrough cell.
-            mult->movePortTo(ctx->idf("B[%d]", 2 * b), b_passthru.upper, id_IN1);
-            mult->movePortTo(ctx->idf("B[%d]", 2 * b + 1), b_passthru.lower, id_IN1);
+            mult->movePortTo(ctx->idf("B[%d]", 2 * b), b_passthru.lower, id_IN1);
+            mult->movePortTo(ctx->idf("B[%d]", 2 * b + 1), b_passthru.upper, id_IN1);
         }
 
         // Intermediate multiplier connections.
