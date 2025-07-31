@@ -397,7 +397,7 @@ void GateMateImpl::pack()
     packer.pack_misc();
     packer.pack_ram();
     packer.pack_serdes();
-    packer.pack_mult();
+    // packer.pack_mult();
     packer.pack_addf();
     packer.pack_cpe();
     packer.remove_constants();
