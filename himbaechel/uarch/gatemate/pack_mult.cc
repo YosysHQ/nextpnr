@@ -516,6 +516,7 @@ void GateMatePacker::pack_mult()
         for (int i = 0; i < (a_width / 2); i++) {
             auto *mult_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$row%d$mult_lower", name.c_str(ctx), i));
             auto *mult_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$row%d$mult_upper", name.c_str(ctx), i));
+            mult_lower->params[id_MULT_INVERT] = Property(is_even_x ? Property::State::S0 : Property::State::S1);
 
             col.mults.push_back(MultCell{mult_lower, mult_upper, name, i == ((a_width / 2) - 1)});
             uarch->multipliers.push_back(mult_lower);

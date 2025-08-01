@@ -347,6 +347,7 @@ struct BitstreamBackend
                 dict<IdString, Property> params = cell.second->params;
                 Loc l = ctx->getBelLocation(cell.second->bel);
                 params.erase(id_L2T4_UPPER);
+                params.erase(id_MULT_INVERT);
                 int c_i1 = int_or_default(params, id_C_I1, 0);
                 int c_i2 = int_or_default(params, id_C_I2, 0);
                 int c_i3 = int_or_default(params, id_C_I3, 0);
