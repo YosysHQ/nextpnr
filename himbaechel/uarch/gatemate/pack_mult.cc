@@ -555,6 +555,10 @@ void GateMatePacker::pack_mult()
         auto a_width = int_or_default(mult->params, id_A_WIDTH);
         auto b_width = int_or_default(mult->params, id_B_WIDTH);
         auto p_width = int_or_default(mult->params, id_P_WIDTH);
+        if (mult->getPort(id_A))
+            mult->renamePort(id_A, ctx->id("A[0]"));
+        if (mult->getPort(id_B))
+            mult->renamePort(id_B, ctx->id("B[0]"));
 
         // Sign-extend odd A_WIDTH to even, because we're working with 2x2 multiplier cells.
         while (a_width < p_width || a_width % 2 == 1) {
