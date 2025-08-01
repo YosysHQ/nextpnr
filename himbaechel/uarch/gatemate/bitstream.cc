@@ -285,7 +285,8 @@ struct BitstreamBackend
                     auto should_be_inverted = user.cell->constr_x % 2 == 1;
                     auto inversion = need_inversion(user.cell, user.port);
                     if (inversion == should_be_inverted)
-                        log_warning("    %s.%s at (%d, %d)\n", user.cell->name.c_str(ctx), user.port.c_str(ctx), loc.x, loc.y);
+                        log_warning("    %s.%s at (%d, %d)\n", user.cell->name.c_str(ctx), user.port.c_str(ctx), loc.x,
+                                    loc.y);
                 }
 
                 log_warning("  these ports are inverted:\n");
@@ -295,7 +296,8 @@ struct BitstreamBackend
                     auto should_be_inverted = user.cell->constr_x % 2 == 1;
                     auto inversion = need_inversion(user.cell, user.port);
                     if (inversion != should_be_inverted)
-                        log_warning("    %s.%s at (%d, %d)\n", user.cell->name.c_str(ctx), user.port.c_str(ctx), loc.x, loc.y);
+                        log_warning("    %s.%s at (%d, %d)\n", user.cell->name.c_str(ctx), user.port.c_str(ctx), loc.x,
+                                    loc.y);
                 }
             } else if (all_inverted) {
                 net->driver.cell->params[id_INIT_L10] = Property(~driver_l10 & 0b1111, 4);
