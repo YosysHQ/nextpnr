@@ -400,7 +400,7 @@ void GateMatePacker::pack_mult()
         auto *zero_lower = create_cell_ptr(id_CPE_DUMMY, ctx->idf("%s$zero_lower", name.c_str(ctx)));
         auto *zero_upper = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$zero", name.c_str(ctx)));
 
-        uarch->multiplier_zero_drivers.push_back(zero_upper);
+        uarch->multiplier_zero_drivers.insert(zero_upper->name);
 
         return ZeroDriver{zero_lower, zero_upper, name};
     };
@@ -415,7 +415,8 @@ void GateMatePacker::pack_mult()
         a_passthru_comp->connectPort(id_COMPOUT, comp_conn);
         a_passthru_lines->connectPort(id_COMPOUT, comp_conn);
 
-        uarch->multiplier_a_passthrus.push_back({a_passthru_lower, a_passthru_upper});
+        uarch->multiplier_a_passthru_lowers.insert(a_passthru_lower->name);
+        uarch->multiplier_a_passthru_uppers.insert(a_passthru_upper->name);
 
         return APassThroughCell{a_passthru_lower, a_passthru_upper, a_passthru_comp, a_passthru_lines, name};
     };
@@ -506,9 +507,8 @@ void GateMatePacker::pack_mult()
             NetInfo *comb2_conn = ctx->createNet(ctx->idf("%s$f_route$comb2", name.c_str(ctx)));
             f_route_upper->connectPort(id_OUT, comb2_conn);
             f_route_lines->connectPort(id_OUT2, comb2_conn);
-            if (!is_even_x) {
+            if (!is_even_x)
                 f_route_comp->connectPort(id_COMB2, comb2_conn);
-            }
 
             NetInfo *comp_out = ctx->createNet(ctx->idf("%s$f_route$comp_out", name.c_str(ctx)));
             f_route_comp->connectPort(id_COMPOUT, comp_out);
@@ -523,7 +523,6 @@ void GateMatePacker::pack_mult()
             mult_lower->params[id_MULT_INVERT] = Property(is_even_x ? Property::State::S0 : Property::State::S1);
 
             col.mults.push_back(MultCell{mult_lower, mult_upper, name, i == ((a_width / 2) - 1)});
-            uarch->multipliers.push_back(mult_lower);
         }
 
         {

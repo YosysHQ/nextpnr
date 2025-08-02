@@ -714,14 +714,43 @@ void GateMateImpl::route_mult()
     // I am fully aware the nextpnr API is absolutely not designed around naming specific pips.
     // Unfortunately, this is the easiest way to describe the specific routing required.
     // Myrtle, please forgive me.
-    for (auto &a_passthru : this->multiplier_a_passthrus) {
-        auto *lower = a_passthru.first;
-        auto *upper = a_passthru.second;
-
+    for (auto a_passthru_lower : this->multiplier_a_passthru_lowers) {
+        auto *lower = ctx->cells.at(a_passthru_lower).get();
         auto *lower_out = lower->ports.at(id_OUT).net;
-        auto *upper_out = upper->ports.at(id_OUT).net;
 
         auto loc = ctx->getBelLocation(lower->bel);
+
+        auto x_fourgroup = (loc.x - 3) % 4;
+        auto y_fourgroup = (loc.y - 3) % 4;
+        bool is_fourgroup_a = (x_fourgroup < 2 && y_fourgroup < 2) || (x_fourgroup >= 2 && y_fourgroup >= 2);
+        auto x_within_fourgroup = (loc.x - 3) % 2;
+        auto y_within_fourgroup = (loc.y - 3) % 2;
+
+        log_info("  A passthrough at (%d, %d) has 4-group %c\n", loc.x, loc.y, is_fourgroup_a ? 'A' : 'B');
+
+        log_info("    lower.OUT [OUT1] = %s\n", ctx->nameOfWire(ctx->getBelPinWire(lower->bel, id_OUT)));
+        for (auto sink_port : lower->ports.at(id_OUT).net->users) {
+            auto sink_loc = ctx->getBelLocation(sink_port.cell->bel);
+            log_info("      -> %s.%s at (%d, %d)\n", sink_port.cell->name.c_str(ctx), sink_port.port.c_str(ctx),
+                     sink_loc.x, sink_loc.y);
+        }
+
+        if (x_within_fourgroup == 0 && y_within_fourgroup == 0) {
+            route_mult_x1y1_lower(ctx, lower_out, lower, loc, is_fourgroup_a);
+        } else if (x_within_fourgroup == 0 && y_within_fourgroup == 1) {
+            route_mult_x1y2_lower(ctx, lower_out, lower, loc, is_fourgroup_a);
+        } else if (x_within_fourgroup == 1 && y_within_fourgroup == 0) {
+            route_mult_x2y1_lower(ctx, lower_out, lower, loc, is_fourgroup_a);
+        } else /* if (x_within_fourgroup == 1 && y_within_fourgroup == 1) */ {
+            route_mult_x2y2_lower(ctx, lower_out, lower, loc, is_fourgroup_a);
+        }
+    }
+
+    for (auto a_passthru_upper : this->multiplier_a_passthru_uppers) {
+        auto *upper = ctx->cells.at(a_passthru_upper).get();
+        auto *upper_out = upper->ports.at(id_OUT).net;
+
+        auto loc = ctx->getBelLocation(upper->bel);
 
         auto x_fourgroup = (loc.x - 3) % 4;
         auto y_fourgroup = (loc.y - 3) % 4;
@@ -733,13 +762,6 @@ void GateMateImpl::route_mult()
 
         log_info("  A passthrough at (%d, %d) has 4-group %c\n", loc.x, loc.y, is_fourgroup_a ? 'A' : 'B');
 
-        log_info("    lower.OUT [OUT1] = %s\n", ctx->nameOfWire(ctx->getBelPinWire(lower->bel, id_OUT)));
-        for (auto sink_port : lower->ports.at(id_OUT).net->users) {
-            auto sink_loc = ctx->getBelLocation(sink_port.cell->bel);
-            log_info("      -> %s.%s at (%d, %d)\n", sink_port.cell->name.c_str(ctx), sink_port.port.c_str(ctx),
-                     sink_loc.x, sink_loc.y);
-        }
-
         log_info("    upper.OUT [OUT2] = %s\n", ctx->nameOfWire(ctx->getBelPinWire(upper->bel, id_OUT)));
         for (auto sink_port : upper->ports.at(id_OUT).net->users) {
             if (sink_port.port == id_IN8)
@@ -750,29 +772,26 @@ void GateMateImpl::route_mult()
         }
 
         if (x_within_fourgroup == 0 && y_within_fourgroup == 0) {
-            route_mult_x1y1_lower(ctx, lower_out, lower, loc, is_fourgroup_a);
             route_mult_x1y1_upper_in1(ctx, upper_out, upper, loc, is_fourgroup_a);
             if (needs_in8_route)
                 route_mult_x1y1_upper_in8(ctx, upper_out, upper, loc, is_fourgroup_a);
         } else if (x_within_fourgroup == 0 && y_within_fourgroup == 1) {
-            route_mult_x1y2_lower(ctx, lower_out, lower, loc, is_fourgroup_a);
             route_mult_x1y2_upper_in1(ctx, upper_out, upper, loc, is_fourgroup_a);
             if (needs_in8_route)
                 route_mult_x1y2_upper_in8(ctx, upper_out, upper, loc, is_fourgroup_a);
         } else if (x_within_fourgroup == 1 && y_within_fourgroup == 0) {
-            route_mult_x2y1_lower(ctx, lower_out, lower, loc, is_fourgroup_a);
             route_mult_x2y1_upper_in1(ctx, upper_out, upper, loc, is_fourgroup_a);
             if (needs_in8_route)
                 route_mult_x2y1_upper_in8(ctx, upper_out, upper, loc, is_fourgroup_a);
         } else /* if (x_within_fourgroup == 1 && y_within_fourgroup == 1) */ {
-            route_mult_x2y2_lower(ctx, lower_out, lower, loc, is_fourgroup_a);
             route_mult_x2y2_upper_in1(ctx, upper_out, upper, loc, is_fourgroup_a);
             if (needs_in8_route)
                 route_mult_x2y2_upper_in8(ctx, upper_out, upper, loc, is_fourgroup_a);
         }
     }
 
-    for (auto *zero_driver : this->multiplier_zero_drivers) {
+    for (auto zero_driver_name : this->multiplier_zero_drivers) {
+        auto *zero_driver = ctx->cells.at(zero_driver_name).get();
         auto *out = zero_driver->ports.at(id_OUT).net;
 
         auto loc = ctx->getBelLocation(zero_driver->bel);

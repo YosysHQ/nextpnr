@@ -22,6 +22,7 @@
 
 #include "extra_data.h"
 #include "himbaechel_api.h"
+#include "idstring.h"
 #include "log.h"
 #include "nextpnr.h"
 #include "util.h"
@@ -72,9 +73,9 @@ struct GateMateImpl : HimbaechelAPI
     dict<std::pair<IdString, int>, Loc> locations;
     int dies;
     int preferred_die;
-    std::vector<CellInfo *> multipliers;
-    std::vector<std::pair<CellInfo *, CellInfo *>> multiplier_a_passthrus;
-    std::vector<CellInfo *> multiplier_zero_drivers;
+    pool<IdString> multiplier_a_passthru_lowers;
+    pool<IdString> multiplier_a_passthru_uppers;
+    pool<IdString> multiplier_zero_drivers;
 
   private:
     bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,

@@ -220,96 +220,61 @@ struct BitstreamBackend
         }
     }
 
-    void check_multipliers()
+    void update_multiplier_input(IdString cell_name, dict<IdString, Property> &params)
     {
-        for (auto *mult : uarch->multipliers) {
-            NPNR_ASSERT(mult != nullptr);
+        auto *net = ctx->cells.at(cell_name)->ports.at(id_OUT).net;
 
-            auto should_be_inverted = mult->constr_x % 2 == 1;
+        int64_t driver_l10 = ctx->cells.at(cell_name)->params[id_INIT_L10].as_int64();
+        bool driver_is_inverted = driver_l10 == LUT_ONE || driver_l10 == LUT_INV_D0;
 
-            // TODO: these are errors, but downgraded to allow providing *some* output.
+        bool all_correct = true;
+        bool all_inverted = true;
 
-            // IN8
-            if (need_inversion(mult, id_IN8) != should_be_inverted)
-                log_warning("%s.IN8 has wrong inversion state\n", mult->name.c_str(ctx));
-
-            // IN5
-            if (need_inversion(mult, id_IN5) != should_be_inverted)
-                log_warning("%s.IN5 has wrong inversion state\n", mult->name.c_str(ctx));
-
-            // IN1
-            if (need_inversion(mult, id_IN1) != should_be_inverted)
-                log_warning("%s.IN1 has wrong inversion state\n", mult->name.c_str(ctx));
-        }
-        log_info("===\n");
-
-        pool<IdString> multiplier_nets;
-
-        for (auto *mult : uarch->multipliers) {
-            NPNR_ASSERT(mult != nullptr);
-
-            multiplier_nets.insert(mult->ports.at(id_IN8).net->name);
-            multiplier_nets.insert(mult->ports.at(id_IN5).net->name);
-            multiplier_nets.insert(mult->ports.at(id_IN1).net->name);
+        for (PortRef user : net->users) {
+            auto column_parity = user.cell->constr_x % 2;
+            auto should_be_inverted = driver_is_inverted ? column_parity == 0 : column_parity == 1;
+            auto inversion = need_inversion(user.cell, user.port);
+            all_correct &= (inversion == should_be_inverted);
+            all_inverted &= (inversion != should_be_inverted);
         }
 
-        for (auto net_name : multiplier_nets) {
-            auto *net = ctx->nets.at(net_name).get();
+        NPNR_ASSERT(!(all_correct && all_inverted) && "net doesn't drive any ports?");
 
-            int64_t driver_l10 = net->driver.cell->params[id_INIT_L10].as_int64();
-            bool driver_is_inverted = driver_l10 == LUT_ONE || driver_l10 == LUT_INV_D0;
+        if (!all_correct && !all_inverted) {
+            log_warning("multiplier net '%s' has inconsistent inversion\n", net->name.c_str(ctx));
 
-            bool all_correct = true;
-            bool all_inverted = true;
+            auto driver_loc = ctx->getBelLocation(net->driver.cell->bel);
+            log_warning("net is driven from (%d, %d)\n", driver_loc.x, driver_loc.y);
 
+            log_warning("  these ports are not inverted:\n");
             for (PortRef user : net->users) {
-                auto column_parity = user.cell->constr_x % 2;
-                auto should_be_inverted = driver_is_inverted ? column_parity == 0 : column_parity == 1;
+                auto loc = ctx->getBelLocation(user.cell->bel);
+
+                auto should_be_inverted = user.cell->constr_x % 2 == 1;
                 auto inversion = need_inversion(user.cell, user.port);
-                all_correct &= (inversion == should_be_inverted);
-                all_inverted &= (inversion != should_be_inverted);
+                if (inversion == should_be_inverted)
+                    log_warning("    %s.%s at (%d, %d)\n", user.cell->name.c_str(ctx), user.port.c_str(ctx), loc.x,
+                                loc.y);
             }
 
-            NPNR_ASSERT(!(all_correct && all_inverted) && "net doesn't drive any ports?");
+            log_warning("  these ports are inverted:\n");
+            for (PortRef user : net->users) {
+                auto loc = ctx->getBelLocation(user.cell->bel);
 
-            if (!all_correct && !all_inverted) {
-                log_warning("multiplier net '%s' has inconsistent inversion\n", net_name.c_str(ctx));
-
-                auto driver_loc = ctx->getBelLocation(net->driver.cell->bel);
-                log_warning("net is driven from (%d, %d)\n", driver_loc.x, driver_loc.y);
-
-                log_warning("  these ports are not inverted:\n");
-                for (PortRef user : net->users) {
-                    auto loc = ctx->getBelLocation(user.cell->bel);
-
-                    auto should_be_inverted = user.cell->constr_x % 2 == 1;
-                    auto inversion = need_inversion(user.cell, user.port);
-                    if (inversion == should_be_inverted)
-                        log_warning("    %s.%s at (%d, %d)\n", user.cell->name.c_str(ctx), user.port.c_str(ctx), loc.x,
-                                    loc.y);
-                }
-
-                log_warning("  these ports are inverted:\n");
-                for (PortRef user : net->users) {
-                    auto loc = ctx->getBelLocation(user.cell->bel);
-
-                    auto should_be_inverted = user.cell->constr_x % 2 == 1;
-                    auto inversion = need_inversion(user.cell, user.port);
-                    if (inversion != should_be_inverted)
-                        log_warning("    %s.%s at (%d, %d)\n", user.cell->name.c_str(ctx), user.port.c_str(ctx), loc.x,
-                                    loc.y);
-                }
-            } else if (all_inverted) {
-                net->driver.cell->params[id_INIT_L10] = Property(~driver_l10 & 0b1111, 4);
-                log_info("multiplier net '%s': fixed inversion\n", net_name.c_str(ctx));
+                auto should_be_inverted = user.cell->constr_x % 2 == 1;
+                auto inversion = need_inversion(user.cell, user.port);
+                if (inversion != should_be_inverted)
+                    log_warning("    %s.%s at (%d, %d)\n", user.cell->name.c_str(ctx), user.port.c_str(ctx), loc.x,
+                                loc.y);
             }
+        } else if (all_inverted) {
+            params[id_INIT_L10] = Property(~driver_l10 & 0b1111, 4);
+            log_info("multiplier net '%s': fixed inversion\n", net->name.c_str(ctx));
         }
     }
 
     void write_bitstream()
     {
-        check_multipliers();
-
         ChipConfig cc;
         cc.chip_name = device;
         std::vector<std::array<int, 9>> bank(uarch->dies);
@@ -399,6 +364,12 @@ struct BitstreamBackend
                     else
                         update_cpe_inv(cell.second.get(), id_SR, id_C_CPE_RES, params);
                 }
+
+                if (uarch->multiplier_a_passthru_lowers.count(cell.first) ||
+                    uarch->multiplier_a_passthru_uppers.count(cell.first) ||
+                    uarch->multiplier_zero_drivers.count(cell.first))
+                    update_multiplier_input(cell.first, params);
+
                 int id = tile_extra_data(cell.second.get()->bel.tile)->prim_id;
                 for (auto &p : params) {
                     IdString name = p.first;
