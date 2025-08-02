@@ -240,8 +240,8 @@ CarryGenCell::CarryGenCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, Cel
 {
     lower->params[id_INIT_L00] = Property(LUT_D1, 4);   // PINY1
     lower->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (overriden by CIN)
-    lower->params[id_INIT_L10] = Property(is_odd_x ? LUT_OR : LUT_ZERO, 4);
-    lower->params[id_INIT_L20] = Property(is_odd_x ? LUT_OR : LUT_ZERO, 4);
+    lower->params[id_INIT_L10] = Property(is_odd_x ? LUT_OR : !enable_cinx ? LUT_ZERO : LUT_AND, 4);
+    lower->params[id_INIT_L20] = Property(is_odd_x ? LUT_OR : !enable_cinx ? LUT_ZERO : LUT_AND, 4);
     lower->params[id_C_FUNCTION] = Property(C_EN_CIN, 3);
     lower->params[id_C_I3] = Property(1, 1);    // PINY1 for L02
     lower->params[id_C_HORIZ] = Property(0, 1); // CINY1 for CIN_ for L03
@@ -420,8 +420,7 @@ void GateMatePacker::pack_mult()
         return APassThroughCell{a_passthru_lower, a_passthru_upper, a_passthru_comp, a_passthru_lines, name};
     };
 
-    auto create_mult_col = [&](IdString name, int a_width, bool is_even_x, bool carry_enable_cinx,
-                               bool multfab_enable_cinx) {
+    auto create_mult_col = [&](IdString name, int a_width, bool is_even_x, bool enable_cinx) {
         // Ideally this would be the MultiplierColumn constructor, but we need create_cell_ptr here.
         auto col = MultiplierColumn{};
 
@@ -448,6 +447,12 @@ void GateMatePacker::pack_mult()
             auto *carry_comp = create_cell_ptr(id_CPE_COMP, ctx->idf("%s$carry_comp", name.c_str(ctx)));
             auto *carry_lines = create_cell_ptr(id_CPE_CPLINES, ctx->idf("%s$carry_lines", name.c_str(ctx)));
 
+            NetInfo *comb2_conn = ctx->createNet(ctx->idf("%s$carrycomb2", name.c_str(ctx)));
+            carry_upper->connectPort(id_OUT, comb2_conn);
+            carry_lower->ports[id_COMBIN].name = id_COMBIN;
+            carry_lower->ports[id_COMBIN].type = PORT_IN;
+            carry_lower->connectPort(id_COMBIN, comb2_conn);
+
             NetInfo *comp_in = ctx->createNet(ctx->idf("%s$carry$comp_in", name.c_str(ctx)));
             carry_lower->connectPort(id_OUT, comp_in);
             carry_comp->connectPort(id_COMB1, comp_in);
@@ -456,8 +461,7 @@ void GateMatePacker::pack_mult()
             carry_comp->connectPort(id_COMPOUT, comp_out);
             carry_lines->connectPort(id_COMPOUT, comp_out);
 
-            col.carry = CarryGenCell{carry_lower, carry_upper, carry_comp,       carry_lines,
-                                     name,        !is_even_x,  carry_enable_cinx};
+            col.carry = CarryGenCell{carry_lower, carry_upper, carry_comp, carry_lines, name, !is_even_x, enable_cinx};
         }
 
         {
@@ -485,8 +489,8 @@ void GateMatePacker::pack_mult()
             multfab_comp->connectPort(id_COMPOUT, comp_out);
             multfab_lines->connectPort(id_COMPOUT, comp_out);
 
-            col.multfab = MultfabCell{multfab_lower, multfab_upper, multfab_comp,       multfab_lines,
-                                      name,          is_even_x,     multfab_enable_cinx};
+            col.multfab = MultfabCell{multfab_lower, multfab_upper, multfab_comp, multfab_lines,
+                                      name,          is_even_x,     enable_cinx};
         }
 
         {
@@ -556,19 +560,20 @@ void GateMatePacker::pack_mult()
         auto a_width = int_or_default(mult->params, id_A_WIDTH);
         auto b_width = int_or_default(mult->params, id_B_WIDTH);
         auto p_width = int_or_default(mult->params, id_P_WIDTH);
-        if (mult->getPort(id_A))
-            mult->renamePort(id_A, ctx->id("A[0]"));
-        if (mult->getPort(id_B))
-            mult->renamePort(id_B, ctx->id("B[0]"));
+        mult->renamePort(id_A, ctx->id("A[0]"));
+        mult->renamePort(id_B, ctx->id("B[0]"));
+        mult->renamePort(id_P, ctx->id("P[0]"));
 
+        int a_size = (((a_width + 1) / 2) + 1) * 2;
+        int b_size = (((b_width + 1) / 2) + 1) * 2;
         // Sign-extend odd A_WIDTH to even, because we're working with 2x2 multiplier cells.
-        while (a_width < p_width || a_width % 2 == 1) {
+        while (a_width < a_size) {
             mult->copyPortTo(ctx->idf("A[%d]", a_width - 1), mult, ctx->idf("A[%d]", a_width));
             a_width += 1;
         }
 
         // Sign-extend odd B_WIDTH to even, because we're working with 2x2 multiplier cells.
-        while (b_width < p_width || b_width % 2 == 1) {
+        while (b_width < b_size) {
             mult->copyPortTo(ctx->idf("B[%d]", b_width - 1), mult, ctx->idf("B[%d]", b_width));
             b_width += 1;
         }
@@ -583,8 +588,8 @@ void GateMatePacker::pack_mult()
         for (int a = 0; a < a_width / 2; a++)
             m.a_passthrus.push_back(create_a_passthru(ctx->idf("%s$col0$row%d", mult->name.c_str(ctx), a)));
         for (int b = 0; b < b_width / 2; b++)
-            m.cols.push_back(create_mult_col(ctx->idf("%s$col%d", mult->name.c_str(ctx), b + 1), a_width, b % 2 == 0,
-                                             b == 2 /* ??? */, b > 0 /* ??? */));
+            m.cols.push_back(
+                    create_mult_col(ctx->idf("%s$col%d", mult->name.c_str(ctx), b + 1), a_width, b % 2 == 0, b > 0));
 
         // Step 2: constrain them together.
         // We define (0, 0) to be the B passthrough cell of column 1.
