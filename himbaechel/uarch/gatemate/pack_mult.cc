@@ -360,8 +360,9 @@ MultCell::MultCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_msb)
         lower->params[id_C_C_P] = Property(0, 1);
     }
 
-    // upper->params[id_C_O1] = Property(0b10, 2); // CP_OUT1 -> OUT1
-    // upper->params[id_C_O2] = Property(0b10, 2); // CP_OUT2 -> OUT2
+    // Must force this one, even if outputs are not used to preserve logic
+    lower->params[id_C_O1] = Property(0b10, 2); // CP_OUT1 -> OUT1
+    lower->params[id_C_O2] = Property(0b10, 2); // CP_OUT2 -> OUT2
 }
 
 MsbRoutingCell::MsbRoutingCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, CellInfo *cplines, IdString name)

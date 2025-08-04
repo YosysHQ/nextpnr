@@ -225,7 +225,7 @@ struct BitstreamBackend
         auto *net = ctx->cells.at(cell_name)->ports.at(id_OUT).net;
 
         int64_t driver_l10 = ctx->cells.at(cell_name)->params[id_INIT_L10].as_int64();
-        bool driver_is_inverted = driver_l10 == LUT_ONE || driver_l10 == LUT_INV_D0;
+        bool driver_is_inverted = driver_l10 == LUT_INV_D0;
 
         bool all_correct = true;
         bool all_inverted = true;
