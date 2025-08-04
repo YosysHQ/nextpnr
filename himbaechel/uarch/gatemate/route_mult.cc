@@ -19,9 +19,6 @@
 
 #include "gatemate.h"
 #include "log.h"
-#include "nextpnr_assertions.h"
-#include "nextpnr_base_types.h"
-#include "nextpnr_namespaces.h"
 
 #define HIMBAECHEL_CONSTIDS "uarch/gatemate/constids.inc"
 #include "himbaechel_constids.h"

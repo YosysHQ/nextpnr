@@ -20,7 +20,6 @@
 #include "gatemate.h"
 #include "log.h"
 #include "placer_heap.h"
-#include "property.h"
 
 #define GEN_INIT_CONSTIDS
 #define HIMBAECHEL_CONSTIDS "uarch/gatemate/constids.inc"
