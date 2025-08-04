@@ -23,8 +23,6 @@
 #include "config.h"
 #include "gatemate.h"
 #include "gatemate_util.h"
-#include "log.h"
-#include "property.h"
 #include "uarch/gatemate/pack.h"
 
 #define HIMBAECHEL_CONSTIDS "uarch/gatemate/constids.inc"
@@ -269,7 +267,8 @@ struct BitstreamBackend
             }
         } else if (all_inverted) {
             params[id_INIT_L10] = Property(~driver_l10 & 0b1111, 4);
-            log_info("multiplier net '%s': fixed inversion\n", net->name.c_str(ctx));
+            if (ctx->debug)
+                log_info("multiplier net '%s': fixed inversion\n", net->name.c_str(ctx));
         }
     }
 
