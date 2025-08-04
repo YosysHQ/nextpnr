@@ -35,7 +35,8 @@ void find_and_bind_downhill_pip(Context *ctx, WireId from, WireId to, NetInfo *n
     NPNR_ASSERT(to != WireId());
     for (auto pip : ctx->getPipsDownhill(from)) {
         if (ctx->getPipDstWire(pip) == to) {
-            log_info("    pip %s: %s -> %s\n", ctx->nameOfPip(pip), ctx->nameOfWire(from), ctx->nameOfWire(to));
+            if (ctx->debug)
+                log_info("    pip %s: %s -> %s\n", ctx->nameOfPip(pip), ctx->nameOfWire(from), ctx->nameOfWire(to));
 
             ctx->bindPip(pip, net, STRENGTH_LOCKED);
             return;
@@ -53,7 +54,8 @@ void route_mult_diag(Context *ctx, NetInfo *net, Loc loc, WireId last_wire, int 
             hops++;
     }
 
-    log_info("  routing diagonal: %d hops\n", hops);
+    if (ctx->debug)
+        log_info("  routing diagonal: %d hops\n", hops);
 
     for (int i = 0; i < hops; i++) {
         auto cpe_in = ctx->getWireByName(
@@ -70,7 +72,8 @@ void route_mult_diag(Context *ctx, NetInfo *net, Loc loc, WireId last_wire, int 
 
 void route_mult_x1y1_lower(Context *ctx, NetInfo *net, CellInfo *lower, Loc loc, bool is_fourgroup_a)
 {
-    log_info("  routing net '%s' -> IN5 using x1y1\n", net->name.c_str(ctx));
+    if (ctx->debug)
+        log_info("  routing net '%s' -> IN5 using x1y1\n", net->name.c_str(ctx));
 
     auto x1y1 = ctx->idf("X%dY%d", loc.x, loc.y);
     auto x2y1 = ctx->idf("X%dY%d", loc.x + 1, loc.y);
@@ -101,7 +104,8 @@ void route_mult_x1y1_lower(Context *ctx, NetInfo *net, CellInfo *lower, Loc loc,
 
 void route_mult_x1y1_upper_in1(Context *ctx, NetInfo *net, CellInfo *upper, Loc loc, bool is_fourgroup_a)
 {
-    log_info("  routing net '%s' -> IN1 using x1y1\n", net->name.c_str(ctx));
+    if (ctx->debug)
+        log_info("  routing net '%s' -> IN1 using x1y1\n", net->name.c_str(ctx));
 
     auto x1y1 = ctx->idf("X%dY%d", loc.x, loc.y);
     auto x2y1 = ctx->idf("X%dY%d", loc.x + 1, loc.y);
@@ -133,7 +137,8 @@ void route_mult_x1y1_upper_in1(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
 void route_mult_x1y1_upper_in8(Context *ctx, NetInfo *net, CellInfo *upper, Loc loc, bool is_fourgroup_a,
                                bool bind_route_start = false)
 {
-    log_info("  routing net '%s' -> IN8 using x1y1\n", net->name.c_str(ctx));
+    if (ctx->debug)
+        log_info("  routing net '%s' -> IN8 using x1y1\n", net->name.c_str(ctx));
 
     auto x1y1 = ctx->idf("X%dY%d", loc.x, loc.y);
     auto x2y2 = ctx->idf("X%dY%d", loc.x + 1, loc.y + 1);
@@ -189,7 +194,8 @@ void route_mult_x1y1_upper_in8(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
 
 void route_mult_x1y2_lower(Context *ctx, NetInfo *net, CellInfo *lower, Loc loc, bool is_fourgroup_a)
 {
-    log_info("  routing net '%s' -> IN5 using x1y2\n", net->name.c_str(ctx));
+    if (ctx->debug)
+        log_info("  routing net '%s' -> IN5 using x1y2\n", net->name.c_str(ctx));
 
     auto x1y1 = ctx->idf("X%dY%d", loc.x, loc.y);
     auto x2y1 = ctx->idf("X%dY%d", loc.x + 1, loc.y);
@@ -252,7 +258,8 @@ void route_mult_x1y2_lower(Context *ctx, NetInfo *net, CellInfo *lower, Loc loc,
 
 void route_mult_x1y2_upper_in1(Context *ctx, NetInfo *net, CellInfo *upper, Loc loc, bool is_fourgroup_a)
 {
-    log_info("  routing net '%s' -> IN1 using x1y2\n", net->name.c_str(ctx));
+    if (ctx->debug)
+        log_info("  routing net '%s' -> IN1 using x1y2\n", net->name.c_str(ctx));
 
     auto x1y1 = ctx->idf("X%dY%d", loc.x, loc.y);
     auto x2y1 = ctx->idf("X%dY%d", loc.x + 1, loc.y);
@@ -317,7 +324,8 @@ void route_mult_x1y2_upper_in1(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
 void route_mult_x1y2_upper_in8(Context *ctx, NetInfo *net, CellInfo *upper, Loc loc, bool is_fourgroup_a,
                                bool bind_route_start = false)
 {
-    log_info("  routing net '%s' -> IN8 using x1y2\n", net->name.c_str(ctx));
+    if (ctx->debug)
+        log_info("  routing net '%s' -> IN8 using x1y2\n", net->name.c_str(ctx));
 
     auto x1y1 = ctx->idf("X%dY%d", loc.x, loc.y);
     auto x2y1 = ctx->idf("X%dY%d", loc.x + 1, loc.y);
@@ -362,7 +370,8 @@ void route_mult_x1y2_upper_in8(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
 
 void route_mult_x2y1_lower(Context *ctx, NetInfo *net, CellInfo *lower, Loc loc, bool is_fourgroup_a)
 {
-    log_info("  routing net '%s' -> IN5 using x2y1\n", net->name.c_str(ctx));
+    if (ctx->debug)
+        log_info("  routing net '%s' -> IN5 using x2y1\n", net->name.c_str(ctx));
 
     auto x0y1 = ctx->idf("X%dY%d", loc.x - 1, loc.y);
     auto x1y1 = ctx->idf("X%dY%d", loc.x, loc.y);
@@ -419,7 +428,8 @@ void route_mult_x2y1_lower(Context *ctx, NetInfo *net, CellInfo *lower, Loc loc,
 
 void route_mult_x2y1_upper_in1(Context *ctx, NetInfo *net, CellInfo *upper, Loc loc, bool is_fourgroup_a)
 {
-    log_info("  routing net '%s' -> IN1 using x2y1\n", net->name.c_str(ctx));
+    if (ctx->debug)
+        log_info("  routing net '%s' -> IN1 using x2y1\n", net->name.c_str(ctx));
 
     auto x0y1 = ctx->idf("X%dY%d", loc.x - 1, loc.y);
     auto x1y1 = ctx->idf("X%dY%d", loc.x, loc.y);
@@ -477,7 +487,8 @@ void route_mult_x2y1_upper_in1(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
 void route_mult_x2y1_upper_in8(Context *ctx, NetInfo *net, CellInfo *upper, Loc loc, bool is_fourgroup_a,
                                bool bind_route_start = false)
 {
-    log_info("  routing net '%s' -> IN8 using x2y1\n", net->name.c_str(ctx));
+    if (ctx->debug)
+        log_info("  routing net '%s' -> IN8 using x2y1\n", net->name.c_str(ctx));
 
     auto x1y1 = ctx->idf("X%dY%d", loc.x, loc.y);
     auto x1y2 = ctx->idf("X%dY%d", loc.x, loc.y + 1);
@@ -522,7 +533,8 @@ void route_mult_x2y1_upper_in8(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
 
 void route_mult_x2y2_lower(Context *ctx, NetInfo *net, CellInfo *lower, Loc loc, bool is_fourgroup_a)
 {
-    log_info("  routing net '%s' -> IN5 using x2y2\n", net->name.c_str(ctx));
+    if (ctx->debug)
+        log_info("  routing net '%s' -> IN5 using x2y2\n", net->name.c_str(ctx));
 
     auto x1y1 = ctx->idf("X%dY%d", loc.x, loc.y);
     auto x2y1 = ctx->idf("X%dY%d", loc.x + 1, loc.y);
@@ -586,7 +598,8 @@ void route_mult_x2y2_lower(Context *ctx, NetInfo *net, CellInfo *lower, Loc loc,
 
 void route_mult_x2y2_upper_in1(Context *ctx, NetInfo *net, CellInfo *upper, Loc loc, bool is_fourgroup_a)
 {
-    log_info("  routing net '%s' -> IN1 using x2y2\n", net->name.c_str(ctx));
+    if (ctx->debug)
+        log_info("  routing net '%s' -> IN1 using x2y2\n", net->name.c_str(ctx));
 
     auto x1y1 = ctx->idf("X%dY%d", loc.x, loc.y);
     auto x2y1 = ctx->idf("X%dY%d", loc.x + 1, loc.y);
@@ -651,7 +664,8 @@ void route_mult_x2y2_upper_in1(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
 void route_mult_x2y2_upper_in8(Context *ctx, NetInfo *net, CellInfo *upper, Loc loc, bool is_fourgroup_a,
                                bool bind_route_start = false)
 {
-    log_info("  routing net '%s' -> IN8 using x2y2\n", net->name.c_str(ctx));
+    if (ctx->debug)
+        log_info("  routing net '%s' -> IN8 using x2y2\n", net->name.c_str(ctx));
 
     auto x0y0 = ctx->idf("X%dY%d", loc.x - 1, loc.y - 1);
     auto x1y1 = ctx->idf("X%dY%d", loc.x, loc.y);
@@ -726,13 +740,15 @@ void GateMateImpl::route_mult()
         auto x_within_fourgroup = (loc.x - 3) % 2;
         auto y_within_fourgroup = (loc.y - 3) % 2;
 
-        log_info("  A passthrough at (%d, %d) has 4-group %c\n", loc.x, loc.y, is_fourgroup_a ? 'A' : 'B');
+        if (ctx->debug) {
+            log_info("  A passthrough at (%d, %d) has 4-group %c\n", loc.x, loc.y, is_fourgroup_a ? 'A' : 'B');
 
-        log_info("    lower.OUT [OUT1] = %s\n", ctx->nameOfWire(ctx->getBelPinWire(lower->bel, id_OUT)));
-        for (auto sink_port : lower->ports.at(id_OUT).net->users) {
-            auto sink_loc = ctx->getBelLocation(sink_port.cell->bel);
-            log_info("      -> %s.%s at (%d, %d)\n", sink_port.cell->name.c_str(ctx), sink_port.port.c_str(ctx),
-                     sink_loc.x, sink_loc.y);
+            log_info("    lower.OUT [OUT1] = %s\n", ctx->nameOfWire(ctx->getBelPinWire(lower->bel, id_OUT)));
+            for (auto sink_port : lower->ports.at(id_OUT).net->users) {
+                auto sink_loc = ctx->getBelLocation(sink_port.cell->bel);
+                log_info("      -> %s.%s at (%d, %d)\n", sink_port.cell->name.c_str(ctx), sink_port.port.c_str(ctx),
+                         sink_loc.x, sink_loc.y);
+            }
         }
 
         if (x_within_fourgroup == 0 && y_within_fourgroup == 0) {
@@ -760,15 +776,18 @@ void GateMateImpl::route_mult()
 
         bool needs_in8_route = false;
 
-        log_info("  A passthrough at (%d, %d) has 4-group %c\n", loc.x, loc.y, is_fourgroup_a ? 'A' : 'B');
+        if (ctx->debug) {
+            log_info("  A passthrough at (%d, %d) has 4-group %c\n", loc.x, loc.y, is_fourgroup_a ? 'A' : 'B');
 
-        log_info("    upper.OUT [OUT2] = %s\n", ctx->nameOfWire(ctx->getBelPinWire(upper->bel, id_OUT)));
+            log_info("    upper.OUT [OUT2] = %s\n", ctx->nameOfWire(ctx->getBelPinWire(upper->bel, id_OUT)));
+        }
         for (auto sink_port : upper->ports.at(id_OUT).net->users) {
             if (sink_port.port == id_IN8)
                 needs_in8_route = true;
             auto sink_loc = ctx->getBelLocation(sink_port.cell->bel);
-            log_info("      -> %s.%s at (%d, %d)\n", sink_port.cell->name.c_str(ctx), sink_port.port.c_str(ctx),
-                     sink_loc.x, sink_loc.y);
+            if (ctx->debug)
+                log_info("      -> %s.%s at (%d, %d)\n", sink_port.cell->name.c_str(ctx), sink_port.port.c_str(ctx),
+                         sink_loc.x, sink_loc.y);
         }
 
         if (x_within_fourgroup == 0 && y_within_fourgroup == 0) {
@@ -802,13 +821,16 @@ void GateMateImpl::route_mult()
         auto x_within_fourgroup = (loc.x - 3) % 2;
         auto y_within_fourgroup = (loc.y - 3) % 2;
 
-        log_info("  Zero driver at (%d, %d) has 4-group %c\n", loc.x, loc.y, is_fourgroup_a ? 'A' : 'B');
+        if (ctx->debug) {
+            log_info("  Zero driver at (%d, %d) has 4-group %c\n", loc.x, loc.y, is_fourgroup_a ? 'A' : 'B');
 
-        log_info("    zero_driver.OUT [OUT2] = %s\n", ctx->nameOfWire(ctx->getBelPinWire(zero_driver->bel, id_OUT)));
-        for (auto sink_port : zero_driver->ports.at(id_OUT).net->users) {
-            auto sink_loc = ctx->getBelLocation(sink_port.cell->bel);
-            log_info("      -> %s.%s at (%d, %d)\n", sink_port.cell->name.c_str(ctx), sink_port.port.c_str(ctx),
-                     sink_loc.x, sink_loc.y);
+            log_info("    zero_driver.OUT [OUT2] = %s\n",
+                     ctx->nameOfWire(ctx->getBelPinWire(zero_driver->bel, id_OUT)));
+            for (auto sink_port : zero_driver->ports.at(id_OUT).net->users) {
+                auto sink_loc = ctx->getBelLocation(sink_port.cell->bel);
+                log_info("      -> %s.%s at (%d, %d)\n", sink_port.cell->name.c_str(ctx), sink_port.port.c_str(ctx),
+                         sink_loc.x, sink_loc.y);
+            }
         }
 
         if (x_within_fourgroup == 0 && y_within_fourgroup == 0) {
