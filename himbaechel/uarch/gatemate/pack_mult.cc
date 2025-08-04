@@ -259,16 +259,12 @@ CarryGenCell::CarryGenCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, Cel
     cplines->params[id_C_CY2_I] = Property(1, 1); // CY2_VAL -> COUTY2
     cplines->params[id_C_SEL_C] = Property(1, 1); // COMP_OUT -> CY2_VAL
     cplines->params[id_C_SELY2] = Property(0, 1); // COMP_OUT -> CY2_VAL
-
-    // upper->params[id_C_O1] = Property(0b11, 2); // COMB1OUT -> OUT1
 }
 
 MultfabCell::MultfabCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, CellInfo *cplines, IdString name,
                          bool is_even_x, bool enable_cinx)
         : lower{lower}, upper{upper}, comp{comp}, cplines{cplines}
 {
-    // TODO: perhaps C_I[1234] could be pips?
-
     lower->params[id_INIT_L00] = Property(LUT_D1, 4); // PINY1
     // lower->params[id_INIT_L01] = Property(LUT_ZERO, 4);                            // (unused)
     lower->params[id_INIT_L10] = Property(LUT_D0, 4);                              // L02
@@ -286,7 +282,6 @@ MultfabCell::MultfabCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, CellI
     if (enable_cinx)
         upper->params[id_C_I2] = Property(1, 1); // CINX for L01
     lower->params[id_C_I3] = Property(1, 1);     // PINY1 for L02
-    // upper->params[id_C_FUNCTION] = Property(C_ADDCIN, 3);
 
     cplines->params[id_C_SELX] = Property(1, 1);  // inverted CINY2 -> CX_VAL
     cplines->params[id_C_SEL_C] = Property(1, 1); // inverted CINY2 -> CX_VAL; COMP_OUT -> CY1_VAL
@@ -296,16 +291,12 @@ MultfabCell::MultfabCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, CellI
     cplines->params[id_C_PY1_I] = Property(1, 1); // PY1_VAL -> POUTY1
     cplines->params[id_C_SEL_P] = Property(0, 1); // OUT1 -> PY1_VAL
     cplines->params[id_C_SELY1] = Property(0, 1); // COMP_OUT -> CY1_VAL; OUT1 -> PY1_VAL
-
-    // upper->params[id_C_O1] = Property(0b11, 2); // COMB1OUT -> OUT1
 }
 
 FRoutingCell::FRoutingCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, CellInfo *cplines, IdString name,
                            bool is_even_x)
         : lower{lower}, upper{upper}, comp{comp}, cplines{cplines}
 {
-    // TODO: simplify AND with zero/OR with zero into something more sensical.
-
     lower->params[id_INIT_L00] = Property(LUT_ZERO, 4); // (unused)
     lower->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
     lower->params[id_INIT_L10] = Property(LUT_ZERO, 4);
@@ -319,7 +310,6 @@ FRoutingCell::FRoutingCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, Cel
     // upper->params[id_INIT_L01] = Property(LUT_ONE, 4); // (unused)
     upper->params[id_INIT_L10] = Property(LUT_D0, 4);
     upper->params[id_C_I1] = Property(1, 1); // PINY1 for L00
-    // upper->params[id_C_FUNCTION] = Property(C_ADDCIN, 3);
 
     cplines->params[id_C_SELX] = Property(1, 1);
     cplines->params[id_C_SEL_C] = Property(1, 1);
@@ -329,9 +319,6 @@ FRoutingCell::FRoutingCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, Cel
     cplines->params[id_C_CY2_I] = Property(1, 1);
     cplines->params[id_C_PY1_I] = Property(1, 1);
     cplines->params[id_C_PY2_I] = Property(1, 1);
-
-    // upper->params[id_C_O1] = Property(0b11, 2); // COMB1OUT -> OUT1
-    // upper->params[id_C_O2] = Property(0b11, 2); // COMB2OUT -> OUT2
 }
 
 MultCell::MultCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_msb) : lower{lower}, upper{upper}
@@ -339,7 +326,6 @@ MultCell::MultCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_msb)
     lower->params[id_INIT_L02] = Property(LUT_AND, 4);
     lower->params[id_INIT_L03] = Property(LUT_D1, 4); // PINX
     lower->params[id_INIT_L11] = Property(LUT_XOR, 4);
-    // lower->params[id_INIT_L20] = Property(LUT_D1, 4); // L11
     lower->params[id_C_FUNCTION] = Property(C_MULT, 3);
 
     upper->params[id_INIT_L00] = Property(LUT_AND, 4);
@@ -360,7 +346,7 @@ MultCell::MultCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_msb)
         lower->params[id_C_C_P] = Property(0, 1);
     }
 
-    // Must force this one, even if outputs are not used to preserve logic
+    // Must force these, even if outputs are not used, to preserve logic
     lower->params[id_C_O1] = Property(0b10, 2); // CP_OUT1 -> OUT1
     lower->params[id_C_O2] = Property(0b10, 2); // CP_OUT2 -> OUT2
 }
@@ -368,11 +354,6 @@ MultCell::MultCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_msb)
 MsbRoutingCell::MsbRoutingCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, CellInfo *cplines, IdString name)
         : lower{lower}, upper{upper}, comp{comp}, cplines{cplines}
 {
-    // lower->params[id_INIT_L02] = Property(LUT_ZERO, 4); // (unused)
-    // lower->params[id_INIT_L03] = Property(LUT_ZERO, 4); // (unused)
-    // lower->params[id_INIT_L11] = Property(LUT_ZERO, 4); // (unused)
-    // lower->params[id_INIT_L20] = Property(LUT_ZERO, 4); // (unused)
-
     comp->params[id_INIT_L30] = Property(LUT_ONE, 4); // zero -> COMP_OUT (L30 is inverted)
 
     upper->params[id_INIT_L00] = Property(LUT_D1, 4);   // PINY1
@@ -388,8 +369,6 @@ MsbRoutingCell::MsbRoutingCell(CellInfo *lower, CellInfo *upper, CellInfo *comp,
     cplines->params[id_C_PX_I] = Property(1, 1);  // PX_VAL -> POUTX
     cplines->params[id_C_PY1_I] = Property(1, 1); // PY1_VAL -> POUTY1
     cplines->params[id_C_PY2_I] = Property(1, 1); // PY2_VAL -> POUTY2
-
-    // upper->params[id_C_O2] = Property(0b11, 2); // COMB2 -> OUT2
 }
 
 void GateMatePacker::pack_mult()
