@@ -72,7 +72,9 @@ struct GateMateImpl : HimbaechelAPI
     dict<std::pair<IdString, int>, Loc> locations;
     int dies;
     int preferred_die;
-    std::vector<CellInfo *> multipliers;
+    pool<IdString> multiplier_a_passthru_lowers;
+    pool<IdString> multiplier_a_passthru_uppers;
+    pool<IdString> multiplier_zero_drivers;
 
   private:
     bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
@@ -84,6 +86,7 @@ struct GateMateImpl : HimbaechelAPI
 
     void assign_cell_info();
     void route_clock();
+    void route_mult();
     void repack();
 
     const GateMateBelExtraDataPOD *bel_extra_data(BelId bel) const;

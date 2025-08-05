@@ -186,6 +186,7 @@ void GateMateImpl::postPlace() { repack(); }
 void GateMateImpl::preRoute()
 {
     ctx->assignArchInfo();
+    route_mult();
     route_clock();
 }
 

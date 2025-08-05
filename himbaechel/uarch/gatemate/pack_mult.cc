@@ -240,8 +240,8 @@ CarryGenCell::CarryGenCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, Cel
 {
     lower->params[id_INIT_L00] = Property(LUT_D1, 4);   // PINY1
     lower->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (overriden by CIN)
-    lower->params[id_INIT_L10] = Property(is_odd_x ? LUT_OR : LUT_ZERO, 4);
-    lower->params[id_INIT_L20] = Property(is_odd_x ? LUT_OR : LUT_ZERO, 4);
+    lower->params[id_INIT_L10] = Property(is_odd_x ? LUT_OR : !enable_cinx ? LUT_ZERO : LUT_AND, 4);
+    lower->params[id_INIT_L20] = Property(is_odd_x ? LUT_OR : !enable_cinx ? LUT_ZERO : LUT_AND, 4);
     lower->params[id_C_FUNCTION] = Property(C_EN_CIN, 3);
     lower->params[id_C_I3] = Property(1, 1);    // PINY1 for L02
     lower->params[id_C_HORIZ] = Property(0, 1); // CINY1 for CIN_ for L03
@@ -259,16 +259,12 @@ CarryGenCell::CarryGenCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, Cel
     cplines->params[id_C_CY2_I] = Property(1, 1); // CY2_VAL -> COUTY2
     cplines->params[id_C_SEL_C] = Property(1, 1); // COMP_OUT -> CY2_VAL
     cplines->params[id_C_SELY2] = Property(0, 1); // COMP_OUT -> CY2_VAL
-
-    // upper->params[id_C_O1] = Property(0b11, 2); // COMB1OUT -> OUT1
 }
 
 MultfabCell::MultfabCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, CellInfo *cplines, IdString name,
                          bool is_even_x, bool enable_cinx)
         : lower{lower}, upper{upper}, comp{comp}, cplines{cplines}
 {
-    // TODO: perhaps C_I[1234] could be pips?
-
     lower->params[id_INIT_L00] = Property(LUT_D1, 4); // PINY1
     // lower->params[id_INIT_L01] = Property(LUT_ZERO, 4);                            // (unused)
     lower->params[id_INIT_L10] = Property(LUT_D0, 4);                              // L02
@@ -286,7 +282,6 @@ MultfabCell::MultfabCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, CellI
     if (enable_cinx)
         upper->params[id_C_I2] = Property(1, 1); // CINX for L01
     lower->params[id_C_I3] = Property(1, 1);     // PINY1 for L02
-    // upper->params[id_C_FUNCTION] = Property(C_ADDCIN, 3);
 
     cplines->params[id_C_SELX] = Property(1, 1);  // inverted CINY2 -> CX_VAL
     cplines->params[id_C_SEL_C] = Property(1, 1); // inverted CINY2 -> CX_VAL; COMP_OUT -> CY1_VAL
@@ -296,16 +291,12 @@ MultfabCell::MultfabCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, CellI
     cplines->params[id_C_PY1_I] = Property(1, 1); // PY1_VAL -> POUTY1
     cplines->params[id_C_SEL_P] = Property(0, 1); // OUT1 -> PY1_VAL
     cplines->params[id_C_SELY1] = Property(0, 1); // COMP_OUT -> CY1_VAL; OUT1 -> PY1_VAL
-
-    // upper->params[id_C_O1] = Property(0b11, 2); // COMB1OUT -> OUT1
 }
 
 FRoutingCell::FRoutingCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, CellInfo *cplines, IdString name,
                            bool is_even_x)
         : lower{lower}, upper{upper}, comp{comp}, cplines{cplines}
 {
-    // TODO: simplify AND with zero/OR with zero into something more sensical.
-
     lower->params[id_INIT_L00] = Property(LUT_ZERO, 4); // (unused)
     lower->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
     lower->params[id_INIT_L10] = Property(LUT_ZERO, 4);
@@ -319,7 +310,6 @@ FRoutingCell::FRoutingCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, Cel
     // upper->params[id_INIT_L01] = Property(LUT_ONE, 4); // (unused)
     upper->params[id_INIT_L10] = Property(LUT_D0, 4);
     upper->params[id_C_I1] = Property(1, 1); // PINY1 for L00
-    // upper->params[id_C_FUNCTION] = Property(C_ADDCIN, 3);
 
     cplines->params[id_C_SELX] = Property(1, 1);
     cplines->params[id_C_SEL_C] = Property(1, 1);
@@ -329,9 +319,6 @@ FRoutingCell::FRoutingCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, Cel
     cplines->params[id_C_CY2_I] = Property(1, 1);
     cplines->params[id_C_PY1_I] = Property(1, 1);
     cplines->params[id_C_PY2_I] = Property(1, 1);
-
-    // upper->params[id_C_O1] = Property(0b11, 2); // COMB1OUT -> OUT1
-    // upper->params[id_C_O2] = Property(0b11, 2); // COMB2OUT -> OUT2
 }
 
 MultCell::MultCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_msb) : lower{lower}, upper{upper}
@@ -339,7 +326,6 @@ MultCell::MultCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_msb)
     lower->params[id_INIT_L02] = Property(LUT_AND, 4);
     lower->params[id_INIT_L03] = Property(LUT_D1, 4); // PINX
     lower->params[id_INIT_L11] = Property(LUT_XOR, 4);
-    // lower->params[id_INIT_L20] = Property(LUT_D1, 4); // L11
     lower->params[id_C_FUNCTION] = Property(C_MULT, 3);
 
     upper->params[id_INIT_L00] = Property(LUT_AND, 4);
@@ -360,18 +346,14 @@ MultCell::MultCell(CellInfo *lower, CellInfo *upper, IdString name, bool is_msb)
         lower->params[id_C_C_P] = Property(0, 1);
     }
 
-    // upper->params[id_C_O1] = Property(0b10, 2); // CP_OUT1 -> OUT1
-    // upper->params[id_C_O2] = Property(0b10, 2); // CP_OUT2 -> OUT2
+    // Must force these, even if outputs are not used, to preserve logic
+    lower->params[id_C_O1] = Property(0b10, 2); // CP_OUT1 -> OUT1
+    lower->params[id_C_O2] = Property(0b10, 2); // CP_OUT2 -> OUT2
 }
 
 MsbRoutingCell::MsbRoutingCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, CellInfo *cplines, IdString name)
         : lower{lower}, upper{upper}, comp{comp}, cplines{cplines}
 {
-    // lower->params[id_INIT_L02] = Property(LUT_ZERO, 4); // (unused)
-    // lower->params[id_INIT_L03] = Property(LUT_ZERO, 4); // (unused)
-    // lower->params[id_INIT_L11] = Property(LUT_ZERO, 4); // (unused)
-    // lower->params[id_INIT_L20] = Property(LUT_ZERO, 4); // (unused)
-
     comp->params[id_INIT_L30] = Property(LUT_ONE, 4); // zero -> COMP_OUT (L30 is inverted)
 
     upper->params[id_INIT_L00] = Property(LUT_D1, 4);   // PINY1
@@ -387,8 +369,6 @@ MsbRoutingCell::MsbRoutingCell(CellInfo *lower, CellInfo *upper, CellInfo *comp,
     cplines->params[id_C_PX_I] = Property(1, 1);  // PX_VAL -> POUTX
     cplines->params[id_C_PY1_I] = Property(1, 1); // PY1_VAL -> POUTY1
     cplines->params[id_C_PY2_I] = Property(1, 1); // PY2_VAL -> POUTY2
-
-    // upper->params[id_C_O2] = Property(0b11, 2); // COMB2 -> OUT2
 }
 
 void GateMatePacker::pack_mult()
@@ -399,6 +379,9 @@ void GateMatePacker::pack_mult()
     auto create_zero_driver = [&](IdString name) {
         auto *zero_lower = create_cell_ptr(id_CPE_DUMMY, ctx->idf("%s$zero_lower", name.c_str(ctx)));
         auto *zero_upper = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$zero", name.c_str(ctx)));
+
+        uarch->multiplier_zero_drivers.insert(zero_upper->name);
+
         return ZeroDriver{zero_lower, zero_upper, name};
     };
 
@@ -412,11 +395,13 @@ void GateMatePacker::pack_mult()
         a_passthru_comp->connectPort(id_COMPOUT, comp_conn);
         a_passthru_lines->connectPort(id_COMPOUT, comp_conn);
 
+        uarch->multiplier_a_passthru_lowers.insert(a_passthru_lower->name);
+        uarch->multiplier_a_passthru_uppers.insert(a_passthru_upper->name);
+
         return APassThroughCell{a_passthru_lower, a_passthru_upper, a_passthru_comp, a_passthru_lines, name};
     };
 
-    auto create_mult_col = [&](IdString name, int a_width, bool is_even_x, bool carry_enable_cinx,
-                               bool multfab_enable_cinx) {
+    auto create_mult_col = [&](IdString name, int a_width, bool is_even_x, bool enable_cinx) {
         // Ideally this would be the MultiplierColumn constructor, but we need create_cell_ptr here.
         auto col = MultiplierColumn{};
 
@@ -443,6 +428,12 @@ void GateMatePacker::pack_mult()
             auto *carry_comp = create_cell_ptr(id_CPE_COMP, ctx->idf("%s$carry_comp", name.c_str(ctx)));
             auto *carry_lines = create_cell_ptr(id_CPE_CPLINES, ctx->idf("%s$carry_lines", name.c_str(ctx)));
 
+            NetInfo *comb2_conn = ctx->createNet(ctx->idf("%s$carrycomb2", name.c_str(ctx)));
+            carry_upper->connectPort(id_OUT, comb2_conn);
+            carry_lower->ports[id_COMBIN].name = id_COMBIN;
+            carry_lower->ports[id_COMBIN].type = PORT_IN;
+            carry_lower->connectPort(id_COMBIN, comb2_conn);
+
             NetInfo *comp_in = ctx->createNet(ctx->idf("%s$carry$comp_in", name.c_str(ctx)));
             carry_lower->connectPort(id_OUT, comp_in);
             carry_comp->connectPort(id_COMB1, comp_in);
@@ -451,8 +442,7 @@ void GateMatePacker::pack_mult()
             carry_comp->connectPort(id_COMPOUT, comp_out);
             carry_lines->connectPort(id_COMPOUT, comp_out);
 
-            col.carry = CarryGenCell{carry_lower, carry_upper, carry_comp,       carry_lines,
-                                     name,        !is_even_x,  carry_enable_cinx};
+            col.carry = CarryGenCell{carry_lower, carry_upper, carry_comp, carry_lines, name, !is_even_x, enable_cinx};
         }
 
         {
@@ -471,14 +461,17 @@ void GateMatePacker::pack_mult()
 
             NetInfo *comb2_conn = ctx->createNet(ctx->idf("%s$multf%c$comb2", name.c_str(ctx), is_even_x ? 'a' : 'b'));
             multfab_upper->connectPort(id_OUT, comb2_conn);
+            multfab_lower->ports[id_COMBIN].name = id_COMBIN;
+            multfab_lower->ports[id_COMBIN].type = PORT_IN;
+            multfab_lower->connectPort(id_COMBIN, comb2_conn);
             multfab_comp->connectPort(id_COMB2, comb2_conn);
 
             NetInfo *comp_out = ctx->createNet(ctx->idf("%s$multf%c$comp_out", name.c_str(ctx), is_even_x ? 'a' : 'b'));
             multfab_comp->connectPort(id_COMPOUT, comp_out);
             multfab_lines->connectPort(id_COMPOUT, comp_out);
 
-            col.multfab = MultfabCell{multfab_lower, multfab_upper, multfab_comp,       multfab_lines,
-                                      name,          is_even_x,     multfab_enable_cinx};
+            col.multfab = MultfabCell{multfab_lower, multfab_upper, multfab_comp, multfab_lines,
+                                      name,          is_even_x,     enable_cinx};
         }
 
         {
@@ -494,9 +487,8 @@ void GateMatePacker::pack_mult()
             NetInfo *comb2_conn = ctx->createNet(ctx->idf("%s$f_route$comb2", name.c_str(ctx)));
             f_route_upper->connectPort(id_OUT, comb2_conn);
             f_route_lines->connectPort(id_OUT2, comb2_conn);
-            if (!is_even_x) {
+            if (!is_even_x)
                 f_route_comp->connectPort(id_COMB2, comb2_conn);
-            }
 
             NetInfo *comp_out = ctx->createNet(ctx->idf("%s$f_route$comp_out", name.c_str(ctx)));
             f_route_comp->connectPort(id_COMPOUT, comp_out);
@@ -508,9 +500,9 @@ void GateMatePacker::pack_mult()
         for (int i = 0; i < (a_width / 2); i++) {
             auto *mult_lower = create_cell_ptr(id_CPE_LT_L, ctx->idf("%s$row%d$mult_lower", name.c_str(ctx), i));
             auto *mult_upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$row%d$mult_upper", name.c_str(ctx), i));
+            mult_lower->params[id_MULT_INVERT] = Property(is_even_x ? Property::State::S0 : Property::State::S1);
 
             col.mults.push_back(MultCell{mult_lower, mult_upper, name, i == ((a_width / 2) - 1)});
-            uarch->multipliers.push_back(mult_lower);
         }
 
         {
@@ -522,6 +514,10 @@ void GateMatePacker::pack_mult()
             NetInfo *comp_conn = ctx->createNet(ctx->idf("%s$msb_route$compout", name.c_str(ctx)));
             msb_route_comp->connectPort(id_COMPOUT, comp_conn);
             msb_route_lines->connectPort(id_COMPOUT, comp_conn);
+
+            NetInfo *out_conn = ctx->createNet(ctx->idf("%s$msb_route$out", name.c_str(ctx)));
+            msb_route_upper->connectPort(id_OUT, out_conn);
+            msb_route_lines->connectPort(id_OUT2, out_conn);
 
             col.msb_route = MsbRoutingCell{msb_route_lower, msb_route_upper, msb_route_comp, msb_route_lines, name};
         }
@@ -543,15 +539,20 @@ void GateMatePacker::pack_mult()
         auto a_width = int_or_default(mult->params, id_A_WIDTH);
         auto b_width = int_or_default(mult->params, id_B_WIDTH);
         auto p_width = int_or_default(mult->params, id_P_WIDTH);
+        mult->renamePort(id_A, ctx->id("A[0]"));
+        mult->renamePort(id_B, ctx->id("B[0]"));
+        mult->renamePort(id_P, ctx->id("P[0]"));
 
+        int a_size = (((a_width + 1) / 2) + 1) * 2;
+        int b_size = (((b_width + 1) / 2) + 1) * 2;
         // Sign-extend odd A_WIDTH to even, because we're working with 2x2 multiplier cells.
-        while (a_width < p_width || a_width % 2 == 1) {
+        while (a_width < a_size) {
             mult->copyPortTo(ctx->idf("A[%d]", a_width - 1), mult, ctx->idf("A[%d]", a_width));
             a_width += 1;
         }
 
         // Sign-extend odd B_WIDTH to even, because we're working with 2x2 multiplier cells.
-        while (b_width < p_width || b_width % 2 == 1) {
+        while (b_width < b_size) {
             mult->copyPortTo(ctx->idf("B[%d]", b_width - 1), mult, ctx->idf("B[%d]", b_width));
             b_width += 1;
         }
@@ -566,8 +567,8 @@ void GateMatePacker::pack_mult()
         for (int a = 0; a < a_width / 2; a++)
             m.a_passthrus.push_back(create_a_passthru(ctx->idf("%s$col0$row%d", mult->name.c_str(ctx), a)));
         for (int b = 0; b < b_width / 2; b++)
-            m.cols.push_back(create_mult_col(ctx->idf("%s$col%d", mult->name.c_str(ctx), b + 1), a_width, b % 2 == 0,
-                                             b == 2 /* ??? */, b > 0 /* ??? */));
+            m.cols.push_back(
+                    create_mult_col(ctx->idf("%s$col%d", mult->name.c_str(ctx), b + 1), a_width, b % 2 == 0, b > 0));
 
         // Step 2: constrain them together.
         // We define (0, 0) to be the B passthrough cell of column 1.
@@ -700,8 +701,8 @@ void GateMatePacker::pack_mult()
             auto &b_passthru = m.cols.at(b).b_passthru;
 
             // Connect B input passthrough cell.
-            mult->movePortTo(ctx->idf("B[%d]", 2 * b), b_passthru.upper, id_IN1);
-            mult->movePortTo(ctx->idf("B[%d]", 2 * b + 1), b_passthru.lower, id_IN1);
+            mult->movePortTo(ctx->idf("B[%d]", 2 * b), b_passthru.lower, id_IN1);
+            mult->movePortTo(ctx->idf("B[%d]", 2 * b + 1), b_passthru.upper, id_IN1);
         }
 
         // Intermediate multiplier connections.
