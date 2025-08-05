@@ -1,8 +1,3 @@
-# nextpnr-gowin only
-
-find_program (GOWIN_BBA_EXECUTABLE gowin_bba)
-message(STATUS "gowin_bba executable: ${GOWIN_BBA_EXECUTABLE}")
-
 # nextpnr-himbaechel-gowin only
 
 if (DEFINED ENV{APYCULA_INSTALL_PREFIX})
