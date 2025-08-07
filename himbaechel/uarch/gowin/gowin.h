@@ -196,6 +196,7 @@ NPNR_PACKED_STRUCT(struct Extra_chip_data_POD {
     static constexpr int32_t HAS_BANDGAP = 16;
     static constexpr int32_t HAS_PLL_HCLK = 32;
     static constexpr int32_t HAS_CLKDIV_HCLK = 64;
+    static constexpr int32_t HAS_PINCFG = 128;
 });
 
 } // namespace
@@ -242,6 +243,8 @@ enum
     MIPIIBUF_Z = 302,
 
     DLLDLY_Z = 303, // : 305 reserve for 2 DLLDLYs
+
+    PINCFG_Z = 400,
 
     // The two least significant bits encode Z for 9-bit adders and
     // multipliers, if they are equal to 0, then we get Z of their common

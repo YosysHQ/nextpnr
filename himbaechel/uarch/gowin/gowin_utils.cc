@@ -330,6 +330,12 @@ bool GowinUtils::has_BANDGAP(void)
     return extra->chip_flags & Extra_chip_data_POD::HAS_BANDGAP;
 }
 
+bool GowinUtils::has_PINCFG(void)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->chip_flags & Extra_chip_data_POD::HAS_PINCFG;
+}
+
 bool GowinUtils::has_SP32(void)
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
