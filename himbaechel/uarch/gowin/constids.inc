@@ -1011,6 +1011,11 @@ X(GSRI)
 X(BANDGAP)
 X(BGEN)
 
+// pin function config
+X(PINCFG)
+X(SSPI)
+X(I2C)
+
 // inverter
 X(INV)
 

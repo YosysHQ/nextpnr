@@ -22,6 +22,7 @@ CHIP_NEED_BLKSEL_FIX       = 0x8
 CHIP_HAS_BANDGAP           = 0x10
 CHIP_HAS_PLL_HCLK          = 0x20
 CHIP_HAS_CLKDIV_HCLK       = 0x40
+CHIP_HAS_PINCFG            = 0x80
 
 # Tile flags
 TILE_I3C_CAPABLE_IO        = 0x1
@@ -66,6 +67,8 @@ MIPIOBUF_Z  = 301
 MIPIIBUF_Z  = 302
 
 DLLDLY_Z    = 303 # : 305 reserve for 2 DLLDLYs
+
+PINCFG_Z    = 400 #
 
 DSP_Z          = 509
 
@@ -755,6 +758,13 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                     if not tt.has_wire(wire):
                         tt.create_wire(wire, "EMCU_OUT")
                     tt.add_bel_pin(bel, port, wire, PinType.OUTPUT)
+        elif func == 'pincfg':
+                bel = tt.create_bel("PINCFG", "PINCFG", PINCFG_Z)
+                portmap = desc['ins']
+                for port, wire in portmap.items():
+                    if not tt.has_wire(wire):
+                        tt.create_wire(wire, "PINCFG_IN")
+                    tt.add_bel_pin(bel, port, wire, PinType.INPUT)
 
 def create_tiletype(create_func, chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
     has_extra_func = (y, x) in db.extra_func
@@ -1566,6 +1576,8 @@ def main():
             chip_flags |= CHIP_HAS_PLL_HCLK;
         if "HAS_CLKDIV_HCLK" in db.chip_flags:
             chip_flags |= CHIP_HAS_CLKDIV_HCLK;
+        if "HAS_PINCFG" in db.chip_flags:
+            chip_flags |= CHIP_HAS_PINCFG;
 
     X = db.cols;
     Y = db.rows;

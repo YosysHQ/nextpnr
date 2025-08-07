@@ -96,6 +96,9 @@ struct GowinUtils
     // Power saving
     bool has_BANDGAP(void);
 
+    // Pin function configuration via wires
+    bool has_PINCFG(void);
+
     // DSP
     inline int get_dsp_18_z(int z) const { return z & (~3); }
     inline int get_dsp_9_idx(int z) const { return z & 3; }

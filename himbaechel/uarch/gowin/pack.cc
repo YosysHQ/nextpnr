@@ -3682,6 +3682,44 @@ struct GowinPacker
     }
 
     // ===================================
+    // Pin function configuration via wires
+    // ===================================
+    void pack_pincfg(void)
+    {
+        if (!gwu.has_PINCFG()) {
+            return;
+        }
+        log_info("Pack PINCFG...\n");
+
+        auto pincfg_cell = std::make_unique<CellInfo>(ctx, id_PINCFG, id_PINCFG);
+
+        for (int i = 0; i < 5; ++i) {
+            IdString port = ctx->idf("UNK%d_VCC", i);
+            pincfg_cell->addInput(port);
+            pincfg_cell->connectPort(port, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
+        }
+
+        const ArchArgs &args = ctx->getArchArgs();
+
+        pincfg_cell->addInput(id_SSPI);
+        if (args.options.count("sspi_as_gpio")) {
+            pincfg_cell->connectPort(id_SSPI, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
+            pincfg_cell->setParam(id_SSPI, 1);
+        } else {
+            pincfg_cell->connectPort(id_SSPI, ctx->nets.at(ctx->id("$PACKER_GND")).get());
+        }
+
+        pincfg_cell->addInput(id_I2C);
+        if (args.options.count("i2c_as_gpio")) {
+            pincfg_cell->connectPort(id_I2C, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
+            pincfg_cell->setParam(id_I2C, 1);
+        } else {
+            pincfg_cell->connectPort(id_I2C, ctx->nets.at(ctx->id("$PACKER_GND")).get());
+        }
+        ctx->cells[pincfg_cell->name] = std::move(pincfg_cell);
+    }
+
+    // ===================================
     // Global power regulator
     // ===================================
     void pack_bandgap(void)
@@ -4243,6 +4281,9 @@ struct GowinPacker
         ctx->check();
 
         pack_gsr();
+        ctx->check();
+
+        pack_pincfg();
         ctx->check();
 
         pack_hclk();
