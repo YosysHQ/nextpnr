@@ -479,7 +479,7 @@ void GateMatePacker::pack_pll()
 
             if (perf_md != uarch->fpga_mode)
                 log_warning("PLL '%s' mode is '%s' but FPGA mode is '%s'.\n", ci.name.c_str(ctx),
-                    fpga_mode_to_str(perf_md), fpga_mode_to_str(uarch->fpga_mode));
+                            fpga_mode_to_str(perf_md), fpga_mode_to_str(uarch->fpga_mode));
 
             double ref_clk = double_or_default(ci.params, id_REF_CLK, 0.0);
             if (ref_clk <= 0 || ref_clk > 125)
