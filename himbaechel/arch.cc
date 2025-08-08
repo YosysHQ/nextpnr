@@ -420,7 +420,8 @@ bool Arch::lookup_cell_delay(int type_idx, IdString from_port, IdString to_port,
             db_binary_search(tp.comb_arcs, [](const CellPinCombArcPOD &arc) { return arc.input; }, from_port.index);
     if (arc_idx == -1)
         return false;
-    delay = DelayQuad(tp.comb_arcs[arc_idx].delay.fast_min, tp.comb_arcs[arc_idx].delay.slow_max);
+    delay = DelayQuad(tp.comb_arcs[arc_idx].delay.fast_min, tp.comb_arcs[arc_idx].delay.fast_max,
+                      tp.comb_arcs[arc_idx].delay.slow_min, tp.comb_arcs[arc_idx].delay.slow_max);
     return true;
 }
 
@@ -486,7 +487,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
     result.edge = ClockEdge(arc.edge);
     result.setup = DelayPair(arc.setup.fast_min, arc.setup.slow_max);
     result.hold = DelayPair(arc.hold.fast_min, arc.hold.slow_max);
-    result.clockToQ = DelayQuad(arc.clk_q.fast_min, arc.clk_q.slow_max);
+    result.clockToQ = DelayQuad(arc.clk_q.fast_min, arc.clk_q.fast_max, arc.clk_q.slow_min, arc.clk_q.slow_max);
 
     return result;
 }
