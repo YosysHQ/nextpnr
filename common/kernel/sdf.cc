@@ -40,6 +40,12 @@ struct PortAndEdge
     ClockEdge edge;
 };
 
+struct Port
+{
+    std::string name;
+    RiseFallDelay delay;
+};
+
 struct IOPath
 {
     std::string from, to;
@@ -61,6 +67,7 @@ struct TimingCheck
 struct Cell
 {
     std::string celltype, instance;
+    std::vector<Port> ports;
     std::vector<IOPath> iopaths;
     std::vector<TimingCheck> checks;
 };
@@ -159,7 +166,7 @@ struct SDFWriter
         out << "  (DIVIDER " << (cvc_mode ? "." : "/") << ")" << std::endl;
         out << "  (TIMESCALE 1ps)" << std::endl;
         // Write interconnect delays, with the main design begin a "cell"
-        out << "  (CELL" << std::endl;
+        /*out << "  (CELL" << std::endl;
         out << "    (CELLTYPE " << format_name(design) << ")" << std::endl;
         out << "    (INSTANCE )" << std::endl;
         out << "    (DELAY" << std::endl;
@@ -175,16 +182,21 @@ struct SDFWriter
         }
         out << "      )" << std::endl;
         out << "    )" << std::endl;
-        out << "  )" << std::endl;
+        out << "  )" << std::endl;*/
         // Write cells
         for (auto &cell : cells) {
             out << "  (CELL" << std::endl;
             out << "    (CELLTYPE " << format_name(cell.celltype) << ")" << std::endl;
             out << "    (INSTANCE " << escape_name(cell.instance) << ")" << std::endl;
             // IOPATHs (combinational delay and clock-to-q)
-            if (!cell.iopaths.empty()) {
+            if (!cell.iopaths.empty() && !cell.ports.empty()) {
                 out << "    (DELAY" << std::endl;
                 out << "      (ABSOLUTE" << std::endl;
+                for (auto &port : cell.ports) {
+                    out << "        (PORT " << escape_name(port.name) << " ";
+                    write_delay(out, port.delay);
+                    out << ")" << std::endl;
+                }
                 for (auto &path : cell.iopaths) {
                     out << "        (IOPATH " << escape_name(path.from) << " " << escape_name(path.to) << " ";
                     write_delay(out, path.delay);
@@ -260,12 +272,20 @@ void Context::writeSDF(std::ostream &out, bool cvc_mode) const
         sc.instance = ci->name.str(this);
         sc.celltype = ci->type.str(this);
         for (auto port : ci->ports) {
+            if (port.second.net == nullptr)
+                continue; // Ignore disconnected ports
+            if (port.second.type == PORT_IN) {
+                const NetInfo *ni = ci->getPort(port.first);
+                Port iop;
+                iop.name = port.first.str(this);
+                const PortRef pr = {(CellInfo*)ci, port.first};
+                iop.delay = convert_delay(getNetinfoRouteDelayQuad(ni, pr));
+                sc.ports.push_back(iop);
+            }
             int clockCount = 0;
             TimingPortClass cls = getPortTimingClass(ci, port.first, clockCount);
             if (cls == TMG_IGNORE)
                 continue;
-            if (port.second.net == nullptr)
-                continue; // Ignore disconnected ports
             if (port.second.type != PORT_IN) {
                 // Add combinational paths to this output (or inout)
                 for (auto other : ci->ports) {
