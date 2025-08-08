@@ -200,6 +200,11 @@ void GateMateImpl::postRoute()
     }
 }
 
+void GateMateImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
+{
+    cfg.placeAllAtOnce = true;
+}
+
 int GateMateImpl::get_dff_config(CellInfo *dff) const
 {
     int val = 0;

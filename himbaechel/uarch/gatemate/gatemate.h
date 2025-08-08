@@ -58,6 +58,8 @@ struct GateMateImpl : HimbaechelAPI
 
     Loc getRelativeConstraint(Loc &root_loc, IdString id) const;
 
+    void configurePlacerHeap(PlacerHeapCfg &cfg) override;
+
     bool isPipInverting(PipId pip) const override;
 
     const GateMateTileExtraDataPOD *tile_extra_data(int tile) const;
