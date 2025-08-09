@@ -9,11 +9,15 @@
 # set(CMAKE_CXX_FLAGS ${CXX_FLAGS_HASH_EMBED} ${CMAKE_CXX_FLAGS})
 #
 function(check_cxx_compiler_hash_embed VAR FLAGS_VAR)
+    # Create a binary file with at least one byte that will check for #embed treating things as signed chars
+    execute_process(
+          COMMAND python3 -c "with open('${CMAKE_CURRENT_BINARY_DIR}/unsigned_bin', 'wb') as f: f.write(b'\\xA5\\x27\\x00')")
+
     try_compile(
         ${VAR}
         SOURCE_FROM_CONTENT
             compiletest.cc
-            "const char s[] = {\n#embed \"${CMAKE_CURRENT_FUNCTION_LIST_FILE}\"\n};\nint main() {}"
+            "const unsigned char s[] = {\n#embed \"${CMAKE_CURRENT_BINARY_DIR}/unsigned_bin\"\n};\nint main() {}"
     )
     if (${VAR})
         if (FLAGS_VAR)
