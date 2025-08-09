@@ -29,6 +29,7 @@
 #include "router2.h"
 
 #include <algorithm>
+#include <atomic>
 #include <boost/container/flat_map.hpp>
 #include <chrono>
 #include <deque>
@@ -285,6 +286,9 @@ struct Router2
         // Used to add existing routing to the heap
         pool<WireId> in_wire_by_loc;
         dict<std::pair<int, int>, pool<WireId>> wire_by_loc;
+
+        std::unique_ptr<ThreadContext> lhs;
+        std::unique_ptr<ThreadContext> rhs;
     };
 
     bool thread_test_wire(ThreadContext &t, PerWireData &w)
@@ -297,6 +301,119 @@ struct Router2
         ARC_SUCCESS,
         ARC_RETRY_WITHOUT_BB,
         ARC_FATAL,
+    };
+
+    struct Partition
+    {
+        std::vector<int> queue;
+        std::unique_ptr<Partition> lhs;
+        std::unique_ptr<Partition> rhs;
+        BoundingBox bb;
+        uint64_t rngseed;
+
+        Partition(Context *ctx, std::vector<int> nets_to_partition, const std::vector<NetInfo*>& nets_by_udata, const std::vector<PerNetData> &nets, BoundingBox bb, int depth = 0) : bb{bb} {
+            rngseed = ctx->rng64();
+            // Too small to partition?
+            if (nets_to_partition.size() <= 128) {
+                queue = std::move(nets_to_partition);
+                return;
+            }
+            auto along_x = false;
+            auto p = find_partition(ctx, nets_to_partition, nets_by_udata, nets, bb, along_x);
+            // No partition point found?
+            if (p.x == -1 || p.y == -1) {
+                queue = std::move(nets_to_partition);
+                return;
+            }
+            auto crosses_p = [&](BoundingBox bb) {
+                return along_x ? ((p.x >= bb.x0) && (p.x <= bb.x1)) : ((p.y >= bb.y0) && (p.y <= bb.y1));
+            };
+            auto left_of_p = [&](BoundingBox bb) {
+                return along_x ? ((p.x >= 0) && (p.x <= bb.x0)) : ((p.y >= 0) && (p.y <= bb.y0));
+            };
+            auto lhs_queue = std::vector<int>{};
+            auto rhs_queue = std::vector<int>{};
+            for (auto net : nets_to_partition) {
+                auto net_bb = nets[net].bb;
+                if (crosses_p(net_bb))
+                    queue.push_back(net);
+                else if (left_of_p(net_bb))
+                    lhs_queue.push_back(net);
+                else
+                    rhs_queue.push_back(net);
+            }
+            if (along_x) {
+                lhs = std::make_unique<Partition>(ctx, std::move(lhs_queue), nets_by_udata, nets, BoundingBox{p.x + 1, bb.y0, bb.x1, bb.y1}, depth + 1);
+                rhs = std::make_unique<Partition>(ctx, std::move(rhs_queue), nets_by_udata, nets, BoundingBox{bb.x0, bb.y0, p.x, bb.y1}, depth + 1);
+            } else {
+                lhs = std::make_unique<Partition>(ctx, std::move(lhs_queue), nets_by_udata, nets, BoundingBox{bb.x0, p.y + 1, bb.x1, bb.y1}, depth + 1);
+                rhs = std::make_unique<Partition>(ctx, std::move(rhs_queue), nets_by_udata, nets, BoundingBox{bb.x0, bb.y0, bb.x1, p.y}, depth + 1);
+            }
+        };
+
+        Loc find_partition(Context *ctx, std::vector<int> nets_to_partition, const std::vector<NetInfo*>& nets_by_udata, const std::vector<PerNetData> &nets, BoundingBox bb, bool &along_x) {
+            auto total_before_x = std::vector<int>(ctx->getGridDimX() + 1, 0);
+            auto total_after_x = std::vector<int>(ctx->getGridDimX() + 1, 0);
+            auto total_on_x = std::vector<int>(ctx->getGridDimX() + 1, 0);
+            auto total_before_y = std::vector<int>(ctx->getGridDimY() + 1, 0);
+            auto total_after_y = std::vector<int>(ctx->getGridDimY() + 1, 0);
+            auto total_on_y = std::vector<int>(ctx->getGridDimY() + 1, 0);
+            for (auto net : nets_to_partition) {
+                if (nets[net].src_wire == WireId())
+                    continue;
+                auto net_bb = nets[net].bb;
+                auto fanout = nets[net].arcs.size();
+                for (int x = net_bb.x1; x <= bb.x1; x++)
+                    total_before_x.at(x) += fanout;
+                for (int x = bb.x0; x < net_bb.x0; x++)
+                    total_after_x.at(x) += fanout;
+                for (int x = net_bb.x0; x < net_bb.x1; x++)
+                    total_on_x.at(x) += fanout;
+                for (int y = net_bb.y1; y <= bb.y1; y++)
+                    total_before_y.at(y) += fanout;
+                for (int y = bb.y0; y < net_bb.y0; y++)
+                    total_after_y.at(y) += fanout;
+                for (int y = net_bb.y0; y < net_bb.y1; y++)
+                    total_on_y.at(y) += fanout;
+            }
+            auto p = Loc(-1, -1, 0);
+            auto best = std::numeric_limits<int>::max();
+            for (int x = bb.x0; x <= bb.x1; x++) {
+                if (total_before_x.at(x) == 0 || total_after_x.at(x) == 0)
+                    continue;
+                auto score = total_on_x.at(x) + std::max(total_before_x.at(x), total_after_x.at(x));
+                if (score < best) {
+                    best = score;
+                    p.x = x;
+                    p.y = bb.y0;
+                    along_x = true;
+                }
+            }
+            for (int y = bb.y0; y <= bb.y1; y++) {
+                if (total_before_y.at(y) == 0 || total_after_y.at(y) == 0)
+                    continue;
+                auto score = total_on_y.at(y) + std::max(total_before_y.at(y), total_after_y.at(y));
+                if (score < best) {
+                    best = score;
+                    p.x = bb.x0;
+                    p.y = y;
+                    along_x = false;
+                }
+            }
+            return p;
+        }
+
+        std::unique_ptr<ThreadContext> setup_threads(const std::vector<NetInfo*>& nets_by_udata) {
+            auto tc = std::make_unique<ThreadContext>();
+            tc->bb = bb;
+            tc->rng.rngseed(rngseed);
+            for (auto net : queue)
+                tc->route_nets.push_back(nets_by_udata[net]);
+            queue.clear();
+            if (lhs) tc->lhs = lhs->setup_threads(nets_by_udata);
+            if (rhs) tc->rhs = rhs->setup_threads(nets_by_udata);
+            return tc;
+        }
     };
 
 // Define to make sure we don't print in a multithreaded context
@@ -1206,57 +1323,56 @@ struct Router2
         }
     }
 
-    int mid_x = 0, mid_y = 0;
+    std::atomic_int thread_count;
 
-    void partition_nets()
+    void router_singlethread(ThreadContext &t)
     {
-        // Create a histogram of positions in X and Y positions
-        std::map<int, int> cxs, cys;
-        for (auto &n : nets) {
-            if (n.cx != -1)
-                ++cxs[n.cx];
-            if (n.cy != -1)
-                ++cys[n.cy];
+        if (t.lhs)
+            router_singlethread(*t.lhs.get());
+        if (t.rhs)
+            router_singlethread(*t.rhs.get());
+
+        if (t.lhs)
+            for (auto n : t.lhs->failed_nets)
+                t.route_nets.push_back(n);
+        if (t.rhs)
+            for (auto n : t.rhs->failed_nets)
+                t.route_nets.push_back(n);
+
+        for (auto n : t.route_nets) {
+            bool result = route_net(t, n, /*is_mt=*/true);
+            if (!result)
+                t.failed_nets.push_back(n);
         }
-        // 4-way split for now
-        int accum_x = 0, accum_y = 0;
-        int halfway = int(nets.size()) / 2;
-        for (auto &p : cxs) {
-            if (accum_x < halfway && (accum_x + p.second) >= halfway)
-                mid_x = p.first;
-            accum_x += p.second;
-        }
-        for (auto &p : cys) {
-            if (accum_y < halfway && (accum_y + p.second) >= halfway)
-                mid_y = p.first;
-            accum_y += p.second;
-        }
-        if (ctx->verbose) {
-            log_info("    x splitpoint: %d\n", mid_x);
-            log_info("    y splitpoint: %d\n", mid_y);
-        }
-        std::vector<int> bins(5, 0);
-        for (auto &n : nets) {
-            if (n.bb.x0 < mid_x && n.bb.x1 < mid_x && n.bb.y0 < mid_y && n.bb.y1 < mid_y)
-                ++bins[0]; // TL
-            else if (n.bb.x0 >= mid_x && n.bb.x1 >= mid_x && n.bb.y0 < mid_y && n.bb.y1 < mid_y)
-                ++bins[1]; // TR
-            else if (n.bb.x0 < mid_x && n.bb.x1 < mid_x && n.bb.y0 >= mid_y && n.bb.y1 >= mid_y)
-                ++bins[2]; // BL
-            else if (n.bb.x0 >= mid_x && n.bb.x1 >= mid_x && n.bb.y0 >= mid_y && n.bb.y1 >= mid_y)
-                ++bins[3]; // BR
-            else
-                ++bins[4]; // cross-boundary
-        }
-        if (ctx->verbose)
-            for (int i = 0; i < 5; i++)
-                log_info("        bin %d N=%d\n", i, bins[i]);
     }
 
-    void router_thread(ThreadContext &t, bool is_mt)
+    void router_multithread(ThreadContext &t)
     {
+        if (t.lhs && t.rhs) {
+            if (thread_count < cfg.thread_limit) {
+                thread_count++;
+                boost::thread rhs([this, &t]() { router_multithread(*t.rhs.get()); });
+                router_multithread(*t.lhs.get());
+                rhs.join();
+                thread_count--;
+            } else {
+                router_multithread(*t.lhs.get());
+                router_multithread(*t.rhs.get());
+            }
+        } else if (t.lhs)
+            router_multithread(*t.lhs.get());
+        else if (t.rhs)
+            router_multithread(*t.rhs.get());
+
+        if (t.lhs)
+            for (auto n : t.lhs->failed_nets)
+                t.route_nets.push_back(n);
+        if (t.rhs)
+            for (auto n : t.rhs->failed_nets)
+                t.route_nets.push_back(n);
+
         for (auto n : t.route_nets) {
-            bool result = route_net(t, n, is_mt);
+            bool result = route_net(t, n, /*is_mt=*/true);
             if (!result)
                 t.failed_nets.push_back(n);
         }
@@ -1264,113 +1380,20 @@ struct Router2
 
     void do_route()
     {
-        // Don't multithread if fewer than 200 nets (heuristic)
-        if (route_queue.size() < 200) {
-            ThreadContext st;
-            st.rng.rngseed(ctx->rng64());
-            st.bb = BoundingBox(0, 0, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
-            for (size_t j = 0; j < route_queue.size(); j++) {
-                route_net(st, nets_by_udata[route_queue[j]], false);
-            }
-            return;
-        }
-        const int Nq = 4, Nv = 2, Nh = 2;
-        const int N = Nq + Nv + Nh;
-        std::vector<ThreadContext> tcs(N + 1);
-        for (auto &th : tcs) {
-            th.rng.rngseed(ctx->rng64());
-        }
-        int le_x = mid_x;
-        int rs_x = mid_x;
-        int le_y = mid_y;
-        int rs_y = mid_y;
-        // Set up thread bounding boxes
-        tcs.at(0).bb = BoundingBox(0, 0, mid_x, mid_y);
-        tcs.at(1).bb = BoundingBox(mid_x + 1, 0, std::numeric_limits<int>::max(), le_y);
-        tcs.at(2).bb = BoundingBox(0, mid_y + 1, mid_x, std::numeric_limits<int>::max());
-        tcs.at(3).bb =
-                BoundingBox(mid_x + 1, mid_y + 1, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
+        auto partition = Partition{ctx, route_queue, nets_by_udata, nets, BoundingBox(0, 0, ctx->getGridDimX(), ctx->getGridDimY())};
 
-        tcs.at(4).bb = BoundingBox(0, 0, std::numeric_limits<int>::max(), mid_y);
-        tcs.at(5).bb = BoundingBox(0, mid_y + 1, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
-
-        tcs.at(6).bb = BoundingBox(0, 0, mid_x, std::numeric_limits<int>::max());
-        tcs.at(7).bb = BoundingBox(mid_x + 1, 0, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
-
-        tcs.at(8).bb = BoundingBox(0, 0, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
-
-        for (auto n : route_queue) {
-            auto &nd = nets.at(n);
-            auto ni = nets_by_udata.at(n);
-            int bin = N;
-            // Quadrants
-            if (nd.bb.x0 < le_x && nd.bb.x1 < le_x && nd.bb.y0 < le_y && nd.bb.y1 < le_y)
-                bin = 0;
-            else if (nd.bb.x0 >= rs_x && nd.bb.x1 >= rs_x && nd.bb.y0 < le_y && nd.bb.y1 < le_y)
-                bin = 1;
-            else if (nd.bb.x0 < le_x && nd.bb.x1 < le_x && nd.bb.y0 >= rs_y && nd.bb.y1 >= rs_y)
-                bin = 2;
-            else if (nd.bb.x0 >= rs_x && nd.bb.x1 >= rs_x && nd.bb.y0 >= rs_y && nd.bb.y1 >= rs_y)
-                bin = 3;
-            // Vertical split
-            else if (nd.bb.y0 < le_y && nd.bb.y1 < le_y)
-                bin = Nq + 0;
-            else if (nd.bb.y0 >= rs_y && nd.bb.y1 >= rs_y)
-                bin = Nq + 1;
-            // Horizontal split
-            else if (nd.bb.x0 < le_x && nd.bb.x1 < le_x)
-                bin = Nq + Nv + 0;
-            else if (nd.bb.x0 >= rs_x && nd.bb.x1 >= rs_x)
-                bin = Nq + Nv + 1;
-            tcs.at(bin).route_nets.push_back(ni);
-        }
-        if (ctx->verbose)
-            log_info("%d/%d nets not multi-threadable\n", int(tcs.at(N).route_nets.size()), int(route_queue.size()));
+        auto tc = partition.setup_threads(nets_by_udata);
+        thread_count = 1;
 #ifdef NPNR_DISABLE_THREADS
-        // Singlethreaded routing - quadrants
-        for (int i = 0; i < Nq; i++) {
-            router_thread(tcs.at(i), /*is_mt=*/false);
-        }
-        // Vertical splits
-        for (int i = Nq; i < Nq + Nv; i++) {
-            router_thread(tcs.at(i), /*is_mt=*/false);
-        }
-        // Horizontal splits
-        for (int i = Nq + Nv; i < Nq + Nv + Nh; i++) {
-            router_thread(tcs.at(i), /*is_mt=*/false);
-        }
+        router_singlethread(*tc.get());
 #else
-        // Multithreaded part of routing - quadrants
-        std::vector<boost::thread> threads;
-        for (int i = 0; i < Nq; i++) {
-            threads.emplace_back([this, &tcs, i]() { router_thread(tcs.at(i), /*is_mt=*/true); });
-        }
-        for (auto &t : threads)
-            t.join();
-        threads.clear();
-        // Vertical splits
-        for (int i = Nq; i < Nq + Nv; i++) {
-            threads.emplace_back([this, &tcs, i]() { router_thread(tcs.at(i), /*is_mt=*/true); });
-        }
-        for (auto &t : threads)
-            t.join();
-        threads.clear();
-        // Horizontal splits
-        for (int i = Nq + Nv; i < Nq + Nv + Nh; i++) {
-            threads.emplace_back([this, &tcs, i]() { router_thread(tcs.at(i), /*is_mt=*/true); });
-        }
-        for (auto &t : threads)
-            t.join();
-        threads.clear();
+        router_multithread(*tc.get());
 #endif
-        // Singlethreaded part of routing - nets that cross partitions
-        // or don't fit within bounding box
-        for (auto st_net : tcs.at(N).route_nets)
-            route_net(tcs.at(N), st_net, false);
-        // Failed nets
-        for (int i = 0; i < N; i++)
-            for (auto fail : tcs.at(i).failed_nets)
-                route_net(tcs.at(N), fail, false);
+        auto st = ThreadContext{};
+        st.bb = BoundingBox(0, 0, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
+
+        for (auto fail : tc->failed_nets)
+            route_net(st, fail, false);
     }
 
     delay_t get_route_delay(int net, store_index<PortRef> usr_idx, int phys_idx)
@@ -1423,7 +1446,6 @@ struct Router2
         setup_nets();
         setup_wires();
         find_all_reserved_wires();
-        partition_nets();
         curr_cong_weight = cfg.init_curr_cong_weight;
         hist_cong_weight = cfg.hist_cong_weight;
         ThreadContext st;
@@ -1579,6 +1601,7 @@ Router2Cfg::Router2Cfg(Context *ctx)
         heatmap = ctx->settings.at(ctx->id("router2/heatmap")).as_string();
     else
         heatmap = "";
+    thread_limit = ctx->setting<int>("threads", 4);
 }
 
 NEXTPNR_NAMESPACE_END
