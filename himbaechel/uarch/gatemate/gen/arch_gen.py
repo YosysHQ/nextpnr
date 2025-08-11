@@ -133,6 +133,33 @@ class PadExtraData(BBAStruct):
         bba.u16(self.z)
         bba.u16(0)
 
+@dataclass
+class TimingExtraData(BBAStruct):
+    name: IdString
+    delay: TimingValue = field(default_factory=TimingValue)
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.u32(self.name.index)
+        self.delay.serialise(context, bba)
+
+@dataclass
+class SpeedGradeExtraData(BBAStruct):
+    timings: list[TimingExtraData] = field(default_factory = list)
+
+    def add_timing(self, name: IdString, delay: TimingValue):
+        item = TimingExtraData(name,delay)
+        self.timings.append(item)
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        bba.label(f"{context}_timings")
+        for i, t in enumerate(self.timings):
+            t.serialise(f"{context}_timing{i}", bba)
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.slice(f"{context}_timings", len(self.timings))
+
 def convert_timing(tim):
     #print(tim.rise.min, tim.rise.max, tim.fall.min, tim.fall.max)
     #return TimingValue(tim.rise.min, tim.rise.max)
@@ -146,6 +173,9 @@ def set_timings(ch):
     for speed in speed_grades:
         print(f"Loading timings for {speed}...")
         timing = dict(sorted(chip.get_timings(speed).items()))
+        tmg.get_speed_grade(speed).extra_data = SpeedGradeExtraData()
+        for name, val in timing.items():
+            tmg.get_speed_grade(speed).extra_data.add_timing(name=ch.strs.id(name), delay=convert_timing(val))
         #for k in node_tmg_names:
         #    assert k in timing, f"node class {k} not found in timing data"
         #    tmg.set_node_class(grade=speed, name=k, delay=convert_timing(timing[k]))
