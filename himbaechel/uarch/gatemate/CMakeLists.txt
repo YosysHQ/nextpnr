@@ -5,6 +5,7 @@ set(SOURCES
     config.cc
     config.h
     constids.inc
+    delay.cc
     extra_data.h
     gatemate.cc
     gatemate.h

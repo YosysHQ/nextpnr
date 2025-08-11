@@ -117,15 +117,6 @@ void GateMateImpl::init(Context *ctx)
     }
 }
 
-delay_t GateMateImpl::estimateDelay(WireId src, WireId dst) const
-{
-    int sx, sy, dx, dy;
-    tile_xy(ctx->chip_info, src.tile, sx, sy);
-    tile_xy(ctx->chip_info, dst.tile, dx, dy);
-
-    return 100 + 100 * (std::abs(dx - sx) + std::abs(dy - sy));
-}
-
 bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
 {
     CellInfo *cell = ctx->getBoundBelCell(bel);
