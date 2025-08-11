@@ -665,6 +665,7 @@ class SpeedGrade(BBAStruct):
     pip_classes: list[Optional[PipTiming]] = field(default_factory=list)
     node_classes: list[Optional[NodeTiming]] = field(default_factory=list)
     cell_types: list[CellTiming] = field(default_factory=list) # sorted by (cell_type, variant) ID tuple
+    extra_data: object = None
 
     def finalise(self):
         self.cell_types.sort(key=lambda ty: ty.type_variant)
@@ -683,11 +684,19 @@ class SpeedGrade(BBAStruct):
         bba.label(f"{context}_cell_types")
         for i, t in enumerate(self.cell_types):
             t.serialise(f"{context}_cellty{i}", bba)
+        if self.extra_data is not None:
+            self.extra_data.serialise_lists(f"{context}_extra_data", bba)
+            bba.label(f"{context}_extra_data")
+            self.extra_data.serialise(f"{context}_extra_data", bba)
     def serialise(self, context: str, bba: BBAWriter):
         bba.u32(self.name.index) # speed grade idstring
         bba.slice(f"{context}_pip_classes", len(self.pip_classes))
         bba.slice(f"{context}_node_classes", len(self.node_classes))
         bba.slice(f"{context}_cell_types", len(self.cell_types))
+        if self.extra_data is not None:
+            bba.ref(f"{context}_extra_data")
+        else:
+            bba.u32(0)
 
 class TimingPool(BBAStruct):
     def __init__(self, strs: StringPool):
@@ -754,6 +763,9 @@ class TimingPool(BBAStruct):
         cell = CellTiming(self.strs, name)
         self.speed_grades[self.speed_grade_idx[speed_grade]].cell_types.append(cell)
         return cell
+
+    def get_speed_grade(self, grade: str):
+        return self.speed_grades[self.speed_grade_idx[grade]]
 
     def finalise(self):
         for sg in self.speed_grades:

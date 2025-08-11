@@ -214,6 +214,8 @@ NPNR_PACKED_STRUCT(struct SpeedGradePOD {
     RelSlice<PipTimingPOD> pip_classes;
     RelSlice<NodeTimingPOD> node_classes;
     RelSlice<CellTimingPOD> cell_types;
+
+    RelPtr<uint8_t> extra_data;
 });
 
 NPNR_PACKED_STRUCT(struct ConstIDDataPOD {
