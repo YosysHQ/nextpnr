@@ -864,13 +864,25 @@ struct Arch : BaseArch<ArchRanges>
     // Attempt to look up port type based on timing database
     TimingPortClass lookup_port_tmg_type(int type_idx, IdString port, PortType dir) const;
 
+    bool get_cell_delay_default(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const;
+    TimingPortClass get_port_timing_class_default(const CellInfo *cell, IdString port, int &clockInfoCount) const;
+    TimingClockingInfo get_port_clocking_info_default(const CellInfo *cell, IdString port, int index) const;
     // -------------------------------------------------
 
-    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const override;
+    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const override
+    {
+        return uarch->getCellDelay(cell, fromPort, toPort, delay);
+    };
     // Get the port class, also setting clockInfoCount to the number of TimingClockingInfos associated with a port
-    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const override;
+    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const override
+    {
+        return uarch->getPortTimingClass(cell, port, clockInfoCount);
+    };
     // Get the TimingClockingInfo of a port
-    TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const override;
+    TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const override
+    {
+        return uarch->getPortClockingInfo(cell, port, index);
+    };
 
     // -------------------------------------------------
     void init_tiles();

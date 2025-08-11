@@ -118,6 +118,11 @@ struct HimbaechelAPI
 
     virtual void drawGroup(std::vector<GraphicElement> &g, GroupId group, Loc loc) {};
 
+    // Cell delay
+    virtual bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const;
+    virtual TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const;
+    virtual TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const;
+
     // Routing methods
     virtual void expandBoundingBox(BoundingBox &bb) const;
     // --- Flow hooks ---
