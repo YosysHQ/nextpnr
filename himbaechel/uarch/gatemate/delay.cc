@@ -35,17 +35,105 @@ delay_t GateMateImpl::estimateDelay(WireId src, WireId dst) const
 
 bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const
 {
-    return ctx->get_cell_delay_default(cell, fromPort, toPort, delay);
+    // return ctx->get_cell_delay_default(cell, fromPort, toPort, delay);
+    if (cell->type == id_CPE_L2T4) {
+        delay = DelayQuad{0};
+        return true;
+    } else if (cell->type.in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U)) {
+        return false;
+    } else if (cell->type.in(id_CPE_RAMI, id_CPE_RAMO, id_CPE_RAMIO, id_CPE_RAMIO_U, id_CPE_RAMIO_L)) {
+        delay = DelayQuad{0};
+        return true;
+    } else if (cell->type.in(id_CPE_IBUF, id_CPE_OBUF, id_CPE_TOBUF, id_CPE_IOBUF)) {
+        delay = DelayQuad{0};
+        return true;
+    }
+    delay = DelayQuad{0};
+    return true;
 }
 
 TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
 {
-    return ctx->get_port_timing_class_default(cell, port, clockInfoCount);
+    auto disconnected = [cell](IdString p) { return !cell->ports.count(p) || cell->ports.at(p).net == nullptr; };
+    clockInfoCount = 0;
+    if (cell->type == id_CPE_L2T4) {
+        if (port.in(id_IN1, id_IN2, id_IN3, id_IN4, id_COMBIN, id_CINY1, id_CINY2, id_CINX, id_PINX))
+            return TMG_COMB_INPUT;
+        if (port == id_OUT && disconnected(id_IN1) && disconnected(id_IN2) && disconnected(id_IN3) &&
+            disconnected(id_IN4))
+            return TMG_IGNORE; // LUT with no inputs is a constant
+        if (port.in(id_OUT))
+            return TMG_COMB_OUTPUT;
+        return TMG_IGNORE;
+    } else if (cell->type.in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U)) {
+        if (port == id_CLK)
+            return TMG_CLOCK_INPUT;
+        clockInfoCount = 1;
+        if (port == id_DOUT)
+            return TMG_REGISTER_OUTPUT;
+        // DIN, EN and SR
+        return TMG_REGISTER_INPUT;
+    } else if (cell->type.in(id_CPE_RAMI, id_CPE_RAMO, id_CPE_RAMIO, id_CPE_RAMIO_U, id_CPE_RAMIO_L)) {
+        if (port.in(id_I, id_RAM_I))
+            return TMG_COMB_INPUT;
+        if (port.in(id_O, id_RAM_O))
+            return TMG_COMB_OUTPUT;
+        return TMG_IGNORE;
+    } else if (cell->type.in(id_CPE_IBUF, id_CPE_OBUF, id_CPE_TOBUF, id_CPE_IOBUF)) {
+        if (port.in(id_O))
+            return TMG_ENDPOINT;
+        if (port.in(id_IN1, id_IN2))
+            return TMG_STARTPOINT;
+        return TMG_IGNORE;
+    } else if (cell->type.in(id_PLL)) {
+        if (port.in(id_CLK_REF, id_USR_CLK_REF))
+            return TMG_CLOCK_INPUT;
+        if (port.in(id_CLK0, id_CLK90, id_CLK180, id_CLK270))
+            return TMG_GEN_CLOCK;
+        return TMG_IGNORE;
+    } else if (cell->type.in(id_CLKIN)) {
+        if (port.in(id_CLK0, id_CLK1, id_CLK2, id_CLK3, id_SER_CLK))
+            return TMG_CLOCK_INPUT;
+        if (port.in(id_CLK_REF0, id_CLK_REF1, id_CLK_REF2, id_CLK_REF3))
+            return TMG_GEN_CLOCK;
+        return TMG_IGNORE;
+    } else if (cell->type.in(id_GLBOUT)) {
+        if (port.in(id_CLK0_0, id_CLK90_0, id_CLK180_0, id_CLK270_0, id_CLK_REF_OUT0, id_CLK0_1, id_CLK90_1,
+                    id_CLK180_1, id_CLK270_1, id_CLK_REF_OUT1, id_CLK0_2, id_CLK90_2, id_CLK180_2, id_CLK270_2,
+                    id_CLK_REF_OUT2, id_CLK0_3, id_CLK90_3, id_CLK180_3, id_CLK270_3, id_CLK_REF_OUT3, id_USR_GLB0,
+                    id_USR_GLB1, id_USR_GLB2, id_USR_GLB3))
+            return TMG_CLOCK_INPUT;
+        if (port.in(id_GLB0, id_GLB1, id_GLB2, id_GLB3))
+            return TMG_GEN_CLOCK;
+        return TMG_IGNORE;
+    } else if (cell->type.in(id_USR_RSTN)) {
+        return TMG_IGNORE;
+    } else if (cell->type.in(id_CFG_CTRL)) {
+        if (port.in(id_CLK))
+            return TMG_CLOCK_INPUT;
+        return TMG_IGNORE;
+    } else {
+        log_warning("cell type '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(ctx),
+                    cell->name.c_str(ctx));
+    }
+    return TMG_IGNORE;
 }
 
 TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
 {
-    return ctx->get_port_clocking_info_default(cell, port, index);
+    TimingClockingInfo info;
+    info.setup = DelayPair(0);
+    info.hold = DelayPair(0);
+    info.clockToQ = DelayQuad(0);
+    if (cell->type.in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U)) {
+        bool inverted = int_or_default(cell->params, id_C_CPE_CLK, 0) == 0b01;
+        info.edge = inverted ? FALLING_EDGE : RISING_EDGE;
+        info.clock_port = id_CLK;
+        info.setup = DelayPair(100, 100);
+        info.hold = DelayPair(100, 100);
+    }
+
+    return info;
 }
 
 NEXTPNR_NAMESPACE_END
