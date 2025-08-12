@@ -115,6 +115,10 @@ void GateMateImpl::init(Context *ctx)
                               ctx->getBelLocation(bel));
         }
     }
+    const auto &sp = reinterpret_cast<const GateMateSpeedGradeExtraDataPOD *>(ctx->speed_grade->extra_data.get());
+    for (int i = 0; i < sp->timings.ssize(); i++) {
+        timing.emplace(IdString(sp->timings[i].name), &sp->timings[i]);
+    }
 }
 
 bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
