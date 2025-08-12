@@ -278,7 +278,7 @@ void Context::writeSDF(std::ostream &out, bool cvc_mode) const
                 const NetInfo *ni = ci->getPort(port.first);
                 Port iop;
                 iop.name = port.first.str(this);
-                const PortRef pr = {(CellInfo*)ci, port.first};
+                const PortRef pr = {(CellInfo *)ci, port.first};
                 iop.delay = convert_delay(getNetinfoRouteDelayQuad(ni, pr));
                 sc.ports.push_back(iop);
             }
