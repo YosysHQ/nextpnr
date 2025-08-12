@@ -62,6 +62,13 @@ NPNR_PACKED_STRUCT(struct GateMatePadExtraDataPOD {
     uint16_t dummy;
 });
 
+NPNR_PACKED_STRUCT(struct GateMateTimingExtraDataPOD {
+    int32_t name;
+    TimingValue delay;
+});
+
+NPNR_PACKED_STRUCT(struct GateMateSpeedGradeExtraDataPOD { RelSlice<GateMateTimingExtraDataPOD> timings; });
+
 enum MuxFlags
 {
     MUX_INVERT = 1,

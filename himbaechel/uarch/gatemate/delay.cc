@@ -33,22 +33,46 @@ delay_t GateMateImpl::estimateDelay(WireId src, WireId dst) const
     return 100 + 100 * (std::abs(dx - sx) + std::abs(dy - sy));
 }
 
+bool GateMateImpl::get_delay_from_tmg_db(IdString id, DelayQuad &delay) const
+{
+    auto fnd = timing.find(id);
+    if (fnd != timing.end()) {
+        delay = DelayQuad(fnd->second->delay.fast_min, fnd->second->delay.fast_max, fnd->second->delay.slow_min,
+                          fnd->second->delay.slow_max);
+        return true;
+    }
+    return false;
+}
+
+void GateMateImpl::get_setuphold_from_tmg_db(IdString id_setup, IdString id_hold, DelayPair &setup,
+                                             DelayPair &hold) const
+{
+    auto fnd = timing.find(id_setup);
+    if (fnd != timing.end()) {
+        setup.min_delay = fnd->second->delay.fast_min;
+        setup.max_delay = fnd->second->delay.fast_max;
+    }
+    fnd = timing.find(id_hold);
+    if (fnd != timing.end()) {
+        hold.min_delay = fnd->second->delay.fast_min;
+        hold.max_delay = fnd->second->delay.fast_max;
+    }
+}
+
 bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const
 {
-    // return ctx->get_cell_delay_default(cell, fromPort, toPort, delay);
+    delay = DelayQuad{0};
     if (cell->type == id_CPE_L2T4) {
-        delay = DelayQuad{0};
         return true;
     } else if (cell->type.in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U)) {
         return false;
     } else if (cell->type.in(id_CPE_RAMI, id_CPE_RAMO, id_CPE_RAMIO, id_CPE_RAMIO_U, id_CPE_RAMIO_L)) {
-        delay = DelayQuad{0};
         return true;
     } else if (cell->type.in(id_CPE_IBUF, id_CPE_OBUF, id_CPE_TOBUF, id_CPE_IOBUF)) {
-        delay = DelayQuad{0};
+        if (toPort == id_O && fromPort == id_OUT1)
+            get_delay_from_tmg_db(id_timing_del_OBF, delay);
         return true;
     }
-    delay = DelayQuad{0};
     return true;
 }
 
@@ -129,8 +153,8 @@ TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdStr
         bool inverted = int_or_default(cell->params, id_C_CPE_CLK, 0) == 0b01;
         info.edge = inverted ? FALLING_EDGE : RISING_EDGE;
         info.clock_port = id_CLK;
-        info.setup = DelayPair(100, 100);
-        info.hold = DelayPair(100, 100);
+        if (port == id_DIN)
+            get_setuphold_from_tmg_db(id_timing_del_Setup_D_L, id_timing_del_Hold_D_L, info.setup, info.hold);
     }
 
     return info;
