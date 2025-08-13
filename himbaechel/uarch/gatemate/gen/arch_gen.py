@@ -176,6 +176,8 @@ def set_timings(ch):
         timing = dict(sorted(chip.get_timings(speed).items()))
         tmg.get_speed_grade(speed).extra_data = SpeedGradeExtraData()
         for name, val in timing.items():
+            if name.startswith(("sb_del_t", "im_x", "om_x", "sb_rim_xy", "edge_xy")):
+                continue
             name = "timing_" + re.sub(r"[-= >]", "_", name)
             tmg.get_speed_grade(speed).extra_data.add_timing(name=ch.strs.id(name), delay=convert_timing(val))
         #for k in node_tmg_names:
