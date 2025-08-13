@@ -89,7 +89,17 @@ TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString 
         if (port.in(id_OUT))
             return TMG_COMB_OUTPUT;
         return TMG_IGNORE;
-    } else if (cell->type.in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U)) {
+    } else if (cell->type.in(id_CPE_ADDF, id_CPE_ADDF2)) {
+        if (port.in(id_IN1, id_IN2, id_IN3, id_IN4, id_IN5, id_IN6, id_IN7, id_IN8, id_CINX, id_CINY1))
+            return TMG_COMB_INPUT;
+        if (port.in(id_OUT1, id_OUT2, id_COUTY1))
+            return TMG_COMB_OUTPUT;
+        return TMG_IGNORE;
+    } else if (cell->type.in(id_CPE_CPLINES)) {
+        if (port.in(id_OUT1, id_OUT2, id_COMPOUT, id_CINX, id_PINX, id_CINY1, id_PINY1, id_CINY2, id_PINY2))
+            return TMG_COMB_INPUT;
+        return TMG_COMB_OUTPUT;
+    } else if (cell->type.in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U, id_CPE_LATCH)) {
         if (port == id_CLK)
             return TMG_CLOCK_INPUT;
         clockInfoCount = 1;
