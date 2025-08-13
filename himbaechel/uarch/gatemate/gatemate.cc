@@ -223,19 +223,21 @@ bool GateMateImpl::getClusterPlacement(ClusterId cluster, BelId root_bel,
 
 void GateMateImpl::prePlace() { assign_cell_info(); }
 
-void GateMateImpl::postPlace() { repack(); }
+void GateMateImpl::postPlace()
+{
+    repack();
+    ctx->assignArchInfo();
+}
 
 void GateMateImpl::preRoute()
 {
-    ctx->assignArchInfo();
     route_mult();
     route_clock();
+    ctx->assignArchInfo();
 }
 
 void GateMateImpl::postRoute()
 {
-    ctx->assignArchInfo();
-
     const ArchArgs &args = ctx->args;
     if (args.options.count("out")) {
         write_bitstream(args.device, args.options.at("out"));
