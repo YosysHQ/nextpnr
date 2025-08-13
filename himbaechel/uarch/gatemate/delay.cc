@@ -72,8 +72,13 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
         if (toPort == id_O && fromPort == id_OUT1)
             get_delay_from_tmg_db(id_timing_del_OBF, delay);
         return true;
+    } else if (cell->type.in(id_CLKIN)) {
+        get_delay_from_tmg_db(ctx->idf("timing_clkin_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
+    } else if (cell->type.in(id_GLBOUT)) {
+        get_delay_from_tmg_db(ctx->idf("timing_glbout_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
     }
     return true;
+    //return ctx->get_cell_delay_default(cell, fromPort, toPort, delay);
 }
 
 TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
