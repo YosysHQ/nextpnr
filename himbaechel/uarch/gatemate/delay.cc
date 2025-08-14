@@ -84,6 +84,8 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
         if (fromPort.in(id_I_P, id_I_N) && toPort == id_Y)
             get_delay_from_tmg_db(id_timing_del_LVDS_IBF, delay);
         return true;
+    } else if (cell->type.in(id_IOSEL)) {
+        get_delay_from_tmg_db(ctx->idf("timing_io_sel_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
     } else if (cell->type.in(id_CLKIN)) {
         get_delay_from_tmg_db(ctx->idf("timing_clkin_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
     } else if (cell->type.in(id_GLBOUT)) {
