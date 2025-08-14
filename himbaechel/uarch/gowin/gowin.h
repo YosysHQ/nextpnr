@@ -197,6 +197,7 @@ NPNR_PACKED_STRUCT(struct Extra_chip_data_POD {
     static constexpr int32_t HAS_PLL_HCLK = 32;
     static constexpr int32_t HAS_CLKDIV_HCLK = 64;
     static constexpr int32_t HAS_PINCFG = 128;
+    static constexpr int32_t HAS_DFF67 = 256;
 });
 
 } // namespace

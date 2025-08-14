@@ -23,6 +23,7 @@ CHIP_HAS_BANDGAP           = 0x10
 CHIP_HAS_PLL_HCLK          = 0x20
 CHIP_HAS_CLKDIV_HCLK       = 0x40
 CHIP_HAS_PINCFG            = 0x80
+CHIP_HAS_DFF67             = 0x100
 
 # Tile flags
 TILE_I3C_CAPABLE_IO        = 0x1
@@ -964,7 +965,7 @@ def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tde
         for j, inp_name in enumerate(lut_inputs):
             tt.add_bel_pin(lut, f"I{j}", f"{inp_name}{i}", PinType.INPUT)
         tt.add_bel_pin(lut, "F", f"F{i}", PinType.OUTPUT)
-        if i < 6 or chip.name == "GW5A-25A":
+        if i < 6 or "HAS_DFF67" in db.chip_flags:
             tt.create_pip(f"F{i}", f"XD{i}", get_tm_class(db, f"F{i}"))
             # also experimental input for FF using SEL wire - this theory will
             # allow to place unrelated LUT and FF next to each other
@@ -1587,6 +1588,8 @@ def main():
             chip_flags |= CHIP_HAS_CLKDIV_HCLK;
         if "HAS_PINCFG" in db.chip_flags:
             chip_flags |= CHIP_HAS_PINCFG;
+        if "HAS_DFF67" in db.chip_flags:
+            chip_flags |= CHIP_HAS_DFF67;
 
     X = db.cols;
     Y = db.rows;

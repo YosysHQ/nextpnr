@@ -99,6 +99,9 @@ struct GowinUtils
     // Pin function configuration via wires
     bool has_PINCFG(void);
 
+    // Logic cell structure
+    bool has_DFF67(void) const;
+
     // DSP
     inline int get_dsp_18_z(int z) const { return z & (~3); }
     inline int get_dsp_9_idx(int z) const { return z & 3; }

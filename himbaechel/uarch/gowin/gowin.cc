@@ -1060,7 +1060,7 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
             }
         }
         // Check whether the current architecture allows 6 and 7 DFFs
-        if (z > 3 && ctx->getBelByLocation(Loc(x, y, 6 * 2 + 1)) != BelId()) {
+        if (z > 3 && gwu.has_DFF67()) {
             // The 4th, 5th, 6th, and 7th DFFs have the same control wires. Let's check this.
             const int adj_top_ff_z = (5 - (z >> 1)) * 4 + 1;
             for (int i = 0; i < 4; i += 2) {
