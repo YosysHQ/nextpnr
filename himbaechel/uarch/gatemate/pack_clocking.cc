@@ -130,13 +130,15 @@ void GateMatePacker::pack_bufg()
         int die = uarch->preferred_die;
         if (in_net) {
             if (in_net->driver.cell) {
-                if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_GPIO) {
+                if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_IOSEL) {
                     auto pad_info = uarch->bel_to_pad[in_net->driver.cell->bel];
                     if (pad_info->flags) {
                         int index = pad_info->flags - 1;
                         die = uarch->tile_extra_data(in_net->driver.cell->bel.tile)->die;
-                        if (!clkin[die]->getPort(ctx->idf("CLK%d", index)))
-                            clkin[die]->connectPort(ctx->idf("CLK%d", index), in_net->driver.cell->getPort(id_I));
+                        if (!clkin[die]->getPort(ctx->idf("CLK%d", index))) {
+                            CellInfo *gpio = in_net->driver.cell->getPort(id_GPIO_IN)->driver.cell;
+                            clkin[die]->connectPort(ctx->idf("CLK%d", index), gpio->getPort(id_I));
+                        }
                     }
                 }
             } else {
@@ -167,7 +169,7 @@ void GateMatePacker::pack_bufg()
             int die = uarch->preferred_die;
             if (in_net->driver.cell) {
                 bool user_glb = true;
-                if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_GPIO) {
+                if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_IOSEL) {
                     auto pad_info = uarch->bel_to_pad[in_net->driver.cell->bel];
                     if (pad_info->flags) {
                         die = uarch->tile_extra_data(in_net->driver.cell->bel.tile)->die;
@@ -355,7 +357,7 @@ void GateMatePacker::pack_pll()
             if (ctx->getBelBucketForCellType(clk->driver.cell->type) == id_CC_BUFG) {
                 clk = clk->driver.cell->getPort(id_I);
             }
-            if (ctx->getBelBucketForCellType(clk->driver.cell->type) == id_GPIO) {
+            if (ctx->getBelBucketForCellType(clk->driver.cell->type) == id_IOSEL) {
                 auto pad_info = uarch->bel_to_pad[clk->driver.cell->bel];
                 if (pad_info->flags != 0) {
                     die = uarch->tile_extra_data(clk->driver.cell->bel.tile)->die;
@@ -390,7 +392,7 @@ void GateMatePacker::pack_pll()
                     ci.connectPort(id_CLK_REF, in);
                     clk = in;
                 }
-                if (ctx->getBelBucketForCellType(clk->driver.cell->type) != id_GPIO)
+                if (ctx->getBelBucketForCellType(clk->driver.cell->type) != id_IOSEL)
                     log_error("CLK_REF must be driven with GPIO pin.\n");
                 auto pad_info = uarch->bel_to_pad[clk->driver.cell->bel];
                 if (pad_info->flags == 0)

@@ -289,6 +289,8 @@ struct BitstreamBackend
             case id_CPE_LVDS_TOBUF.index:
             case id_CPE_LVDS_OBUF.index:
             case id_CPE_LVDS_IOBUF.index:
+                break;
+            case id_IOSEL.index:
                 for (auto &p : params) {
                     bank[loc.die][ctx->get_bel_package_pin(cell.second.get()->bel)->pad_bank] = 1;
                     cc.tiles[loc].add_word(stringf("GPIO.%s", p.first.c_str(ctx)), p.second.as_bits());

@@ -1030,9 +1030,12 @@ X(CPE_CPLINES)
 //X(COUTY2)
 //X(POUTY2)
 
-// hardware primitive GPIO
-X(GPIO)
-// GPIO pins
+// hardware primitive IOSEL
+X(IOSEL)
+// IOSEL pins
+X(GPIO_OUT)
+X(GPIO_EN)
+X(GPIO_IN)
 //X(IN1)
 //X(IN2)
 //X(OUT1)
@@ -1044,6 +1047,13 @@ X(CLOCK1)
 X(CLOCK2)
 X(CLOCK3)
 X(CLOCK4)
+
+// hardware primitive GPIO
+X(GPIO)
+// GPIO pins
+//X(Y)
+//X(T)
+//X(A)
 //X(I)
 //X(O)
 //X(IO)

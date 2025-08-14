@@ -106,6 +106,22 @@ CellInfo *GateMatePacker::create_cell_ptr(IdString type, IdString name)
         add_port(id_POUTY1, PORT_OUT);
         add_port(id_COUTY2, PORT_OUT);
         add_port(id_POUTY2, PORT_OUT);
+    } else if (type.in(id_IOSEL)) {
+        add_port(id_GPIO_OUT, PORT_OUT);
+        add_port(id_GPIO_EN, PORT_OUT);
+        add_port(id_GPIO_IN, PORT_IN);
+
+        add_port(id_IN1, PORT_OUT);
+        add_port(id_IN2, PORT_OUT);
+        add_port(id_OUT1, PORT_IN);
+        add_port(id_OUT2, PORT_IN);
+        add_port(id_OUT3, PORT_IN);
+        add_port(id_OUT4, PORT_IN);
+        add_port(id_DDR, PORT_IN);
+        add_port(id_CLOCK1, PORT_IN);
+        add_port(id_CLOCK2, PORT_IN);
+        add_port(id_CLOCK3, PORT_IN);
+        add_port(id_CLOCK4, PORT_IN);
     } else {
         log_error("Trying to create unknown cell type %s\n", type.c_str(ctx));
     }
