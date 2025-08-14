@@ -28,6 +28,19 @@ See also:
 - [F.A.Q.](docs/faq.md)
 - [Architecture API](docs/archapi.md)
 
+Install using Guix
+------------------
+
+[Guix](https://guix.gnu.org) packages for below architectures are available in the [electronics channel](https://git.sr.ht/~csantosb/guix.channel-electronics). Install with:
+
+
+```
+guix install nextpnr-ice40          # latest release
+# guix install nextpnr-ice40-next   # recent commit
+```
+
+Similarly with `nextpnr-ecp5`, `nextpnr-generic`, `nextpnr-himbaechel-gowin`, `nextpnr-himbaechel-ng-ultra` and `yosys`.
+
 
 Prerequisites
 -------------
