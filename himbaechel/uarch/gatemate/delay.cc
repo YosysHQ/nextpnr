@@ -69,8 +69,20 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
     } else if (cell->type.in(id_CPE_RAMI, id_CPE_RAMO, id_CPE_RAMIO, id_CPE_RAMIO_U, id_CPE_RAMIO_L)) {
         return true;
     } else if (cell->type.in(id_CPE_IBUF, id_CPE_OBUF, id_CPE_TOBUF, id_CPE_IOBUF)) {
-        if (toPort == id_O && fromPort == id_OUT1)
+        if (fromPort == id_A && toPort == id_O)
             get_delay_from_tmg_db(id_timing_del_OBF, delay);
+        if (fromPort == id_T && toPort == id_O)
+            get_delay_from_tmg_db(id_timing_del_TOBF_ctrl, delay);
+        if (fromPort == id_I && toPort == id_Y)
+            get_delay_from_tmg_db(id_timing_del_IBF, delay);
+        return true;
+    } else if (cell->type.in(id_CPE_LVDS_IBUF, id_CPE_LVDS_OBUF, id_CPE_LVDS_TOBUF, id_CPE_LVDS_IOBUF)) {
+        if (fromPort == id_A && toPort.in(id_O_P, id_O_N))
+            get_delay_from_tmg_db(id_timing_del_LVDS_OBF, delay);
+        if (fromPort == id_T && toPort.in(id_O_P, id_O_N))
+            get_delay_from_tmg_db(id_timing_del_LVDS_TOBF_ctrl, delay);
+        if (fromPort.in(id_I_P, id_I_N) && toPort == id_Y)
+            get_delay_from_tmg_db(id_timing_del_LVDS_IBF, delay);
         return true;
     } else if (cell->type.in(id_CLKIN)) {
         get_delay_from_tmg_db(ctx->idf("timing_clkin_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
@@ -78,7 +90,7 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
         get_delay_from_tmg_db(ctx->idf("timing_glbout_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
     }
     return true;
-    //return ctx->get_cell_delay_default(cell, fromPort, toPort, delay);
+    // return ctx->get_cell_delay_default(cell, fromPort, toPort, delay);
 }
 
 TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
@@ -121,8 +133,20 @@ TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString 
     } else if (cell->type.in(id_CPE_IBUF, id_CPE_OBUF, id_CPE_TOBUF, id_CPE_IOBUF)) {
         if (port.in(id_O))
             return TMG_ENDPOINT;
-        if (port.in(id_IN1, id_IN2))
+        if (port.in(id_Y))
             return TMG_STARTPOINT;
+        return TMG_IGNORE;
+    } else if (cell->type.in(id_CPE_LVDS_IBUF, id_CPE_LVDS_OBUF, id_CPE_LVDS_TOBUF, id_CPE_LVDS_IOBUF)) {
+        if (port.in(id_O_P, id_O_N))
+            return TMG_ENDPOINT;
+        if (port.in(id_Y))
+            return TMG_STARTPOINT;
+        return TMG_IGNORE;
+    } else if (cell->type.in(id_IOSEL)) {
+        if (port.in(id_IN1, id_IN2, id_GPIO_EN, id_GPIO_OUT))
+            return TMG_COMB_OUTPUT;
+        if (port.in(id_OUT1, id_OUT2, id_OUT3, id_OUT4, id_GPIO_IN))
+            return TMG_COMB_INPUT;
         return TMG_IGNORE;
     } else if (cell->type.in(id_PLL)) {
         if (port.in(id_CLK_REF, id_USR_CLK_REF))
