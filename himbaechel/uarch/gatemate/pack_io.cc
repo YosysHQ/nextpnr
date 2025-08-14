@@ -318,7 +318,32 @@ void GateMatePacker::pack_io()
             log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci), ctx->nameOfBel(bel),
                       ctx->nameOf(ctx->getBoundBelCell(bel)));
         }
+
+        // Place IOSEL
+        CellInfo *iosel = create_cell_ptr(id_IOSEL, ctx->idf("%s$iosel", ci.name.c_str(ctx)));
+        iosel->params = ci.params;
+        ctx->bindBel(bel, iosel, PlaceStrength::STRENGTH_FIXED);
+
+        // Rewire
+        ci.movePortTo(id_A, iosel, id_A);
+        ci.movePortTo(id_T, iosel, id_T);
+        ci.movePortTo(id_Y, iosel, id_Y);
+
+        // Place GPIO
+        Loc l = ctx->getBelLocation(bel);
+        bel = ctx->getBelByLocation({l.x, l.y, 0});
         ctx->bindBel(bel, &ci, PlaceStrength::STRENGTH_FIXED);
+
+        // Remove not needed params
+        ci.params.clear();
+
+        // Add connections between GPIO and IOSEL
+        if (iosel->getPort(id_A))
+            ci.connectPorts(id_A, iosel, id_GPIO_OUT);
+        if (iosel->getPort(id_Y))
+            ci.connectPorts(id_Y, iosel, id_GPIO_IN);
+        if (iosel->getPort(id_T))
+            ci.connectPorts(id_T, iosel, id_GPIO_EN);
     }
     flush_cells();
 }
@@ -329,7 +354,7 @@ void GateMatePacker::pack_io_sel()
     std::vector<CellInfo *> cells;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
-        if (!uarch->getBelBucketForCellType(ci.type).in(id_GPIO))
+        if (!uarch->getBelBucketForCellType(ci.type).in(id_IOSEL))
             continue;
 
         cells.push_back(&ci);
@@ -457,7 +482,8 @@ void GateMatePacker::pack_io_sel()
             } else {
                 ci.params[id_OUT_SIGNAL] = Property(Property::State::S1);
                 bool ff_obf_merged = false;
-                if (ff_obf && do_net->driver.cell->type == id_CC_DFF && do_net->users.entries() == 1) {
+                if (ff_obf && do_net->driver.cell && do_net->driver.cell->type == id_CC_DFF &&
+                    do_net->users.entries() == 1) {
                     CellInfo *dff = do_net->driver.cell;
                     if (is_gpio_valid_dff(dff)) {
                         ci.params[id_OUT1_FF] = Property(Property::State::S1);
@@ -477,7 +503,7 @@ void GateMatePacker::pack_io_sel()
                     }
                 }
                 bool oddr_merged = false;
-                if (do_net->driver.cell->type == id_CC_ODDR && do_net->users.entries() == 1) {
+                if (do_net->driver.cell && do_net->driver.cell->type == id_CC_ODDR && do_net->users.entries() == 1) {
                     CellInfo *oddr = do_net->driver.cell;
                     ci.params[id_OUT1_FF] = Property(Property::State::S1);
                     ci.params[id_OUT2_FF] = Property(Property::State::S1);
@@ -521,7 +547,8 @@ void GateMatePacker::pack_io_sel()
                 ff_ibf_merged = merge_ibf(di_net, ci, use_custom_clock);
             }
             bool iddr_merged = false;
-            if (di_net->users.entries() == 1 && (*di_net->users.begin()).cell->type == id_CC_IDDR) {
+            if (di_net->users.entries() == 1 && (*di_net->users.begin()).cell->type == id_CC_IDDR &&
+                (*di_net->users.begin()).port == id_D) {
                 iddr_merged = merge_iddr(di_net, ci, use_custom_clock);
             }
 
