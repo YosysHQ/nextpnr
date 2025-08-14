@@ -1059,6 +1059,28 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
                 return false;
             }
         }
+        // Check whether the current architecture allows 6 and 7 DFFs
+        if (z > 3 && ctx->getBelByLocation(Loc(x, y, 6 * 2 + 1)) != BelId()) {
+            // The 4th, 5th, 6th, and 7th DFFs have the same control wires. Let's check this.
+            const int adj_top_ff_z = (5 - (z >> 1)) * 4 + 1;
+            for (int i = 0; i < 4; i += 2) {
+                const CellInfo *adj_top_ff = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, adj_top_ff_z + i)));
+                if (adj_top_ff) {
+                    const auto &adj_top_ff_data = fast_cell_info.at(adj_top_ff->flat_index);
+                    if (adj_top_ff_data.ff_lsr != ff_data.ff_lsr) {
+                        return false;
+                    }
+                    if (adj_top_ff_data.ff_clk != ff_data.ff_clk) {
+                        return false;
+                    }
+                    if (adj_top_ff_data.ff_ce != ff_data.ff_ce) {
+                        return false;
+                    }
+                    // It is sufficient to check only one DFF.
+                    break;
+                }
+            }
+        }
     }
     return true;
 }

@@ -964,7 +964,7 @@ def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tde
         for j, inp_name in enumerate(lut_inputs):
             tt.add_bel_pin(lut, f"I{j}", f"{inp_name}{i}", PinType.INPUT)
         tt.add_bel_pin(lut, "F", f"F{i}", PinType.OUTPUT)
-        if i < 6:
+        if i < 6 or chip.name == "GW5A-25A":
             tt.create_pip(f"F{i}", f"XD{i}", get_tm_class(db, f"F{i}"))
             # also experimental input for FF using SEL wire - this theory will
             # allow to place unrelated LUT and FF next to each other
@@ -974,14 +974,23 @@ def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tde
             # FF
             ff = tt.create_bel(f"DFF{i}", "DFF", z =(i * 2 + 1))
             tt.add_bel_pin(ff, "D", f"XD{i}", PinType.INPUT)
-            tt.add_bel_pin(ff, "CLK", f"CLK{i // 2}", PinType.INPUT)
             tt.add_bel_pin(ff, "Q", f"Q{i}", PinType.OUTPUT)
-            tt.add_bel_pin(ff, "SET", f"LSR{i // 2}", PinType.INPUT)
-            tt.add_bel_pin(ff, "RESET", f"LSR{i // 2}", PinType.INPUT)
-            tt.add_bel_pin(ff, "PRESET", f"LSR{i // 2}", PinType.INPUT)
-            tt.add_bel_pin(ff, "CLEAR", f"LSR{i // 2}", PinType.INPUT)
-            tt.add_bel_pin(ff, "CE", f"CE{i // 2}", PinType.INPUT)
+            if i < 6:
+                tt.add_bel_pin(ff, "CLK", f"CLK{i // 2}", PinType.INPUT)
+                tt.add_bel_pin(ff, "SET", f"LSR{i // 2}", PinType.INPUT)
+                tt.add_bel_pin(ff, "RESET", f"LSR{i // 2}", PinType.INPUT)
+                tt.add_bel_pin(ff, "PRESET", f"LSR{i // 2}", PinType.INPUT)
+                tt.add_bel_pin(ff, "CLEAR", f"LSR{i // 2}", PinType.INPUT)
+                tt.add_bel_pin(ff, "CE", f"CE{i // 2}", PinType.INPUT)
+            else:
+                tt.add_bel_pin(ff, "CLK", "CLK2", PinType.INPUT)
+                tt.add_bel_pin(ff, "SET", "LSR2", PinType.INPUT)
+                tt.add_bel_pin(ff, "RESET", "LSR2", PinType.INPUT)
+                tt.add_bel_pin(ff, "PRESET", "LSR2", PinType.INPUT)
+                tt.add_bel_pin(ff, "CLEAR", "LSR2", PinType.INPUT)
+                tt.add_bel_pin(ff, "CE", "CE2", PinType.INPUT)
 
+        if i < 6:
             # ALU
             ff = tt.create_bel(f"ALU{i}", "ALU", z = i + ALU0_Z)
             tt.add_bel_pin(ff, "SUM", f"F{i}", PinType.OUTPUT)
