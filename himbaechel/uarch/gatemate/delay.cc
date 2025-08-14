@@ -66,8 +66,12 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
         return true;
     } else if (cell->type.in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U)) {
         return false;
-    } else if (cell->type.in(id_CPE_RAMI, id_CPE_RAMO, id_CPE_RAMIO, id_CPE_RAMIO_U, id_CPE_RAMIO_L)) {
-        return true;
+    } else if (cell->type.in(id_CPE_RAMI, id_CPE_RAMO, id_CPE_RAMIO)) {
+        if (fromPort == id_I && toPort == id_RAM_O)
+            return true;
+        if (fromPort == id_RAM_I && toPort == id_OUT)
+            return true;
+        return false;
     } else if (cell->type.in(id_CPE_IBUF, id_CPE_OBUF, id_CPE_TOBUF, id_CPE_IOBUF)) {
         if (fromPort == id_A && toPort == id_O)
             get_delay_from_tmg_db(id_timing_del_OBF, delay);
