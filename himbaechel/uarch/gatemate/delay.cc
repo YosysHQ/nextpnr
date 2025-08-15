@@ -62,6 +62,17 @@ void GateMateImpl::get_setuphold_from_tmg_db(IdString id_setup, IdString id_hold
     }
 }
 
+void GateMateImpl::get_setuphold_from_tmg_db(IdString id_setuphold, DelayPair &setup, DelayPair &hold) const
+{
+    auto fnd = timing.find(id_setuphold);
+    if (fnd != timing.end()) {
+        setup.min_delay = fnd->second->delay.fast_min;
+        setup.max_delay = fnd->second->delay.fast_max;
+        hold.min_delay = fnd->second->delay.slow_min;
+        hold.max_delay = fnd->second->delay.slow_max;
+    }
+}
+
 bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const
 {
     delay = DelayQuad{0};
@@ -258,6 +269,55 @@ TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdStr
             get_delay_from_tmg_db(id_timing_del_CPE_CP_Q, delay);
             info.clockToQ += delay;
         }
+    } else if (cell->type == id_RAM) {
+        std::string name = port.str(ctx);
+        if (boost::starts_with(name, "CLOCK"))
+            get_delay_from_tmg_db(id_timing_RAM_NOECC_IOPATH_1, info.clockToQ);
+        if (boost::starts_with(name, "DOA"))
+            get_delay_from_tmg_db(id_timing_RAM_NOECC_IOPATH_2, info.clockToQ);
+        if (boost::starts_with(name, "DOB"))
+            get_delay_from_tmg_db(id_timing_RAM_NOECC_IOPATH_3, info.clockToQ);
+        if (boost::starts_with(name, "ECC"))
+            get_delay_from_tmg_db(id_timing_RAM_NOECC_IOPATH_4, info.clockToQ);
+        if (boost::starts_with(name, "ADDR"))
+            get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_1, info.setup, info.hold);
+        if (boost::starts_with(name, "CLOCK1"))
+            get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_2, info.setup, info.hold);
+        if (boost::starts_with(name, "DIA"))
+            get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_3, info.setup, info.hold);
+        if (boost::starts_with(name, "DIB"))
+            get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_4, info.setup, info.hold);
+        if (boost::starts_with(name, "ENA"))
+            get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_5, info.setup, info.hold);
+        if (boost::starts_with(name, "ENB"))
+            get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_6, info.setup, info.hold);
+        if (boost::starts_with(name, "GLWEA"))
+            get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_7, info.setup, info.hold);
+        if (boost::starts_with(name, "GLWEB"))
+            get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_8, info.setup, info.hold);
+        if (boost::starts_with(name, "WEA"))
+            get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_9, info.setup, info.hold);
+        if (boost::starts_with(name, "WEB"))
+            get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_10, info.setup, info.hold);
+        /*bool is_clk_b = false;
+        for (auto c : boost::adaptors::reverse(name)) {
+            if (std::isdigit(c) || c == 'X' || c == '[' || c == ']')
+                continue;
+            if (c == 'A')
+                is_clk_b = false;
+            else if (c == 'B')
+                is_clk_b = true;
+            else
+                NPNR_ASSERT_FALSE_STR("bad ram port");
+            break;
+        }
+
+        bool inverted = int_or_default(cell->params, id_A_CLK_INV, 0);
+        if (is_clk_b)
+            inverted = int_or_default(cell->params, id_B_CLK_INV, 0);
+
+        info.edge = inverted ? FALLING_EDGE : RISING_EDGE;
+*/
     }
 
     return info;
