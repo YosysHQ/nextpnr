@@ -249,6 +249,15 @@ TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdStr
         info.clock_port = id_CLK;
         if (port.in(id_DIN, id_EN, id_SR))
             get_setuphold_from_tmg_db(id_timing_del_Setup_D_L, id_timing_del_Hold_D_L, info.setup, info.hold);
+        if (port.in(id_DOUT)) {
+            bool is_upper = (cell->bel != BelId()) && (ctx->getBelLocation(cell->bel).z == CPE_LT_U_Z);
+            get_delay_from_tmg_db(id_timing__SEQ_CLK_FF1_Q, info.clockToQ);
+            DelayQuad delay = DelayQuad{0};
+            get_delay_from_tmg_db(is_upper ? id_timing_Q2_OUT2 : id_timing_Q1_OUT1, delay);
+            info.clockToQ += delay;
+            get_delay_from_tmg_db(id_timing_del_CPE_CP_Q, delay);
+            info.clockToQ += delay;
+        }
     }
 
     return info;
