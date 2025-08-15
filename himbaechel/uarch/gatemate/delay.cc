@@ -17,6 +17,9 @@
  *
  */
 
+#include <boost/algorithm/string.hpp>
+#include <boost/range/adaptor/reversed.hpp>
+
 #include "gatemate.h"
 
 #define HIMBAECHEL_CONSTIDS "uarch/gatemate/constids.inc"
@@ -64,7 +67,7 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
     delay = DelayQuad{0};
     if (cell->type == id_CPE_L2T4) {
         return true;
-    } else if (cell->type.in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U)) {
+    } else if (cell->type.in(id_CPE_FF, id_CPE_LATCH, id_CPE_FF_L, id_CPE_FF_U)) {
         return false;
     } else if (cell->type.in(id_CPE_RAMI, id_CPE_RAMO, id_CPE_RAMIO)) {
         if (fromPort == id_I && toPort == id_RAM_O)
@@ -183,6 +186,22 @@ TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString 
         if (port.in(id_CLK))
             return TMG_CLOCK_INPUT;
         return TMG_IGNORE;
+    } else if (cell->type == id_RAM) {
+        std::string name = port.str(ctx);
+        if (boost::starts_with(name, "CLKA[") || boost::starts_with(name, "CLKB[") || boost::starts_with(name, "CLOCK"))
+            return TMG_CLOCK_INPUT;
+        if (name[0] == 'F') // Ignore forward and FIFO pins 
+            return TMG_IGNORE;
+        for (auto c : boost::adaptors::reverse(name)) {
+            if (std::isdigit(c) || c == 'X' || c == '[' || c == ']')
+                continue;
+            if (c == 'A' || c == 'B')
+                clockInfoCount = 1;
+            else
+                NPNR_ASSERT_FALSE_STR("bad ram port");
+            return (cell->ports.at(port).type == PORT_OUT) ? TMG_REGISTER_OUTPUT : TMG_REGISTER_INPUT;
+        }
+        NPNR_ASSERT_FALSE_STR("no timing type for RAM port '" + port.str(ctx) + "'");
     } else {
         log_warning("cell type '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(ctx),
                     cell->name.c_str(ctx));
