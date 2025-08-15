@@ -77,26 +77,26 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
         return false;
     } else if (cell->type.in(id_CPE_IBUF, id_CPE_OBUF, id_CPE_TOBUF, id_CPE_IOBUF)) {
         if (fromPort == id_A && toPort == id_O)
-            get_delay_from_tmg_db(id_timing_del_OBF, delay);
+            return get_delay_from_tmg_db(id_timing_del_OBF, delay);
         if (fromPort == id_T && toPort == id_O)
-            get_delay_from_tmg_db(id_timing_del_TOBF_ctrl, delay);
+            return get_delay_from_tmg_db(id_timing_del_TOBF_ctrl, delay);
         if (fromPort == id_I && toPort == id_Y)
-            get_delay_from_tmg_db(id_timing_del_IBF, delay);
+            return get_delay_from_tmg_db(id_timing_del_IBF, delay);
         return true;
     } else if (cell->type.in(id_CPE_LVDS_IBUF, id_CPE_LVDS_OBUF, id_CPE_LVDS_TOBUF, id_CPE_LVDS_IOBUF)) {
         if (fromPort == id_A && toPort.in(id_O_P, id_O_N))
-            get_delay_from_tmg_db(id_timing_del_LVDS_OBF, delay);
+            return get_delay_from_tmg_db(id_timing_del_LVDS_OBF, delay);
         if (fromPort == id_T && toPort.in(id_O_P, id_O_N))
-            get_delay_from_tmg_db(id_timing_del_LVDS_TOBF_ctrl, delay);
+            return get_delay_from_tmg_db(id_timing_del_LVDS_TOBF_ctrl, delay);
         if (fromPort.in(id_I_P, id_I_N) && toPort == id_Y)
-            get_delay_from_tmg_db(id_timing_del_LVDS_IBF, delay);
+            return get_delay_from_tmg_db(id_timing_del_LVDS_IBF, delay);
         return true;
     } else if (cell->type.in(id_IOSEL)) {
-        get_delay_from_tmg_db(ctx->idf("timing_io_sel_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
+        return get_delay_from_tmg_db(ctx->idf("timing_io_sel_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
     } else if (cell->type.in(id_CLKIN)) {
-        get_delay_from_tmg_db(ctx->idf("timing_clkin_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
+        return get_delay_from_tmg_db(ctx->idf("timing_clkin_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
     } else if (cell->type.in(id_GLBOUT)) {
-        get_delay_from_tmg_db(ctx->idf("timing_glbout_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
+        return get_delay_from_tmg_db(ctx->idf("timing_glbout_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
     }
     return true;
     // return ctx->get_cell_delay_default(cell, fromPort, toPort, delay);
