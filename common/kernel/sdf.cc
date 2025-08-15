@@ -152,7 +152,7 @@ struct SDFWriter
 
     void write_portedge(std::ostream &out, const PortAndEdge &pe)
     {
-        out << "(" << (pe.edge == RISING_EDGE ? "posedge" : "negedge") << " " << escape_name(pe.port) << ")";
+        out << "(" << (pe.edge == RISING_EDGE ? "posedge" : "negedge") << " " << pe.port << ")";
     }
 
     void write(std::ostream &out)
@@ -193,12 +193,12 @@ struct SDFWriter
                 out << "    (DELAY" << std::endl;
                 out << "      (ABSOLUTE" << std::endl;
                 for (auto &port : cell.ports) {
-                    out << "        (PORT " << escape_name(port.name) << " ";
+                    out << "        (PORT " << port.name << " ";
                     write_delay(out, port.delay);
                     out << ")" << std::endl;
                 }
                 for (auto &path : cell.iopaths) {
-                    out << "        (IOPATH " << escape_name(path.from) << " " << escape_name(path.to) << " ";
+                    out << "        (IOPATH " << path.from << " " << path.to << " ";
                     write_delay(out, path.delay);
                     out << ")" << std::endl;
                 }
