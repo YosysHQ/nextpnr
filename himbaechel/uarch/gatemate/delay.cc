@@ -94,6 +94,17 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
             return get_delay_from_tmg_db(id_timing_del_LVDS_IBF, delay);
         return true;
     } else if (cell->type.in(id_IOSEL)) {
+        bool output = bool_or_default(cell->params, id_OUT_SIGNAL);
+        bool enable = bool_or_default(cell->params, id_OE_ENABLE);
+        IdString o_s = bool_or_default(cell->params, id_OUT23_14_SEL)
+                               ? (bool_or_default(cell->params, id_OUT2_3) ? id_OUT3 : id_OUT2)
+                               : (bool_or_default(cell->params, id_OUT1_4) ? id_OUT4 : id_OUT1);
+        int oe = int_or_default(cell->params, id_OE_SIGNAL);
+        IdString oe_s = (oe & 2) ? ((oe & 1) ? id_OUT4 : id_OUT3) : ((oe & 1) ? id_OUT2 : id_OUT1);
+        if (output && fromPort != o_s)
+            return false;
+        if (enable && fromPort != oe_s)
+            return false;
         return get_delay_from_tmg_db(ctx->idf("timing_io_sel_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
     } else if (cell->type.in(id_CLKIN)) {
         return get_delay_from_tmg_db(ctx->idf("timing_clkin_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
@@ -232,7 +243,7 @@ TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdStr
     info.setup = DelayPair(0);
     info.hold = DelayPair(0);
     info.clockToQ = DelayQuad(0);
-    if (cell->type.in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U)) {
+    if (cell->type.in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U, id_CPE_LATCH)) {
         bool inverted = int_or_default(cell->params, id_C_CPE_CLK, 0) == 0b01;
         info.edge = inverted ? FALLING_EDGE : RISING_EDGE;
         info.clock_port = id_CLK;
