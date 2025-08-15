@@ -65,10 +65,12 @@ void GateMateImpl::get_setuphold_from_tmg_db(IdString id_setup, IdString id_hold
 bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const
 {
     delay = DelayQuad{0};
-    if (cell->type == id_CPE_L2T4) {
+    if (cell->type.in(id_CPE_L2T4, id_CPE_LT_L, id_CPE_LT_U, id_CPE_MX4)) {
         return true;
     } else if (cell->type.in(id_CPE_FF, id_CPE_LATCH, id_CPE_FF_L, id_CPE_FF_U)) {
         return false;
+    } else if (cell->type.in(id_CPE_COMP)) {
+        return true;
     } else if (cell->type.in(id_CPE_RAMI, id_CPE_RAMO, id_CPE_RAMIO)) {
         if (fromPort == id_I && toPort == id_RAM_O)
             return true;
@@ -97,6 +99,8 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
         return get_delay_from_tmg_db(ctx->idf("timing_clkin_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
     } else if (cell->type.in(id_GLBOUT)) {
         return get_delay_from_tmg_db(ctx->idf("timing_glbout_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
+    } else if (cell->type.in(id_RAM)) {
+        return false;
     }
     return true;
     // return ctx->get_cell_delay_default(cell, fromPort, toPort, delay);
@@ -106,7 +110,7 @@ TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString 
 {
     auto disconnected = [cell](IdString p) { return !cell->ports.count(p) || cell->ports.at(p).net == nullptr; };
     clockInfoCount = 0;
-    if (cell->type == id_CPE_L2T4) {
+    if (cell->type.in(id_CPE_L2T4, id_CPE_LT_L, id_CPE_LT_U, id_CPE_MULT)) {
         if (port.in(id_IN1, id_IN2, id_IN3, id_IN4, id_COMBIN, id_CINY1, id_CINY2, id_CINX, id_PINX))
             return TMG_COMB_INPUT;
         if (port == id_OUT && disconnected(id_IN1) && disconnected(id_IN2) && disconnected(id_IN3) &&
@@ -121,6 +125,16 @@ TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString 
         if (port.in(id_OUT1, id_OUT2, id_COUTY1))
             return TMG_COMB_OUTPUT;
         return TMG_IGNORE;
+    } else if (cell->type.in(id_CPE_MX4)) {
+        if (port.in(id_IN1, id_IN2, id_IN3, id_IN4, id_IN5, id_IN6, id_IN7, id_IN8))
+            return TMG_COMB_INPUT;
+        if (port.in(id_OUT1))
+            return TMG_COMB_OUTPUT;
+        return TMG_IGNORE;
+    } else if (cell->type.in(id_CPE_MULT)) {
+        if (port.in(id_IN1, id_IN5, id_IN8, id_CINX, id_PINX, id_CINY1, id_CINY2, id_PINY1, id_PINY2))
+            return TMG_COMB_INPUT;
+        return TMG_COMB_OUTPUT;
     } else if (cell->type.in(id_CPE_CPLINES)) {
         if (port.in(id_OUT1, id_OUT2, id_COMPOUT, id_CINX, id_PINX, id_CINY1, id_PINY1, id_CINY2, id_PINY2))
             return TMG_COMB_INPUT;
@@ -134,6 +148,10 @@ TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString 
         // DIN, EN and SR
         return TMG_REGISTER_INPUT;
     } else if (cell->type.in(id_CPE_RAMI, id_CPE_RAMO, id_CPE_RAMIO, id_CPE_RAMIO_U, id_CPE_RAMIO_L)) {
+        if (port.in(id_COMB1, id_COMB2))
+            return TMG_COMB_INPUT;
+        return TMG_COMB_OUTPUT;
+    } else if (cell->type.in(id_CPE_COMP)) {
         if (port.in(id_I, id_RAM_I))
             return TMG_COMB_INPUT;
         if (port.in(id_O, id_RAM_O))
@@ -190,7 +208,7 @@ TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString 
         std::string name = port.str(ctx);
         if (boost::starts_with(name, "CLKA[") || boost::starts_with(name, "CLKB[") || boost::starts_with(name, "CLOCK"))
             return TMG_CLOCK_INPUT;
-        if (name[0] == 'F') // Ignore forward and FIFO pins 
+        if (name[0] == 'F') // Ignore forward and FIFO pins
             return TMG_IGNORE;
         for (auto c : boost::adaptors::reverse(name)) {
             if (std::isdigit(c) || c == 'X' || c == '[' || c == ']')
@@ -203,10 +221,9 @@ TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString 
         }
         NPNR_ASSERT_FALSE_STR("no timing type for RAM port '" + port.str(ctx) + "'");
     } else {
-        log_warning("cell type '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(ctx),
-                    cell->name.c_str(ctx));
+        log_error("cell type '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(ctx),
+                  cell->name.c_str(ctx));
     }
-    return TMG_IGNORE;
 }
 
 TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
