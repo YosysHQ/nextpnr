@@ -454,14 +454,13 @@ TimingPortClass Arch::lookup_port_tmg_type(int type_idx, IdString port, PortType
     }
 }
 
-// TODO: adding uarch overrides for these?
-bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const
+bool Arch::get_cell_delay_default(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const
 {
     if (cell->timing_index == -1)
         return false;
     return lookup_cell_delay(cell->timing_index, fromPort, toPort, delay);
 }
-TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
+TimingPortClass Arch::get_port_timing_class_default(const CellInfo *cell, IdString port, int &clockInfoCount) const
 {
     if (cell->timing_index == -1)
         return TMG_IGNORE;
@@ -474,7 +473,7 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
     }
     return type;
 }
-TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
+TimingClockingInfo Arch::get_port_clocking_info_default(const CellInfo *cell, IdString port, int index) const
 {
     TimingClockingInfo result;
     NPNR_ASSERT(cell->timing_index != -1);

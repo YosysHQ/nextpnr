@@ -87,6 +87,21 @@ bool HimbaechelAPI::getClusterPlacement(ClusterId cluster, BelId root_bel,
 
 void HimbaechelAPI::expandBoundingBox(BoundingBox &bb) const { ctx->BaseArch::expandBoundingBox(bb); }
 
+bool HimbaechelAPI::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const
+{
+    return ctx->get_cell_delay_default(cell, fromPort, toPort, delay);
+}
+
+TimingPortClass HimbaechelAPI::getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
+{
+    return ctx->get_port_timing_class_default(cell, port, clockInfoCount);
+}
+
+TimingClockingInfo HimbaechelAPI::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
+{
+    return ctx->get_port_clocking_info_default(cell, port, index);
+}
+
 HimbaechelArch *HimbaechelArch::list_head;
 HimbaechelArch::HimbaechelArch(const std::string &name) : name(name)
 {
@@ -118,4 +133,5 @@ HimbaechelArch *HimbaechelArch::find_match(const std::string &device)
     }
     return nullptr;
 }
+
 NEXTPNR_NAMESPACE_END
