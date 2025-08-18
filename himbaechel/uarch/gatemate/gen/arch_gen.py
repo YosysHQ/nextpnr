@@ -162,8 +162,6 @@ class SpeedGradeExtraData(BBAStruct):
         bba.slice(f"{context}_timings", len(self.timings))
 
 def convert_timing(tim):
-    #print(tim.rise.min, tim.rise.max, tim.fall.min, tim.fall.max)
-    #return TimingValue(tim.rise.min, tim.rise.max)
     return TimingValue(tim.rise.min, tim.rise.max, tim.fall.min, tim.fall.max)
 
 def set_timings(ch):
@@ -179,7 +177,6 @@ def set_timings(ch):
             if name.startswith(("sb_del_t", "im_x", "om_x", "sb_rim_xy", "edge_xy")):
                 continue
             name = "timing_" + re.sub(r"[-= >]", "_", name)
-            #print(name)
             tmg.get_speed_grade(speed).extra_data.add_timing(name=ch.strs.id(name), delay=convert_timing(val))
         #for k in node_tmg_names:
         #    assert k in timing, f"node class {k} not found in timing data"
@@ -187,136 +184,6 @@ def set_timings(ch):
         #for k in pip_tmg_names:
         #    assert k in timing, f"pip class {k} not found in timing data"
         #    tmg.set_pip_class(grade=speed, name=k, delay=convert_timing(timing[k]))
-
-    ## These groups exist only for placement, CPE_LT* are after
-    ## that merged or renamed to something else
-#
-    #lut = ch.timing.add_cell_variant(speed, "CPE_LT_L")
-    #lut.add_comb_arc("IN1", "OUT", TimingValue(416, 418)) # IN5 to OUT1
-    #lut.add_comb_arc("IN2", "OUT", TimingValue(413, 422)) # IN6 to OUT1
-    #lut.add_comb_arc("IN3", "OUT", TimingValue(372, 374)) # IN7 to OUT1
-    #lut.add_comb_arc("IN4", "OUT", TimingValue(275, 385)) # IN8 to OUT1
-#
-    #lut = ch.timing.add_cell_variant(speed, "CPE_LT_U")
-    #lut.add_comb_arc("IN1", "OUT", TimingValue(479, 484)) # to OUT2
-    #lut.add_comb_arc("IN2", "OUT", TimingValue(471, 488)) # to OUT2
-    #lut.add_comb_arc("IN3", "OUT", TimingValue(446, 449)) # to OUT2
-    #lut.add_comb_arc("IN4", "OUT", TimingValue(443, 453)) # to OUT2
-#
-    #lut = ch.timing.add_cell_variant(speed, "CPE_LT")
-    #lut.add_comb_arc("IN1", "OUT", TimingValue(479, 484)) # to OUT2
-    #lut.add_comb_arc("IN2", "OUT", TimingValue(471, 488)) # to OUT2
-    #lut.add_comb_arc("IN3", "OUT", TimingValue(446, 449)) # to OUT2
-    #lut.add_comb_arc("IN4", "OUT", TimingValue(443, 453)) # to OUT2
-#
-    ## Final netlist timing models, used by routing and some by
-    ## placement as well
-#
-    #lut = ch.timing.add_cell_variant(speed, "CPE_L2T4")
-    #lut.add_comb_arc("IN1", "OUT", TimingValue(479, 484)) # to OUT2
-    #lut.add_comb_arc("IN2", "OUT", TimingValue(471, 488)) # to OUT2
-    #lut.add_comb_arc("IN3", "OUT", TimingValue(446, 449)) # to OUT2
-    #lut.add_comb_arc("IN4", "OUT", TimingValue(443, 453)) # to OUT2
-#
-    #lut = ch.timing.add_cell_variant(speed, "CPE_MX4")
-    #lut.add_comb_arc("IN1", "OUT1", TimingValue(479, 484)) # to OUT2
-    #lut.add_comb_arc("IN2", "OUT1", TimingValue(471, 488)) # to OUT2
-    #lut.add_comb_arc("IN3", "OUT1", TimingValue(446, 449)) # to OUT2
-    #lut.add_comb_arc("IN4", "OUT1", TimingValue(443, 453)) # to OUT2
-    #lut.add_comb_arc("IN5", "OUT1", TimingValue(416, 418)) # IN5 to OUT1
-    #lut.add_comb_arc("IN6", "OUT1", TimingValue(413, 422)) # IN6 to OUT1
-    #lut.add_comb_arc("IN7", "OUT1", TimingValue(372, 374)) # IN7 to OUT1
-    #lut.add_comb_arc("IN8", "OUT1", TimingValue(275, 385)) # IN8 to OUT1
-#
-    #lut = ch.timing.add_cell_variant(speed, "CPE_ADDF")
-    #lut.add_comb_arc("IN1", "OUT2", TimingValue(479, 484)) # to OUT2
-    #lut.add_comb_arc("IN2", "OUT2", TimingValue(471, 488)) # to OUT2
-    #lut.add_comb_arc("IN3", "OUT2", TimingValue(446, 449)) # to OUT2
-    #lut.add_comb_arc("IN4", "OUT2", TimingValue(443, 453)) # to OUT2
-    #lut.add_comb_arc("IN5", "OUT1", TimingValue(416, 418)) # IN5 to OUT1
-    #lut.add_comb_arc("IN6", "OUT1", TimingValue(413, 422)) # IN6 to OUT1
-    #lut.add_comb_arc("IN7", "OUT1", TimingValue(372, 374)) # IN7 to OUT1
-    #lut.add_comb_arc("IN8", "OUT1", TimingValue(275, 385)) # IN8 to OUT1
-    #lut.add_comb_arc("CINY1", "COUTY1", TimingValue(479, 484))
-#
-    #lut = ch.timing.add_cell_variant(speed, "CPE_ADDF2")
-    #lut.add_comb_arc("IN1", "OUT2", TimingValue(479, 484)) # to OUT2
-    #lut.add_comb_arc("IN2", "OUT2", TimingValue(471, 488)) # to OUT2
-    #lut.add_comb_arc("IN3", "OUT2", TimingValue(446, 449)) # to OUT2
-    #lut.add_comb_arc("IN4", "OUT2", TimingValue(443, 453)) # to OUT2
-    #lut.add_comb_arc("IN5", "OUT1", TimingValue(416, 418)) # IN5 to OUT1
-    #lut.add_comb_arc("IN6", "OUT1", TimingValue(413, 422)) # IN6 to OUT1
-    #lut.add_comb_arc("IN7", "OUT1", TimingValue(372, 374)) # IN7 to OUT1
-    #lut.add_comb_arc("IN8", "OUT1", TimingValue(275, 385)) # IN8 to OUT1
-    #lut.add_comb_arc("CINY1", "COUTY1", TimingValue(479, 484))
-#
-    #lut = ch.timing.add_cell_variant(speed, "CPE_MULT")
-    #lut.add_comb_arc("IN1", "OUT2", TimingValue(479, 484)) # to OUT2
-    #lut.add_comb_arc("IN2", "OUT2", TimingValue(471, 488)) # to OUT2
-    #lut.add_comb_arc("IN3", "OUT2", TimingValue(446, 449)) # to OUT2
-    #lut.add_comb_arc("IN4", "OUT2", TimingValue(443, 453)) # to OUT2
-    #lut.add_comb_arc("IN5", "OUT1", TimingValue(416, 418)) # IN5 to OUT1
-    #lut.add_comb_arc("IN6", "OUT1", TimingValue(413, 422)) # IN6 to OUT1
-    #lut.add_comb_arc("IN7", "OUT1", TimingValue(372, 374)) # IN7 to OUT1
-    #lut.add_comb_arc("IN8", "OUT1", TimingValue(275, 385)) # IN8 to OUT1
-    #lut.add_comb_arc("CINY1", "COUTY1", TimingValue(479, 484))
-#
-    #lut = ch.timing.add_cell_variant(speed, "CPE_COMP")
-    #lut.add_comb_arc("CINY1", "COUTY1", TimingValue(479, 484))
-#
-    #lut = ch.timing.add_cell_variant(speed, "CPE_CPLINES")
-    #lut.add_comb_arc("CINY1", "COUTY1", TimingValue(479, 484))
-#
-    #dff = ch.timing.add_cell_variant(speed, "CPE_FF")
-    #dff.add_setup_hold("CLK", "DIN", ClockEdge.RISING, TimingValue(60), TimingValue(50))
-    #dff.add_clock_out("CLK", "DOUT", ClockEdge.RISING, TimingValue(60))
-#
-    #dff = ch.timing.add_cell_variant(speed, "CPE_LATCH")
-    #dff.add_setup_hold("CLK", "DIN", ClockEdge.RISING, TimingValue(60), TimingValue(50))
-    #dff.add_clock_out("CLK", "DOUT", ClockEdge.RISING, TimingValue(60))
-#
-    #lut = ch.timing.add_cell_variant(speed, "CPE_RAMI")
-    #lut.add_comb_arc("RAM_I", "OUT", TimingValue(0, 0))
-#
-    #lut = ch.timing.add_cell_variant(speed, "CPE_RAMO")
-    #lut.add_comb_arc("I", "RAM_O", convert_timing(timing["comb12_RAM_O2"]))
-#
-    #lut = ch.timing.add_cell_variant(speed, "CPE_RAMIO")
-    #lut.add_comb_arc("I", "RAM_O", TimingValue(0, 0))
-    #lut.add_comb_arc("RAM_I", "OUT", TimingValue(0, 0))
-#
-    #lut = ch.timing.add_cell_variant(speed, "CPE_IBUF")
-    #lut.add_comb_arc("I", "IN1", convert_timing(timing["del_IBF"] + timing["io_sel_GPIO_IN_IN1_O"]))
-    #lut.add_comb_arc("I", "IN2", convert_timing(timing["del_IBF"] + timing["io_sel_GPIO_IN_IN2_O"]))
-#
-    #lut = ch.timing.add_cell_variant(speed, "CPE_OBUF")
-    #lut.add_comb_arc("OUT1", "O", convert_timing(timing["del_OBF"]))
-#
-    #lut = ch.timing.add_cell_variant(speed, "CPE_TOBUF")
-    #lut.add_comb_arc("OUT1", "O", convert_timing(timing["del_OBF"]))
-    #lut.add_comb_arc("OUT3", "O", convert_timing(timing["del_TOBF_ctrl"]))
-
-    #lut = ch.timing.add_cell_variant(speed, "CLKIN")
-    #lut.add_comb_arc("CLK0", "CLK_REF0", convert_timing(timing["clkin_CLK0_I_CLK_OUT0"]))
-    #lut.add_comb_arc("CLK0", "CLK_REF1", convert_timing(timing["clkin_CLK0_I_CLK_OUT1"]))
-    #lut.add_comb_arc("CLK0", "CLK_REF2", convert_timing(timing["clkin_CLK0_I_CLK_OUT2"]))
-    #lut.add_comb_arc("CLK0", "CLK_REF3", convert_timing(timing["clkin_CLK0_I_CLK_OUT3"]))
-    #lut.add_comb_arc("CLK1", "CLK_REF0", convert_timing(timing["clkin_CLK1_I_CLK_OUT0"]))
-    #lut.add_comb_arc("CLK1", "CLK_REF1", convert_timing(timing["clkin_CLK1_I_CLK_OUT1"]))
-    #lut.add_comb_arc("CLK1", "CLK_REF2", convert_timing(timing["clkin_CLK1_I_CLK_OUT2"]))
-    #lut.add_comb_arc("CLK1", "CLK_REF3", convert_timing(timing["clkin_CLK1_I_CLK_OUT3"]))
-    #lut.add_comb_arc("CLK2", "CLK_REF0", convert_timing(timing["clkin_CLK2_I_CLK_OUT0"]))
-    #lut.add_comb_arc("CLK2", "CLK_REF1", convert_timing(timing["clkin_CLK2_I_CLK_OUT1"]))
-    #lut.add_comb_arc("CLK2", "CLK_REF2", convert_timing(timing["clkin_CLK2_I_CLK_OUT2"]))
-    #lut.add_comb_arc("CLK2", "CLK_REF3", convert_timing(timing["clkin_CLK2_I_CLK_OUT3"]))
-    #lut.add_comb_arc("CLK3", "CLK_REF0", convert_timing(timing["clkin_CLK3_I_CLK_OUT0"]))
-    #lut.add_comb_arc("CLK3", "CLK_REF1", convert_timing(timing["clkin_CLK3_I_CLK_OUT1"]))
-    #lut.add_comb_arc("CLK3", "CLK_REF2", convert_timing(timing["clkin_CLK3_I_CLK_OUT2"]))
-    #lut.add_comb_arc("CLK3", "CLK_REF3", convert_timing(timing["clkin_CLK3_I_CLK_OUT3"]))
-    #lut.add_comb_arc("SER_CLK", "CLK_REF0", convert_timing(timing["clkin_SERDES_CLK_CLK_OUT0"]))
-    #lut.add_comb_arc("SER_CLK", "CLK_REF1", convert_timing(timing["clkin_SERDES_CLK_CLK_OUT1"]))
-    #lut.add_comb_arc("SER_CLK", "CLK_REF2", convert_timing(timing["clkin_SERDES_CLK_CLK_OUT2"]))
-    #lut.add_comb_arc("SER_CLK", "CLK_REF3", convert_timing(timing["clkin_SERDES_CLK_CLK_OUT3"]))
 
 EXPECTED_VERSION = 1.4
 
