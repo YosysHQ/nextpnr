@@ -279,9 +279,9 @@ void GateMateImpl::postPlace()
     repack();
     ctx->assignArchInfo();
     for (auto &cell : ctx->cells) {
-        Loc loc = ctx->getBelLocation(cell.second.get()->bel);
-        if (loc.z <= CPE_BRIDGE_Z)
+        if (cell.second.get()->type.in(id_CPE_MULT)) {
             used_cpes.emplace(ctx->getBelName(cell.second.get()->bel)[0]);
+        }
     }
 }
 bool GateMateImpl::checkPipAvail(PipId pip) const
