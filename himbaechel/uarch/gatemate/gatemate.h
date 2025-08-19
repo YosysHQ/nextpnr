@@ -46,6 +46,8 @@ struct GateMateImpl : HimbaechelAPI
 
     BoundingBox getRouteBoundingBox(WireId src, WireId dst) const override;
     void expandBoundingBox(BoundingBox &bb) const override;
+    bool checkPipAvail(PipId pip) const override;
+    bool checkPipAvailForNet(PipId pip, const NetInfo *net) const override { return checkPipAvail(pip); };
 
     bool isBelLocationValid(BelId bel, bool explain_invalid = false) const override;
     delay_t estimateDelay(WireId src, WireId dst) const override;
@@ -83,6 +85,7 @@ struct GateMateImpl : HimbaechelAPI
     pool<IdString> multiplier_a_passthru_uppers;
     pool<IdString> multiplier_zero_drivers;
     std::vector<CellInfo *> multipliers;
+    std::set<IdString> used_cpes;
     int fpga_mode;
     int timing_mode;
 
