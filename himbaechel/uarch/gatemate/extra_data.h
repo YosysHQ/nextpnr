@@ -74,6 +74,7 @@ enum MuxFlags
     MUX_INVERT = 1,
     MUX_VISIBLE = 2,
     MUX_CONFIG = 4,
+    MUX_ROUTING = 8,
 };
 
 enum PipExtra
@@ -103,7 +104,7 @@ enum CPE_Z
     CPE_COMP_Z = 6,
     CPE_CPLINES_Z = 7,
     CPE_LT_FULL_Z = 8,
-
+    CPE_BRIDGE_Z = 9,
     RAM_FULL_Z = 10,
     RAM_HALF_U_Z = 11,
     RAM_HALF_L_Z = 12,
