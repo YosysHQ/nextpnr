@@ -30,6 +30,21 @@ NEXTPNR_NAMESPACE_BEGIN
 
 GateMateImpl::~GateMateImpl() {};
 
+static int parse_mode(const std::string &val, const std::map<std::string, int> &map, const char *error_msg)
+{
+    try {
+        int i = std::stoi(val);
+        if (i >= 1 && i <= 3)
+            return i;
+    } catch (...) {
+        auto it = map.find(val);
+        if (it != map.end())
+            return it->second;
+    }
+    log_error("%s\n", error_msg);
+    return -1;
+}
+
 void GateMateImpl::init_database(Arch *arch)
 {
     const ArchArgs &args = arch->args;
@@ -39,10 +54,16 @@ void GateMateImpl::init_database(Arch *arch)
     dies = std::stoi(args.device.substr(6));
     fpga_mode = 3;
     timing_mode = 3;
+
+    static const std::map<std::string, int> fpga_map = {{"best", 1}, {"typical", 2}, {"worst", 3}};
+    static const std::map<std::string, int> timing_map = {{"lowpower", 1}, {"economy", 2}, {"speed", 3}};
+
     if (args.options.count("fpga_mode"))
-        fpga_mode = std::stoi(args.options.at("fpga_mode"));
+        fpga_mode = parse_mode(args.options.at("fpga_mode"), fpga_map,
+                               "timing mode valid values are {1:best, 2:typical, 3:worst}");
     if (args.options.count("time_mode"))
-        timing_mode = std::stoi(args.options.at("time_mode"));
+        timing_mode = parse_mode(args.options.at("time_mode"), timing_map,
+                                 "operation mode valid values are {1:lowpower, 2:economy, 3:speed}");
 
     std::string speed_grade = "";
     switch (fpga_mode) {
@@ -52,11 +73,9 @@ void GateMateImpl::init_database(Arch *arch)
     case 2:
         speed_grade = "typ_";
         break;
-    case 3:
+    default:
         speed_grade = "worst_";
         break;
-    default:
-        log_error("timing mode valid values are {1:best, 2:typical, 3:worst}\n");
     }
     log_info("Using timing mode '%s'\n", fpga_mode == 1   ? "BEST"
                                          : fpga_mode == 2 ? "TYPICAL"
@@ -70,11 +89,8 @@ void GateMateImpl::init_database(Arch *arch)
     case 2:
         speed_grade += "eco";
         break;
-    case 3:
-        speed_grade += "spd";
-        break;
     default:
-        log_error("operation mode valid values are {1:lowpower, 2:economy, 3:speed}\n");
+        speed_grade += "spd";
     }
     log_info("Using operation mode '%s'\n", timing_mode == 1   ? "LOWPOWER"
                                             : timing_mode == 2 ? "ECONOMY"
@@ -240,10 +256,7 @@ void GateMateImpl::postRoute()
     }
 }
 
-void GateMateImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
-{
-    cfg.placeAllAtOnce = true;
-}
+void GateMateImpl::configurePlacerHeap(PlacerHeapCfg &cfg) { cfg.placeAllAtOnce = true; }
 
 int GateMateImpl::get_dff_config(CellInfo *dff) const
 {
