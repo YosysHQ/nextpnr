@@ -42,7 +42,6 @@ static int parse_mode(const std::string &val, const std::map<std::string, int> &
             return it->second;
     }
     log_error("%s\n", error_msg);
-    return -1;
 }
 
 void GateMateImpl::init_database(Arch *arch)
