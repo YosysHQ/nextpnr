@@ -168,6 +168,14 @@ def set_timings(ch):
     speed_grades = ["best_lpr", "best_eco", "best_spd",
                     "typ_lpr", "typ_eco", "typ_spd",
                     "worst_lpr", "worst_eco", "worst_spd"]
+    rename_table = {
+        "CINX_OUT1": "_ARBLUT_CINX_OUT1",
+        "CINX_OUT2": "_ARBLUT_CINX_OUT2",
+        "PINX_OUT1": "_ARBLUT_PINX_OUT1",
+        "PINX_OUT2": "_ARBLUT_PINX_OUT2",
+        "PINY1_OUT1": "_ARBLUT_PINY1_OUT1",
+        "PINY1_OUT2": "_ARBLUT_PINY1_OUT2",
+    }
     tmg = ch.set_speed_grades(speed_grades)
     for speed in speed_grades:
         print(f"Loading timings for {speed}...")
@@ -176,7 +184,7 @@ def set_timings(ch):
         for name, val in timing.items():
             if name.startswith(("sb_del_t", "im_x", "om_x", "sb_rim_xy", "edge_xy")):
                 continue
-            name = "timing_" + re.sub(r"[-= >]", "_", name)
+            name = "timing_" + re.sub(r"[-= >]", "_", rename_table.get(name, name))
             tmg.get_speed_grade(speed).extra_data.add_timing(name=ch.strs.id(name), delay=convert_timing(val))
         #for k in node_tmg_names:
         #    assert k in timing, f"node class {k} not found in timing data"
