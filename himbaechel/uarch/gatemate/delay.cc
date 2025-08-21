@@ -101,8 +101,7 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
             if (map_lower.count(tp))
                 tp = map_lower[tp];
         }
-        // return get_delay_from_tmg_db(ctx->idf("timing__ARBLUT_%s_%s",fp.c_str(ctx),tp.c_str(ctx)), delay);
-        return true;
+        return get_delay_from_tmg_db(ctx->idf("timing__ARBLUT_%s_%s", fp.c_str(ctx), tp.c_str(ctx)), delay);
     } else if (cell->type.in(id_CPE_ADDF, id_CPE_ADDF2)) {
         return get_delay_from_tmg_db(ctx->idf("timing__ADDF2Y1_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
     } else if (cell->type.in(id_CPE_MX4)) {
@@ -155,8 +154,7 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
     } else if (cell->type.in(id_RAM)) {
         return false;
     }
-    return true;
-    // return ctx->get_cell_delay_default(cell, fromPort, toPort, delay);
+    return false;
 }
 
 TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
