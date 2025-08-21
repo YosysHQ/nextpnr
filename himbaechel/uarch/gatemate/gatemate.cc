@@ -41,12 +41,8 @@ void GateMateImpl::init_database(Arch *arch)
     timing_mode = 3;
     if (args.options.count("fpga_mode"))
         fpga_mode = std::stoi(args.options.at("fpga_mode"));
-    if (args.options.count("om"))
-        fpga_mode = std::stoi(args.options.at("om"));
     if (args.options.count("time_mode"))
         timing_mode = std::stoi(args.options.at("time_mode"));
-    if (args.options.count("tm"))
-        timing_mode = std::stoi(args.options.at("tm"));
 
     std::string speed_grade = "";
     switch (fpga_mode) {
