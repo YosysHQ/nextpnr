@@ -46,6 +46,9 @@ struct GateMateImpl : HimbaechelAPI
 
     bool isBelLocationValid(BelId bel, bool explain_invalid = false) const override;
     delay_t estimateDelay(WireId src, WireId dst) const override;
+    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const override;
+    TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const override;
+    TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const override;
 
     void drawBel(std::vector<GraphicElement> &g, GraphicElement::style_t style, IdString bel_type, Loc loc) override;
 
@@ -75,6 +78,9 @@ struct GateMateImpl : HimbaechelAPI
     pool<IdString> multiplier_a_passthru_lowers;
     pool<IdString> multiplier_a_passthru_uppers;
     pool<IdString> multiplier_zero_drivers;
+    std::vector<CellInfo *> multipliers;
+    int fpga_mode;
+    int timing_mode;
 
   private:
     bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
@@ -91,6 +97,10 @@ struct GateMateImpl : HimbaechelAPI
 
     const GateMateBelExtraDataPOD *bel_extra_data(BelId bel) const;
 
+    bool get_delay_from_tmg_db(IdString id, DelayQuad &delay) const;
+    void get_setuphold_from_tmg_db(IdString id_setup, IdString id_hold, DelayPair &setup, DelayPair &hold) const;
+    void get_setuphold_from_tmg_db(IdString id_setuphold, DelayPair &setup, DelayPair &hold) const;
+
     struct GateMateCellInfo
     {
         // slice info
@@ -101,6 +111,7 @@ struct GateMateImpl : HimbaechelAPI
     };
     std::vector<GateMateCellInfo> fast_cell_info;
     std::map<BelId, std::map<IdString, const GateMateBelPinConstraintPOD *>> pin_to_constr;
+    std::map<IdString, const GateMateTimingExtraDataPOD *> timing;
 };
 
 NEXTPNR_NAMESPACE_END

@@ -18,6 +18,7 @@
 
 import os
 from os import path
+import re
 import sys
 import argparse
 
@@ -40,6 +41,9 @@ sys.path.append(os.path.expanduser(args.lib))
 sys.path += args.lib 
 import chip
 import die
+
+pip_tmg_names = set()
+node_tmg_names = set()
 
 @dataclass
 class TileExtraData(BBAStruct):
@@ -130,103 +134,64 @@ class PadExtraData(BBAStruct):
         bba.u16(self.z)
         bba.u16(0)
 
+@dataclass
+class TimingExtraData(BBAStruct):
+    name: IdString
+    delay: TimingValue = field(default_factory=TimingValue)
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.u32(self.name.index)
+        self.delay.serialise(context, bba)
+
+@dataclass
+class SpeedGradeExtraData(BBAStruct):
+    timings: list[TimingExtraData] = field(default_factory = list)
+
+    def add_timing(self, name: IdString, delay: TimingValue):
+        item = TimingExtraData(name,delay)
+        self.timings.append(item)
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        bba.label(f"{context}_timings")
+        for i, t in enumerate(self.timings):
+            t.serialise(f"{context}_timing{i}", bba)
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.slice(f"{context}_timings", len(self.timings))
+
+def convert_timing(tim):
+    return TimingValue(tim.rise.min, tim.rise.max, tim.fall.min, tim.fall.max)
+
 def set_timings(ch):
-    speed = "DEFAULT"
-    tmg = ch.set_speed_grades([speed])
-
-    lut = ch.timing.add_cell_variant(speed, "CPE_LT_L")
-    lut.add_comb_arc("IN1", "OUT", TimingValue(416, 418)) # IN5 to OUT1
-    lut.add_comb_arc("IN2", "OUT", TimingValue(413, 422)) # IN6 to OUT1
-    lut.add_comb_arc("IN3", "OUT", TimingValue(372, 374)) # IN7 to OUT1
-    lut.add_comb_arc("IN4", "OUT", TimingValue(275, 385)) # IN8 to OUT1
-
-    lut = ch.timing.add_cell_variant(speed, "CPE_LT_U")
-    lut.add_comb_arc("IN1", "OUT", TimingValue(479, 484)) # to OUT2
-    lut.add_comb_arc("IN2", "OUT", TimingValue(471, 488)) # to OUT2
-    lut.add_comb_arc("IN3", "OUT", TimingValue(446, 449)) # to OUT2
-    lut.add_comb_arc("IN4", "OUT", TimingValue(443, 453)) # to OUT2
-
-    lut = ch.timing.add_cell_variant(speed, "CPE_LT")
-    lut.add_comb_arc("IN1", "OUT", TimingValue(479, 484)) # to OUT2
-    lut.add_comb_arc("IN2", "OUT", TimingValue(471, 488)) # to OUT2
-    lut.add_comb_arc("IN3", "OUT", TimingValue(446, 449)) # to OUT2
-    lut.add_comb_arc("IN4", "OUT", TimingValue(443, 453)) # to OUT2
-
-    lut = ch.timing.add_cell_variant(speed, "CPE_L2T4")
-    lut.add_comb_arc("IN1", "OUT", TimingValue(479, 484)) # to OUT2
-    lut.add_comb_arc("IN2", "OUT", TimingValue(471, 488)) # to OUT2
-    lut.add_comb_arc("IN3", "OUT", TimingValue(446, 449)) # to OUT2
-    lut.add_comb_arc("IN4", "OUT", TimingValue(443, 453)) # to OUT2
-
-    lut = ch.timing.add_cell_variant(speed, "CPE_L2T5")
-    lut.add_comb_arc("IN1", "OUT1", TimingValue(479, 484)) # to OUT2
-    lut.add_comb_arc("IN2", "OUT1", TimingValue(471, 488)) # to OUT2
-    lut.add_comb_arc("IN3", "OUT1", TimingValue(446, 449)) # to OUT2
-    lut.add_comb_arc("IN4", "OUT1", TimingValue(443, 453)) # to OUT2
-    lut.add_comb_arc("IN5", "OUT1", TimingValue(416, 418)) # IN5 to OUT1
-    lut.add_comb_arc("IN6", "OUT1", TimingValue(413, 422)) # IN6 to OUT1
-    lut.add_comb_arc("IN7", "OUT1", TimingValue(372, 374)) # IN7 to OUT1
-    lut.add_comb_arc("IN8", "OUT1", TimingValue(275, 385)) # IN8 to OUT1
-
-    lut = ch.timing.add_cell_variant(speed, "CPE_MX4")
-    lut.add_comb_arc("IN1", "OUT1", TimingValue(479, 484)) # to OUT2
-    lut.add_comb_arc("IN2", "OUT1", TimingValue(471, 488)) # to OUT2
-    lut.add_comb_arc("IN3", "OUT1", TimingValue(446, 449)) # to OUT2
-    lut.add_comb_arc("IN4", "OUT1", TimingValue(443, 453)) # to OUT2
-    lut.add_comb_arc("IN5", "OUT1", TimingValue(416, 418)) # IN5 to OUT1
-    lut.add_comb_arc("IN6", "OUT1", TimingValue(413, 422)) # IN6 to OUT1
-    lut.add_comb_arc("IN7", "OUT1", TimingValue(372, 374)) # IN7 to OUT1
-    lut.add_comb_arc("IN8", "OUT1", TimingValue(275, 385)) # IN8 to OUT1
-
-    lut = ch.timing.add_cell_variant(speed, "CPE_CI")
-    lut.add_comb_arc("IN1", "COUTY1", TimingValue(479, 484)) # to OUT2
-    lut.add_comb_arc("IN2", "COUTY1", TimingValue(471, 488)) # to OUT2
-    lut.add_comb_arc("IN3", "COUTY1", TimingValue(446, 449)) # to OUT2
-    lut.add_comb_arc("IN4", "COUTY1", TimingValue(443, 453)) # to OUT2
-
-    lut = ch.timing.add_cell_variant(speed, "CPE_EN_CIN")
-    lut.add_comb_arc("CINY1", "OUT1", TimingValue(479, 484)) # to OUT2
-
-    lut = ch.timing.add_cell_variant(speed, "CPE_ADDF")
-    lut.add_comb_arc("IN1", "OUT2", TimingValue(479, 484)) # to OUT2
-    lut.add_comb_arc("IN2", "OUT2", TimingValue(471, 488)) # to OUT2
-    lut.add_comb_arc("IN3", "OUT2", TimingValue(446, 449)) # to OUT2
-    lut.add_comb_arc("IN4", "OUT2", TimingValue(443, 453)) # to OUT2
-    lut.add_comb_arc("IN5", "OUT1", TimingValue(416, 418)) # IN5 to OUT1
-    lut.add_comb_arc("IN6", "OUT1", TimingValue(413, 422)) # IN6 to OUT1
-    lut.add_comb_arc("IN7", "OUT1", TimingValue(372, 374)) # IN7 to OUT1
-    lut.add_comb_arc("IN8", "OUT1", TimingValue(275, 385)) # IN8 to OUT1
-    lut.add_comb_arc("CINY1", "COUTY1", TimingValue(479, 484))
-
-    lut = ch.timing.add_cell_variant(speed, "CPE_ADDF2")
-    lut.add_comb_arc("IN1", "OUT2", TimingValue(479, 484)) # to OUT2
-    lut.add_comb_arc("IN2", "OUT2", TimingValue(471, 488)) # to OUT2
-    lut.add_comb_arc("IN3", "OUT2", TimingValue(446, 449)) # to OUT2
-    lut.add_comb_arc("IN4", "OUT2", TimingValue(443, 453)) # to OUT2
-    lut.add_comb_arc("IN5", "OUT1", TimingValue(416, 418)) # IN5 to OUT1
-    lut.add_comb_arc("IN6", "OUT1", TimingValue(413, 422)) # IN6 to OUT1
-    lut.add_comb_arc("IN7", "OUT1", TimingValue(372, 374)) # IN7 to OUT1
-    lut.add_comb_arc("IN8", "OUT1", TimingValue(275, 385)) # IN8 to OUT1
-    lut.add_comb_arc("CINY1", "COUTY1", TimingValue(479, 484))
-
-    dff = ch.timing.add_cell_variant(speed, "CPE_FF")
-    dff.add_setup_hold("CLK", "DIN", ClockEdge.RISING, TimingValue(60), TimingValue(50))
-    dff.add_clock_out("CLK", "DOUT", ClockEdge.RISING, TimingValue(60))
-
-    dff = ch.timing.add_cell_variant(speed, "CPE_LATCH")
-    dff.add_setup_hold("CLK", "DIN", ClockEdge.RISING, TimingValue(60), TimingValue(50))
-    dff.add_clock_out("CLK", "DOUT", ClockEdge.RISING, TimingValue(60))
-
-    lut = ch.timing.add_cell_variant(speed, "CPE_RAMI")
-    lut.add_comb_arc("RAM_I", "OUT", TimingValue(0, 0))
-
-    lut = ch.timing.add_cell_variant(speed, "CPE_RAMO")
-    lut.add_comb_arc("I", "RAM_O", TimingValue(0, 0))
-
-    lut = ch.timing.add_cell_variant(speed, "CPE_RAMIO")
-    #lut.add_comb_arc("I", "OUT", TimingValue(0, 0))
-    lut.add_comb_arc("I", "RAM_O", TimingValue(0, 0))
-    lut.add_comb_arc("RAM_I", "OUT", TimingValue(0, 0))
+    speed_grades = ["best_lpr", "best_eco", "best_spd",
+                    "typ_lpr", "typ_eco", "typ_spd",
+                    "worst_lpr", "worst_eco", "worst_spd"]
+    rename_table = {
+        "CINX_OUT1": "_ARBLUT_CINX_OUT1",
+        "CINX_OUT2": "_ARBLUT_CINX_OUT2",
+        "PINX_OUT1": "_ARBLUT_PINX_OUT1",
+        "PINX_OUT2": "_ARBLUT_PINX_OUT2",
+        "PINY1_OUT1": "_ARBLUT_PINY1_OUT1",
+        "PINY1_OUT2": "_ARBLUT_PINY1_OUT2",
+    }
+    tmg = ch.set_speed_grades(speed_grades)
+    for speed in speed_grades:
+        print(f"Loading timings for {speed}...")
+        timing = dict(sorted(chip.get_timings(speed).items()))
+        tmg.get_speed_grade(speed).extra_data = SpeedGradeExtraData()
+        for name, val in timing.items():
+            if name.startswith(("sb_del_t", "im_x", "om_x", "sb_rim_xy", "edge_xy")):
+                continue
+            name = "timing_" + re.sub(r"[-= >]", "_", rename_table.get(name, name))
+            tmg.get_speed_grade(speed).extra_data.add_timing(name=ch.strs.id(name), delay=convert_timing(val))
+        #for k in node_tmg_names:
+        #    assert k in timing, f"node class {k} not found in timing data"
+        #    tmg.set_node_class(grade=speed, name=k, delay=convert_timing(timing[k]))
+        #for k in pip_tmg_names:
+        #    assert k in timing, f"pip class {k} not found in timing data"
+        #    tmg.set_pip_class(grade=speed, name=k, delay=convert_timing(timing[k]))
 
 EXPECTED_VERSION = 1.4
 
@@ -277,7 +242,9 @@ def main():
             for pin in sorted(die.get_primitive_pins(prim.type)):
                 tt.add_bel_pin(bel, pin.name, die.get_pin_connection_name(prim,pin), pin.dir)
         for mux in sorted(die.get_mux_connections_for_type(type_name)):
-            pp = tt.create_pip(mux.src, mux.dst)
+            if len(mux.delay)>0:
+                pip_tmg_names.add(mux.delay)
+            pp = tt.create_pip(mux.src, mux.dst, mux.delay)
             if mux.name:
                 mux_flags = MUX_INVERT if mux.invert else 0
                 mux_flags |= MUX_VISIBLE if mux.visible else 0
@@ -301,9 +268,14 @@ def main():
     # Create nodes between tiles
     for _,nodes in dev.get_connections():
         node = []
+        timing = ""
         for conn in sorted(nodes):
             node.append(NodeWire(conn.x + 2, conn.y + 2, conn.name))
-        ch.add_node(node)
+            # for now update to last one we have defined
+            if len(conn.delay)>0:
+                timing = conn.delay
+                node_tmg_names.add(conn.delay)
+        ch.add_node(node, timing)
     set_timings(ch)
 
     for package in dev.get_packages():

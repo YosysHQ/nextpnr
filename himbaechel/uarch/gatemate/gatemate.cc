@@ -30,14 +30,72 @@ NEXTPNR_NAMESPACE_BEGIN
 
 GateMateImpl::~GateMateImpl() {};
 
+static int parse_mode(const std::string &val, const std::map<std::string, int> &map, const char *error_msg)
+{
+    try {
+        int i = std::stoi(val);
+        if (i >= 1 && i <= 3)
+            return i;
+    } catch (...) {
+        auto it = map.find(val);
+        if (it != map.end())
+            return it->second;
+    }
+    log_error("%s\n", error_msg);
+}
+
 void GateMateImpl::init_database(Arch *arch)
 {
     const ArchArgs &args = arch->args;
     init_uarch_constids(arch);
     arch->load_chipdb(stringf("gatemate/chipdb-%s.bin", args.device.c_str()));
     arch->set_package("FBGA324");
-    arch->set_speed_grade("DEFAULT");
     dies = std::stoi(args.device.substr(6));
+    fpga_mode = 3;
+    timing_mode = 3;
+
+    static const std::map<std::string, int> fpga_map = {{"best", 1}, {"typical", 2}, {"worst", 3}};
+    static const std::map<std::string, int> timing_map = {{"lowpower", 1}, {"economy", 2}, {"speed", 3}};
+
+    if (args.options.count("fpga_mode"))
+        fpga_mode = parse_mode(args.options.at("fpga_mode"), fpga_map,
+                               "timing mode valid values are {1:best, 2:typical, 3:worst}");
+    if (args.options.count("time_mode"))
+        timing_mode = parse_mode(args.options.at("time_mode"), timing_map,
+                                 "operation mode valid values are {1:lowpower, 2:economy, 3:speed}");
+
+    std::string speed_grade = "";
+    switch (fpga_mode) {
+    case 1:
+        speed_grade = "best_";
+        break;
+    case 2:
+        speed_grade = "typ_";
+        break;
+    default:
+        speed_grade = "worst_";
+        break;
+    }
+    log_info("Using timing mode '%s'\n", fpga_mode == 1   ? "BEST"
+                                         : fpga_mode == 2 ? "TYPICAL"
+                                         : fpga_mode == 3 ? "WORST"
+                                                          : "");
+
+    switch (timing_mode) {
+    case 1:
+        speed_grade += "lpr";
+        break;
+    case 2:
+        speed_grade += "eco";
+        break;
+    default:
+        speed_grade += "spd";
+    }
+    log_info("Using operation mode '%s'\n", timing_mode == 1   ? "LOWPOWER"
+                                            : timing_mode == 2 ? "ECONOMY"
+                                            : timing_mode == 3 ? "SPEED"
+                                                               : "");
+    arch->set_speed_grade(speed_grade);
 }
 
 const GateMateTileExtraDataPOD *GateMateImpl::tile_extra_data(int tile) const
@@ -68,15 +126,10 @@ void GateMateImpl::init(Context *ctx)
                               ctx->getBelLocation(bel));
         }
     }
-}
-
-delay_t GateMateImpl::estimateDelay(WireId src, WireId dst) const
-{
-    int sx, sy, dx, dy;
-    tile_xy(ctx->chip_info, src.tile, sx, sy);
-    tile_xy(ctx->chip_info, dst.tile, dx, dy);
-
-    return 100 + 100 * (std::abs(dx - sx) + std::abs(dy - sy));
+    const auto &sp = reinterpret_cast<const GateMateSpeedGradeExtraDataPOD *>(ctx->speed_grade->extra_data.get());
+    for (int i = 0; i < sp->timings.ssize(); i++) {
+        timing.emplace(IdString(sp->timings[i].name), &sp->timings[i]);
+    }
 }
 
 bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
@@ -181,29 +234,28 @@ bool GateMateImpl::getClusterPlacement(ClusterId cluster, BelId root_bel,
 
 void GateMateImpl::prePlace() { assign_cell_info(); }
 
-void GateMateImpl::postPlace() { repack(); }
+void GateMateImpl::postPlace()
+{
+    repack();
+    ctx->assignArchInfo();
+}
 
 void GateMateImpl::preRoute()
 {
-    ctx->assignArchInfo();
     route_mult();
     route_clock();
+    ctx->assignArchInfo();
 }
 
 void GateMateImpl::postRoute()
 {
-    ctx->assignArchInfo();
-
     const ArchArgs &args = ctx->args;
     if (args.options.count("out")) {
         write_bitstream(args.device, args.options.at("out"));
     }
 }
 
-void GateMateImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
-{
-    cfg.placeAllAtOnce = true;
-}
+void GateMateImpl::configurePlacerHeap(PlacerHeapCfg &cfg) { cfg.placeAllAtOnce = true; }
 
 int GateMateImpl::get_dff_config(CellInfo *dff) const
 {
