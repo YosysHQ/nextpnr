@@ -382,7 +382,8 @@ po::options_description CommandHandler::getGeneralOptions()
                           "disable printing of the line numbers associated with each net in the critical path");
 
     general.add_options()("placer-heap-alpha", po::value<float>(), "placer heap alpha value (float, default: 0.1)");
-    general.add_options()("placer-heap-beta", po::value<float>(), "placer heap maximum placement density (float, default: 0.9)");
+    general.add_options()("placer-heap-beta", po::value<float>(),
+                          "placer heap maximum placement density (float, default: 0.9)");
     general.add_options()("placer-heap-critexp", po::value<int>(),
                           "placer heap criticality exponent (int, default: 2)");
     general.add_options()("placer-heap-timingweight", po::value<int>(), "placer heap timing weight (int, default: 10)");
