@@ -261,6 +261,8 @@ TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString 
         std::string name = port.str(ctx);
         if (boost::starts_with(name, "CLKA[") || boost::starts_with(name, "CLKB[") || boost::starts_with(name, "CLOCK"))
             return TMG_CLOCK_INPUT;
+        if (boost::ends_with(name, "_CI") || boost::ends_with(name, "_CO"))
+            return TMG_IGNORE;
         if (name[0] == 'F') // Ignore forward and FIFO pins
             return TMG_IGNORE;
         for (auto c : boost::adaptors::reverse(name)) {
