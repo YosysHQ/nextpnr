@@ -149,6 +149,9 @@ void GateMatePacker::pack_ram_cell(CellInfo &ci, CellInfo *cell, int num, bool i
     int a_do_reg = int_or_default(cell->params, id_A_DO_REG, 0);
     int b_do_reg = int_or_default(cell->params, id_B_DO_REG, 0);
 
+    disconnect_if_gnd(cell, id_A_CLK);
+    disconnect_if_gnd(cell, id_B_CLK);
+
     uint8_t cfg_a = ram_clk_signal(cell, id_A_CLK);
     uint8_t cfg_b = ram_clk_signal(cell, id_B_CLK);
     uint8_t a_inv = a_clk_inv << 2 | a_we_inv << 1 | a_en_inv;

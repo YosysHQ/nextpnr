@@ -112,6 +112,7 @@ struct GateMateImpl : HimbaechelAPI
     std::vector<GateMateCellInfo> fast_cell_info;
     std::map<BelId, std::map<IdString, const GateMateBelPinConstraintPOD *>> pin_to_constr;
     std::map<IdString, const GateMateTimingExtraDataPOD *> timing;
+    dict<IdString, int> ram_signal_clk;
 };
 
 NEXTPNR_NAMESPACE_END

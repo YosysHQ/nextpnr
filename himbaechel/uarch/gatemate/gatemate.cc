@@ -130,6 +130,29 @@ void GateMateImpl::init(Context *ctx)
     for (int i = 0; i < sp->timings.ssize(); i++) {
         timing.emplace(IdString(sp->timings[i].name), &sp->timings[i]);
     }
+    for (int num = 0; num < 2; num++) {
+        int index = (num == 0) ? 0 : 2;
+        ram_signal_clk.emplace(ctx->idf("ENA[%d]", index), num);
+        ram_signal_clk.emplace(ctx->idf("ENB[%d]", index), num + 2);
+        ram_signal_clk.emplace(ctx->idf("GLWEA[%d]", index), num);
+        ram_signal_clk.emplace(ctx->idf("GLWEB[%d]", index), num + 2);
+        for (int i = 0; i < 20; i++) {
+            ram_signal_clk.emplace(ctx->idf("WEA[%d]", i + num * 20), num);
+            ram_signal_clk.emplace(ctx->idf("WEB[%d]", i + num * 20), num + 2);
+        }
+
+        for (int i = 0; i < 16; i++) {
+            ram_signal_clk.emplace(ctx->idf("ADDRA%d[%d]", num, i), num);
+            ram_signal_clk.emplace(ctx->idf("ADDRB%d[%d]", num, i), num + 2);
+        }
+
+        for (int i = 0; i < 20; i++) {
+            ram_signal_clk.emplace(ctx->idf("DIA[%d]", i + num * 20), num);
+            ram_signal_clk.emplace(ctx->idf("DOA[%d]", i + num * 20), num);
+            ram_signal_clk.emplace(ctx->idf("DIB[%d]", i + num * 20), num + 2);
+            ram_signal_clk.emplace(ctx->idf("DOB[%d]", i + num * 20), num + 2);
+        }
+    }
 }
 
 bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const

@@ -110,6 +110,8 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
         return get_delay_from_tmg_db(ctx->idf("timing__MULT_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
     } else if (cell->type.in(id_CPE_FF, id_CPE_LATCH, id_CPE_FF_L, id_CPE_FF_U)) {
         return false;
+    } else if (cell->type.in(id_CPE_CPLINES)) {
+        return true;
     } else if (cell->type.in(id_CPE_COMP)) {
         return get_delay_from_tmg_db(fromPort == id_COMB1 ? id_timing_comb1_compout : id_timing_comb2_compout, delay);
     } else if (cell->type.in(id_CPE_RAMI, id_CPE_RAMO, id_CPE_RAMIO)) {
@@ -277,6 +279,30 @@ TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString 
     }
 }
 
+IdString clock(uint8_t val, IdString clk1, IdString clk2, IdString clk3, IdString clk4)
+{
+    switch (val) {
+    case 0b00000000:
+        return clk1;
+    case 0b00000100:
+        return clk2;
+    case 0b00001000:
+        return clk3;
+    case 0b00001100:
+        return clk4;
+    case 0b00100011:
+        return id_CLOCK1;
+    case 0b00110011:
+        return id_CLOCK2;
+    case 0b00000011:
+        return id_CLOCK3;
+    case 0b00010011:
+        return id_CLOCK4;
+    default:
+        return clk1;
+    }
+}
+
 TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
 {
     TimingClockingInfo info;
@@ -346,8 +372,36 @@ TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdStr
             inverted = int_or_default(cell->params, id_B_CLK_INV, 0);
 
         info.edge = inverted ? FALLING_EDGE : RISING_EDGE;
-        // TODO: Fix which clock is actually used
-        info.clock_port = is_clk_b ? id_CLOCK1 : id_CLOCK1;
+        uint8_t a0_clk_val = int_or_default(cell->params, id_RAM_cfg_forward_a0_clk, 0);
+        uint8_t a1_clk_val = int_or_default(cell->params, id_RAM_cfg_forward_a1_clk, 0);
+        uint8_t b0_clk_val = int_or_default(cell->params, id_RAM_cfg_forward_b0_clk, 0);
+        uint8_t b1_clk_val = int_or_default(cell->params, id_RAM_cfg_forward_b1_clk, 0);
+        IdString a0_clk =
+                clock(a0_clk_val, ctx->id("CLKA[0]"), ctx->id("CLKA[1]"), ctx->id("CLKB[0]"), ctx->id("CLKB[1]"));
+        IdString a1_clk =
+                clock(a1_clk_val, ctx->id("CLKA[2]"), ctx->id("CLKA[3]"), ctx->id("CLKB[2]"), ctx->id("CLKB[3]"));
+        IdString b0_clk =
+                clock(b0_clk_val, ctx->id("CLKB[0]"), ctx->id("CLKB[1]"), ctx->id("CLKA[0]"), ctx->id("CLKA[1]"));
+        IdString b1_clk =
+                clock(b1_clk_val, ctx->id("CLKB[2]"), ctx->id("CLKB[3]"), ctx->id("CLKA[2]"), ctx->id("CLKA[3]"));
+        if (ram_signal_clk.count(port)) {
+            switch (ram_signal_clk.at(port)) {
+            case 0:
+                info.clock_port = a0_clk;
+                break;
+            case 1:
+                info.clock_port = a1_clk;
+                break;
+            case 2:
+                info.clock_port = b0_clk;
+                break;
+            case 3:
+                info.clock_port = b1_clk;
+                break;
+            }
+        } else {
+            log_error("Uknown clock signal for %s\n", name.c_str());
+        }
     }
 
     return info;
