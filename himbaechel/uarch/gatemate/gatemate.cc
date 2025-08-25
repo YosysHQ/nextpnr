@@ -261,6 +261,27 @@ void GateMateImpl::postPlace()
 {
     repack();
     ctx->assignArchInfo();
+    for (auto &cell : ctx->cells) {
+        // We need to skip CPE_MULT since using CP outputs is mandatory
+        // even if output is actually not connected
+        bool marked_used = cell.second.get()->type == id_CPE_MULT;
+        // Can not use FF for OUT2 if CPE is used in bridge mode
+        if (cell.second.get()->type == id_CPE_FF && ctx->getBelLocation(cell.second.get()->bel).z == CPE_FF_U_Z)
+            marked_used = true;
+        if (marked_used)
+            used_cpes.emplace(ctx->getBelName(cell.second.get()->bel)[0]);
+    }
+}
+bool GateMateImpl::checkPipAvail(PipId pip) const
+{
+    const auto &extra_data =
+            *reinterpret_cast<const GateMatePipExtraDataPOD *>(chip_pip_info(ctx->chip_info, pip).extra_data.get());
+    if (extra_data.type != PipExtra::PIP_EXTRA_MUX || (extra_data.flags & MUX_ROUTING) == 0)
+        return true;
+    IdStringList id = ctx->getPipName(pip);
+    if (used_cpes.count(id[0]))
+        return false;
+    return true;
 }
 
 void GateMateImpl::preRoute()
@@ -272,6 +293,25 @@ void GateMateImpl::preRoute()
 
 void GateMateImpl::postRoute()
 {
+    for (auto &net : ctx->nets) {
+        NetInfo *ni = net.second.get();
+        for (auto &w : ni->wires) {
+            if (w.second.pip != PipId()) {
+                const auto &extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
+                        chip_pip_info(ctx->chip_info, w.second.pip).extra_data.get());
+                if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_ROUTING)) {
+                    IdStringList id = ctx->getPipName(w.second.pip);
+                    Loc loc = ctx->getPipLocation(w.second.pip);
+                    BelId bel = ctx->getBelByLocation({loc.x, loc.y, CPE_BRIDGE_Z});
+                    CellInfo *cell = ctx->createCell(ctx->id(ctx->nameOfBel(bel)), id_CPE_BRIDGE);
+                    ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
+                    cell->params[id_C_BR] = Property(Property::State::S1, 1);
+                    cell->params[id_C_SN] = Property(extra_data.value, 3);
+                }
+            }
+        }
+    }
+
     const ArchArgs &args = ctx->args;
     if (args.options.count("out")) {
         write_bitstream(args.device, args.options.at("out"));
