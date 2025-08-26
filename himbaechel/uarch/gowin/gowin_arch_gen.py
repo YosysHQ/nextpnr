@@ -24,6 +24,7 @@ CHIP_HAS_PLL_HCLK          = 0x20
 CHIP_HAS_CLKDIV_HCLK       = 0x40
 CHIP_HAS_PINCFG            = 0x80
 CHIP_HAS_DFF67             = 0x100
+CHIP_HAS_CIN_MUX           = 0x200
 
 # Tile flags
 TILE_I3C_CAPABLE_IO        = 0x1
@@ -1590,6 +1591,8 @@ def main():
             chip_flags |= CHIP_HAS_PINCFG;
         if "HAS_DFF67" in db.chip_flags:
             chip_flags |= CHIP_HAS_DFF67;
+        if "HAS_CIN_MUX" in db.chip_flags:
+            chip_flags |= CHIP_HAS_CIN_MUX;
 
     X = db.cols;
     Y = db.rows;

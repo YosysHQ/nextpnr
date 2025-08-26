@@ -1368,4 +1368,5 @@ X(SEG_WIRES_TO_ISOLATE)
 // routing params
 X(NO_GP_CLOCK_ROUTING)
 
-
+// gw5a alu
+X(CIN_NETTYPE)

@@ -1867,7 +1867,8 @@ struct GowinPacker
     // ALU
     // ===================================
     // create ALU CIN block
-    std::unique_ptr<CellInfo> alu_add_cin_block(Context *ctx, CellInfo *head, NetInfo *cin_net)
+    std::unique_ptr<CellInfo> alu_add_cin_block(Context *ctx, CellInfo *head, NetInfo *cin_net, bool cin_is_vcc,
+                                                bool cin_is_gnd)
     {
         std::string name = head->name.str(ctx) + "_HEAD_ALULC";
         IdString name_id = ctx->id(name);
@@ -1880,13 +1881,13 @@ struct GowinPacker
         cin_ci->addOutput(id_COUT);
         cin_ci->connectPort(id_COUT, cout_net);
 
-        if (cin_net->name == ctx->id("$PACKER_GND")) {
+        if (cin_is_gnd) {
             cin_ci->setParam(id_ALU_MODE, std::string("C2L"));
             cin_ci->addInput(id_I2);
             cin_ci->connectPort(id_I2, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
             return cin_ci;
         }
-        if (cin_net->name == ctx->id("$PACKER_VCC")) {
+        if (cin_is_vcc) {
             cin_ci->setParam(id_ALU_MODE, std::string("ONE2C"));
             cin_ci->addInput(id_I2);
             cin_ci->connectPort(id_I2, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
@@ -1902,6 +1903,7 @@ struct GowinPacker
         cin_ci->addInput(id_I2);
         cin_ci->connectPort(id_I2, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
         cin_ci->setParam(id_ALU_MODE, std::string("0")); // ADD
+        cin_ci->setParam(id_CIN_NETTYPE, Property("LOGIC"));
         return cin_ci;
     }
 
@@ -1962,29 +1964,52 @@ struct GowinPacker
                     if (ctx->debug) {
                         log_info("ALU head found %s. CIN net is %s\n", ctx->nameOf(ci), ctx->nameOf(cin_net));
                     }
-                    // always prepend first ALU with carry generator block
-                    // three cases: CIN == 0, CIN == 1 and CIN == ?
-                    new_cells.push_back(alu_add_cin_block(ctx, ci, cin_net));
-                    CellInfo *cin_block_ci = new_cells.back().get();
-                    // CIN block is the cluster root and is always placed in ALU0
-                    // This is a possible place for further optimization
+
+                    bool cin_is_vcc = cin_net->name == ctx->id("$PACKER_VCC");
+                    bool cin_is_gnd = cin_net->name == ctx->id("$PACKER_GND");
+                    bool cin_is_logic = !cin_is_vcc && !cin_is_gnd;
+                    CellInfo *cin_block_ci;
+                    int alu_chain_len;
+
+                    // According to the documentation, GW5A can use CIN from
+                    // logic using the input MUX, but in practice this has not
+                    // yet been achieved. We are leaving the old mechanism in
+                    // place for this case.
+                    if ((!gwu.has_CIN_MUX()) || cin_is_logic) {
+                        // prepend first ALU with carry generator block
+                        // three cases: CIN == 0, CIN == 1 and CIN == ?
+                        new_cells.push_back(alu_add_cin_block(ctx, ci, cin_net, cin_is_vcc, cin_is_gnd));
+                        cin_block_ci = new_cells.back().get();
+                        // CIN block is the cluster root and is always placed in ALU0
+                        alu_chain_len = 1;
+                    } else {
+                        cin_block_ci = ci;
+                        ci->disconnectPort(id_CIN);
+                        if (cin_is_vcc) {
+                            ci->setParam(id_CIN_NETTYPE, Property("VCC"));
+                        } else {
+                            ci->setParam(id_CIN_NETTYPE, Property("GND"));
+                        }
+                        alu_chain_len = 0;
+                    }
                     cin_block_ci->cluster = cin_block_ci->name;
                     cin_block_ci->constr_z = BelZ::ALU0_Z;
                     cin_block_ci->constr_abs_z = true;
 
-                    int alu_chain_len = 1;
                     while (true) {
-                        // add to cluster
-                        if (ctx->debug) {
-                            log_info("Add ALU to the chain (len:%d): %s\n", alu_chain_len, ctx->nameOf(ci));
+                        if (ci != cin_block_ci) {
+                            // add to cluster
+                            if (ctx->debug) {
+                                log_info("Add ALU to the chain (len:%d): %s\n", alu_chain_len, ctx->nameOf(ci));
+                            }
+                            cin_block_ci->constr_children.push_back(ci);
+                            NPNR_ASSERT(ci->cluster == ClusterId());
+                            ci->cluster = cin_block_ci->name;
+                            ci->constr_abs_z = false;
+                            ci->constr_x = alu_chain_len / 6;
+                            ci->constr_y = 0;
+                            ci->constr_z = alu_chain_len % 6;
                         }
-                        cin_block_ci->constr_children.push_back(ci);
-                        NPNR_ASSERT(ci->cluster == ClusterId());
-                        ci->cluster = cin_block_ci->name;
-                        ci->constr_abs_z = false;
-                        ci->constr_x = alu_chain_len / 6;
-                        ci->constr_y = 0;
-                        ci->constr_z = alu_chain_len % 6;
                         // XXX mode 0 - ADD
                         if (ci->params.at(id_ALU_MODE).as_int64() == 0) {
                             ci->renamePort(id_I3, id_I2);
