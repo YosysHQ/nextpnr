@@ -342,6 +342,12 @@ bool GowinUtils::has_DFF67(void) const
     return extra->chip_flags & Extra_chip_data_POD::HAS_DFF67;
 }
 
+bool GowinUtils::has_CIN_MUX(void) const
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->chip_flags & Extra_chip_data_POD::HAS_CIN_MUX;
+}
+
 bool GowinUtils::has_SP32(void)
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
