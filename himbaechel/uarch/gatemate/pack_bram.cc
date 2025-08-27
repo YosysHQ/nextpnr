@@ -221,6 +221,15 @@ void GateMatePacker::pack_ram_cell(CellInfo &ci, CellInfo *cell, int num, bool i
     rename_or_move(cell, &ci, id_B_EN, ctx->idf("ENB[%d]", index));
     rename_or_move(cell, &ci, id_A_WE, ctx->idf("GLWEA[%d]", index));
     rename_or_move(cell, &ci, id_B_WE, ctx->idf("GLWEB[%d]", index));
+    if (is_split) {
+        rename_or_move(cell, &ci, id_ECC_1B_ERR, ctx->idf("ECC1B_ERRA[%d]", index));
+        rename_or_move(cell, &ci, id_ECC_2B_ERR, ctx->idf("ECC2B_ERRA[%d]", index));
+    } else {
+        rename_or_move(cell, &ci, id_A_ECC_1B_ERR, ctx->idf("ECC1B_ERRA[%d]", index));
+        rename_or_move(cell, &ci, id_B_ECC_1B_ERR, ctx->idf("ECC1B_ERRB[%d]", index));
+        rename_or_move(cell, &ci, id_A_ECC_2B_ERR, ctx->idf("ECC2B_ERRA[%d]", index));
+        rename_or_move(cell, &ci, id_B_ECC_2B_ERR, ctx->idf("ECC2B_ERRB[%d]", index));
+    }
     int items = is_split ? 20 : 40;
     for (int i = 0; i < items; i++) {
         rename_or_move(cell, &ci, ctx->idf("A_BM[%d]", i), ctx->idf("WEA[%d]", i + num * 20));
@@ -415,6 +424,8 @@ void GateMatePacker::pack_ram()
                 log_error("DYN_STAT_SELECT must be 0 or 1.\n");
             if (dyn_stat_select != 0 && ram_mode == 1)
                 log_error("Dynamic FIFO offset configuration is not supported in SDP mode.\n");
+            if (dyn_stat_select != 0)
+                log_error("Dynamic FIFO offset configuration is currently not supported.\n");
             ci.params[id_RAM_cfg_dyn_stat_select] = Property(dyn_stat_select << 1, 2);
             ci.params[id_RAM_cfg_almost_empty_offset] =
                     Property(int_or_default(ci.params, id_F_ALMOST_EMPTY_OFFSET, 0), 15);
@@ -453,9 +464,12 @@ void GateMatePacker::pack_ram()
         }
 
         if (is_fifo) {
-            for (int i = 0; i < 15; i++) {
-                ci.disconnectPort(ctx->idf("F_ALMOST_EMPTY_OFFSET[%d]", i));
-                ci.disconnectPort(ctx->idf("F_ALMOST_FULL_OFFSET[%d]", i));
+            int dyn_stat_select = int_or_default(ci.params, id_DYN_STAT_SELECT, 0);
+            if (dyn_stat_select == 0) {
+                for (int i = 0; i < 15; i++) {
+                    ci.disconnectPort(ctx->idf("F_ALMOST_EMPTY_OFFSET[%d]", i));
+                    ci.disconnectPort(ctx->idf("F_ALMOST_FULL_OFFSET[%d]", i));
+                }
             }
             ci.renamePort(id_F_EMPTY, ctx->id("F_EMPTY[0]"));
             move_ram_i(&ci, ctx->id("F_EMPTY[0]"));
@@ -473,6 +487,14 @@ void GateMatePacker::pack_ram()
 
             ci.renamePort(id_F_RST_N, ctx->id("F_RSTN"));
             move_ram_o(&ci, ctx->id("F_RSTN"));
+
+            for (int i = 0; i < 15; i++) {
+                ci.renamePort(ctx->idf("F_RD_PTR[%d]", i), ctx->idf("FRD_ADDR[%d]", i));
+                move_ram_i(&ci, ctx->idf("FRD_ADDR[%d]", i));
+
+                ci.renamePort(ctx->idf("F_WR_PTR[%d]", i), ctx->idf("FWR_ADDR[%d]", i));
+                move_ram_i(&ci, ctx->idf("FWR_ADDR[%d]", i));
+            }
         }
     }
     flush_cells();
