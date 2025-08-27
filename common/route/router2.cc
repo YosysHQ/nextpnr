@@ -431,7 +431,7 @@ struct Router2
     }
 
     // Returns true if a wire contains no sink port
-    bool is_wire_unusable(WireId wire, const NetInfo *net, const pool<WireId>& sink_wires, int iter_count = 0)
+    bool is_wire_unusable(WireId wire, const NetInfo *net, const pool<WireId> &sink_wires, int iter_count = 0)
     {
         if (iter_count > 7)
             return false; // heuristic to assume we've hit general routing
@@ -476,7 +476,7 @@ struct Router2
     }
 
     // Find all the sink wires that must be used to route a given arc
-    bool reserve_driver_wires_for_arc(NetInfo *net, const pool<WireId>& sink_wires)
+    bool reserve_driver_wires_for_arc(NetInfo *net, const pool<WireId> &sink_wires)
     {
         bool did_something = false;
 
@@ -496,8 +496,9 @@ struct Router2
                     log("      %s (driver output)\n", ctx->nameOfWire(cursor));
                 did_something |= (wd.reserved_net != net->udata);
                 if (wd.reserved_net != -1 && wd.reserved_net != net->udata)
-                    log_error("attempting to reserve driver output path wire '%s' for nets '%s' and '%s'\n", ctx->nameOfWire(cursor),
-                              ctx->nameOf(nets_by_udata.at(wd.reserved_net)), ctx->nameOf(net));
+                    log_error("attempting to reserve driver output path wire '%s' for nets '%s' and '%s'\n",
+                              ctx->nameOfWire(cursor), ctx->nameOf(nets_by_udata.at(wd.reserved_net)),
+                              ctx->nameOf(net));
                 wd.reserved_net = net->udata;
                 WireId next_cursor;
                 for (auto dh : ctx->getPipsDownhill(cursor)) {
@@ -539,8 +540,9 @@ struct Router2
                     log("      %s (sink input)\n", ctx->nameOfWire(cursor));
                 did_something |= (wd.reserved_net != net->udata);
                 if (wd.reserved_net != -1 && wd.reserved_net != net->udata)
-                    log_error("attempting to reserve sink input path wire '%s' for nets '%s' and '%s'\n", ctx->nameOfWire(cursor),
-                              ctx->nameOf(nets_by_udata.at(wd.reserved_net)), ctx->nameOf(net));
+                    log_error("attempting to reserve sink input path wire '%s' for nets '%s' and '%s'\n",
+                              ctx->nameOfWire(cursor), ctx->nameOf(nets_by_udata.at(wd.reserved_net)),
+                              ctx->nameOf(net));
                 wd.reserved_net = net->udata;
                 if (cursor == src)
                     break;
@@ -574,7 +576,7 @@ struct Router2
                 if (src == WireId())
                     continue;
                 pool<WireId> sink_wires;
-                for (auto& usr : net->users)
+                for (auto &usr : net->users)
                     for (auto sink_wire : ctx->getNetinfoSinkWires(net, usr))
                         sink_wires.insert(sink_wire);
                 did_something |= reserve_driver_wires_for_arc(net, sink_wires);
