@@ -267,6 +267,15 @@ void GateMatePacker::pack_ram()
         std::string cas = str_or_default(ci.params, id_CAS, "NONE");
         if (cas != "NONE" && !ci.type.in(id_CC_BRAM_40K))
             log_error("Cascade feature only supported for CC_BRAM_40K.\n");
+
+        int items = split ? 20 : 40;
+        for (int i = 0; i < items; i++) {
+            if (!ci.getPort(ctx->idf("A_DI[%d]", i)))
+                ci.disconnectPort(ctx->idf("A_BM[%d]", i));
+            if (!ci.getPort(ctx->idf("B_DI[%d]", i)))
+                ci.disconnectPort(ctx->idf("B_BM[%d]", i));
+        }
+
         if (split) {
             bool added = false;
             if (!rams_merged[ram_mode].empty()) {
