@@ -55,7 +55,10 @@ inline bool type_is_iologici(IdString cell_type)
 inline bool is_iologici(const CellInfo *cell) { return type_is_iologici(cell->type); }
 
 // Return true if a cell is a SSRAM
-inline bool type_is_ssram(IdString cell_type) { return cell_type.in(id_RAM16SDP1, id_RAM16SDP2, id_RAM16SDP4); }
+inline bool type_is_ssram(IdString cell_type)
+{
+    return cell_type.in(id_RAM16SDP1, id_RAM16SDP2, id_RAM16SDP4, id_ROM16);
+}
 inline bool is_ssram(const CellInfo *cell) { return type_is_ssram(cell->type); }
 
 // Return true if a cell is a BSRAM
