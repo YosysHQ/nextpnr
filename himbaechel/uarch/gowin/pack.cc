@@ -2118,11 +2118,12 @@ struct GowinPacker
         return lut_ci;
     }
 
-    void pack_ram16sdp4(void)
+    void pack_ssram(void)
     {
         std::vector<std::unique_ptr<CellInfo>> new_cells;
+        std::vector<IdString> cells_to_remove;
 
-        log_info("Pack RAMs...\n");
+        log_info("Pack SSRAMs...\n");
         for (auto &cell : ctx->cells) {
             auto ci = cell.second.get();
             if (ci->cluster != ClusterId()) {
@@ -2130,6 +2131,17 @@ struct GowinPacker
             }
 
             if (is_ssram(ci)) {
+                if (ci->type == id_ROM16) {
+                    new_cells.push_back(ssram_make_lut(ctx, ci, 0));
+                    CellInfo *lut_ci = new_cells.back().get();
+                    // inputs
+                    ci->movePortBusTo(id_AD, 0, true, lut_ci, id_I, 0, false, 4);
+                    // output
+                    ci->movePortTo(id_DO, lut_ci, id_F);
+
+                    cells_to_remove.push_back(ci->name);
+                    continue;
+                }
                 // make cluster root
                 ci->cluster = ci->name;
                 ci->constr_abs_z = true;
@@ -2178,6 +2190,9 @@ struct GowinPacker
         }
         for (auto &ncell : new_cells) {
             ctx->cells[ncell->name] = std::move(ncell);
+        }
+        for (auto cell : cells_to_remove) {
+            ctx->cells.erase(cell);
         }
     }
 
@@ -4326,13 +4341,13 @@ struct GowinPacker
         pack_alus();
         ctx->check();
 
+        pack_ssram();
+        ctx->check();
+
         constrain_lutffs();
         ctx->check();
 
         pack_pll();
-        ctx->check();
-
-        pack_ram16sdp4();
         ctx->check();
 
         pack_bsram();
