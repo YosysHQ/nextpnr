@@ -1991,7 +1991,7 @@ struct GowinPacker
                     optimized = true;
 
                     // fix the carry
-                    if (!i) {
+                    if (i == 0) {
                         if (inp_net_name == vcc_net_name) {
                             alu_lut |= 0xfU;
                         } else {
