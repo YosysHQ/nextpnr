@@ -327,6 +327,8 @@ IdString GateMateImpl::getBelBucketForCellType(IdString cell_type) const
         return id_CPE_FF;
     else if (cell_type.in(id_CPE_RAMIO, id_CPE_RAMI, id_CPE_RAMO))
         return id_CPE_RAMIO;
+    else if (cell_type.in(id_RAM_HALF, id_RAM_HALF_DUMMY))
+        return id_RAM_HALF;
     else
         return cell_type;
 }
@@ -340,6 +342,8 @@ BelBucketId GateMateImpl::getBelBucketForBel(BelId bel) const
         return id_CPE_FF;
     else if (bel_type.in(id_CPE_RAMIO_U, id_CPE_RAMIO_L))
         return id_CPE_RAMIO;
+    else if (bel_type.in(id_RAM_HALF_U, id_RAM_HALF_L))
+        return id_RAM_HALF;
     return bel_type;
 }
 
@@ -359,6 +363,10 @@ bool GateMateImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
         return cell_type.in(id_CPE_FF_L, id_CPE_FF, id_CPE_LATCH);
     else if (bel_type.in(id_CPE_RAMIO_U, id_CPE_RAMIO_L))
         return cell_type.in(id_CPE_RAMIO, id_CPE_RAMI, id_CPE_RAMO);
+    else if (bel_type == id_RAM_HALF_U)
+        return cell_type.in(id_RAM_HALF, id_RAM_HALF_DUMMY);
+    else if (bel_type == id_RAM_HALF_L)
+        return cell_type.in(id_RAM_HALF, id_RAM_HALF_DUMMY);
     else
         return (bel_type == cell_type);
 }
