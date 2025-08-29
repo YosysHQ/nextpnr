@@ -66,7 +66,8 @@ struct GateMatePacker
     void remove_clocking();
 
     void cleanup();
-    void repack();
+    void repack_cpe();
+    void repack_ram();
 
   private:
     void rename_param(CellInfo *cell, IdString name, IdString new_name, int width);
