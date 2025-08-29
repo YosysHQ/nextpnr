@@ -249,23 +249,6 @@ void GateMatePacker::pack_ram()
                 ci.disconnectPort(ctx->idf("B_BM[%d]", i));
         }
 
-        if (!split) {
-            ci.cluster = ci.name;
-
-            CellInfo *cell = ctx->createCell(ctx->idf("%s$dummy$u", ci.name.c_str(ctx)), id_RAM_HALF_DUMMY);
-            ci.constr_children.push_back(cell);
-            cell->constr_abs_z = true;
-            cell->constr_z = RAM_HALF_U_Z;
-            cell->cluster = ci.name;
-
-            cell = ctx->createCell(ctx->idf("%s$dummy$l", ci.name.c_str(ctx)), id_RAM_HALF_DUMMY);
-            ci.constr_children.push_back(cell);
-            cell->constr_abs_z = true;
-            cell->constr_y = +8;
-            cell->constr_z = RAM_HALF_L_Z;
-            cell->cluster = ci.name;
-        }
-
         if (split) {
             rams.push_back(&ci);
         } else {
@@ -334,6 +317,21 @@ void GateMatePacker::pack_ram()
             ci.constr_z = 0;
         } else {
             log_error("Unknown CAS parameter value '%s' for cell %s.\n", cas.c_str(), ci.name.c_str(ctx));
+        }
+
+        if (!split) {
+            CellInfo *cell = ctx->createCell(ctx->idf("%s$dummy$u", ci.name.c_str(ctx)), id_RAM_HALF_DUMMY);
+            ci.constr_children.push_back(cell);
+            cell->constr_abs_z = true;
+            cell->constr_z = RAM_HALF_U_Z;
+            cell->cluster = ci.cluster;
+
+            cell = ctx->createCell(ctx->idf("%s$dummy$l", ci.name.c_str(ctx)), id_RAM_HALF_DUMMY);
+            ci.constr_children.push_back(cell);
+            cell->constr_abs_z = true;
+            cell->constr_y = +8;
+            cell->constr_z = RAM_HALF_L_Z;
+            cell->cluster = ci.cluster;
         }
 
         // RAM and Write Modes
