@@ -420,6 +420,10 @@ void GateMatePacker::pack_ram()
             move_ram_o(&ci, ctx->idf("ENB[%d]", i));
             move_ram_o(&ci, ctx->idf("GLWEA[%d]", i));
             move_ram_o(&ci, ctx->idf("GLWEB[%d]", i));
+            move_ram_o(&ci, ctx->idf("ECC1B_ERRA[%d]", i));
+            move_ram_o(&ci, ctx->idf("ECC1B_ERRB[%d]", i));
+            move_ram_o(&ci, ctx->idf("ECC2B_ERRA[%d]", i));
+            move_ram_o(&ci, ctx->idf("ECC2B_ERRB[%d]", i));
         }
 
         if (is_fifo) {
@@ -481,6 +485,12 @@ void GateMatePacker::remap_ram_half(CellInfo *half, CellInfo *cell, int num)
         rename_or_move(half, cell, ctx->idf("ADDRA0[%d]", i), ctx->idf("ADDRA%d[%d]", num, i));
         rename_or_move(half, cell, ctx->idf("ADDRB0[%d]", i), ctx->idf("ADDRB%d[%d]", num, i));
     }
+
+    index = num ? 1 : 0;
+    rename_or_move(half, cell, ctx->idf("ECC1B_ERRA[0]"), ctx->idf("ECC1B_ERRA[%d]", index));
+    rename_or_move(half, cell, ctx->idf("ECC1B_ERRB[0]"), ctx->idf("ECC1B_ERRB[%d]", index));
+    rename_or_move(half, cell, ctx->idf("ECC2B_ERRA[0]"), ctx->idf("ECC2B_ERRA[%d]", index));
+    rename_or_move(half, cell, ctx->idf("ECC2B_ERRB[0]"), ctx->idf("ECC2B_ERRB[%d]", index));
 
     static dict<IdString, IdString> map_params = {
             {id_RAM_cfg_forward_a0_clk, id_RAM_cfg_forward_a1_clk},
