@@ -1941,6 +1941,98 @@ struct GowinPacker
         return dummy_ci;
     }
 
+    // optimize ALU wiring
+    // A very simple ALU optimization: once we detect that one of the inputs is
+    // a constant, we modify the main LUT that describes the ALU function so
+    // that this primitive input is ignored, and then disconnect it from the
+    // network, freeing up the PIP.
+    // For example (unrealistic, since a real ALU LUT has a larger size and
+    // service bits in the middle, etc.), the addition function of A and B when
+    // A = 1 is converted from the general case (A isn't a constant and B isn't a
+    // constant) to a special case:
+    // 0110 -> 0011
+    void optimize_alu_lut(CellInfo *ci, int mode)
+    {
+        auto uni_shift = [&](unsigned int val, int amount) {
+            if (amount < 0) {
+                return val >> -amount;
+            }
+            return val << amount;
+        };
+
+        IdString vcc_net_name = ctx->id("$PACKER_VCC");
+        IdString gnd_net_name = ctx->id("$PACKER_GND");
+        bool optimized = false;
+        switch (mode) {
+        case 2: {
+            // ALU LUT for mode 2 is 0110_0000_1001_1010 for all chips
+            // We will change this feature if the next
+            // unreleased Gowin chip series changes this
+            // representation.
+            // If ADDSUB dynamically switches between + and -,
+            // optimization is not possible.
+            int possible_carry = 0b1100U;
+            IdString inp_net_name = ci->getPort(id_I3)->name;
+            if (inp_net_name != vcc_net_name && inp_net_name != gnd_net_name) {
+                break;
+            }
+            if (inp_net_name == gnd_net_name) {
+                possible_carry = 0b0011U;
+            }
+            unsigned int alu_lut = 0b0110000010011010U;
+            for (int i = 0; i < 3; ++i) {
+                if (i == 2) {
+                    break;
+                }
+                IdString inp_name = ctx->idf("I%d", i);
+                inp_net_name = ci->getPort(inp_name)->name;
+                if (inp_net_name == vcc_net_name || inp_net_name == gnd_net_name) {
+                    ci->disconnectPort(inp_name);
+                    optimized = true;
+
+                    // fix the carry
+                    if (i == 0) {
+                        if (inp_net_name == vcc_net_name) {
+                            alu_lut |= 0xfU;
+                        } else {
+                            alu_lut &= ~0xfU;
+                            alu_lut |= possible_carry;
+                        }
+                    }
+
+                    // We rearrange bits to account for constant networks
+                    int bit_n = 4;
+                    int copy_dist = 1 << i;
+                    if (inp_net_name == vcc_net_name) {
+                        bit_n += copy_dist;
+                        copy_dist = -copy_dist;
+                    }
+                    for (int j = 0; j < 4; ++j) {
+                        alu_lut &= ~(1 << (bit_n + copy_dist));
+                        alu_lut |= uni_shift(alu_lut & (1 << bit_n), copy_dist);
+                        switch (i) {
+                        case 0: // skip the service bits
+                            bit_n += j == 1 ? 5 : 1;
+                            break;
+                        case 1: // skip the service bits
+                            bit_n += j == 1 ? 6 : 0;
+                            break;
+                        default:
+                            break;
+                        }
+                        ++bit_n;
+                    }
+                }
+            }
+            if (optimized) {
+                ci->setParam(id_RAW_ALU_LUT, alu_lut);
+            }
+        } break;
+        default:
+            break;
+        }
+    }
+
     // create ALU chain
     void pack_alus(void)
     {
@@ -2010,17 +2102,9 @@ struct GowinPacker
                             ci->constr_y = 0;
                             ci->constr_z = alu_chain_len % 6;
                         }
-                        // XXX mode 0 - ADD
-                        if (ci->params.at(id_ALU_MODE).as_int64() == 0) {
-                            ci->renamePort(id_I3, id_I2);
-                            ci->renamePort(id_I0, id_I3);
-                            ci->renamePort(id_I2, id_I0);
-                        }
-                        // XXX mode 1 - SUB
-                        else if (ci->params.at(id_ALU_MODE).as_int64() == 1) {
-                            ci->renamePort(id_I3, id_I2);
-                            ci->renamePort(id_I1, id_I3);
-                            ci->renamePort(id_I2, id_I1);
+                        // optimize only MODE=2 for now
+                        if (ci->params.at(id_ALU_MODE).as_int64() == 2) {
+                            optimize_alu_lut(ci, 2);
                         }
                         // XXX I2 is pin C which must be set to 1 for all ALU modes except MUL
                         // we use only mode 2 ADDSUB so create and connect this pin
