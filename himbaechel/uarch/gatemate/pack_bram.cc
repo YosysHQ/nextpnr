@@ -492,6 +492,10 @@ void GateMatePacker::remap_ram_half(CellInfo *half, CellInfo *cell, int num)
     rename_or_move(half, cell, ctx->idf("ECC2B_ERRA[0]"), ctx->idf("ECC2B_ERRA[%d]", index));
     rename_or_move(half, cell, ctx->idf("ECC2B_ERRB[0]"), ctx->idf("ECC2B_ERRB[%d]", index));
 
+    for (int i = 1; i < 5; i++)
+        if (!cell->getPort(ctx->idf("CLOCK%d", i)))
+            rename_or_move(half, cell, ctx->idf("CLOCK%d", i), ctx->idf("CLOCK%d", i));
+
     static dict<IdString, IdString> map_params = {
             {id_RAM_cfg_forward_a0_clk, id_RAM_cfg_forward_a1_clk},
             {id_RAM_cfg_forward_b0_clk, id_RAM_cfg_forward_b1_clk},
