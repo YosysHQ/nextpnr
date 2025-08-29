@@ -541,11 +541,11 @@ void GateMatePacker::repack_ram()
     }
     int id = 0;
     for (auto &ram : rams) {
-        IdString name = ctx->idf("ram$merged$id%d", id);
-        /*if (!ram.second.first)
-            name = ram.second.second->name;
+        IdString name = ctx->idf("$ram$merged$id%d", id);
+        if (!ram.second.first)
+            name = ctx->idf("%s$full", ram.second.second->name.c_str(ctx));
         if (!ram.second.second)
-            name = ram.second.first->name;*/
+            name = ctx->idf("%s$full", ram.second.first->name.c_str(ctx));
 
         CellInfo *cell = ctx->createCell(name, id_RAM);
         BelId bel = ctx->getBelByLocation({ram.first.x, ram.first.y, RAM_FULL_Z});
