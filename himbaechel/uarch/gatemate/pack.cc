@@ -308,18 +308,17 @@ void GateMatePacker::repack()
     for (auto &cell : ctx->cells) {
         if (cell.second->type.in(id_RAM_HALF)) {
             Loc l = ctx->getBelLocation(cell.second->bel);
-            if (l.z == RAM_HALF_U_Z) {    
-                rams[Loc(l.x,l.y,0)].first = cell.second.get();
+            if (l.z == RAM_HALF_U_Z) {
+                rams[Loc(l.x, l.y, 0)].first = cell.second.get();
             } else {
-                rams[Loc(l.x,l.y-8,0)].second = cell.second.get();
+                rams[Loc(l.x, l.y - 8, 0)].second = cell.second.get();
             }
         } else if (cell.second->type.in(id_RAM_HALF_DUMMY))
             packed_cells.insert(cell.second->name);
-
     }
     int id = 0;
     for (auto &ram : rams) {
-        IdString name = ctx->idf("ram$merged$id%d",id);
+        IdString name = ctx->idf("ram$merged$id%d", id);
         /*if (!ram.second.first)
             name = ram.second.second->name;
         if (!ram.second.second)
@@ -328,7 +327,7 @@ void GateMatePacker::repack()
         CellInfo *cell = ctx->createCell(name, id_RAM);
         BelId bel = ctx->getBelByLocation({ram.first.x, ram.first.y, RAM_FULL_Z});
         ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
-        //ram.first.
+
         if (ram.second.first) {
             rename_or_move(ram.second.first, cell, ctx->idf("CLKA[0]"), ctx->idf("CLKA[0]"));
             rename_or_move(ram.second.first, cell, ctx->idf("CLKB[0]"), ctx->idf("CLKB[0]"));
@@ -462,7 +461,6 @@ void GateMatePacker::repack()
             cell->params[ctx->idf("INIT_%02X", i * 2 + 1)] = Property::from_string(init[0]);
             cell->params[ctx->idf("INIT_%02X", i * 2 + 0)] = Property::from_string(init[1]);
         }
-
 
         id++;
     }
