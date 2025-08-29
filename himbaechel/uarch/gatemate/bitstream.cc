@@ -308,6 +308,7 @@ struct BitstreamBackend
             case id_CPE_LATCH.index:
             case id_CPE_RAMI.index:
             case id_CPE_RAMO.index:
+            case id_CPE_BRIDGE.index:
             case id_CPE_RAMIO.index: {
                 // Update configuration bits based on signal inversion
                 dict<IdString, Property> params = cell.second->params;

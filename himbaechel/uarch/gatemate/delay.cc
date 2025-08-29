@@ -112,6 +112,8 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
         return false;
     } else if (cell->type.in(id_CPE_CPLINES)) {
         return true;
+    } else if (cell->type.in(id_CPE_BRIDGE)) {
+        return true;
     } else if (cell->type.in(id_CPE_COMP)) {
         return get_delay_from_tmg_db(fromPort == id_COMB1 ? id_timing_comb1_compout : id_timing_comb2_compout, delay);
     } else if (cell->type.in(id_CPE_RAMI, id_CPE_RAMO, id_CPE_RAMIO)) {
@@ -192,6 +194,10 @@ TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString 
         if (port.in(id_OUT1, id_OUT2, id_COMPOUT, id_CINX, id_PINX, id_CINY1, id_PINY1, id_CINY2, id_PINY2))
             return TMG_COMB_INPUT;
         return TMG_COMB_OUTPUT;
+    } else if (cell->type.in(id_CPE_BRIDGE)) {
+        if (port.in(id_MUXOUT))
+            return TMG_COMB_OUTPUT;
+        return TMG_COMB_INPUT;
     } else if (cell->type.in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U, id_CPE_LATCH)) {
         if (port == id_CLK)
             return TMG_CLOCK_INPUT;

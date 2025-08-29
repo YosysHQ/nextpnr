@@ -17,6 +17,8 @@
  *
  */
 
+#include <utility>
+
 #include "gatemate.h"
 #include "log.h"
 #include "placer_heap.h"
@@ -261,6 +263,45 @@ void GateMateImpl::postPlace()
 {
     repack();
     ctx->assignArchInfo();
+    for (auto &cell : ctx->cells) {
+        // We need to skip CPE_MULT since using CP outputs is mandatory
+        // even if output is actually not connected
+        bool marked_used = cell.second.get()->type == id_CPE_MULT;
+        // Can not use FF for OUT2 if CPE is used in bridge mode
+        if (cell.second.get()->type == id_CPE_FF && ctx->getBelLocation(cell.second.get()->bel).z == CPE_FF_U_Z)
+            marked_used = true;
+        if (marked_used)
+            used_cpes.emplace(ctx->getBelName(cell.second.get()->bel)[0]);
+    }
+}
+bool GateMateImpl::checkPipAvail(PipId pip) const
+{
+    const auto &extra_data =
+            *reinterpret_cast<const GateMatePipExtraDataPOD *>(chip_pip_info(ctx->chip_info, pip).extra_data.get());
+    if (extra_data.type != PipExtra::PIP_EXTRA_MUX || (extra_data.flags & MUX_ROUTING) == 0)
+        return true;
+    IdStringList id = ctx->getPipName(pip);
+    if (used_cpes.count(id[0]))
+        return false;
+    return true;
+}
+
+void GateMateImpl::notifyPipChange(PipId pip, NetInfo *net)
+{
+    const auto &extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
+        chip_pip_info(ctx->chip_info, pip).extra_data.get());
+
+    if (extra_data.type != PipExtra::PIP_EXTRA_MUX || !(extra_data.flags & MUX_ROUTING))
+        return;
+
+    auto found = cpe_bridges.count(pip) > 0;
+
+    NPNR_ASSERT((!found && net != nullptr) || (found && net == nullptr));
+
+    if (found)
+        this->cpe_bridges.erase(pip);
+    else
+        this->cpe_bridges.insert({pip, net->name});
 }
 
 void GateMateImpl::preRoute()
@@ -272,6 +313,41 @@ void GateMateImpl::preRoute()
 
 void GateMateImpl::postRoute()
 {
+    int num = 0;
+
+    for (auto& pair : this->cpe_bridges) {
+        auto pip = pair.first;
+        NetInfo *ni = ctx->nets.at(pair.second).get();
+
+        IdString name = ctx->idf("%s$bridge%d", ni->name.c_str(ctx), num);
+
+        const auto &extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
+            chip_pip_info(ctx->chip_info, pip).extra_data.get());
+
+        IdStringList id = ctx->getPipName(pip);
+        Loc loc = ctx->getPipLocation(pip);
+        BelId bel = ctx->getBelByLocation({loc.x, loc.y, CPE_BRIDGE_Z});
+        CellInfo *cell = ctx->createCell(name, id_CPE_BRIDGE);
+        ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
+        cell->params[id_C_BR] = Property(Property::State::S1, 1);
+        cell->params[id_C_SN] = Property(extra_data.value, 3);
+
+        IdString new_net_name = ctx->id(name.str(ctx) + "$muxout");
+        NetInfo *new_net = ctx->createNet(new_net_name);
+        IdString in_port = ctx->idf("IN%d",extra_data.value+1);
+
+        cell->ports[in_port].name = in_port;
+        cell->ports[in_port].type = PORT_IN;
+        cell->connectPort(in_port, ni);
+
+        cell->ports[id_MUXOUT].name = id_MUXOUT;
+        cell->ports[id_MUXOUT].type = PORT_OUT;
+        cell->connectPort(id_MUXOUT, new_net);
+
+        num++;
+    }
+    ctx->assignArchInfo();
+
     const ArchArgs &args = ctx->args;
     if (args.options.count("out")) {
         write_bitstream(args.device, args.options.at("out"));
