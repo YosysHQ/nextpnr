@@ -193,7 +193,7 @@ def set_timings(ch):
         #    assert k in timing, f"pip class {k} not found in timing data"
         #    tmg.set_pip_class(grade=speed, name=k, delay=convert_timing(timing[k]))
 
-EXPECTED_VERSION = 1.4
+EXPECTED_VERSION = 1.5
 
 def main():
     # Range needs to be +1, but we are adding +2 more to coordinates, since 
@@ -233,7 +233,7 @@ def main():
             tt.create_wire(wire.name, wire.type)
         for prim in sorted(die.get_primitives_for_type(type_name)):
             bel = tt.create_bel(prim.name, prim.type, prim.z)
-            if (prim.name in ["CPE_LT_FULL"]):
+            if (prim.name in ["CPE_LT_FULL", "RAM"]):
                 bel.flags |= BEL_FLAG_HIDDEN     
             extra = BelExtraData()
             for constr in sorted(die.get_pins_constraint(type_name, prim.name, prim.type)):
