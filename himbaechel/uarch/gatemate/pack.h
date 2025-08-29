@@ -83,6 +83,7 @@ struct GateMatePacker
     void optimize_ff();
     void count_cell(CellInfo &ci);
     void move_connections(NetInfo *from_net, NetInfo *to_net);
+    void remap_ram_half(CellInfo *half, CellInfo *cell, int num);
 
     PllCfgRecord get_pll_settings(double f_ref, double f_core, int mode, int low_jitter, bool pdiv0_mux, bool feedback);
 

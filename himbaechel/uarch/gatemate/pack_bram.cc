@@ -461,6 +461,69 @@ void GateMatePacker::pack_ram()
     flush_cells();
 }
 
+void GateMatePacker::remap_ram_half(CellInfo *half, CellInfo *cell, int num)
+{
+    int index = num ? 2 : 0;
+
+    rename_or_move(half, cell, ctx->idf("CLKA[0]"), ctx->idf("CLKA[%d]", index));
+    rename_or_move(half, cell, ctx->idf("CLKB[0]"), ctx->idf("CLKB[%d]", index));
+    rename_or_move(half, cell, ctx->idf("ENA[0]"), ctx->idf("ENA[%d]", index));
+    rename_or_move(half, cell, ctx->idf("ENB[0]"), ctx->idf("ENB[%d]", index));
+    rename_or_move(half, cell, ctx->idf("GLWEA[0]"), ctx->idf("GLWEA[%d]", index));
+    rename_or_move(half, cell, ctx->idf("GLWEB[0]"), ctx->idf("GLWEB[%d]", index));
+    for (int i = 0; i < 20; i++) {
+        rename_or_move(half, cell, ctx->idf("WEA[%d]", i), ctx->idf("WEA[%d]", i + 20 * num));
+        rename_or_move(half, cell, ctx->idf("WEB[%d]", i), ctx->idf("WEB[%d]", i + 20 * num));
+        rename_or_move(half, cell, ctx->idf("DIA[%d]", i), ctx->idf("DIA[%d]", i + 20 * num));
+        rename_or_move(half, cell, ctx->idf("DIB[%d]", i), ctx->idf("DIB[%d]", i + 20 * num));
+        rename_or_move(half, cell, ctx->idf("DOA[%d]", i), ctx->idf("DOA[%d]", i + 20 * num));
+        rename_or_move(half, cell, ctx->idf("DOB[%d]", i), ctx->idf("DOB[%d]", i + 20 * num));
+    }
+    for (int i = 0; i < 16; i++) {
+        rename_or_move(half, cell, ctx->idf("ADDRA0[%d]", i), ctx->idf("ADDRA%d[%d]", num, i));
+        rename_or_move(half, cell, ctx->idf("ADDRB0[%d]", i), ctx->idf("ADDRB%d[%d]", num, i));
+    }
+
+    static dict<IdString, IdString> map_params = {
+            {id_RAM_cfg_forward_a0_clk, id_RAM_cfg_forward_a1_clk},
+            {id_RAM_cfg_forward_b0_clk, id_RAM_cfg_forward_b1_clk},
+
+            {id_RAM_cfg_forward_a0_en, id_RAM_cfg_forward_a1_en},
+            {id_RAM_cfg_forward_b0_en, id_RAM_cfg_forward_b1_en},
+
+            {id_RAM_cfg_forward_a0_we, id_RAM_cfg_forward_a1_we},
+            {id_RAM_cfg_forward_b0_we, id_RAM_cfg_forward_b1_we},
+
+            {id_RAM_cfg_input_config_a0, id_RAM_cfg_input_config_a1},
+            {id_RAM_cfg_input_config_b0, id_RAM_cfg_input_config_b1},
+            {id_RAM_cfg_output_config_a0, id_RAM_cfg_output_config_a1},
+            {id_RAM_cfg_output_config_b0, id_RAM_cfg_output_config_b1},
+
+            {id_RAM_cfg_a0_writemode, id_RAM_cfg_a1_writemode},
+            {id_RAM_cfg_b0_writemode, id_RAM_cfg_b1_writemode},
+
+            {id_RAM_cfg_a0_set_outputreg, id_RAM_cfg_a1_set_outputreg},
+            {id_RAM_cfg_b0_set_outputreg, id_RAM_cfg_b1_set_outputreg},
+
+            {id_RAM_cfg_inversion_a0, id_RAM_cfg_inversion_a1},
+            {id_RAM_cfg_inversion_b0, id_RAM_cfg_inversion_b1},
+
+            // This is for both halfs and it is same
+            {id_RAM_cfg_forward_a_addr, id_RAM_cfg_forward_a_addr},
+            {id_RAM_cfg_forward_b_addr, id_RAM_cfg_forward_b_addr},
+            {id_RAM_cfg_sram_mode, id_RAM_cfg_sram_mode},
+            {id_RAM_cfg_ecc_enable, id_RAM_cfg_ecc_enable},
+            {id_RAM_cfg_sram_delay, id_RAM_cfg_sram_delay},
+            {id_RAM_cfg_cascade_enable, id_RAM_cfg_cascade_enable},
+    };
+
+    for (auto &p : map_params) {
+        if (map_params.count(p.first)) {
+            cell->params[num ? p.second : p.first] = half->params[p.first];
+        }
+    }
+}
+
 void GateMatePacker::repack_ram()
 {
     log_info("Repacking RAMs..\n");
@@ -489,107 +552,11 @@ void GateMatePacker::repack_ram()
         ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
 
         if (ram.second.first) {
-            rename_or_move(ram.second.first, cell, ctx->idf("CLKA[0]"), ctx->idf("CLKA[0]"));
-            rename_or_move(ram.second.first, cell, ctx->idf("CLKB[0]"), ctx->idf("CLKB[0]"));
-            rename_or_move(ram.second.first, cell, ctx->idf("ENA[0]"), ctx->idf("ENA[0]"));
-            rename_or_move(ram.second.first, cell, ctx->idf("ENB[0]"), ctx->idf("ENB[0]"));
-            rename_or_move(ram.second.first, cell, ctx->idf("GLWEA[0]"), ctx->idf("GLWEA[0]"));
-            rename_or_move(ram.second.first, cell, ctx->idf("GLWEB[0]"), ctx->idf("GLWEB[0]"));
-            for (int i = 0; i < 20; i++) {
-                rename_or_move(ram.second.first, cell, ctx->idf("WEA[%d]", i), ctx->idf("WEA[%d]", i));
-                rename_or_move(ram.second.first, cell, ctx->idf("WEB[%d]", i), ctx->idf("WEB[%d]", i));
-                rename_or_move(ram.second.first, cell, ctx->idf("DIA[%d]", i), ctx->idf("DIA[%d]", i));
-                rename_or_move(ram.second.first, cell, ctx->idf("DIB[%d]", i), ctx->idf("DIB[%d]", i));
-                rename_or_move(ram.second.first, cell, ctx->idf("DOA[%d]", i), ctx->idf("DOA[%d]", i));
-                rename_or_move(ram.second.first, cell, ctx->idf("DOB[%d]", i), ctx->idf("DOB[%d]", i));
-            }
-            for (int i = 0; i < 16; i++) {
-                rename_or_move(ram.second.first, cell, ctx->idf("ADDRA0[%d]", i), ctx->idf("ADDRA0[%d]", i));
-                rename_or_move(ram.second.first, cell, ctx->idf("ADDRB0[%d]", i), ctx->idf("ADDRB0[%d]", i));
-            }
-
-            cell->params[id_RAM_cfg_forward_a0_clk] = ram.second.first->params[id_RAM_cfg_forward_a0_clk];
-            cell->params[id_RAM_cfg_forward_b0_clk] = ram.second.first->params[id_RAM_cfg_forward_b0_clk];
-
-            cell->params[id_RAM_cfg_forward_a0_en] = ram.second.first->params[id_RAM_cfg_forward_a0_en];
-            cell->params[id_RAM_cfg_forward_b0_en] = ram.second.first->params[id_RAM_cfg_forward_b0_en];
-
-            cell->params[id_RAM_cfg_forward_a0_we] = ram.second.first->params[id_RAM_cfg_forward_a0_we];
-            cell->params[id_RAM_cfg_forward_b0_we] = ram.second.first->params[id_RAM_cfg_forward_b0_we];
-
-            cell->params[id_RAM_cfg_input_config_a0] = ram.second.first->params[id_RAM_cfg_input_config_a0];
-            cell->params[id_RAM_cfg_input_config_b0] = ram.second.first->params[id_RAM_cfg_input_config_b0];
-            cell->params[id_RAM_cfg_output_config_a0] = ram.second.first->params[id_RAM_cfg_output_config_a0];
-            cell->params[id_RAM_cfg_output_config_b0] = ram.second.first->params[id_RAM_cfg_output_config_b0];
-
-            cell->params[id_RAM_cfg_a0_writemode] = ram.second.first->params[id_RAM_cfg_a0_writemode];
-            cell->params[id_RAM_cfg_b0_writemode] = ram.second.first->params[id_RAM_cfg_b0_writemode];
-
-            cell->params[id_RAM_cfg_a0_set_outputreg] = ram.second.first->params[id_RAM_cfg_a0_set_outputreg];
-            cell->params[id_RAM_cfg_b0_set_outputreg] = ram.second.first->params[id_RAM_cfg_b0_set_outputreg];
-
-            cell->params[id_RAM_cfg_inversion_a0] = ram.second.first->params[id_RAM_cfg_inversion_a0];
-            cell->params[id_RAM_cfg_inversion_b0] = ram.second.first->params[id_RAM_cfg_inversion_b0];
-
-            cell->params[id_RAM_cfg_forward_a_addr] = ram.second.first->params[id_RAM_cfg_forward_a_addr];
-            cell->params[id_RAM_cfg_forward_b_addr] = ram.second.first->params[id_RAM_cfg_forward_b_addr];
-            cell->params[id_RAM_cfg_sram_mode] = ram.second.first->params[id_RAM_cfg_sram_mode];
-            cell->params[id_RAM_cfg_ecc_enable] = ram.second.first->params[id_RAM_cfg_ecc_enable];
-            cell->params[id_RAM_cfg_sram_delay] = ram.second.first->params[id_RAM_cfg_sram_delay];
-            cell->params[id_RAM_cfg_cascade_enable] = ram.second.first->params[id_RAM_cfg_cascade_enable];
-
+            remap_ram_half(ram.second.first, cell, 0);
             packed_cells.insert(ram.second.first->name);
         }
         if (ram.second.second) {
-            rename_or_move(ram.second.second, cell, ctx->idf("CLKA[0]"), ctx->idf("CLKA[2]"));
-            rename_or_move(ram.second.second, cell, ctx->idf("CLKB[0]"), ctx->idf("CLKB[2]"));
-            rename_or_move(ram.second.second, cell, ctx->idf("ENA[0]"), ctx->idf("ENA[2]"));
-            rename_or_move(ram.second.second, cell, ctx->idf("ENB[0]"), ctx->idf("ENB[2]"));
-            rename_or_move(ram.second.second, cell, ctx->idf("GLWEA[0]"), ctx->idf("GLWEA[2]"));
-            rename_or_move(ram.second.second, cell, ctx->idf("GLWEB[0]"), ctx->idf("GLWEB[2]"));
-            for (int i = 0; i < 20; i++) {
-                rename_or_move(ram.second.second, cell, ctx->idf("WEA[%d]", i), ctx->idf("WEA[%d]", i + 20));
-                rename_or_move(ram.second.second, cell, ctx->idf("WEB[%d]", i), ctx->idf("WEB[%d]", i + 20));
-                rename_or_move(ram.second.second, cell, ctx->idf("DIA[%d]", i), ctx->idf("DIA[%d]", i + 20));
-                rename_or_move(ram.second.second, cell, ctx->idf("DIB[%d]", i), ctx->idf("DIB[%d]", i + 20));
-                rename_or_move(ram.second.second, cell, ctx->idf("DOA[%d]", i), ctx->idf("DOA[%d]", i + 20));
-                rename_or_move(ram.second.second, cell, ctx->idf("DOB[%d]", i), ctx->idf("DOB[%d]", i + 20));
-            }
-            for (int i = 0; i < 16; i++) {
-                rename_or_move(ram.second.second, cell, ctx->idf("ADDRA0[%d]", i), ctx->idf("ADDRA1[%d]", i));
-                rename_or_move(ram.second.second, cell, ctx->idf("ADDRB0[%d]", i), ctx->idf("ADDRB1[%d]", i));
-            }
-
-            cell->params[id_RAM_cfg_forward_a1_clk] = ram.second.second->params[id_RAM_cfg_forward_a0_clk];
-            cell->params[id_RAM_cfg_forward_b1_clk] = ram.second.second->params[id_RAM_cfg_forward_b0_clk];
-
-            cell->params[id_RAM_cfg_forward_a1_en] = ram.second.second->params[id_RAM_cfg_forward_a0_en];
-            cell->params[id_RAM_cfg_forward_b1_en] = ram.second.second->params[id_RAM_cfg_forward_b0_en];
-
-            cell->params[id_RAM_cfg_forward_a1_we] = ram.second.second->params[id_RAM_cfg_forward_a0_we];
-            cell->params[id_RAM_cfg_forward_b1_we] = ram.second.second->params[id_RAM_cfg_forward_b0_we];
-
-            cell->params[id_RAM_cfg_input_config_a1] = ram.second.second->params[id_RAM_cfg_input_config_a0];
-            cell->params[id_RAM_cfg_input_config_b1] = ram.second.second->params[id_RAM_cfg_input_config_b0];
-            cell->params[id_RAM_cfg_output_config_a1] = ram.second.second->params[id_RAM_cfg_output_config_a0];
-            cell->params[id_RAM_cfg_output_config_b1] = ram.second.second->params[id_RAM_cfg_output_config_b0];
-
-            cell->params[id_RAM_cfg_a1_writemode] = ram.second.second->params[id_RAM_cfg_a0_writemode];
-            cell->params[id_RAM_cfg_b1_writemode] = ram.second.second->params[id_RAM_cfg_b0_writemode];
-
-            cell->params[id_RAM_cfg_a1_set_outputreg] = ram.second.second->params[id_RAM_cfg_a0_set_outputreg];
-            cell->params[id_RAM_cfg_b1_set_outputreg] = ram.second.second->params[id_RAM_cfg_b0_set_outputreg];
-
-            cell->params[id_RAM_cfg_inversion_a1] = ram.second.second->params[id_RAM_cfg_inversion_a0];
-            cell->params[id_RAM_cfg_inversion_b1] = ram.second.second->params[id_RAM_cfg_inversion_b0];
-
-            cell->params[id_RAM_cfg_forward_a_addr] = ram.second.second->params[id_RAM_cfg_forward_a_addr];
-            cell->params[id_RAM_cfg_forward_b_addr] = ram.second.second->params[id_RAM_cfg_forward_b_addr];
-            cell->params[id_RAM_cfg_sram_mode] = ram.second.second->params[id_RAM_cfg_sram_mode];
-            cell->params[id_RAM_cfg_ecc_enable] = ram.second.second->params[id_RAM_cfg_ecc_enable];
-            cell->params[id_RAM_cfg_sram_delay] = ram.second.second->params[id_RAM_cfg_sram_delay];
-            cell->params[id_RAM_cfg_cascade_enable] = ram.second.second->params[id_RAM_cfg_cascade_enable];
-
+            remap_ram_half(ram.second.second, cell, 1);
             packed_cells.insert(ram.second.second->name);
         }
 
