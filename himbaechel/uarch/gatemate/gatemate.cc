@@ -172,10 +172,10 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
                 ctx->getBelByLocation(Loc(loc.x, loc.y, loc.z == CPE_FF_L_Z ? CPE_FF_U_Z : CPE_FF_L_Z)));
         if (adj_half) {
             const auto &half_data = fast_cell_info.at(cell->flat_index);
-            if (half_data.dff_used) {
+            if (half_data.used) {
                 const auto &adj_data = fast_cell_info.at(adj_half->flat_index);
-                if (adj_data.dff_used) {
-                    if (adj_data.ff_config != half_data.ff_config)
+                if (adj_data.used) {
+                    if (adj_data.config != half_data.config)
                         return false;
                     if (adj_data.ff_en != half_data.ff_en)
                         return false;
@@ -187,7 +187,24 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
             }
         }
         return true;
+    } else if (ctx->getBelBucketForBel(bel) == id_RAM_HALF) {
+        Loc loc = ctx->getBelLocation(bel);
+        const CellInfo *adj_half =
+                ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x, loc.z == RAM_HALF_L_Z ? loc.y - 8 : loc.y + 8,
+                                                               loc.z == RAM_HALF_L_Z ? RAM_HALF_U_Z : RAM_HALF_L_Z)));
+        if (adj_half) {
+            const auto &half_data = fast_cell_info.at(cell->flat_index);
+            if (half_data.used) {
+                const auto &adj_data = fast_cell_info.at(adj_half->flat_index);
+                if (adj_data.used) {
+                    if (adj_data.config != half_data.config)
+                        return false;
+                }
+            }
+        }
+        return true;
     }
+
     return true;
 }
 
@@ -299,6 +316,15 @@ int GateMateImpl::get_dff_config(CellInfo *dff) const
     return val;
 }
 
+int GateMateImpl::get_ram_config(CellInfo *ram) const
+{
+    int val = 0;
+    val |= int_or_default(ram->params, id_RAM_cfg_ecc_enable, 0);
+    val <<= 2;
+    val |= int_or_default(ram->params, id_RAM_cfg_sram_mode, 0);
+    return val;
+}
+
 void GateMateImpl::assign_cell_info()
 {
     fast_cell_info.resize(ctx->cells.size());
@@ -309,8 +335,12 @@ void GateMateImpl::assign_cell_info()
             fc.ff_en = ci->getPort(id_EN);
             fc.ff_clk = ci->getPort(id_CLK);
             fc.ff_sr = ci->getPort(id_SR);
-            fc.ff_config = get_dff_config(ci);
-            fc.dff_used = true;
+            fc.config = get_dff_config(ci);
+            fc.used = true;
+        }
+        if (ci->type == id_RAM_HALF) {
+            fc.config = get_ram_config(ci);
+            fc.used = true;
         }
     }
 }
@@ -327,6 +357,8 @@ IdString GateMateImpl::getBelBucketForCellType(IdString cell_type) const
         return id_CPE_FF;
     else if (cell_type.in(id_CPE_RAMIO, id_CPE_RAMI, id_CPE_RAMO))
         return id_CPE_RAMIO;
+    else if (cell_type.in(id_RAM_HALF, id_RAM_HALF_DUMMY))
+        return id_RAM_HALF;
     else
         return cell_type;
 }
@@ -340,6 +372,8 @@ BelBucketId GateMateImpl::getBelBucketForBel(BelId bel) const
         return id_CPE_FF;
     else if (bel_type.in(id_CPE_RAMIO_U, id_CPE_RAMIO_L))
         return id_CPE_RAMIO;
+    else if (bel_type.in(id_RAM_HALF_U, id_RAM_HALF_L))
+        return id_RAM_HALF;
     return bel_type;
 }
 
@@ -359,6 +393,10 @@ bool GateMateImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
         return cell_type.in(id_CPE_FF_L, id_CPE_FF, id_CPE_LATCH);
     else if (bel_type.in(id_CPE_RAMIO_U, id_CPE_RAMIO_L))
         return cell_type.in(id_CPE_RAMIO, id_CPE_RAMI, id_CPE_RAMO);
+    else if (bel_type == id_RAM_HALF_U)
+        return cell_type.in(id_RAM_HALF, id_RAM_HALF_DUMMY);
+    else if (bel_type == id_RAM_HALF_L)
+        return cell_type.in(id_RAM_HALF, id_RAM_HALF_DUMMY);
     else
         return (bel_type == cell_type);
 }

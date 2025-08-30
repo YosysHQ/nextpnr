@@ -103,6 +103,10 @@ enum CPE_Z
     CPE_COMP_Z = 6,
     CPE_CPLINES_Z = 7,
     CPE_LT_FULL_Z = 8,
+
+    RAM_FULL_Z = 10,
+    RAM_HALF_U_Z = 11,
+    RAM_HALF_L_Z = 12,
 };
 
 enum ClusterPlacement

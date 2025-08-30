@@ -66,7 +66,8 @@ struct GateMatePacker
     void remove_clocking();
 
     void cleanup();
-    void repack();
+    void repack_cpe();
+    void repack_ram();
 
   private:
     void rename_param(CellInfo *cell, IdString name, IdString new_name, int width);
@@ -82,6 +83,7 @@ struct GateMatePacker
     void optimize_ff();
     void count_cell(CellInfo &ci);
     void move_connections(NetInfo *from_net, NetInfo *to_net);
+    void remap_ram_half(CellInfo *half, CellInfo *cell, int num);
 
     PllCfgRecord get_pll_settings(double f_ref, double f_core, int mode, int low_jitter, bool pdiv0_mux, bool feedback);
 
@@ -102,7 +104,7 @@ struct GateMatePacker
     // Cell creating
     CellInfo *create_cell_ptr(IdString type, IdString name);
     void flush_cells();
-    void pack_ram_cell(CellInfo &ci, CellInfo *cell, int num, bool is_split);
+    void pack_ram_cell(CellInfo &ci, CellInfo *cell, bool is_split);
     void copy_constraint(NetInfo *in_net, NetInfo *out_net);
 
     pool<IdString> packed_cells;

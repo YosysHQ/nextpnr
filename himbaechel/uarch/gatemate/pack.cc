@@ -293,7 +293,7 @@ void GateMatePacker::rename_param(CellInfo *cell, IdString name, IdString new_na
     }
 }
 
-void GateMatePacker::repack()
+void GateMatePacker::repack_cpe()
 {
     log_info("Repacking CPEs..\n");
     for (auto &cell : ctx->cells) {
@@ -407,7 +407,8 @@ void GateMateImpl::pack()
 void GateMateImpl::repack()
 {
     GateMatePacker packer(ctx, this);
-    packer.repack();
+    packer.repack_ram();
+    packer.repack_cpe();
 }
 
 NEXTPNR_NAMESPACE_END

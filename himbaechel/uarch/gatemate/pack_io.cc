@@ -233,11 +233,11 @@ void GateMatePacker::pack_io()
             ci.params[id_SLEW] = Property(Property::State::S1);
 
         int keeper = int_or_default(ci.params, id_KEEPER, 0);
+        ci.unsetParam(id_KEEPER);
         if (keeper && (int_or_default(ci.params, id_PULLUP, 0) + int_or_default(ci.params, id_PULLDOWN, 0) > 1))
             log_error("PULLUP/PULLDOWN and KEEPER are mutually exclusive parameters, issue for '%s' cell.\n",
                       ci.name.c_str(ctx));
         if (keeper) {
-            ci.unsetParam(id_KEEPER);
             ci.params[id_PULLUP] = Property(Property::State::S1);
             ci.params[id_PULLDOWN] = Property(Property::State::S1);
         }
