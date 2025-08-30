@@ -187,10 +187,10 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
             }
         }
         return true;
-    } else if (getBelBucketForCellType(ctx->getBelType(bel)) == id_RAM_HALF) {
+    } else if (ctx->getBelBucketForBel(bel) == id_RAM_HALF) {
         Loc loc = ctx->getBelLocation(bel);
         const CellInfo *adj_half =
-                ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x, loc.z == RAM_HALF_L_Z ? loc.y + 8 : loc.y - 8,
+                ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x, loc.z == RAM_HALF_L_Z ? loc.y - 8 : loc.y + 8,
                                                                loc.z == RAM_HALF_L_Z ? RAM_HALF_U_Z : RAM_HALF_L_Z)));
         if (adj_half) {
             const auto &half_data = fast_cell_info.at(cell->flat_index);
