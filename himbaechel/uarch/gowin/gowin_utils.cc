@@ -34,6 +34,19 @@ bool GowinUtils::driver_is_clksrc(const PortRef &driver)
             }
         }
     }
+    // OSC outputs
+    if (driver.cell->type.in(id_OSC, id_OSCA, id_OSCZ, id_OSCH, id_OSCF, id_OSCW, id_OSCO)) {
+        if (driver.port == id_OSCOUT) {
+            if (ctx->debug) {
+                if (driver.cell->bel != BelId()) {
+                    log_info("OSC out bel:%s:%s\n", ctx->nameOfBel(driver.cell->bel), driver.port.c_str(ctx));
+                } else {
+                    log_info("OSC out:%s:%s\n", ctx->nameOf(driver.cell), driver.port.c_str(ctx));
+                }
+            }
+            return true;
+        }
+    }
     // PLL outputs
     if (driver.cell->type.in(id_rPLL, id_PLLVR)) {
         if (driver.port.in(id_CLKOUT, id_CLKOUTD, id_CLKOUTD3, id_CLKOUTP)) {

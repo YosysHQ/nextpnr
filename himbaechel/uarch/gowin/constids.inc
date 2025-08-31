@@ -1022,6 +1022,7 @@ X(INV)
 
 // Oscillators
 X(OSC)
+X(OSCA)
 X(OSCZ)
 X(OSCH)
 X(OSCF)
@@ -1273,6 +1274,7 @@ X(ALU_CIN)
 X(ALU_COUT)
 X(PLL_O)
 X(PLL_I)
+
 
 // fake dff inputs
 X(XD0)
