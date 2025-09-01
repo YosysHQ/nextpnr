@@ -429,7 +429,7 @@ void GateMateImpl::postRoute()
         }
     }
 
-    log_info("%d MUX8s used for routing\n", num);
+    log_info("%d MUX8s used for routing (should be %d)\n", num, int(cpe_bridges.size()));
 #else
     for (auto &net : ctx->nets) {
         NetInfo *ni = net.second.get();
