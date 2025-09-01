@@ -43,7 +43,12 @@ std::ostream &operator<<(std::ostream &out, const ConfigWord &cw)
 
 std::ostream &operator<<(std::ostream &out, const TileConfig &tc)
 {
-    for (const auto &cword : tc.cwords)
+    auto sorted = tc.cwords;
+    std::sort(sorted.begin(), sorted.end(),
+              [](const ConfigWord &a, const ConfigWord &b) {
+                  return a.name < b.name;
+              });
+    for (const auto &cword : sorted)
         out << cword;
     return out;
 }
