@@ -65,6 +65,11 @@ struct BitstreamBackend
 
         WireId cursor = dst_wire;
         bool invert = false;
+        if (net_info->driver.cell && net_info->driver.cell->type == id_CPE_BRIDGE &&
+            net_info->driver.port == id_MUXOUT) {
+            int val = int_or_default(net_info->driver.cell->params, id_C_SN, 0) + 1;
+            invert ^= need_inversion(net_info->driver.cell, ctx->idf("IN%d", val));
+        }
         while (cursor != WireId() && cursor != src_wire) {
             auto it = net_info->wires.find(cursor);
 
