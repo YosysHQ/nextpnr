@@ -328,14 +328,24 @@ void GateMateImpl::preRoute()
     ctx->assignArchInfo();
 }
 
-void GateMateImpl::postRoute()
+void GateMateImpl::reassign_bridges(NetInfo* ni, const dict<WireId, PipMap>& net_wires, WireId wire, dict<WireId, IdString>& wire_to_net, int& num)
 {
-    int num = 0;
+    wire_to_net.insert({wire, ni->name});
 
-    for (auto& pair : this->cpe_bridges) {
-        auto pip = pair.first;
-        NetInfo *ni = ctx->nets.at(pair.second).get();
-
+    for (auto pip : ctx->getPipsDownhill(wire)) {
+        auto dst = ctx->getPipDstWire(pip);
+        // Ignore wires not part of the net
+        if (!net_wires.count(dst))
+            continue;
+        // Ignore wires already visited.
+        if (wire_to_net.count(dst))
+            continue;
+        // If not a bridge, just recurse.
+        if (!cpe_bridges.count(pip)) {
+            reassign_bridges(ni, net_wires, dst, wire_to_net, num);
+            continue;
+        }
+        // We have a bridge that needs to be translated to a bel.
         IdString name = ctx->idf("%s$bridge%d", ni->name.c_str(ctx), num);
 
         const auto &extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
@@ -362,7 +372,52 @@ void GateMateImpl::postRoute()
         cell->connectPort(id_MUXOUT, new_net);
 
         num++;
+
+        reassign_bridges(new_net, net_wires, dst, wire_to_net, num);
     }
+}
+
+void GateMateImpl::postRoute()
+{
+    int num = 0;
+
+    pool<IdString> nets_with_bridges;
+    for (auto& pair : this->cpe_bridges)
+        nets_with_bridges.insert(pair.second);
+
+    for (auto net_name : nets_with_bridges) {
+        auto* ni = ctx->nets.at(net_name).get();
+        auto net_wires = ni->wires; // copy wires to preserve across unbind/rebind.
+        auto wire_to_net = dict<WireId, IdString>{};
+
+        // traverse the routing tree to assign bridge nets to wires.
+        reassign_bridges(ni, net_wires, ctx->getNetinfoSourceWire(ni), wire_to_net, num);
+
+        // this is a slightly ugly hack for how unbindWire does not call notifyPipChange on the driving pip
+        // leading to notifyPipChange falsely believing pips are being double-bound.
+        for (auto& pair : net_wires) {
+            auto wire = pair.first;
+            auto pip = pair.second.pip;
+            if (pip == PipId())
+                ctx->unbindWire(wire);
+            else
+                ctx->unbindPip(pip);
+        }
+
+        for (auto& pair : net_wires) {
+            auto wire = pair.first;
+            auto pip = pair.second.pip;
+            auto strength = pair.second.strength;
+            auto* net = ctx->nets.at(wire_to_net.at(wire)).get();
+            if (pip == PipId())
+                ctx->bindWire(wire, net, strength);
+            else
+                ctx->bindPip(pip, net, strength);
+        }
+    }
+
+    log_info("%d MUX8s used for routing\n", num);
+
     ctx->assignArchInfo();
 
     const ArchArgs &args = ctx->args;
