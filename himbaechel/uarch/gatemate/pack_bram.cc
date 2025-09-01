@@ -189,21 +189,20 @@ void GateMatePacker::pack_ram_cell(CellInfo &ci, CellInfo *cell, bool is_split)
     ci.params[id_RAM_cfg_inversion_a0] = Property(a_inv, 3);
     ci.params[id_RAM_cfg_inversion_b0] = Property(b_inv, 3);
 
-    int index = 0;
-    rename_or_move(cell, &ci, id_A_CLK, ctx->idf("CLKA[%d]", index));
-    rename_or_move(cell, &ci, id_B_CLK, ctx->idf("CLKB[%d]", index));
-    rename_or_move(cell, &ci, id_A_EN, ctx->idf("ENA[%d]", index));
-    rename_or_move(cell, &ci, id_B_EN, ctx->idf("ENB[%d]", index));
-    rename_or_move(cell, &ci, id_A_WE, ctx->idf("GLWEA[%d]", index));
-    rename_or_move(cell, &ci, id_B_WE, ctx->idf("GLWEB[%d]", index));
+    rename_or_move(cell, &ci, id_A_CLK, ctx->id("CLKA[0]"));
+    rename_or_move(cell, &ci, id_B_CLK, ctx->id("CLKB[0]"));
+    rename_or_move(cell, &ci, id_A_EN, ctx->id("ENA[0]"));
+    rename_or_move(cell, &ci, id_B_EN, ctx->id("ENB[0]"));
+    rename_or_move(cell, &ci, id_A_WE, ctx->id("GLWEA[0]"));
+    rename_or_move(cell, &ci, id_B_WE, ctx->id("GLWEB[0]"));
     if (is_split) {
-        rename_or_move(cell, &ci, id_ECC_1B_ERR, ctx->idf("ECC1B_ERRA[%d]", index));
-        rename_or_move(cell, &ci, id_ECC_2B_ERR, ctx->idf("ECC2B_ERRA[%d]", index));
+        rename_or_move(cell, &ci, id_ECC_1B_ERR, ctx->id("ECC1B_ERRA[0]"));
+        rename_or_move(cell, &ci, id_ECC_2B_ERR, ctx->id("ECC2B_ERRA[0]"));
     } else {
-        rename_or_move(cell, &ci, id_A_ECC_1B_ERR, ctx->idf("ECC1B_ERRA[%d]", index));
-        rename_or_move(cell, &ci, id_B_ECC_1B_ERR, ctx->idf("ECC1B_ERRB[%d]", index));
-        rename_or_move(cell, &ci, id_A_ECC_2B_ERR, ctx->idf("ECC2B_ERRA[%d]", index));
-        rename_or_move(cell, &ci, id_B_ECC_2B_ERR, ctx->idf("ECC2B_ERRB[%d]", index));
+        rename_or_move(cell, &ci, id_A_ECC_1B_ERR, ctx->id("ECC1B_ERRA[0]"));
+        rename_or_move(cell, &ci, id_B_ECC_1B_ERR, ctx->id("ECC1B_ERRB[0]"));
+        rename_or_move(cell, &ci, id_A_ECC_2B_ERR, ctx->id("ECC2B_ERRA[0]"));
+        rename_or_move(cell, &ci, id_B_ECC_2B_ERR, ctx->id("ECC2B_ERRB[0]"));
     }
     int items = is_split ? 20 : 40;
     for (int i = 0; i < items; i++) {
@@ -467,12 +466,12 @@ void GateMatePacker::remap_ram_half(CellInfo *half, CellInfo *cell, int num)
 {
     int index = num ? 2 : 0;
 
-    rename_or_move(half, cell, ctx->idf("CLKA[0]"), ctx->idf("CLKA[%d]", index));
-    rename_or_move(half, cell, ctx->idf("CLKB[0]"), ctx->idf("CLKB[%d]", index));
-    rename_or_move(half, cell, ctx->idf("ENA[0]"), ctx->idf("ENA[%d]", index));
-    rename_or_move(half, cell, ctx->idf("ENB[0]"), ctx->idf("ENB[%d]", index));
-    rename_or_move(half, cell, ctx->idf("GLWEA[0]"), ctx->idf("GLWEA[%d]", index));
-    rename_or_move(half, cell, ctx->idf("GLWEB[0]"), ctx->idf("GLWEB[%d]", index));
+    rename_or_move(half, cell, ctx->id("CLKA[0]"), ctx->idf("CLKA[%d]", index));
+    rename_or_move(half, cell, ctx->id("CLKB[0]"), ctx->idf("CLKB[%d]", index));
+    rename_or_move(half, cell, ctx->id("ENA[0]"), ctx->idf("ENA[%d]", index));
+    rename_or_move(half, cell, ctx->id("ENB[0]"), ctx->idf("ENB[%d]", index));
+    rename_or_move(half, cell, ctx->id("GLWEA[0]"), ctx->idf("GLWEA[%d]", index));
+    rename_or_move(half, cell, ctx->id("GLWEB[0]"), ctx->idf("GLWEB[%d]", index));
     for (int i = 0; i < 20; i++) {
         rename_or_move(half, cell, ctx->idf("WEA[%d]", i), ctx->idf("WEA[%d]", i + 20 * num));
         rename_or_move(half, cell, ctx->idf("WEB[%d]", i), ctx->idf("WEB[%d]", i + 20 * num));
@@ -487,10 +486,10 @@ void GateMatePacker::remap_ram_half(CellInfo *half, CellInfo *cell, int num)
     }
 
     index = num ? 1 : 0;
-    rename_or_move(half, cell, ctx->idf("ECC1B_ERRA[0]"), ctx->idf("ECC1B_ERRA[%d]", index));
-    rename_or_move(half, cell, ctx->idf("ECC1B_ERRB[0]"), ctx->idf("ECC1B_ERRB[%d]", index));
-    rename_or_move(half, cell, ctx->idf("ECC2B_ERRA[0]"), ctx->idf("ECC2B_ERRA[%d]", index));
-    rename_or_move(half, cell, ctx->idf("ECC2B_ERRB[0]"), ctx->idf("ECC2B_ERRB[%d]", index));
+    rename_or_move(half, cell, ctx->id("ECC1B_ERRA[0]"), ctx->idf("ECC1B_ERRA[%d]", index));
+    rename_or_move(half, cell, ctx->id("ECC1B_ERRB[0]"), ctx->idf("ECC1B_ERRB[%d]", index));
+    rename_or_move(half, cell, ctx->id("ECC2B_ERRA[0]"), ctx->idf("ECC2B_ERRA[%d]", index));
+    rename_or_move(half, cell, ctx->id("ECC2B_ERRB[0]"), ctx->idf("ECC2B_ERRB[%d]", index));
 
     for (int i = 1; i < 5; i++)
         if (!cell->getPort(ctx->idf("CLOCK%d", i)))
