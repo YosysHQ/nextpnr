@@ -71,6 +71,7 @@ struct GateMateImpl : HimbaechelAPI
     bool isPipInverting(PipId pip) const override;
 
     const GateMateTileExtraDataPOD *tile_extra_data(int tile) const;
+    const GateMatePipExtraDataPOD *pip_extra_data(PipId pip) const;
 
     int get_dff_config(CellInfo *dff) const;
     int get_ram_config(CellInfo *ram) const;

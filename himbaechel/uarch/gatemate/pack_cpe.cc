@@ -207,8 +207,7 @@ void GateMatePacker::pack_cpe()
             ci.renamePort(id_D1, id_IN1);
             NetInfo *sel = ci.getPort(id_S0);
             ci.renamePort(id_S0, id_IN2);
-            ci.ports[id_IN3].name = id_IN3;
-            ci.ports[id_IN3].type = PORT_IN;
+            ci.addInput(id_IN3);
             ci.connectPort(id_IN3, sel);
             ci.renamePort(id_D0, id_IN4);
             ci.disconnectPort(id_D1);
@@ -262,8 +261,7 @@ void GateMatePacker::pack_cpe()
                     // Reconnect net
                     NetInfo *ci_out_conn = ctx->createNet(ctx->idf("%s$out", ci.name.c_str(ctx)));
                     ci.connectPort(id_OUT, ci_out_conn);
-                    lower->ports[id_COMBIN].name = id_COMBIN;
-                    lower->ports[id_COMBIN].type = PORT_IN;
+                    lower->addInput(id_COMBIN);
                     lower->connectPort(id_COMBIN, ci_out_conn);
                     dff->disconnectPort(id_DIN);
                     dff->connectPort(id_DIN, ci_out_conn);
@@ -291,8 +289,7 @@ void GateMatePacker::pack_cpe()
 
         NetInfo *ci_out_conn = ctx->createNet(ctx->idf("%s$combin", ci->name.c_str(ctx)));
         upper->connectPort(id_OUT, ci_out_conn);
-        ci->ports[id_COMBIN].name = id_COMBIN;
-        ci->ports[id_COMBIN].type = PORT_IN;
+        ci->addInput(id_COMBIN);
         ci->connectPort(id_COMBIN, ci_out_conn);
     }
     l2t5_list.clear();
@@ -388,8 +385,7 @@ void GateMatePacker::pack_cpe()
         ci.type = (ci.type == id_CC_DLT) ? id_CPE_LATCH : id_CPE_FF;
         NetInfo *conn = ctx->createNet(ctx->idf("%s$di", ci.name.c_str(ctx)));
         lt->connectPort(id_OUT, conn);
-        ci.ports[id_DIN].name = id_DIN;
-        ci.ports[id_DIN].type = PORT_IN;
+        ci.addInput(id_DIN);
         ci.connectPort(id_DIN, conn);
     }
     dff_list.clear();
@@ -577,8 +573,7 @@ void GateMatePacker::pack_addf()
         NetInfo *ci_conn = ctx->createNet(ctx->idf("%s$ci_net", root->name.c_str(ctx)));
         ci_cplines->connectPort(id_COUTY1, ci_conn);
 
-        root->ports[id_CINY1].name = id_CINY1;
-        root->ports[id_CINY1].type = PORT_IN;
+        root->addInput(id_CINY1);
         root->connectPort(id_CINY1, ci_conn);
 
         for (size_t i = 0; i < grp.size(); i++) {
@@ -646,8 +641,7 @@ void GateMatePacker::pack_addf()
                 NetInfo *co_conn = ctx->createNet(ctx->idf("%s$co_net", cy->name.c_str(ctx)));
 
                 co_lower->connectPort(id_CINY1, co_conn);
-                cy->ports[id_COUTY1].name = id_COUTY1;
-                cy->ports[id_COUTY1].type = PORT_OUT;
+                cy->addOutput(id_COUTY1);
                 cy->connectPort(id_COUTY1, co_conn);
 
                 cy->movePortTo(id_CO, co_lower, id_OUT);
@@ -660,8 +654,7 @@ void GateMatePacker::pack_addf()
                         if (usr.cell->type == id_CC_ADDF || usr.port == id_CI) {
                             usr.cell->disconnectPort(id_CI);
                             NetInfo *co_conn = ctx->createNet(ctx->idf("%s$co_net", cy->name.c_str(ctx)));
-                            cy->ports[id_COUTY1].name = id_COUTY1;
-                            cy->ports[id_COUTY1].type = PORT_OUT;
+                            cy->addOutput(id_COUTY1);
                             cy->connectPort(id_COUTY1, co_conn);
                             usr.cell->connectPort(id_CI, co_conn);
                             break;

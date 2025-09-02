@@ -272,8 +272,7 @@ void GateMatePacker::insert_bufg(CellInfo *cell, IdString port)
             CellInfo *bufg =
                     create_cell_ptr(id_CC_BUFG, ctx->idf("%s$BUFG_%s", cell->name.c_str(ctx), port.c_str(ctx)));
             cell->movePortTo(port, bufg, id_O);
-            cell->ports[port].name = port;
-            cell->ports[port].type = PORT_OUT;
+            cell->addOutput(port);
             NetInfo *net = ctx->createNet(ctx->idf("%s", bufg->name.c_str(ctx)));
             cell->connectPort(port, net);
             bufg->connectPort(id_I, net);

@@ -293,8 +293,7 @@ void GateMateImpl::postPlace()
 }
 bool GateMateImpl::checkPipAvail(PipId pip) const
 {
-    const auto &extra_data =
-            *reinterpret_cast<const GateMatePipExtraDataPOD *>(chip_pip_info(ctx->chip_info, pip).extra_data.get());
+    const auto &extra_data = *pip_extra_data(pip);
     if (extra_data.type != PipExtra::PIP_EXTRA_MUX || (extra_data.flags & MUX_ROUTING) == 0)
         return true;
     if (used_cpes.count(pip.tile))
@@ -328,9 +327,7 @@ void GateMateImpl::reassign_bridges(NetInfo *ni, const dict<WireId, PipMap> &net
         if (wire_to_net.count(dst))
             continue;
 
-        const auto &extra_data =
-                *reinterpret_cast<const GateMatePipExtraDataPOD *>(chip_pip_info(ctx->chip_info, pip).extra_data.get());
-
+        const auto &extra_data = *pip_extra_data(pip);
         // If not a bridge, just recurse.
         if (extra_data.type != PipExtra::PIP_EXTRA_MUX || !(extra_data.flags & MUX_ROUTING)) {
             reassign_bridges(ni, net_wires, dst, wire_to_net, num);
@@ -348,16 +345,14 @@ void GateMateImpl::reassign_bridges(NetInfo *ni, const dict<WireId, PipMap> &net
         cell->params[id_C_BR] = Property(Property::State::S1, 1);
         cell->params[id_C_SN] = Property(extra_data.value, 3);
 
-        IdString new_net_name = ctx->id(name.str(ctx) + "$muxout");
+        IdString new_net_name = ctx->idf("%s$muxout", name.str(ctx));
         NetInfo *new_net = ctx->createNet(new_net_name);
         IdString in_port = ctx->idf("IN%d", extra_data.value + 1);
 
-        cell->ports[in_port].name = in_port;
-        cell->ports[in_port].type = PORT_IN;
+        cell->addInput(in_port);
         cell->connectPort(in_port, ni);
 
-        cell->ports[id_MUXOUT].name = id_MUXOUT;
-        cell->ports[id_MUXOUT].type = PORT_OUT;
+        cell->addOutput(id_MUXOUT);
         cell->connectPort(id_MUXOUT, new_net);
 
         num++;
@@ -376,8 +371,7 @@ void GateMateImpl::postRoute()
         NetInfo *ni = net.second.get();
         for (auto &w : ni->wires) {
             if (w.second.pip != PipId()) {
-                const auto &extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
-                        chip_pip_info(ctx->chip_info, w.second.pip).extra_data.get());
+                const auto &extra_data = *pip_extra_data(w.second.pip);
                 if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_ROUTING)) {
                     this->cpe_bridges.insert({w.second.pip, ni->name});
                     nets_with_bridges.insert(ni->name);
@@ -570,14 +564,18 @@ bool GateMateImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
 
 bool GateMateImpl::isPipInverting(PipId pip) const
 {
-    const auto &extra_data =
-            *reinterpret_cast<const GateMatePipExtraDataPOD *>(chip_pip_info(ctx->chip_info, pip).extra_data.get());
+    const auto &extra_data = *pip_extra_data(pip);
     return extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_INVERT);
 }
 
 const GateMateBelExtraDataPOD *GateMateImpl::bel_extra_data(BelId bel) const
 {
     return reinterpret_cast<const GateMateBelExtraDataPOD *>(chip_bel_info(ctx->chip_info, bel).extra_data.get());
+}
+
+const GateMatePipExtraDataPOD *GateMateImpl::pip_extra_data(PipId pip) const
+{
+    return reinterpret_cast<const GateMatePipExtraDataPOD *>(chip_pip_info(ctx->chip_info, pip).extra_data.get());
 }
 
 struct GateMateArch : HimbaechelArch

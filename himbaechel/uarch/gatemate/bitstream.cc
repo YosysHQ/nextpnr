@@ -152,8 +152,7 @@ struct BitstreamBackend
 
     void export_connection(ChipConfig &cc, PipId pip)
     {
-        const auto extra_data =
-                *reinterpret_cast<const GateMatePipExtraDataPOD *>(chip_pip_info(ctx->chip_info, pip).extra_data.get());
+        const auto &extra_data = *uarch->pip_extra_data(pip);
         if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_VISIBLE)) {
             IdString name = IdString(extra_data.name);
             CfgLoc loc = get_config_loc(pip.tile);
