@@ -58,7 +58,7 @@ void TileConfig::add_word(const std::string &name, const std::vector<bool> &valu
     } else {
         auto val = added.at(name);
         if (val != value)
-            log_warning("Trying to add value to already assigned word %s for %s\n", name.c_str(), c ? c : "");
+            log_error("Trying to add value to already assigned word %s for %s\n", name.c_str(), c ? c : "");
     }
 }
 
