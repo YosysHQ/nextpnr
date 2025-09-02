@@ -368,7 +368,6 @@ void GateMateImpl::reassign_bridges(NetInfo* ni, const dict<WireId, PipMap>& net
 
 void GateMateImpl::postRoute()
 {
-#if 1
     int num = 0;
 
     pool<IdString> nets_with_bridges;
@@ -437,26 +436,6 @@ void GateMateImpl::postRoute()
     }
 
     log_info("%d MUX8s used for routing (should be %d)\n", num, int(cpe_bridges.size()));
-#else
-    for (auto &net : ctx->nets) {
-        NetInfo *ni = net.second.get();
-        for (auto &w : ni->wires) {
-            if (w.second.pip != PipId()) {
-                const auto &extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
-                        chip_pip_info(ctx->chip_info, w.second.pip).extra_data.get());
-                if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_ROUTING)) {
-                    IdStringList id = ctx->getPipName(w.second.pip);
-                    Loc loc = ctx->getPipLocation(w.second.pip);
-                    BelId bel = ctx->getBelByLocation({loc.x, loc.y, CPE_BRIDGE_Z});
-                    CellInfo *cell = ctx->createCell(ctx->id(ctx->nameOfBel(bel)), id_CPE_BRIDGE);
-                    ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
-                    cell->params[id_C_BR] = Property(Property::State::S1, 1);
-                    cell->params[id_C_SN] = Property(extra_data.value, 3);
-                }
-            }
-        }
-    }
-#endif
     ctx->assignArchInfo();
 
     const ArchArgs &args = ctx->args;
