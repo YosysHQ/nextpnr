@@ -44,6 +44,9 @@ struct GateMateImpl : HimbaechelAPI
     void preRoute() override;
     void postRoute() override;
 
+    BoundingBox getRouteBoundingBox(WireId src, WireId dst) const override;
+    void expandBoundingBox(BoundingBox &bb) const override;
+
     bool isBelLocationValid(BelId bel, bool explain_invalid = false) const override;
     delay_t estimateDelay(WireId src, WireId dst) const override;
     bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const override;

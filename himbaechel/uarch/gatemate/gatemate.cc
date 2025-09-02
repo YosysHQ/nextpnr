@@ -295,6 +295,33 @@ void GateMateImpl::postRoute()
     }
 }
 
+BoundingBox GateMateImpl::getRouteBoundingBox(WireId src, WireId dst) const
+{
+    int x0, y0, x1, y1;
+    auto expand = [&](int x, int y) {
+        x0 = std::min(x0, x);
+        x1 = std::max(x1, x);
+        y0 = std::min(y0, y);
+        y1 = std::max(y1, y);
+    };
+    tile_xy(ctx->chip_info, src.tile, x0, y0);
+    x1 = x0;
+    y1 = y0;
+    int dx, dy;
+    tile_xy(ctx->chip_info, dst.tile, dx, dy);
+    expand(dx, dy);
+
+    return {(x0 & 0xfffe), (y0 & 0xfffe), (x1 & 0xfffe) + 1, (y1 & 0xfffe) + 1};
+}
+
+void GateMateImpl::expandBoundingBox(BoundingBox &bb) const
+{
+    bb.x0 = std::max((bb.x0 & 0xfffe) - 4, 0);
+    bb.y0 = std::max((bb.y0 & 0xfffe) - 4, 0);
+    bb.x1 = std::min((bb.x1 & 0xfffe) + 5, ctx->getGridDimX());
+    bb.y1 = std::min((bb.y1 & 0xfffe) + 5, ctx->getGridDimY());
+}
+
 void GateMateImpl::configurePlacerHeap(PlacerHeapCfg &cfg) { cfg.placeAllAtOnce = true; }
 
 int GateMateImpl::get_dff_config(CellInfo *dff) const
