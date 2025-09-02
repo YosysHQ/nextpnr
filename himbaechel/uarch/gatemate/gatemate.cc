@@ -280,6 +280,7 @@ void GateMateImpl::postPlace()
 {
     repack();
     ctx->assignArchInfo();
+    used_cpes.resize(ctx->getGridDimX() * ctx->getGridDimY());
     for (auto &cell : ctx->cells) {
         // We need to skip CPE_MULT since using CP outputs is mandatory
         // even if output is actually not connected
@@ -288,7 +289,7 @@ void GateMateImpl::postPlace()
         if (cell.second.get()->type == id_CPE_FF && ctx->getBelLocation(cell.second.get()->bel).z == CPE_FF_U_Z)
             marked_used = true;
         if (marked_used)
-            used_cpes.emplace(cell.second.get()->bel.tile);
+            used_cpes[cell.second.get()->bel.tile] = true;
     }
 }
 bool GateMateImpl::checkPipAvail(PipId pip) const
@@ -296,7 +297,7 @@ bool GateMateImpl::checkPipAvail(PipId pip) const
     const auto &extra_data = *pip_extra_data(pip);
     if (extra_data.type != PipExtra::PIP_EXTRA_MUX || (extra_data.flags & MUX_ROUTING) == 0)
         return true;
-    if (used_cpes.count(pip.tile))
+    if (used_cpes[pip.tile])
         return false;
     return true;
 }
@@ -345,8 +346,7 @@ void GateMateImpl::reassign_bridges(NetInfo *ni, const dict<WireId, PipMap> &net
         cell->params[id_C_BR] = Property(Property::State::S1, 1);
         cell->params[id_C_SN] = Property(extra_data.value, 3);
 
-        IdString new_net_name = ctx->idf("%s$muxout", name.str(ctx));
-        NetInfo *new_net = ctx->createNet(new_net_name);
+        NetInfo *new_net = ctx->createNet(ctx->idf("%s$muxout", name.c_str(ctx)));
         IdString in_port = ctx->idf("IN%d", extra_data.value + 1);
 
         cell->addInput(in_port);
