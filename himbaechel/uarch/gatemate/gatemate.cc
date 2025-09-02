@@ -404,26 +404,14 @@ void GateMateImpl::postRoute()
         // traverse the routing tree to assign bridge nets to wires.
         reassign_bridges(ni, net_wires, ctx->getNetinfoSourceWire(ni), wire_to_net, num);
 
-        // this is a slightly ugly hack for how unbindWire does not call notifyPipChange on the driving pip
-        // leading to notifyPipChange falsely believing pips are being double-bound.
-        for (auto& pair : net_wires) {
-            auto wire = pair.first;
-            auto pip = pair.second.pip;
-            if (pip == PipId())
-                ctx->unbindWire(wire);
-            else
-                ctx->unbindPip(pip);
-        }
+        for (auto& pair : net_wires)
+            ctx->unbindWire(pair.first);
 
         for (auto& pair : net_wires) {
             auto wire = pair.first;
-            auto pip = pair.second.pip;
             auto strength = pair.second.strength;
             auto* net = ctx->nets.at(wire_to_net.at(wire)).get();
-            if (pip == PipId())
-                ctx->bindWire(wire, net, strength);
-            else
-                ctx->bindPip(pip, net, strength);
+            ctx->bindWire(wire, net, strength);
 
             if (wire_to_port.count(wire)) {
                 for (auto sink : wire_to_port.at(wire)) {
@@ -435,7 +423,6 @@ void GateMateImpl::postRoute()
         }
     }
 
-    log_info("%d MUX8s used for routing (should be %d)\n", num, int(cpe_bridges.size()));
     ctx->assignArchInfo();
 
     const ArchArgs &args = ctx->args;
