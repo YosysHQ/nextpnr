@@ -44,6 +44,16 @@ struct GowinGlobalRouter
 
     bool segment_wire_filter(PipId pip) const { return !gwu.is_segment_pip(pip); }
 
+    // To avoid a cycle where we connect the clock wire to the gate in
+    // the global clock system and it ends up in the global clock MUX
+    // again, we only allow connections from general-purpose wires.
+    bool clock_gate_wire_filter(PipId pip) const
+    {
+        WireId dst = ctx->getPipDstWire(pip);
+        IdString src_type = ctx->getWireType(ctx->getPipSrcWire(pip));
+        return !(gwu.wire_is_clock_gate(dst) && src_type.in(id_GLOBAL_CLK, id_TILE_CLK));
+    }
+
     bool dcs_input_filter(PipId pip) const
     {
         return !ctx->getWireName(ctx->getPipSrcWire(pip))[1].in(
@@ -79,8 +89,8 @@ struct GowinGlobalRouter
         if (ctx->debug && false /*&& res*/) {
             log_info("%s <- %s [%s <- %s]\n", ctx->nameOfWire(ctx->getPipDstWire(pip)),
                      ctx->nameOfWire(ctx->getPipSrcWire(pip)), dst_type.c_str(ctx), src_type.c_str(ctx));
-            log_info("  res:%d, src_valid:%d, dst_valid:%d, src local:%d, dst local:%d\n", res, src_valid, dst_valid,
-                     is_local(src_type), is_local(dst_type));
+            log_info("  res:%d, src_valid:%d, dst_valid:%d, src local:%d, dst local:%d, dst gate:%d\n", res, src_valid,
+                     dst_valid, is_local(src_type), is_local(dst_type), gwu.wire_is_clock_gate(dst));
         }
         return res;
     }
@@ -623,7 +633,7 @@ struct GowinGlobalRouter
         src = ctx->getBelPinWire(true_src_ci->bel, net_before_buf->driver.port);
         ctx->bindWire(src, net, STRENGTH_LOCKED);
         backwards_bfs_route(net, src, dst, 1000000, false, [&](PipId pip, WireId src_wire) {
-            return segment_wire_filter(pip) && dcs_input_filter(pip);
+            return clock_gate_wire_filter(pip) && segment_wire_filter(pip) && dcs_input_filter(pip);
         });
         // remove net
         buf_ci->movePortTo(id_O, true_src_ci, net_before_buf->driver.port);
@@ -635,7 +645,8 @@ struct GowinGlobalRouter
     RouteResult route_clk_net(NetInfo *net)
     {
         RouteResult route_result = route_direct_net(net, [&](PipId pip, WireId src_wire) {
-            return global_pip_filter(pip, src_wire) && segment_wire_filter(pip) && dcs_input_filter(pip);
+            return clock_gate_wire_filter(pip) && global_pip_filter(pip, src_wire) && segment_wire_filter(pip) &&
+                   dcs_input_filter(pip);
         });
         if (route_result != NOT_ROUTED) {
             log_info("    '%s' net was routed using global resources %s.\n", ctx->nameOf(net),
