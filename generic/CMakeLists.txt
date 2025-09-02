@@ -25,8 +25,6 @@ set(SOURCES
     viaduct/fabulous/pack.h
     viaduct/fabulous/validity_check.cc
     viaduct/fabulous/validity_check.h
-    viaduct/okami/constids.inc
-    viaduct/okami/okami.cc
 )
 
 add_nextpnr_architecture(${family}
