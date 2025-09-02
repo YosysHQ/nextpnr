@@ -303,24 +303,6 @@ bool GateMateImpl::checkPipAvail(PipId pip) const
     return true;
 }
 
-void GateMateImpl::notifyPipChange(PipId pip, NetInfo *net)
-{
-    const auto &extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
-        chip_pip_info(ctx->chip_info, pip).extra_data.get());
-
-    if (extra_data.type != PipExtra::PIP_EXTRA_MUX || !(extra_data.flags & MUX_ROUTING))
-        return;
-
-    auto found = cpe_bridges.count(pip) > 0;
-
-    NPNR_ASSERT((!found && net != nullptr) || (found && net == nullptr));
-
-    if (found)
-        this->cpe_bridges.erase(pip);
-    else
-        this->cpe_bridges.insert({pip, net->name});
-}
-
 void GateMateImpl::preRoute()
 {
     route_mult();
@@ -383,8 +365,20 @@ void GateMateImpl::postRoute()
     int num = 0;
 
     pool<IdString> nets_with_bridges;
-    for (auto& pair : this->cpe_bridges)
-        nets_with_bridges.insert(pair.second);
+
+    for (auto &net : ctx->nets) {
+        NetInfo *ni = net.second.get();
+        for (auto &w : ni->wires) {
+            if (w.second.pip != PipId()) {
+                const auto &extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
+                        chip_pip_info(ctx->chip_info, w.second.pip).extra_data.get());
+                if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_ROUTING)) {
+                    this->cpe_bridges.insert({w.second.pip, ni->name});
+                    nets_with_bridges.insert(ni->name);
+                }
+            }
+        }
+    }
 
     for (auto net_name : nets_with_bridges) {
         auto* ni = ctx->nets.at(net_name).get();
