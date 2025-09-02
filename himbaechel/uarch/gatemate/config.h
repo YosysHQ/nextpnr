@@ -39,7 +39,7 @@ struct TileConfig
     std::vector<ConfigWord> cwords;
     std::map<std::string, std::vector<bool>> added;
 
-    void add_word(const std::string &name, const std::vector<bool> &value);
+    void add_word(const std::string &name, const std::vector<bool> &value, const char *c=nullptr);
 
     std::string to_string() const;
 

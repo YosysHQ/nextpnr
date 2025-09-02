@@ -298,7 +298,7 @@ struct BitstreamBackend
             case id_IOSEL.index:
                 for (auto &p : params) {
                     bank[loc.die][ctx->get_bel_package_pin(cell.second.get()->bel)->pad_bank] = 1;
-                    cc.tiles[loc].add_word(stringf("GPIO.%s", p.first.c_str(ctx)), p.second.as_bits());
+                    cc.tiles[loc].add_word(stringf("GPIO.%s", p.first.c_str(ctx)), p.second.as_bits(), cell.second->name.c_str(ctx));
                 }
                 break;
             case id_CPE_CPLINES.index:
@@ -415,23 +415,23 @@ struct BitstreamBackend
                         }
                         break;
                     }
-                    cc.tiles[loc].add_word(stringf("CPE%d.%s", id, name.c_str(ctx)), p.second.as_bits());
+                    cc.tiles[loc].add_word(stringf("CPE%d.%s", id, name.c_str(ctx)), p.second.as_bits(), cell.second->name.c_str(ctx));
                 }
             } break;
             case id_CLKIN.index: {
                 for (auto &p : params) {
-                    cc.configs[loc.die].add_word(stringf("CLKIN.%s", p.first.c_str(ctx)), p.second.as_bits());
+                    cc.configs[loc.die].add_word(stringf("CLKIN.%s", p.first.c_str(ctx)), p.second.as_bits(), cell.second->name.c_str(ctx));
                 }
             } break;
             case id_GLBOUT.index: {
                 for (auto &p : params) {
-                    cc.configs[loc.die].add_word(stringf("GLBOUT.%s", p.first.c_str(ctx)), p.second.as_bits());
+                    cc.configs[loc.die].add_word(stringf("GLBOUT.%s", p.first.c_str(ctx)), p.second.as_bits(), cell.second->name.c_str(ctx));
                 }
             } break;
             case id_PLL.index: {
                 Loc l = ctx->getBelLocation(cell.second->bel);
                 for (auto &p : params) {
-                    cc.configs[loc.die].add_word(stringf("PLL%d.%s", l.z - 2, p.first.c_str(ctx)), p.second.as_bits());
+                    cc.configs[loc.die].add_word(stringf("PLL%d.%s", l.z - 2, p.first.c_str(ctx)), p.second.as_bits(), cell.second->name.c_str(ctx));
                 }
             } break;
             case id_RAM.index: {

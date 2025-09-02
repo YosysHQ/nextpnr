@@ -53,7 +53,7 @@ std::ostream &operator<<(std::ostream &out, const TileConfig &tc)
     return out;
 }
 
-void TileConfig::add_word(const std::string &name, const std::vector<bool> &value)
+void TileConfig::add_word(const std::string &name, const std::vector<bool> &value, const char *c)
 {
     if (!added.count(name)) {
         cwords.push_back({name, value});
@@ -61,7 +61,7 @@ void TileConfig::add_word(const std::string &name, const std::vector<bool> &valu
     } else {
         auto val = added.at(name);
         if (val != value)
-            log_error("Trying to add value to already assigned word %s\n", name.c_str());
+            log_warning("Trying to add value to already assigned word %s for %s\n", name.c_str(), c ? c : "");
     }
 }
 
