@@ -14,6 +14,9 @@ from apycula import chipdb
 # Bel flags
 BEL_FLAG_SIMPLE_IO = 0x100
 
+# Wire flags
+WIRE_FLAG_CLOCK_GATE = 0x1
+
 # Chip flags
 CHIP_HAS_SP32              = 0x1
 CHIP_NEED_SP_FIX           = 0x2
@@ -768,6 +771,14 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                         tt.create_wire(wire, "PINCFG_IN")
                     tt.add_bel_pin(bel, port, wire, PinType.INPUT)
 
+def set_wire_flags(tt: TileType, tdesc: TypeDesc):
+    if tdesc.extra_func and 'clock_gates' in tdesc.extra_func:
+        for wire_name in tdesc.extra_func['clock_gates']:
+            wname_id = tt.strs.id(wire_name)
+            for wire_data in tt.wires:
+                if wire_data.name == wname_id:
+                    wire_data.flags |= WIRE_FLAG_CLOCK_GATE
+
 def create_tiletype(create_func, chip: Chip, db: chipdb, x: int, y: int, ttyp: int):
     has_extra_func = (y, x) in db.extra_func
 
@@ -817,6 +828,7 @@ def create_tiletype(create_func, chip: Chip, db: chipdb, x: int, y: int, ttyp: i
     create_extra_funcs(tt, db, x, y)
     create_hclk_switch_matrix(tt, db, x, y)
     create_switch_matrix(tt, db, x, y)
+    set_wire_flags(tt, tdesc)
     chip.set_tile_type(x, y, tdesc.tiletype)
 
 def add_port_wire(tt, bel, portmap, name, wire_type, port_type, pin_name = None):

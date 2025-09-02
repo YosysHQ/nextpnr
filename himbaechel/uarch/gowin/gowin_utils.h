@@ -12,6 +12,10 @@ namespace BelFlags {
 static constexpr uint32_t FLAG_SIMPLE_IO = 0x100;
 }
 
+namespace WireFlags {
+static constexpr uint32_t FLAG_CLOCK_GATE = 0x1;
+}
+
 struct GowinUtils
 {
     Context *ctx;
@@ -84,6 +88,12 @@ struct GowinUtils
         return CellTypePort(driver) == CellTypePort(id_IOBUF, id_O) && driver.cell->params.count(id_MIPI_IBUF);
     }
     bool driver_is_clksrc(const PortRef &driver);
+
+    // clock nets
+    bool wire_is_clock_gate(WireId wire) const
+    {
+        return chip_wire_info(ctx->chip_info, wire).flags & WireFlags::FLAG_CLOCK_GATE;
+    }
 
     // BSRAM
     bool has_SP32(void);
