@@ -391,11 +391,16 @@ void GateMateImpl::postRoute()
         auto* ni = ctx->nets.at(net_name).get();
         auto net_wires = ni->wires; // copy wires to preserve across unbind/rebind.
         auto wire_to_net = dict<WireId, IdString>{};
-        auto wire_to_port = dict<WireId, PortRef>{};
+        auto wire_to_port = dict<WireId, std::vector<PortRef>>{};
 
         for (auto& usr : ni->users)
-            for (auto sink_wire : ctx->getNetinfoSinkWires(ni, usr))
-                wire_to_port.insert({sink_wire, usr});
+            for (auto sink_wire : ctx->getNetinfoSinkWires(ni, usr)) {
+                auto result = wire_to_port.find(sink_wire);
+                if (result == wire_to_port.end())
+                    wire_to_port.insert({sink_wire, std::vector<PortRef>{usr}});
+                else
+                    result->second.push_back(usr);
+            }
 
         // traverse the routing tree to assign bridge nets to wires.
         reassign_bridges(ni, net_wires, ctx->getNetinfoSourceWire(ni), wire_to_net, num);
@@ -422,10 +427,11 @@ void GateMateImpl::postRoute()
                 ctx->bindPip(pip, net, strength);
 
             if (wire_to_port.count(wire)) {
-                PortRef sink = wire_to_port.at(wire);
-                NPNR_ASSERT(sink.cell != nullptr && sink.port != IdString());
-                sink.cell->disconnectPort(sink.port);
-                sink.cell->connectPort(sink.port, net);
+                for (auto sink : wire_to_port.at(wire)) {
+                    NPNR_ASSERT(sink.cell != nullptr && sink.port != IdString());
+                    sink.cell->disconnectPort(sink.port);
+                    sink.cell->connectPort(sink.port, net);
+                }
             }
         }
     }
