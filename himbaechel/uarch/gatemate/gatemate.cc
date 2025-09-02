@@ -409,9 +409,13 @@ void GateMateImpl::postRoute()
 
         for (auto& pair : net_wires) {
             auto wire = pair.first;
+            auto pip = pair.second.pip;
             auto strength = pair.second.strength;
             auto* net = ctx->nets.at(wire_to_net.at(wire)).get();
-            ctx->bindWire(wire, net, strength);
+            if (pip == PipId())
+                ctx->bindWire(wire, net, strength);
+            else
+                ctx->bindPip(pip, net, strength);
 
             if (wire_to_port.count(wire)) {
                 for (auto sink : wire_to_port.at(wire)) {
