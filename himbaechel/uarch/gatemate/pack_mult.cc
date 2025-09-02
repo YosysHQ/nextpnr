@@ -430,8 +430,7 @@ void GateMatePacker::pack_mult()
 
             NetInfo *comb2_conn = ctx->createNet(ctx->idf("%s$carrycomb2", name.c_str(ctx)));
             carry_upper->connectPort(id_OUT, comb2_conn);
-            carry_lower->ports[id_COMBIN].name = id_COMBIN;
-            carry_lower->ports[id_COMBIN].type = PORT_IN;
+            carry_lower->addInput(id_COMBIN);
             carry_lower->connectPort(id_COMBIN, comb2_conn);
 
             NetInfo *comp_in = ctx->createNet(ctx->idf("%s$carry$comp_in", name.c_str(ctx)));
@@ -461,8 +460,7 @@ void GateMatePacker::pack_mult()
 
             NetInfo *comb2_conn = ctx->createNet(ctx->idf("%s$multf%c$comb2", name.c_str(ctx), is_even_x ? 'a' : 'b'));
             multfab_upper->connectPort(id_OUT, comb2_conn);
-            multfab_lower->ports[id_COMBIN].name = id_COMBIN;
-            multfab_lower->ports[id_COMBIN].type = PORT_IN;
+            multfab_lower->addInput(id_COMBIN);
             multfab_lower->connectPort(id_COMBIN, comb2_conn);
             multfab_comp->connectPort(id_COMB2, comb2_conn);
 

@@ -57,8 +57,7 @@ void GateMateImpl::route_clock()
     };
 
     auto pip_plane = [&](PipId pip) {
-        const auto &extra_data =
-                *reinterpret_cast<const GateMatePipExtraDataPOD *>(chip_pip_info(ctx->chip_info, pip).extra_data.get());
+        const auto &extra_data = *pip_extra_data(pip);
         if (extra_data.type != PipExtra::PIP_EXTRA_MUX)
             return uint8_t{0};
         return extra_data.plane;

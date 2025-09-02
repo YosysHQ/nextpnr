@@ -518,8 +518,7 @@ void GateMatePacker::pack_io_sel()
                     if (cpe_half) {
                         if (cpe_half->getPort(id_IN1) != oddr->getPort(id_DDR))
                             log_error("DDR port use signal different than already occupied DDR source.\n");
-                        ci.ports[id_DDR].name = id_DDR;
-                        ci.ports[id_DDR].type = PORT_IN;
+                        ci.addInput(id_DDR);
                         ci.connectPort(id_DDR, cpe_ramio->getPort(id_RAM_O));
                     } else {
                         auto l = reinterpret_cast<const GateMatePadExtraDataPOD *>(pad->extra_data.get());

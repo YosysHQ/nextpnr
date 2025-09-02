@@ -65,6 +65,11 @@ struct BitstreamBackend
 
         WireId cursor = dst_wire;
         bool invert = false;
+        if (net_info->driver.cell && net_info->driver.cell->type == id_CPE_BRIDGE &&
+            net_info->driver.port == id_MUXOUT) {
+            int val = int_or_default(net_info->driver.cell->params, id_C_SN, 0) + 1;
+            invert ^= need_inversion(net_info->driver.cell, ctx->idf("IN%d", val));
+        }
         while (cursor != WireId() && cursor != src_wire) {
             auto it = net_info->wires.find(cursor);
 
@@ -147,8 +152,7 @@ struct BitstreamBackend
 
     void export_connection(ChipConfig &cc, PipId pip)
     {
-        const auto extra_data =
-                *reinterpret_cast<const GateMatePipExtraDataPOD *>(chip_pip_info(ctx->chip_info, pip).extra_data.get());
+        const auto &extra_data = *uarch->pip_extra_data(pip);
         if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_VISIBLE)) {
             IdString name = IdString(extra_data.name);
             CfgLoc loc = get_config_loc(pip.tile);
@@ -293,7 +297,8 @@ struct BitstreamBackend
             case id_IOSEL.index:
                 for (auto &p : params) {
                     bank[loc.die][ctx->get_bel_package_pin(cell.second.get()->bel)->pad_bank] = 1;
-                    cc.tiles[loc].add_word(stringf("GPIO.%s", p.first.c_str(ctx)), p.second.as_bits());
+                    cc.tiles[loc].add_word(stringf("GPIO.%s", p.first.c_str(ctx)), p.second.as_bits(),
+                                           cell.second->name.c_str(ctx));
                 }
                 break;
             case id_CPE_CPLINES.index:
@@ -308,6 +313,7 @@ struct BitstreamBackend
             case id_CPE_LATCH.index:
             case id_CPE_RAMI.index:
             case id_CPE_RAMO.index:
+            case id_CPE_BRIDGE.index:
             case id_CPE_RAMIO.index: {
                 // Update configuration bits based on signal inversion
                 dict<IdString, Property> params = cell.second->params;
@@ -409,23 +415,27 @@ struct BitstreamBackend
                         }
                         break;
                     }
-                    cc.tiles[loc].add_word(stringf("CPE%d.%s", id, name.c_str(ctx)), p.second.as_bits());
+                    cc.tiles[loc].add_word(stringf("CPE%d.%s", id, name.c_str(ctx)), p.second.as_bits(),
+                                           cell.second->name.c_str(ctx));
                 }
             } break;
             case id_CLKIN.index: {
                 for (auto &p : params) {
-                    cc.configs[loc.die].add_word(stringf("CLKIN.%s", p.first.c_str(ctx)), p.second.as_bits());
+                    cc.configs[loc.die].add_word(stringf("CLKIN.%s", p.first.c_str(ctx)), p.second.as_bits(),
+                                                 cell.second->name.c_str(ctx));
                 }
             } break;
             case id_GLBOUT.index: {
                 for (auto &p : params) {
-                    cc.configs[loc.die].add_word(stringf("GLBOUT.%s", p.first.c_str(ctx)), p.second.as_bits());
+                    cc.configs[loc.die].add_word(stringf("GLBOUT.%s", p.first.c_str(ctx)), p.second.as_bits(),
+                                                 cell.second->name.c_str(ctx));
                 }
             } break;
             case id_PLL.index: {
                 Loc l = ctx->getBelLocation(cell.second->bel);
                 for (auto &p : params) {
-                    cc.configs[loc.die].add_word(stringf("PLL%d.%s", l.z - 2, p.first.c_str(ctx)), p.second.as_bits());
+                    cc.configs[loc.die].add_word(stringf("PLL%d.%s", l.z - 2, p.first.c_str(ctx)), p.second.as_bits(),
+                                                 cell.second->name.c_str(ctx));
                 }
             } break;
             case id_RAM.index: {

@@ -46,6 +46,8 @@ struct GateMateImpl : HimbaechelAPI
 
     BoundingBox getRouteBoundingBox(WireId src, WireId dst) const override;
     void expandBoundingBox(BoundingBox &bb) const override;
+    bool checkPipAvail(PipId pip) const override;
+    bool checkPipAvailForNet(PipId pip, const NetInfo *net) const override { return checkPipAvail(pip); };
 
     bool isBelLocationValid(BelId bel, bool explain_invalid = false) const override;
     delay_t estimateDelay(WireId src, WireId dst) const override;
@@ -69,6 +71,7 @@ struct GateMateImpl : HimbaechelAPI
     bool isPipInverting(PipId pip) const override;
 
     const GateMateTileExtraDataPOD *tile_extra_data(int tile) const;
+    const GateMatePipExtraDataPOD *pip_extra_data(PipId pip) const;
 
     int get_dff_config(CellInfo *dff) const;
     int get_ram_config(CellInfo *ram) const;
@@ -83,6 +86,8 @@ struct GateMateImpl : HimbaechelAPI
     pool<IdString> multiplier_a_passthru_uppers;
     pool<IdString> multiplier_zero_drivers;
     std::vector<CellInfo *> multipliers;
+    std::vector<bool> used_cpes;
+    dict<PipId, IdString> cpe_bridges;
     int fpga_mode;
     int timing_mode;
 
@@ -97,6 +102,8 @@ struct GateMateImpl : HimbaechelAPI
     void assign_cell_info();
     void route_clock();
     void route_mult();
+    void reassign_bridges(NetInfo *net, const dict<WireId, PipMap> &net_wires, WireId wire,
+                          dict<WireId, IdString> &wire_to_net, int &num);
     void repack();
 
     const GateMateBelExtraDataPOD *bel_extra_data(BelId bel) const;
