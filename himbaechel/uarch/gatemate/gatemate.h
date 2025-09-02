@@ -68,6 +68,7 @@ struct GateMateImpl : HimbaechelAPI
     const GateMateTileExtraDataPOD *tile_extra_data(int tile) const;
 
     int get_dff_config(CellInfo *dff) const;
+    int get_ram_config(CellInfo *ram) const;
 
     std::set<IdString> available_pads;
     std::map<BelId, const PadInfoPOD *> bel_to_pad;
@@ -105,9 +106,9 @@ struct GateMateImpl : HimbaechelAPI
     {
         // slice info
         const NetInfo *ff_en = nullptr, *ff_clk = nullptr, *ff_sr = nullptr;
-        int ff_config = 0;
+        int config = 0;
         int signal_used = -1;
-        bool dff_used = false;
+        bool used = false;
     };
     std::vector<GateMateCellInfo> fast_cell_info;
     std::map<BelId, std::map<IdString, const GateMateBelPinConstraintPOD *>> pin_to_constr;

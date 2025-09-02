@@ -153,7 +153,7 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
         return get_delay_from_tmg_db(ctx->idf("timing_clkin_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
     } else if (cell->type.in(id_GLBOUT)) {
         return get_delay_from_tmg_db(ctx->idf("timing_glbout_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
-    } else if (cell->type.in(id_RAM)) {
+    } else if (cell->type.in(id_RAM, id_RAM_HALF)) {
         return false;
     }
     return false;
@@ -257,7 +257,7 @@ TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString 
         if (port.in(id_CLK))
             return TMG_CLOCK_INPUT;
         return TMG_IGNORE;
-    } else if (cell->type == id_RAM) {
+    } else if (cell->type.in(id_RAM, id_RAM_HALF)) {
         std::string name = port.str(ctx);
         if (boost::starts_with(name, "CLKA[") || boost::starts_with(name, "CLKB[") || boost::starts_with(name, "CLOCK"))
             return TMG_CLOCK_INPUT;
@@ -326,7 +326,7 @@ TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdStr
             get_delay_from_tmg_db(id_timing_del_CPE_CP_Q, delay);
             info.clockToQ += delay;
         }
-    } else if (cell->type == id_RAM) {
+    } else if (cell->type.in(id_RAM, id_RAM_HALF)) {
         std::string name = port.str(ctx);
         if (boost::starts_with(name, "CLOCK"))
             get_delay_from_tmg_db(id_timing_RAM_NOECC_IOPATH_1, info.clockToQ);

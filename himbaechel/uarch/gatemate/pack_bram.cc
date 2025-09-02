@@ -118,7 +118,7 @@ static void rename_or_move(CellInfo *main, CellInfo *other, IdString port, IdStr
         main->movePortTo(port, other, other_port);
 }
 
-void GateMatePacker::pack_ram_cell(CellInfo &ci, CellInfo *cell, int num, bool is_split)
+void GateMatePacker::pack_ram_cell(CellInfo &ci, CellInfo *cell, bool is_split)
 {
     // Port Widths
     int a_rd_width = int_or_default(cell->params, id_A_RD_WIDTH, 0);
@@ -161,98 +161,71 @@ void GateMatePacker::pack_ram_cell(CellInfo &ci, CellInfo *cell, int num, bool i
     uint8_t a_we = ram_ctrl_signal(cell, id_A_WE, false);
     uint8_t b_we = ram_ctrl_signal(cell, id_B_WE, false);
 
-    if (num) {
+    ci.params[id_RAM_cfg_forward_a0_clk] = Property(cfg_a, 8);
+    if (!is_split)
         ci.params[id_RAM_cfg_forward_a1_clk] = Property(cfg_a, 8);
+
+    ci.params[id_RAM_cfg_forward_b0_clk] = Property(cfg_b, 8);
+    if (!is_split)
         ci.params[id_RAM_cfg_forward_b1_clk] = Property(cfg_b, 8);
 
-        ci.params[id_RAM_cfg_forward_a1_en] = Property(a_en, 8);
-        ci.params[id_RAM_cfg_forward_b1_en] = Property(b_en, 8);
+    ci.params[id_RAM_cfg_forward_a0_en] = Property(a_en, 8);
+    ci.params[id_RAM_cfg_forward_b0_en] = Property(b_en, 8);
 
-        ci.params[id_RAM_cfg_forward_a1_we] = Property(a_we, 8);
-        ci.params[id_RAM_cfg_forward_b1_we] = Property(b_we, 8);
+    ci.params[id_RAM_cfg_forward_a0_we] = Property(a_we, 8);
+    ci.params[id_RAM_cfg_forward_b0_we] = Property(b_we, 8);
 
-        ci.params[id_RAM_cfg_input_config_a1] = Property(width_to_config(a_wr_width), 3);
-        ci.params[id_RAM_cfg_input_config_b1] = Property(width_to_config(b_wr_width), 3);
-        ci.params[id_RAM_cfg_output_config_a1] = Property(width_to_config(a_rd_width), 3);
-        ci.params[id_RAM_cfg_output_config_b1] = Property(width_to_config(b_rd_width), 3);
+    ci.params[id_RAM_cfg_input_config_a0] = Property(width_to_config(a_wr_width), 3);
+    ci.params[id_RAM_cfg_input_config_b0] = Property(width_to_config(b_wr_width), 3);
+    ci.params[id_RAM_cfg_output_config_a0] = Property(width_to_config(a_rd_width), 3);
+    ci.params[id_RAM_cfg_output_config_b0] = Property(width_to_config(b_rd_width), 3);
 
-        ci.params[id_RAM_cfg_a1_writemode] = Property(a_wr_mode, 1);
-        ci.params[id_RAM_cfg_b1_writemode] = Property(b_wr_mode, 1);
+    ci.params[id_RAM_cfg_a0_writemode] = Property(a_wr_mode, 1);
+    ci.params[id_RAM_cfg_b0_writemode] = Property(b_wr_mode, 1);
 
-        ci.params[id_RAM_cfg_a1_set_outputreg] = Property(a_do_reg, 1);
-        ci.params[id_RAM_cfg_b1_set_outputreg] = Property(b_do_reg, 1);
+    ci.params[id_RAM_cfg_a0_set_outputreg] = Property(a_do_reg, 1);
+    ci.params[id_RAM_cfg_b0_set_outputreg] = Property(b_do_reg, 1);
 
-        ci.params[id_RAM_cfg_inversion_a1] = Property(a_inv, 3);
-        ci.params[id_RAM_cfg_inversion_b1] = Property(b_inv, 3);
-    } else {
-        ci.params[id_RAM_cfg_forward_a0_clk] = Property(cfg_a, 8);
-        if (!is_split)
-            ci.params[id_RAM_cfg_forward_a1_clk] = Property(cfg_a, 8);
+    ci.params[id_RAM_cfg_inversion_a0] = Property(a_inv, 3);
+    ci.params[id_RAM_cfg_inversion_b0] = Property(b_inv, 3);
 
-        ci.params[id_RAM_cfg_forward_b0_clk] = Property(cfg_b, 8);
-        if (!is_split)
-            ci.params[id_RAM_cfg_forward_b1_clk] = Property(cfg_b, 8);
-
-        ci.params[id_RAM_cfg_forward_a0_en] = Property(a_en, 8);
-        ci.params[id_RAM_cfg_forward_b0_en] = Property(b_en, 8);
-
-        ci.params[id_RAM_cfg_forward_a0_we] = Property(a_we, 8);
-        ci.params[id_RAM_cfg_forward_b0_we] = Property(b_we, 8);
-
-        ci.params[id_RAM_cfg_input_config_a0] = Property(width_to_config(a_wr_width), 3);
-        ci.params[id_RAM_cfg_input_config_b0] = Property(width_to_config(b_wr_width), 3);
-        ci.params[id_RAM_cfg_output_config_a0] = Property(width_to_config(a_rd_width), 3);
-        ci.params[id_RAM_cfg_output_config_b0] = Property(width_to_config(b_rd_width), 3);
-
-        ci.params[id_RAM_cfg_a0_writemode] = Property(a_wr_mode, 1);
-        ci.params[id_RAM_cfg_b0_writemode] = Property(b_wr_mode, 1);
-
-        ci.params[id_RAM_cfg_a0_set_outputreg] = Property(a_do_reg, 1);
-        ci.params[id_RAM_cfg_b0_set_outputreg] = Property(b_do_reg, 1);
-
-        ci.params[id_RAM_cfg_inversion_a0] = Property(a_inv, 3);
-        ci.params[id_RAM_cfg_inversion_b0] = Property(b_inv, 3);
-    }
-
-    int index = (num == 0) ? 0 : 2;
-    rename_or_move(cell, &ci, id_A_CLK, ctx->idf("CLKA[%d]", index));
-    rename_or_move(cell, &ci, id_B_CLK, ctx->idf("CLKB[%d]", index));
-    rename_or_move(cell, &ci, id_A_EN, ctx->idf("ENA[%d]", index));
-    rename_or_move(cell, &ci, id_B_EN, ctx->idf("ENB[%d]", index));
-    rename_or_move(cell, &ci, id_A_WE, ctx->idf("GLWEA[%d]", index));
-    rename_or_move(cell, &ci, id_B_WE, ctx->idf("GLWEB[%d]", index));
+    rename_or_move(cell, &ci, id_A_CLK, ctx->id("CLKA[0]"));
+    rename_or_move(cell, &ci, id_B_CLK, ctx->id("CLKB[0]"));
+    rename_or_move(cell, &ci, id_A_EN, ctx->id("ENA[0]"));
+    rename_or_move(cell, &ci, id_B_EN, ctx->id("ENB[0]"));
+    rename_or_move(cell, &ci, id_A_WE, ctx->id("GLWEA[0]"));
+    rename_or_move(cell, &ci, id_B_WE, ctx->id("GLWEB[0]"));
     if (is_split) {
-        rename_or_move(cell, &ci, id_ECC_1B_ERR, ctx->idf("ECC1B_ERRA[%d]", index));
-        rename_or_move(cell, &ci, id_ECC_2B_ERR, ctx->idf("ECC2B_ERRA[%d]", index));
+        rename_or_move(cell, &ci, id_ECC_1B_ERR, ctx->id("ECC1B_ERRA[0]"));
+        rename_or_move(cell, &ci, id_ECC_2B_ERR, ctx->id("ECC2B_ERRA[0]"));
     } else {
-        rename_or_move(cell, &ci, id_A_ECC_1B_ERR, ctx->idf("ECC1B_ERRA[%d]", index));
-        rename_or_move(cell, &ci, id_B_ECC_1B_ERR, ctx->idf("ECC1B_ERRB[%d]", index));
-        rename_or_move(cell, &ci, id_A_ECC_2B_ERR, ctx->idf("ECC2B_ERRA[%d]", index));
-        rename_or_move(cell, &ci, id_B_ECC_2B_ERR, ctx->idf("ECC2B_ERRB[%d]", index));
+        rename_or_move(cell, &ci, id_A_ECC_1B_ERR, ctx->id("ECC1B_ERRA[0]"));
+        rename_or_move(cell, &ci, id_B_ECC_1B_ERR, ctx->id("ECC1B_ERRB[0]"));
+        rename_or_move(cell, &ci, id_A_ECC_2B_ERR, ctx->id("ECC2B_ERRA[0]"));
+        rename_or_move(cell, &ci, id_B_ECC_2B_ERR, ctx->id("ECC2B_ERRB[0]"));
     }
     int items = is_split ? 20 : 40;
     for (int i = 0; i < items; i++) {
-        rename_or_move(cell, &ci, ctx->idf("A_BM[%d]", i), ctx->idf("WEA[%d]", i + num * 20));
-        rename_or_move(cell, &ci, ctx->idf("B_BM[%d]", i), ctx->idf("WEB[%d]", i + num * 20));
+        rename_or_move(cell, &ci, ctx->idf("A_BM[%d]", i), ctx->idf("WEA[%d]", i));
+        rename_or_move(cell, &ci, ctx->idf("B_BM[%d]", i), ctx->idf("WEB[%d]", i));
     }
 
     for (int i = 0; i < 16; i++) {
-        rename_or_move(cell, &ci, ctx->idf("A_ADDR[%d]", i), ctx->idf("ADDRA%d[%d]", num, i));
-        rename_or_move(cell, &ci, ctx->idf("B_ADDR[%d]", i), ctx->idf("ADDRB%d[%d]", num, i));
+        rename_or_move(cell, &ci, ctx->idf("A_ADDR[%d]", i), ctx->idf("ADDRA0[%d]", i));
+        rename_or_move(cell, &ci, ctx->idf("B_ADDR[%d]", i), ctx->idf("ADDRB0[%d]", i));
     }
 
     for (int i = 0; i < items; i++) {
-        rename_or_move(cell, &ci, ctx->idf("A_DI[%d]", i), ctx->idf("DIA[%d]", i + num * 20));
-        rename_or_move(cell, &ci, ctx->idf("A_DO[%d]", i), ctx->idf("DOA[%d]", i + num * 20));
-        rename_or_move(cell, &ci, ctx->idf("B_DI[%d]", i), ctx->idf("DIB[%d]", i + num * 20));
-        rename_or_move(cell, &ci, ctx->idf("B_DO[%d]", i), ctx->idf("DOB[%d]", i + num * 20));
+        rename_or_move(cell, &ci, ctx->idf("A_DI[%d]", i), ctx->idf("DIA[%d]", i));
+        rename_or_move(cell, &ci, ctx->idf("A_DO[%d]", i), ctx->idf("DOA[%d]", i));
+        rename_or_move(cell, &ci, ctx->idf("B_DI[%d]", i), ctx->idf("DIB[%d]", i));
+        rename_or_move(cell, &ci, ctx->idf("B_DO[%d]", i), ctx->idf("DOB[%d]", i));
     }
 }
 
 void GateMatePacker::pack_ram()
 {
-    std::vector<std::pair<CellInfo *, CellInfo *>> rams;
-    std::vector<std::pair<CellInfo *, CellInfo *>> rams_merged[2];
+    std::vector<CellInfo *> rams;
     std::map<CellInfo *, CellInfo *> ram_cascade;
     log_info("Packing RAMs..\n");
     for (auto &cell : ctx->cells) {
@@ -263,7 +236,6 @@ void GateMatePacker::pack_ram()
         std::string ram_mode_str = str_or_default(ci.params, id_RAM_MODE, "SDP");
         if (ram_mode_str != "SDP" && ram_mode_str != "TDP")
             log_error("Unknown RAM_MODE parameter value '%s' for cell %s.\n", ram_mode_str.c_str(), ci.name.c_str(ctx));
-        int ram_mode = ram_mode_str == "SDP" ? 1 : 0;
         std::string cas = str_or_default(ci.params, id_CAS, "NONE");
         if (cas != "NONE" && !ci.type.in(id_CC_BRAM_40K))
             log_error("Cascade feature only supported for CC_BRAM_40K.\n");
@@ -277,17 +249,7 @@ void GateMatePacker::pack_ram()
         }
 
         if (split) {
-            bool added = false;
-            if (!rams_merged[ram_mode].empty()) {
-                auto &last = rams_merged[ram_mode].back();
-                if (last.second == nullptr) {
-                    last.second = &ci;
-                    packed_cells.insert(ci.name);
-                    added = true;
-                }
-            }
-            if (!added)
-                rams_merged[ram_mode].push_back(std::make_pair(&ci, nullptr));
+            rams.push_back(&ci);
         } else {
             CellInfo *upper = nullptr;
             CellInfo *lower = nullptr;
@@ -316,18 +278,16 @@ void GateMatePacker::pack_ram()
                 log_error("RAM cell '%s' already cascaded to different RAM block.\n", ci.name.c_str(ctx));
             ram_cascade[lower] = upper;
 
-            rams.push_back(std::make_pair(&ci, nullptr));
+            rams.push_back(&ci);
         }
     }
-    rams.insert(rams.end(), rams_merged[0].begin(), rams_merged[0].end());
-    rams.insert(rams.end(), rams_merged[1].begin(), rams_merged[1].end());
 
     for (auto item : rams) {
-        CellInfo &ci = *item.first;
+        CellInfo &ci = *item;
         int split = ci.type.in(id_CC_BRAM_20K) ? 1 : 0;
         bool is_fifo = ci.type.in(id_CC_FIFO_40K);
 
-        ci.type = id_RAM;
+        ci.type = split ? id_RAM_HALF : id_RAM;
         ci.cluster = ci.name;
 
         // Location format: D(0..N-1)X(0..3)Y(0..7) or UNPLACED
@@ -358,6 +318,21 @@ void GateMatePacker::pack_ram()
             log_error("Unknown CAS parameter value '%s' for cell %s.\n", cas.c_str(), ci.name.c_str(ctx));
         }
 
+        if (!split) {
+            CellInfo *cell = ctx->createCell(ctx->idf("%s$dummy$u", ci.name.c_str(ctx)), id_RAM_HALF_DUMMY);
+            ci.constr_children.push_back(cell);
+            cell->constr_abs_z = true;
+            cell->constr_z = RAM_HALF_U_Z;
+            cell->cluster = ci.cluster;
+
+            cell = ctx->createCell(ctx->idf("%s$dummy$l", ci.name.c_str(ctx)), id_RAM_HALF_DUMMY);
+            ci.constr_children.push_back(cell);
+            cell->constr_abs_z = true;
+            cell->constr_y = +8;
+            cell->constr_z = RAM_HALF_L_Z;
+            cell->cluster = ci.cluster;
+        }
+
         // RAM and Write Modes
         std::string ram_mode_str = str_or_default(ci.params, id_RAM_MODE, "SDP");
         if (ram_mode_str != "SDP" && ram_mode_str != "TDP")
@@ -367,42 +342,21 @@ void GateMatePacker::pack_ram()
         // Error Checking and Correction
         int a_ecc_en = int_or_default(ci.params, id_A_ECC_EN, 0);
         int b_ecc_en = int_or_default(ci.params, id_B_ECC_EN, 0);
+        if (ci.params.count(id_ECC_EN)) {
+            a_ecc_en = int_or_default(ci.params, id_ECC_EN, 0);
+        }
+        ci.params[id_RAM_cfg_ecc_enable] = Property(b_ecc_en << 1 | a_ecc_en, 2);
 
         ci.params[id_RAM_cfg_forward_a_addr] = Property(0b00000000, 8);
         ci.params[id_RAM_cfg_forward_b_addr] = Property(0b00000000, 8);
 
         ci.params[id_RAM_cfg_sram_mode] = Property(ram_mode << 1 | split, 2);
 
-        pack_ram_cell(ci, item.first, 0, split);
-        if (item.second) {
-            pack_ram_cell(ci, item.second, 1, split);
-        }
-        if (split) {
-            for (int i = 63; i >= 0; i--) {
-                std::vector<bool> orig_first =
-                        item.first->params.at(ctx->idf("INIT_%02X", i)).extract(0, 320).as_bits();
-                std::vector<bool> orig_second;
-                if (item.second)
-                    orig_second = item.second->params.at(ctx->idf("INIT_%02X", i)).extract(0, 320).as_bits();
-                std::string init[2];
+        ci.params[id_RAM_cfg_sram_delay] = Property(0b000101, 6); // Always set to default
+        // id_RAM_cfg_datbm_sel
+        ci.params[id_RAM_cfg_cascade_enable] = Property(cascade, 2);
 
-                for (int j = 0; j < 2; j++) {
-                    for (int k = 0; k < 4; k++) {
-                        for (int l = 0; l < 40; l++) {
-                            if (item.second)
-                                init[j].push_back(orig_second.at(319 - (l + k * 40 + j * 160)) ? '1' : '0');
-                            else
-                                init[j].push_back('0');
-                        }
-                        for (int l = 0; l < 40; l++) {
-                            init[j].push_back(orig_first.at(319 - (l + k * 40 + j * 160)) ? '1' : '0');
-                        }
-                    }
-                }
-                ci.params[ctx->idf("INIT_%02X", i * 2 + 1)] = Property::from_string(init[0]);
-                ci.params[ctx->idf("INIT_%02X", i * 2 + 0)] = Property::from_string(init[1]);
-            }
-        }
+        pack_ram_cell(ci, item, split);
 
         if (is_fifo) {
             int a_rd_width = int_or_default(ci.params, id_A_WIDTH, 0);
@@ -442,11 +396,6 @@ void GateMatePacker::pack_ram()
                     Property(int_or_default(ci.params, id_F_ALMOST_FULL_OFFSET, 0), 15);
         }
 
-        ci.params[id_RAM_cfg_ecc_enable] = Property(b_ecc_en << 1 | a_ecc_en, 2);
-        ci.params[id_RAM_cfg_sram_delay] = Property(0b000101, 6); // Always set to default
-        // id_RAM_cfg_datbm_sel
-        ci.params[id_RAM_cfg_cascade_enable] = Property(cascade, 2);
-
         for (int i = 0; i < 40; i++) {
             move_ram_o(&ci, ctx->idf("WEA[%d]", i));
             move_ram_o(&ci, ctx->idf("WEB[%d]", i));
@@ -470,6 +419,10 @@ void GateMatePacker::pack_ram()
             move_ram_o(&ci, ctx->idf("ENB[%d]", i));
             move_ram_o(&ci, ctx->idf("GLWEA[%d]", i));
             move_ram_o(&ci, ctx->idf("GLWEB[%d]", i));
+            move_ram_o(&ci, ctx->idf("ECC1B_ERRA[%d]", i));
+            move_ram_o(&ci, ctx->idf("ECC1B_ERRB[%d]", i));
+            move_ram_o(&ci, ctx->idf("ECC2B_ERRA[%d]", i));
+            move_ram_o(&ci, ctx->idf("ECC2B_ERRB[%d]", i));
         }
 
         if (is_fifo) {
@@ -507,6 +460,150 @@ void GateMatePacker::pack_ram()
         }
     }
     flush_cells();
+}
+
+void GateMatePacker::remap_ram_half(CellInfo *half, CellInfo *cell, int num)
+{
+    int index = num ? 2 : 0;
+
+    rename_or_move(half, cell, ctx->id("CLKA[0]"), ctx->idf("CLKA[%d]", index));
+    rename_or_move(half, cell, ctx->id("CLKB[0]"), ctx->idf("CLKB[%d]", index));
+    rename_or_move(half, cell, ctx->id("ENA[0]"), ctx->idf("ENA[%d]", index));
+    rename_or_move(half, cell, ctx->id("ENB[0]"), ctx->idf("ENB[%d]", index));
+    rename_or_move(half, cell, ctx->id("GLWEA[0]"), ctx->idf("GLWEA[%d]", index));
+    rename_or_move(half, cell, ctx->id("GLWEB[0]"), ctx->idf("GLWEB[%d]", index));
+    for (int i = 0; i < 20; i++) {
+        rename_or_move(half, cell, ctx->idf("WEA[%d]", i), ctx->idf("WEA[%d]", i + 20 * num));
+        rename_or_move(half, cell, ctx->idf("WEB[%d]", i), ctx->idf("WEB[%d]", i + 20 * num));
+        rename_or_move(half, cell, ctx->idf("DIA[%d]", i), ctx->idf("DIA[%d]", i + 20 * num));
+        rename_or_move(half, cell, ctx->idf("DIB[%d]", i), ctx->idf("DIB[%d]", i + 20 * num));
+        rename_or_move(half, cell, ctx->idf("DOA[%d]", i), ctx->idf("DOA[%d]", i + 20 * num));
+        rename_or_move(half, cell, ctx->idf("DOB[%d]", i), ctx->idf("DOB[%d]", i + 20 * num));
+    }
+    for (int i = 0; i < 16; i++) {
+        rename_or_move(half, cell, ctx->idf("ADDRA0[%d]", i), ctx->idf("ADDRA%d[%d]", num, i));
+        rename_or_move(half, cell, ctx->idf("ADDRB0[%d]", i), ctx->idf("ADDRB%d[%d]", num, i));
+    }
+
+    index = num ? 1 : 0;
+    rename_or_move(half, cell, ctx->id("ECC1B_ERRA[0]"), ctx->idf("ECC1B_ERRA[%d]", index));
+    rename_or_move(half, cell, ctx->id("ECC1B_ERRB[0]"), ctx->idf("ECC1B_ERRB[%d]", index));
+    rename_or_move(half, cell, ctx->id("ECC2B_ERRA[0]"), ctx->idf("ECC2B_ERRA[%d]", index));
+    rename_or_move(half, cell, ctx->id("ECC2B_ERRB[0]"), ctx->idf("ECC2B_ERRB[%d]", index));
+
+    for (int i = 1; i < 5; i++)
+        if (!cell->getPort(ctx->idf("CLOCK%d", i)))
+            rename_or_move(half, cell, ctx->idf("CLOCK%d", i), ctx->idf("CLOCK%d", i));
+
+    static dict<IdString, IdString> map_params = {
+            {id_RAM_cfg_forward_a0_clk, id_RAM_cfg_forward_a1_clk},
+            {id_RAM_cfg_forward_b0_clk, id_RAM_cfg_forward_b1_clk},
+
+            {id_RAM_cfg_forward_a0_en, id_RAM_cfg_forward_a1_en},
+            {id_RAM_cfg_forward_b0_en, id_RAM_cfg_forward_b1_en},
+
+            {id_RAM_cfg_forward_a0_we, id_RAM_cfg_forward_a1_we},
+            {id_RAM_cfg_forward_b0_we, id_RAM_cfg_forward_b1_we},
+
+            {id_RAM_cfg_input_config_a0, id_RAM_cfg_input_config_a1},
+            {id_RAM_cfg_input_config_b0, id_RAM_cfg_input_config_b1},
+            {id_RAM_cfg_output_config_a0, id_RAM_cfg_output_config_a1},
+            {id_RAM_cfg_output_config_b0, id_RAM_cfg_output_config_b1},
+
+            {id_RAM_cfg_a0_writemode, id_RAM_cfg_a1_writemode},
+            {id_RAM_cfg_b0_writemode, id_RAM_cfg_b1_writemode},
+
+            {id_RAM_cfg_a0_set_outputreg, id_RAM_cfg_a1_set_outputreg},
+            {id_RAM_cfg_b0_set_outputreg, id_RAM_cfg_b1_set_outputreg},
+
+            {id_RAM_cfg_inversion_a0, id_RAM_cfg_inversion_a1},
+            {id_RAM_cfg_inversion_b0, id_RAM_cfg_inversion_b1},
+
+            // This is for both halfs and it is same
+            {id_RAM_cfg_forward_a_addr, id_RAM_cfg_forward_a_addr},
+            {id_RAM_cfg_forward_b_addr, id_RAM_cfg_forward_b_addr},
+            {id_RAM_cfg_sram_mode, id_RAM_cfg_sram_mode},
+            {id_RAM_cfg_ecc_enable, id_RAM_cfg_ecc_enable},
+            {id_RAM_cfg_sram_delay, id_RAM_cfg_sram_delay},
+            {id_RAM_cfg_cascade_enable, id_RAM_cfg_cascade_enable},
+    };
+
+    for (auto &p : map_params) {
+        if (map_params.count(p.first)) {
+            cell->params[num ? p.second : p.first] = half->params[p.first];
+        }
+    }
+}
+
+void GateMatePacker::repack_ram()
+{
+    log_info("Repacking RAMs..\n");
+    dict<Loc, std::pair<CellInfo *, CellInfo *>> rams;
+    for (auto &cell : ctx->cells) {
+        if (cell.second->type.in(id_RAM_HALF)) {
+            Loc l = ctx->getBelLocation(cell.second->bel);
+            if (l.z == RAM_HALF_U_Z) {
+                rams[Loc(l.x, l.y, 0)].first = cell.second.get();
+            } else {
+                rams[Loc(l.x, l.y - 8, 0)].second = cell.second.get();
+            }
+        } else if (cell.second->type.in(id_RAM_HALF_DUMMY))
+            packed_cells.insert(cell.second->name);
+    }
+    int id = 0;
+    for (auto &ram : rams) {
+        IdString name = ctx->idf("$ram$merged$id%d", id);
+        if (!ram.second.first)
+            name = ctx->idf("%s$full", ram.second.second->name.c_str(ctx));
+        if (!ram.second.second)
+            name = ctx->idf("%s$full", ram.second.first->name.c_str(ctx));
+
+        CellInfo *cell = ctx->createCell(name, id_RAM);
+        BelId bel = ctx->getBelByLocation({ram.first.x, ram.first.y, RAM_FULL_Z});
+        ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
+
+        if (ram.second.first) {
+            remap_ram_half(ram.second.first, cell, 0);
+            packed_cells.insert(ram.second.first->name);
+        }
+        if (ram.second.second) {
+            remap_ram_half(ram.second.second, cell, 1);
+            packed_cells.insert(ram.second.second->name);
+        }
+
+        for (int i = 63; i >= 0; i--) {
+            std::vector<bool> orig_first;
+            if (ram.second.first)
+                orig_first = ram.second.first->params.at(ctx->idf("INIT_%02X", i)).extract(0, 320).as_bits();
+            std::vector<bool> orig_second;
+            if (ram.second.second)
+                orig_second = ram.second.second->params.at(ctx->idf("INIT_%02X", i)).extract(0, 320).as_bits();
+            std::string init[2];
+
+            for (int j = 0; j < 2; j++) {
+                for (int k = 0; k < 4; k++) {
+                    for (int l = 0; l < 40; l++) {
+                        if (ram.second.second)
+                            init[j].push_back(orig_second.at(319 - (l + k * 40 + j * 160)) ? '1' : '0');
+                        else
+                            init[j].push_back('0');
+                    }
+                    for (int l = 0; l < 40; l++) {
+                        if (ram.second.first)
+                            init[j].push_back(orig_first.at(319 - (l + k * 40 + j * 160)) ? '1' : '0');
+                        else
+                            init[j].push_back('0');
+                    }
+                }
+            }
+            cell->params[ctx->idf("INIT_%02X", i * 2 + 1)] = Property::from_string(init[0]);
+            cell->params[ctx->idf("INIT_%02X", i * 2 + 0)] = Property::from_string(init[1]);
+        }
+
+        id++;
+    }
+    flush_cells();
+    ctx->assignArchInfo();
 }
 
 NEXTPNR_NAMESPACE_END
