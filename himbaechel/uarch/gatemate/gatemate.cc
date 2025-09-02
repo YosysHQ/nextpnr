@@ -316,22 +316,25 @@ void GateMateImpl::reassign_bridges(NetInfo* ni, const dict<WireId, PipMap>& net
 
     for (auto pip : ctx->getPipsDownhill(wire)) {
         auto dst = ctx->getPipDstWire(pip);
+
         // Ignore wires not part of the net
         if (!net_wires.count(dst))
             continue;
         // Ignore wires already visited.
         if (wire_to_net.count(dst))
             continue;
+
+        const auto &extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
+                chip_pip_info(ctx->chip_info, pip).extra_data.get());
+
         // If not a bridge, just recurse.
-        if (!cpe_bridges.count(pip)) {
+        if (extra_data.type != PipExtra::PIP_EXTRA_MUX || !(extra_data.flags & MUX_ROUTING)) {
             reassign_bridges(ni, net_wires, dst, wire_to_net, num);
             continue;
         }
+
         // We have a bridge that needs to be translated to a bel.
         IdString name = ctx->idf("%s$bridge%d", ni->name.c_str(ctx), num);
-
-        const auto &extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
-            chip_pip_info(ctx->chip_info, pip).extra_data.get());
 
         IdStringList id = ctx->getPipName(pip);
         Loc loc = ctx->getPipLocation(pip);
