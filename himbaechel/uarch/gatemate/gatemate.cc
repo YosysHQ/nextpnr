@@ -318,7 +318,11 @@ void GateMateImpl::reassign_bridges(NetInfo* ni, const dict<WireId, PipMap>& net
         auto dst = ctx->getPipDstWire(pip);
 
         // Ignore wires not part of the net
-        if (!net_wires.count(dst))
+        auto it = net_wires.find(dst);
+        if (it == net_wires.end())
+            continue;
+        // Ignore pips if the wire is driven by another pip.
+        if (pip != it->second.pip)
             continue;
         // Ignore wires already visited.
         if (wire_to_net.count(dst))
