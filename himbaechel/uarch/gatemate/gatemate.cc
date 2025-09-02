@@ -310,7 +310,8 @@ void GateMateImpl::preRoute()
     ctx->assignArchInfo();
 }
 
-void GateMateImpl::reassign_bridges(NetInfo* ni, const dict<WireId, PipMap>& net_wires, WireId wire, dict<WireId, IdString>& wire_to_net, int& num)
+void GateMateImpl::reassign_bridges(NetInfo *ni, const dict<WireId, PipMap> &net_wires, WireId wire,
+                                    dict<WireId, IdString> &wire_to_net, int &num)
 {
     wire_to_net.insert({wire, ni->name});
 
@@ -328,8 +329,8 @@ void GateMateImpl::reassign_bridges(NetInfo* ni, const dict<WireId, PipMap>& net
         if (wire_to_net.count(dst))
             continue;
 
-        const auto &extra_data = *reinterpret_cast<const GateMatePipExtraDataPOD *>(
-                chip_pip_info(ctx->chip_info, pip).extra_data.get());
+        const auto &extra_data =
+                *reinterpret_cast<const GateMatePipExtraDataPOD *>(chip_pip_info(ctx->chip_info, pip).extra_data.get());
 
         // If not a bridge, just recurse.
         if (extra_data.type != PipExtra::PIP_EXTRA_MUX || !(extra_data.flags & MUX_ROUTING)) {
@@ -350,7 +351,7 @@ void GateMateImpl::reassign_bridges(NetInfo* ni, const dict<WireId, PipMap>& net
 
         IdString new_net_name = ctx->id(name.str(ctx) + "$muxout");
         NetInfo *new_net = ctx->createNet(new_net_name);
-        IdString in_port = ctx->idf("IN%d",extra_data.value+1);
+        IdString in_port = ctx->idf("IN%d", extra_data.value + 1);
 
         cell->ports[in_port].name = in_port;
         cell->ports[in_port].type = PORT_IN;
@@ -387,12 +388,12 @@ void GateMateImpl::postRoute()
     }
 
     for (auto net_name : nets_with_bridges) {
-        auto* ni = ctx->nets.at(net_name).get();
+        auto *ni = ctx->nets.at(net_name).get();
         auto net_wires = ni->wires; // copy wires to preserve across unbind/rebind.
         auto wire_to_net = dict<WireId, IdString>{};
         auto wire_to_port = dict<WireId, std::vector<PortRef>>{};
 
-        for (auto& usr : ni->users)
+        for (auto &usr : ni->users)
             for (auto sink_wire : ctx->getNetinfoSinkWires(ni, usr)) {
                 auto result = wire_to_port.find(sink_wire);
                 if (result == wire_to_port.end())
@@ -404,14 +405,14 @@ void GateMateImpl::postRoute()
         // traverse the routing tree to assign bridge nets to wires.
         reassign_bridges(ni, net_wires, ctx->getNetinfoSourceWire(ni), wire_to_net, num);
 
-        for (auto& pair : net_wires)
+        for (auto &pair : net_wires)
             ctx->unbindWire(pair.first);
 
-        for (auto& pair : net_wires) {
+        for (auto &pair : net_wires) {
             auto wire = pair.first;
             auto pip = pair.second.pip;
             auto strength = pair.second.strength;
-            auto* net = ctx->nets.at(wire_to_net.at(wire)).get();
+            auto *net = ctx->nets.at(wire_to_net.at(wire)).get();
             if (pip == PipId())
                 ctx->bindWire(wire, net, strength);
             else
