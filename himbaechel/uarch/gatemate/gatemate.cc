@@ -288,7 +288,7 @@ void GateMateImpl::postPlace()
         if (cell.second.get()->type == id_CPE_FF && ctx->getBelLocation(cell.second.get()->bel).z == CPE_FF_U_Z)
             marked_used = true;
         if (marked_used)
-            used_cpes.emplace(ctx->getBelName(cell.second.get()->bel)[0]);
+            used_cpes.emplace(cell.second.get()->bel.tile);
     }
 }
 bool GateMateImpl::checkPipAvail(PipId pip) const
@@ -297,8 +297,7 @@ bool GateMateImpl::checkPipAvail(PipId pip) const
             *reinterpret_cast<const GateMatePipExtraDataPOD *>(chip_pip_info(ctx->chip_info, pip).extra_data.get());
     if (extra_data.type != PipExtra::PIP_EXTRA_MUX || (extra_data.flags & MUX_ROUTING) == 0)
         return true;
-    IdStringList id = ctx->getPipName(pip);
-    if (used_cpes.count(id[0]))
+    if (used_cpes.count(pip.tile))
         return false;
     return true;
 }

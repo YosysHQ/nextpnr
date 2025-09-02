@@ -85,7 +85,7 @@ struct GateMateImpl : HimbaechelAPI
     pool<IdString> multiplier_a_passthru_uppers;
     pool<IdString> multiplier_zero_drivers;
     std::vector<CellInfo *> multipliers;
-    std::set<IdString> used_cpes;
+    std::set<int32_t> used_cpes;
     dict<PipId, IdString> cpe_bridges;
     int fpga_mode;
     int timing_mode;
