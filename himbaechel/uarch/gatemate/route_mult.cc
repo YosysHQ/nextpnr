@@ -26,6 +26,15 @@
 namespace {
 USING_NEXTPNR_NAMESPACE;
 
+bool is_fourgroup_a_within_tile(const GateMateTileExtraDataPOD *ti, int &x_within_fourgroup, int &y_within_fourgroup)
+{
+    auto x_fourgroup = ti->tile_x % 4;
+    auto y_fourgroup = ti->tile_y % 4;
+    x_within_fourgroup = ti->tile_x % 2;
+    y_within_fourgroup = ti->tile_y % 2;
+    return (x_fourgroup < 2 && y_fourgroup < 2) || (x_fourgroup >= 2 && y_fourgroup >= 2);
+}
+
 void find_and_bind_downhill_pip(Context *ctx, WireId from, WireId to, NetInfo *net)
 {
     NPNR_ASSERT(from != WireId());
@@ -720,6 +729,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 void GateMateImpl::route_mult()
 {
+    int x_within_fourgroup, y_within_fourgroup;
     log_info("Routing multipliers...\n");
 
     // I am fully aware the nextpnr API is absolutely not designed around naming specific pips.
@@ -730,12 +740,8 @@ void GateMateImpl::route_mult()
         auto *lower_out = lower->ports.at(id_OUT).net;
 
         auto loc = ctx->getBelLocation(lower->bel);
-
-        auto x_fourgroup = (loc.x - 3) % 4;
-        auto y_fourgroup = (loc.y - 3) % 4;
-        bool is_fourgroup_a = (x_fourgroup < 2 && y_fourgroup < 2) || (x_fourgroup >= 2 && y_fourgroup >= 2);
-        auto x_within_fourgroup = (loc.x - 3) % 2;
-        auto y_within_fourgroup = (loc.y - 3) % 2;
+        bool is_fourgroup_a =
+                is_fourgroup_a_within_tile(tile_extra_data(lower->bel.tile), x_within_fourgroup, y_within_fourgroup);
 
         if (ctx->debug) {
             log_info("  A passthrough at (%d, %d) has 4-group %c\n", loc.x, loc.y, is_fourgroup_a ? 'A' : 'B');
@@ -764,12 +770,8 @@ void GateMateImpl::route_mult()
         auto *upper_out = upper->ports.at(id_OUT).net;
 
         auto loc = ctx->getBelLocation(upper->bel);
-
-        auto x_fourgroup = (loc.x - 3) % 4;
-        auto y_fourgroup = (loc.y - 3) % 4;
-        bool is_fourgroup_a = (x_fourgroup < 2 && y_fourgroup < 2) || (x_fourgroup >= 2 && y_fourgroup >= 2);
-        auto x_within_fourgroup = (loc.x - 3) % 2;
-        auto y_within_fourgroup = (loc.y - 3) % 2;
+        bool is_fourgroup_a =
+                is_fourgroup_a_within_tile(tile_extra_data(upper->bel.tile), x_within_fourgroup, y_within_fourgroup);
 
         bool needs_in8_route = false;
 
@@ -811,12 +813,8 @@ void GateMateImpl::route_mult()
         auto *out = zero_driver->ports.at(id_OUT).net;
 
         auto loc = ctx->getBelLocation(zero_driver->bel);
-
-        auto x_fourgroup = (loc.x - 3) % 4;
-        auto y_fourgroup = (loc.y - 3) % 4;
-        bool is_fourgroup_a = (x_fourgroup < 2 && y_fourgroup < 2) || (x_fourgroup >= 2 && y_fourgroup >= 2);
-        auto x_within_fourgroup = (loc.x - 3) % 2;
-        auto y_within_fourgroup = (loc.y - 3) % 2;
+        bool is_fourgroup_a = is_fourgroup_a_within_tile(tile_extra_data(zero_driver->bel.tile), x_within_fourgroup,
+                                                         y_within_fourgroup);
 
         if (ctx->debug) {
             log_info("  Zero driver at (%d, %d) has 4-group %c\n", loc.x, loc.y, is_fourgroup_a ? 'A' : 'B');
