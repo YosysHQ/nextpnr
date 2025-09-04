@@ -1003,7 +1003,26 @@ class HeAPPlacer
                             }
                             // Provisionally bind the bel
                             ctx->bindBel(sz, ci, STRENGTH_WEAK);
+                            // Handle legality-driven ripups
+                            bool is_illegal = false;
+                            CellInfo *conflict = nullptr;
+                            BelId conflict_bel = BelId();
+
                             if (require_validity && !ctx->isBelLocationValid(sz)) {
+                                conflict = ctx->getBelValidityConflict(sz);
+                                // Only rip up conflicts without constraints
+                                if (!conflict || conflict->cluster != ClusterId() || conflict->belStrength > STRENGTH_WEAK) {
+                                    is_illegal = true;
+                                    conflict = nullptr; // so we don't add it back to remaining later
+                                } else {
+                                    conflict_bel = conflict->bel;
+                                    ctx->unbindBel(conflict_bel);
+                                    // This is the contract for getBelValidityConflict that the ripup has to make the location valid
+                                    NPNR_ASSERT(ctx->isBelLocationValid(sz));
+                                }
+                            }
+
+                            if (is_illegal) {
                                 // New location is not legal; unbind the cell (and rebind the cell we ripped up if
                                 // applicable)
                                 ctx->unbindBel(sz);
@@ -1012,6 +1031,8 @@ class HeAPPlacer
                             } else if (iter_at_radius < need_to_explore) {
                                 // It's legal, but we haven't tried enough locations yet
                                 ctx->unbindBel(sz);
+                                if (conflict != nullptr)
+                                    ctx->bindBel(conflict_bel, conflict, STRENGTH_WEAK);
                                 if (bound != nullptr)
                                     ctx->bindBel(sz, bound, STRENGTH_WEAK);
                                 int input_len = 0;
@@ -1040,6 +1061,10 @@ class HeAPPlacer
                                     remaining.emplace(chain_size[bound->name] *
                                                               cfg.get_cell_legalisation_weight(ctx, bound),
                                                       bound->name);
+                                if (conflict != nullptr)
+                                    remaining.emplace(chain_size[conflict->name] *
+                                                              cfg.get_cell_legalisation_weight(ctx, conflict),
+                                                      conflict->name);
                                 Loc loc = ctx->getBelLocation(sz);
                                 cell_locs[ci->name].x = loc.x;
                                 cell_locs[ci->name].y = loc.y;

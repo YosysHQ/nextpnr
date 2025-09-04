@@ -688,6 +688,10 @@ struct Arch : BaseArch<ArchRanges>
     {
         return uarch->isBelLocationValid(bel, explain_invalid);
     }
+    CellInfo *getBelValidityConflict(BelId bel) const override
+    {
+        return uarch->getBelValidityConflict(bel);
+    }
 
     // ------------------------------------------------
 

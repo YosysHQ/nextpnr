@@ -210,6 +210,28 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
     return true;
 }
 
+CellInfo *GateMateImpl::getBelValidityConflict(BelId bel) const
+{
+    if (ctx->getBelBucketForBel(bel) == id_RAM_HALF) {
+        CellInfo *cell = ctx->getBoundBelCell(bel);
+        Loc loc = ctx->getBelLocation(bel);
+        CellInfo *adj_half =
+                ctx->getBoundBelCell(ctx->getBelByLocation(Loc(loc.x, loc.z == RAM_HALF_L_Z ? loc.y - 8 : loc.y + 8,
+                                                               loc.z == RAM_HALF_L_Z ? RAM_HALF_U_Z : RAM_HALF_L_Z)));
+        if (adj_half) {
+            const auto &half_data = fast_cell_info.at(cell->flat_index);
+            if (half_data.used) {
+                const auto &adj_data = fast_cell_info.at(adj_half->flat_index);
+                if (adj_data.used) {
+                    if (adj_data.config != half_data.config)
+                        return adj_half;
+                }
+            }
+        }
+    }
+    return nullptr;
+}
+
 Loc GateMateImpl::getRelativeConstraint(Loc &root_loc, IdString id) const
 {
     Loc child_loc;
