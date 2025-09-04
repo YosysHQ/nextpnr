@@ -865,6 +865,7 @@ class HeAPPlacer
             remaining.emplace(chain_size[cell->name] * cfg.get_cell_legalisation_weight(ctx, cell), cell->name);
         }
         int ripup_radius = 2;
+        int chain_ripup_radius = std::max(max_x, max_y); // only ripup chains as last resort
         int total_iters = 0;
         int total_iters_noreset = 0;
         while (!remaining.empty()) {
@@ -1054,7 +1055,7 @@ class HeAPPlacer
                         // List of cells and their destination
                         std::vector<std::pair<CellInfo *, BelId>> targets;
                         // List of bels we placed things at; and the cell that was there before if applicable
-                        std::vector<std::pair<BelId, CellInfo *>> swaps_made;
+                        dict<BelId, CellInfo *> moves_made;
 
                         if (!ctx->getClusterPlacement(ci->cluster, sz, targets))
                             continue;
@@ -1065,31 +1066,45 @@ class HeAPPlacer
                                 goto fail;
                             CellInfo *bound = ctx->getBoundBelCell(target.second);
                             // Chains cannot overlap; so if we have to ripup a cell make sure it isn't part of a chain
-                            if (bound != nullptr)
-                                if (bound->cluster != ClusterId() || bound->belStrength > STRENGTH_WEAK)
+                            if (bound != nullptr) {
+                                if (bound->belStrength > (cfg.chainRipup ? STRENGTH_STRONG : STRENGTH_WEAK))
                                     goto fail;
+                                if (bound->cluster != ClusterId() && (!cfg.chainRipup || radius < chain_ripup_radius))
+                                    goto fail;
+                            }
                         }
                         // Actually perform the move; keeping track of the moves we make so we can revert them if needed
                         for (auto &target : targets) {
                             CellInfo *bound = ctx->getBoundBelCell(target.second);
-                            if (bound != nullptr)
-                                ctx->unbindBel(target.second);
+                            if (bound != nullptr) {
+                                if (bound->cluster != ClusterId()) {
+                                    for (auto cell : cluster2cells[bound->cluster]) {
+                                        if (cell->bel != BelId()) {
+                                            moves_made[cell->bel] = cell;
+                                            ctx->unbindBel(cell->bel);
+                                        }
+                                    }
+                                } else {
+                                    ctx->unbindBel(target.second);
+                                }
+                            }
                             ctx->bindBel(target.second, target.first, STRENGTH_STRONG);
-                            swaps_made.emplace_back(target.second, bound);
+                            moves_made[target.second] = bound;
                         }
                         // Check that the move we have made is legal
-                        for (auto &sm : swaps_made) {
-                            if (!ctx->isBelLocationValid(sm.first))
+                        for (auto &move : moves_made) {
+                            if (!ctx->isBelLocationValid(move.first))
                                 goto fail;
                         }
 
                         if (false) {
                         fail:
                             // If the move turned out to be illegal; revert all the moves we made
-                            for (auto &swap : swaps_made) {
-                                ctx->unbindBel(swap.first);
-                                if (swap.second != nullptr)
-                                    ctx->bindBel(swap.first, swap.second, STRENGTH_WEAK);
+                            for (auto &move : moves_made) {
+                                if (ctx->getBoundBelCell(move.first))
+                                    ctx->unbindBel(move.first);
+                                if (move.second != nullptr)
+                                    ctx->bindBel(move.first, move.second, STRENGTH_WEAK);
                             }
                             continue;
                         }
@@ -1099,12 +1114,12 @@ class HeAPPlacer
                             cell_locs[target.first->name].y = loc.y;
                             // log_info("%s %d %d %d\n", target.first->name.c_str(ctx), loc.x, loc.y, loc.z);
                         }
-                        for (auto &swap : swaps_made) {
+                        for (auto &move : moves_made) {
                             // Where we have ripped up cells; add them to the queue
-                            if (swap.second != nullptr)
-                                remaining.emplace(chain_size[swap.second->name] *
-                                                          cfg.get_cell_legalisation_weight(ctx, swap.second),
-                                                  swap.second->name);
+                            if (move.second != nullptr && (move.second->cluster == ClusterId() || ctx->getClusterRootCell(move.second->cluster) == move.second))
+                                remaining.emplace(chain_size[move.second->name] *
+                                                          cfg.get_cell_legalisation_weight(ctx, move.second),
+                                                  move.second->name);
                         }
 
                         placed = true;
@@ -1841,6 +1856,7 @@ PlacerHeapCfg::PlacerHeapCfg(Context *ctx)
     timing_driven = ctx->setting<bool>("timing_driven");
     solverTolerance = 1e-5;
     placeAllAtOnce = false;
+    chainRipup = false;
 
     int timeout_divisor = ctx->setting<int>("placerHeap/cellPlacementTimeout", 8);
     if (timeout_divisor > 0) {

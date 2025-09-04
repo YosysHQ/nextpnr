@@ -45,6 +45,7 @@ struct PlacerHeapCfg
     bool placeAllAtOnce;
     float netShareWeight;
     bool parallelRefine;
+    bool chainRipup;
     int cell_placement_timeout;
 
     int hpwl_scale_x, hpwl_scale_y;
