@@ -58,7 +58,6 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual bool getBelGlobalBuf(BelId bel) const = 0;
     virtual bool checkBelAvail(BelId bel) const = 0;
     virtual CellInfo *getBoundBelCell(BelId bel) const = 0;
-    virtual CellInfo *getConflictingBelCell(BelId bel) const = 0;
     virtual IdString getBelType(BelId bel) const = 0;
     virtual bool getBelHidden(BelId bel) const = 0;
     virtual typename R::BelAttrsRangeT getBelAttrs(BelId bel) const = 0;

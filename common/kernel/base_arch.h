@@ -179,7 +179,6 @@ template <typename R> struct BaseArch : ArchAPI<R>
         auto fnd = base_bel2cell.find(bel);
         return fnd == base_bel2cell.end() ? nullptr : fnd->second;
     }
-    virtual CellInfo *getConflictingBelCell(BelId bel) const override { return getBoundBelCell(bel); }
     virtual typename R::BelAttrsRangeT getBelAttrs(BelId /*bel*/) const override
     {
         return empty_if_possible<typename R::BelAttrsRangeT>();

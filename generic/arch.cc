@@ -338,8 +338,6 @@ bool Arch::checkBelAvail(BelId bel) const
 
 CellInfo *Arch::getBoundBelCell(BelId bel) const { return bel_info(bel).bound_cell; }
 
-CellInfo *Arch::getConflictingBelCell(BelId bel) const { return bel_info(bel).bound_cell; }
-
 linear_range<BelId> Arch::getBels() const { return linear_range<BelId>(bels.size()); }
 
 IdString Arch::getBelType(BelId bel) const { return bel_info(bel).type; }

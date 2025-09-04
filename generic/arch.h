@@ -261,7 +261,6 @@ struct Arch : BaseArch<ArchRanges>
     void unbindBel(BelId bel) override;
     bool checkBelAvail(BelId bel) const override;
     CellInfo *getBoundBelCell(BelId bel) const override;
-    CellInfo *getConflictingBelCell(BelId bel) const override;
     linear_range<BelId> getBels() const override;
     IdString getBelType(BelId bel) const override;
     bool getBelHidden(BelId bel) const override;

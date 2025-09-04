@@ -482,12 +482,6 @@ struct Arch : BaseArch<ArchRanges>
         return bel_to_cell[bel.index];
     }
 
-    CellInfo *getConflictingBelCell(BelId bel) const override
-    {
-        NPNR_ASSERT(bel != BelId());
-        return bel_to_cell[bel.index];
-    }
-
     BelRange getBels() const override
     {
         BelRange range;

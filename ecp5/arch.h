@@ -638,13 +638,6 @@ struct Arch : BaseArch<ArchRanges>
         return slot;
     }
 
-    CellInfo *getConflictingBelCell(BelId bel) const override
-    {
-        NPNR_ASSERT(bel != BelId());
-        CellInfo *slot = tile_status.at(tile_index(bel)).boundcells.at(bel.index);
-        return slot;
-    }
-
     BelRange getBels() const override
     {
         BelRange range;

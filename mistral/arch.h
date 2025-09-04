@@ -359,7 +359,6 @@ struct Arch : BaseArch<ArchRanges>
     }
     bool checkBelAvail(BelId bel) const override { return bel_data(bel).bound == nullptr; }
     CellInfo *getBoundBelCell(BelId bel) const override { return bel_data(bel).bound; }
-    CellInfo *getConflictingBelCell(BelId bel) const override { return bel_data(bel).bound; }
 
     void update_bel(BelId bel);
     BelId bel_by_block_idx(int x, int y, IdString type, int block_index) const;

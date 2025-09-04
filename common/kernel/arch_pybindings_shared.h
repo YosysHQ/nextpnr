@@ -60,8 +60,6 @@ fn_wrapper_1a_v<Context, decltype(&Context::unbindBel), &Context::unbindBel, con
         ctx_cls, "unbindBel");
 fn_wrapper_1a<Context, decltype(&Context::getBoundBelCell), &Context::getBoundBelCell, deref_and_wrap<CellInfo>,
               conv_from_str<BelId>>::def_wrap(ctx_cls, "getBoundBelCell");
-fn_wrapper_1a<Context, decltype(&Context::getConflictingBelCell), &Context::getConflictingBelCell,
-              deref_and_wrap<CellInfo>, conv_from_str<BelId>>::def_wrap(ctx_cls, "getConflictingBelCell");
 fn_wrapper_0a<Context, decltype(&Context::getBels), &Context::getBels, wrap_context<BelRange>>::def_wrap(ctx_cls,
                                                                                                          "getBels");
 

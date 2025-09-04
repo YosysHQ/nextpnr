@@ -171,7 +171,7 @@ class ConstraintLegaliseWorker
             if (!ctx->isValidBelForCellType(cell->type, locBel))
                 return false;
             if (!ctx->checkBelAvail(locBel)) {
-                CellInfo *confCell = ctx->getConflictingBelCell(locBel);
+                CellInfo *confCell = ctx->getBoundBelCell(locBel);
                 if (confCell->belStrength >= STRENGTH_STRONG) {
                     return false;
                 }
@@ -191,7 +191,7 @@ class ConstraintLegaliseWorker
             for (auto &p : placement) {
                 Loc p_loc = ctx->getBelLocation(p.second);
                 if (!ctx->checkBelAvail(p.second)) {
-                    CellInfo *confCell = ctx->getConflictingBelCell(p.second);
+                    CellInfo *confCell = ctx->getBoundBelCell(p.second);
                     if (confCell->belStrength >= STRENGTH_STRONG) {
                         return false;
                     }
@@ -270,7 +270,7 @@ class ConstraintLegaliseWorker
                                      cp.second.y, cp.second.z);
                         BelId target = ctx->getBelByLocation(cp.second);
                         if (!ctx->checkBelAvail(target)) {
-                            CellInfo *confl_cell = ctx->getConflictingBelCell(target);
+                            CellInfo *confl_cell = ctx->getBoundBelCell(target);
                             if (confl_cell != nullptr) {
                                 if (ctx->verbose)
                                     log_info("       '%s' already placed at '%s'\n", ctx->nameOf(confl_cell),

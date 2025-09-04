@@ -201,12 +201,6 @@ Return the cell the given bel is bound to, or nullptr if the bel is not bound.
 
 *BaseArch default: returns entry in `base_bel2cell`*
 
-### CellInfo \*getConflictingBelCell(BelId bel) const
-
-If the bel is unavailable, and unbinding a single cell would make it available, then this method must return that cell.
-
-*BaseArch default: returns `getBoundBelCell(bel)`*
-
 ### AllBelsRangeT getBels() const
 
 Return a list of all bels on the device.
