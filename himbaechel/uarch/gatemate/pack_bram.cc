@@ -318,21 +318,6 @@ void GateMatePacker::pack_ram()
             log_error("Unknown CAS parameter value '%s' for cell %s.\n", cas.c_str(), ci.name.c_str(ctx));
         }
 
-        if (!split) {
-            CellInfo *cell = ctx->createCell(ctx->idf("%s$dummy$u", ci.name.c_str(ctx)), id_RAM_HALF_DUMMY);
-            ci.constr_children.push_back(cell);
-            cell->constr_abs_z = true;
-            cell->constr_z = RAM_HALF_U_Z;
-            cell->cluster = ci.cluster;
-
-            cell = ctx->createCell(ctx->idf("%s$dummy$l", ci.name.c_str(ctx)), id_RAM_HALF_DUMMY);
-            ci.constr_children.push_back(cell);
-            cell->constr_abs_z = true;
-            cell->constr_y = +8;
-            cell->constr_z = RAM_HALF_L_Z;
-            cell->cluster = ci.cluster;
-        }
-
         // RAM and Write Modes
         std::string ram_mode_str = str_or_default(ci.params, id_RAM_MODE, "SDP");
         if (ram_mode_str != "SDP" && ram_mode_str != "TDP")
@@ -355,6 +340,17 @@ void GateMatePacker::pack_ram()
         ci.params[id_RAM_cfg_sram_delay] = Property(0b000101, 6); // Always set to default
         // id_RAM_cfg_datbm_sel
         ci.params[id_RAM_cfg_cascade_enable] = Property(cascade, 2);
+
+        if (!split) {
+            CellInfo *cell = ctx->createCell(ctx->idf("%s$dummy$l", ci.name.c_str(ctx)), id_RAM_HALF_DUMMY);
+            ci.constr_children.push_back(cell);
+            cell->constr_abs_z = true;
+            cell->constr_y = +8;
+            cell->constr_z = RAM_HALF_L_Z;
+            cell->cluster = ci.cluster;
+            cell->params[id_RAM_cfg_ecc_enable] = Property(b_ecc_en << 1 | a_ecc_en, 2);
+            cell->params[id_RAM_cfg_sram_mode] = Property(ram_mode << 1 | split, 2);
+        }
 
         pack_ram_cell(ci, item, split);
 
@@ -542,7 +538,7 @@ void GateMatePacker::repack_ram()
     for (auto &cell : ctx->cells) {
         if (cell.second->type.in(id_RAM_HALF)) {
             Loc l = ctx->getBelLocation(cell.second->bel);
-            if (l.z == RAM_HALF_U_Z) {
+            if (l.z == RAM_FULL_Z) {
                 rams[Loc(l.x, l.y, 0)].first = cell.second.get();
             } else {
                 rams[Loc(l.x, l.y - 8, 0)].second = cell.second.get();
@@ -557,6 +553,11 @@ void GateMatePacker::repack_ram()
             name = ctx->idf("%s$full", ram.second.second->name.c_str(ctx));
         if (!ram.second.second)
             name = ctx->idf("%s$full", ram.second.first->name.c_str(ctx));
+
+        if (ram.second.first)
+            ctx->unbindBel(ram.second.first->bel);
+        if (ram.second.second)
+            ctx->unbindBel(ram.second.second->bel);
 
         CellInfo *cell = ctx->createCell(name, id_RAM);
         BelId bel = ctx->getBelByLocation({ram.first.x, ram.first.y, RAM_FULL_Z});
