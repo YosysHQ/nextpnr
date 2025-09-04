@@ -719,6 +719,14 @@ to the end user.
 
 *BaseArch default: returns true*
 
+### CellInfo \*getBelValidityConflict(BelId bel) const
+
+As a hint to the placer, return a single cell bound to a another bel
+(e.g. a conflict in the same tile) that can be ripped up to make
+`isBelLocationValid` valid for a bel. Otherwise it returns `nullptr`.
+
+*BaseArch default: returns nullptr*
+
 ### static const std::string defaultPlacer
 
 Name of the default placement algorithm for the architecture, if

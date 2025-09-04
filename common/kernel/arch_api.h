@@ -137,6 +137,7 @@ template <typename R> struct ArchAPI : BaseCtx
     virtual BelBucketId getBelBucketForBel(BelId bel) const = 0;
     virtual BelBucketId getBelBucketForCellType(IdString cell_type) const = 0;
     virtual bool isBelLocationValid(BelId bel, bool explain_invalid = false) const = 0;
+    virtual CellInfo *getBelValidityConflict(BelId bel) const = 0;
     virtual typename R::CellTypeRangeT getCellTypes() const = 0;
     virtual typename R::BelBucketRangeT getBelBuckets() const = 0;
     virtual typename R::BucketBelRangeT getBelsInBucket(BelBucketId bucket) const = 0;

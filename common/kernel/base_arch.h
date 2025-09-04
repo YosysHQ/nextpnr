@@ -364,6 +364,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
         return getBelBucketByName(cell_type);
     };
     virtual bool isBelLocationValid(BelId /*bel*/, bool /*explain_invalid*/ = false) const override { return true; }
+    virtual CellInfo *getBelValidityConflict(BelId /*bel*/) const override { return nullptr; };
     virtual typename R::CellTypeRangeT getCellTypes() const override
     {
         NPNR_ASSERT(cell_types_initialised);
