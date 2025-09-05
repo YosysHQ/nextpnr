@@ -456,7 +456,10 @@ void GateMateImpl::expandBoundingBox(BoundingBox &bb) const
     bb.y1 = std::min((bb.y1 & 0xfffe) + 5, ctx->getGridDimY());
 }
 
-void GateMateImpl::configurePlacerHeap(PlacerHeapCfg &cfg) { cfg.placeAllAtOnce = true; }
+void GateMateImpl::configurePlacerHeap(PlacerHeapCfg &cfg) {
+    cfg.chainRipup = true;
+    cfg.placeAllAtOnce = true;
+}
 
 int GateMateImpl::get_dff_config(CellInfo *dff) const
 {
