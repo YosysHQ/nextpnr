@@ -752,6 +752,75 @@ std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_o(CellInfo *cell, IdS
     CellInfo *cpe_half = nullptr;
     CellInfo *cpe_ramio = nullptr;
     NetInfo *net = cell->getPort(origPort);
+    if (net && net != net_PACKER_GND && net != net_PACKER_VCC &&
+            net->driver.cell->getPort(net->driver.port)->users.entries()==1)
+            {
+                printf("%s [%s]\n",net->name.c_str(ctx), net->driver.cell->type.c_str(ctx));
+            }
+    if (net && net != net_PACKER_GND && net != net_PACKER_VCC &&
+        net->driver.cell->getPort(net->driver.port)->users.entries()==1 &&
+        net->driver.cell->type.in(id_CC_LUT1,id_CC_LUT2,id_CC_L2T4,id_CC_MX2)) {
+        CellInfo &ci = *net->driver.cell;
+
+        if (ci.type == id_CC_MX2) {
+            ci.renamePort(id_D1, id_IN1);
+            NetInfo *sel = ci.getPort(id_S0);
+            ci.renamePort(id_S0, id_IN2);
+            ci.addInput(id_IN3);
+            ci.connectPort(id_IN3, sel);
+            ci.renamePort(id_D0, id_IN4);
+            ci.disconnectPort(id_D1);
+            ci.params[id_INIT_L00] = Property(LUT_AND, 4);
+            ci.params[id_INIT_L01] = Property(LUT_AND_INV_D0, 4);
+            ci.params[id_INIT_L10] = Property(LUT_OR, 4);
+            ci.renamePort(id_Y, id_OUT);
+            ci.type = id_CPE_L2T4;
+        } else {
+            ci.renamePort(id_I0, id_IN1);
+            ci.renamePort(id_I1, id_IN2);
+            ci.renamePort(id_I2, id_IN3);
+            ci.renamePort(id_I3, id_IN4);
+            ci.renamePort(id_O, id_OUT);
+            if (ci.type.in(id_CC_LUT1, id_CC_LUT2)) {
+                uint8_t val = int_or_default(ci.params, id_INIT, 0);
+                if (ci.type == id_CC_LUT1)
+                    val = val << 2 | val;
+                ci.params[id_INIT_L00] = Property(val, 4);
+                ci.unsetParam(id_INIT);
+                ci.params[id_INIT_L10] = Property(LUT_D0, 4);
+            }
+            ci.type = id_CPE_L2T4;
+        }
+        cpe_half = &ci;
+
+        cpe_ramio = create_cell_ptr(id_CPE_RAMO, ctx->idf("%s_ramo", ci.name.c_str(ctx)));
+        if (place) {
+            cell->constr_children.push_back(cpe_ramio);
+            cpe_ramio->cluster = cell->cluster;
+            cpe_ramio->constr_abs_z = false;
+            cpe_ramio->constr_z = PLACE_DB_CONSTR + origPort.index;
+        } else {
+            BelId b = ctx->getBelByLocation(cpe_loc);
+            ctx->bindBel(b, cpe_ramio, PlaceStrength::STRENGTH_FIXED);
+        }
+        if (place) {
+            cpe_ramio->constr_children.push_back(cpe_half);
+            cpe_half->cluster = cell->cluster;
+            cpe_half->constr_abs_z = false;
+            cpe_half->constr_z = -4;
+        } else {
+            BelId b = ctx->getBelByLocation(Loc(cpe_loc.x, cpe_loc.y, cpe_loc.z - 4));
+            ctx->bindBel(b, cpe_half, PlaceStrength::STRENGTH_FIXED);
+        }
+
+        cpe_ramio->params[id_C_RAM_O] = Property(1, 1);
+
+        cell->movePortTo(origPort, cpe_ramio, id_I);
+        NetInfo *ram_o = ctx->createNet(ctx->idf("%s$ram_o", cpe_half->name.c_str(ctx)));
+        cell->connectPort(origPort, ram_o);
+        cpe_ramio->connectPort(id_RAM_O, ram_o);
+        return std::make_pair(cpe_half, cpe_ramio);
+    }
     if (net) {
         cpe_ramio = create_cell_ptr(id_CPE_RAMO, ctx->idf("%s$%s_ramo", cell->name.c_str(ctx), origPort.c_str(ctx)));
         if (place) {
@@ -812,6 +881,13 @@ std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_io(CellInfo *cell, Id
         ram_io_type = id_CPE_RAMO;
     CellInfo *cpe_ramio =
             create_cell_ptr(ram_io_type, ctx->idf("%s$%s_ramio", cell->name.c_str(ctx), oPort.c_str(ctx)));
+
+        if (o_net && o_net != net_PACKER_GND && o_net != net_PACKER_VCC &&  
+            o_net->driver.cell->getPort(o_net->driver.port)->users.entries()==1)
+            {
+                printf("%s [%s] RAMIO\n",o_net->name.c_str(ctx), o_net->driver.cell->type.c_str(ctx));
+            }
+
     if (place) {
         cell->constr_children.push_back(cpe_ramio);
         cpe_ramio->cluster = cell->cluster;

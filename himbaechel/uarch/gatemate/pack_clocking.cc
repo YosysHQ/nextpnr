@@ -649,6 +649,7 @@ void GateMatePacker::pack_pll()
 
         pll_index[die]++;
     }
+    flush_cells();
 }
 
 NEXTPNR_NAMESPACE_END
