@@ -31,6 +31,8 @@ MUX_INVERT = 1
 MUX_VISIBLE = 2
 MUX_CONFIG = 4
 MUX_ROUTING = 8
+MUX_DIAGONAL = 16
+MUX_PERMUTATION = 32
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--lib", help="Project Peppercorn python database script path", type=str, required=True)
@@ -194,7 +196,7 @@ def set_timings(ch):
         #    assert k in timing, f"pip class {k} not found in timing data"
         #    tmg.set_pip_class(grade=speed, name=k, delay=convert_timing(timing[k]))
 
-EXPECTED_VERSION = 1.7
+EXPECTED_VERSION = 1.8
 
 def main():
     # Range needs to be +1, but we are adding +2 more to coordinates, since 
@@ -253,12 +255,16 @@ def main():
                 plane = 0
                 if mux.name.startswith("IM"):
                     plane = int(mux.name[4:6])
+                    if mux.value in (4,5):
+                        mux_flags |= MUX_DIAGONAL
                 if mux.name.startswith("SB_SML") or mux.name.startswith("SB_BIG"):
                     plane = int(mux.name[8:10])
                 if mux.name.startswith("SB_DRIVE"):
                     plane = int(mux.name[10:12])
                 if mux.name == "CPE.C_SN":
                     mux_flags |= MUX_ROUTING
+                if mux.name.startswith("CPE.IN") and  mux.name.endswith("_int"):
+                    mux_flags |= MUX_PERMUTATION
                 pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(mux.name), mux.bits, mux.value, mux_flags, plane)
 
     # Setup tile grid
