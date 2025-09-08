@@ -299,6 +299,8 @@ bool GateMateImpl::checkPipAvail(PipId pip) const
         return true;
     if (used_cpes[pip.tile])
         return false;
+    if (extra_data.type != PipExtra::PIP_EXTRA_MUX || (extra_data.flags & MUX_DIAGONAL) == 0)
+        return false;
     return true;
 }
 
