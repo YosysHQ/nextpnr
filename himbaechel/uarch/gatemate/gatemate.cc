@@ -295,11 +295,13 @@ void GateMateImpl::postPlace()
 bool GateMateImpl::checkPipAvail(PipId pip) const
 {
     const auto &extra_data = *pip_extra_data(pip);
+    if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_DIAGONAL) == MUX_DIAGONAL) {
+        //printf("pip :%s\n",ctx->getPipName(pip)[2].c_str(ctx));
+        return false;
+    }
     if (extra_data.type != PipExtra::PIP_EXTRA_MUX || (extra_data.flags & MUX_ROUTING) == 0)
         return true;
     if (used_cpes[pip.tile])
-        return false;
-    if (extra_data.type != PipExtra::PIP_EXTRA_MUX || (extra_data.flags & MUX_DIAGONAL) == 0)
         return false;
     return true;
 }
