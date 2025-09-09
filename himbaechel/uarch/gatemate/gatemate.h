@@ -90,6 +90,7 @@ struct GateMateImpl : HimbaechelAPI
     dict<PipId, IdString> cpe_bridges;
     int fpga_mode;
     int timing_mode;
+    pool<PipId> disabled_pips;
 
   private:
     bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,

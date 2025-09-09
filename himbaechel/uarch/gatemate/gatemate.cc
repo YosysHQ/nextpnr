@@ -281,21 +281,66 @@ void GateMateImpl::postPlace()
     repack();
     ctx->assignArchInfo();
     used_cpes.resize(ctx->getGridDimX() * ctx->getGridDimY());
-    for (auto &cell : ctx->cells) {
+    for (auto &cell_pair : ctx->cells) {
+        auto &cell = cell_pair.second;
         // We need to skip CPE_MULT since using CP outputs is mandatory
         // even if output is actually not connected
-        bool marked_used = cell.second.get()->type == id_CPE_MULT;
+        bool marked_used = cell->type == id_CPE_MULT;
         // Can not use FF for OUT2 if CPE is used in bridge mode
-        if (cell.second.get()->type == id_CPE_FF && ctx->getBelLocation(cell.second.get()->bel).z == CPE_FF_U_Z)
+        if (cell->type == id_CPE_FF && ctx->getBelLocation(cell->bel).z == CPE_FF_U_Z)
             marked_used = true;
         if (marked_used)
-            used_cpes[cell.second.get()->bel.tile] = true;
+            used_cpes[cell->bel.tile] = true;
+
+        auto bel_z = ctx->getBelLocation(cell->bel).z;
+        if (bel_z != CPE_LT_L_Z && bel_z != CPE_LT_U_Z && bel_z != CPE_LT_FULL_Z)
+            continue;
+
+        IdString port_names[8] = {
+            id_IN1,
+            id_IN2,
+            id_IN3,
+            id_IN4,
+            id_IN5,
+            id_IN6,
+            id_IN7,
+            id_IN8
+        };
+
+        //log_info("disabling diagonals:\n");
+        for (auto cell_port_pin : port_names) {
+            if (!cell->ports.count(cell_port_pin))
+                continue;
+            auto cell_port_info = cell->ports.at(cell_port_pin);
+            bool used = cell_port_info.net != nullptr;
+            //log_info("    port %s.%s:\n", cell->name.c_str(ctx), cell_pin.c_str(ctx));
+            auto bel_pins = ctx->getBelPinsForCellPin(cell.get(), cell_port_pin);
+            for (auto bel_pin : bel_pins) {
+                auto bel_pin_wire = ctx->getBelPinWire(cell->bel, bel_pin);
+                if (bel_pin_wire == WireId())
+                    continue;
+                //log_info("        wire %s\n", ctx->nameOfWire(bel_pin_wire));
+                for (auto uh : ctx->getPipsUphill(bel_pin_wire)) {
+                    const auto &uh_extra_data = *pip_extra_data(uh);
+                    if (!used && (uh_extra_data.flags & MUX_PERMUTATION) == MUX_PERMUTATION)
+                        disabled_pips.insert(uh);
+
+                    auto src = ctx->getPipSrcWire(uh);
+                    for (auto dh : ctx->getPipsDownhill(src)) {
+                        //log_info("               pip1 %s\n", ctx->nameOfPip(dh));
+                        const auto &dh_extra_data = *pip_extra_data(dh);
+                        if (used && (dh_extra_data.flags & MUX_DIAGONAL) == MUX_DIAGONAL)
+                            disabled_pips.insert(dh);
+                    }
+                }
+            }
+        }
     }
 }
 bool GateMateImpl::checkPipAvail(PipId pip) const
 {
     const auto &extra_data = *pip_extra_data(pip);
-    if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_DIAGONAL) == MUX_DIAGONAL) {
+    if (disabled_pips.count(pip)) {
         //printf("pip :%s\n",ctx->getPipName(pip)[2].c_str(ctx));
         return false;
     }

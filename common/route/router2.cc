@@ -230,6 +230,8 @@ struct Router2
                 auto &ad = nd.arcs.at(usr.index.idx());
                 for (size_t phys_pin = 0; phys_pin < ad.size(); phys_pin++) {
                     if (check_arc_routing(net, usr.index, phys_pin)) {
+                        if (ctx->debug)
+                            log_info("prerouted arc: arc %d.%d of net '%s'\n", usr.index.idx(), phys_pin, net->name.c_str(ctx));
                         record_prerouted_net(net, usr.index, phys_pin);
                     }
                 }
@@ -966,8 +968,10 @@ struct Router2
         auto rstart = std::chrono::high_resolution_clock::now();
 
         // Nothing to do if net is undriven
-        if (net->driver.cell == nullptr)
+        if (net->driver.cell == nullptr) {
+            ROUTE_LOG_DBG("  (net is undriven)\n");
             return true;
+        }
 
         bool have_failures = false;
         t.processed_sinks.clear();
@@ -984,6 +988,7 @@ struct Router2
                 // Ripup failed arcs to start with
                 // Check if arc is already legally routed
                 if (!failed_slack && check_arc_routing(net, usr.index, j)) {
+                    ROUTE_LOG_DBG("  (arc %d.%d is already routed)\n", usr.index.idx(), j);
                     update_wire_by_loc(t, net, usr.index, j, true);
                     continue;
                 }
@@ -1050,23 +1055,35 @@ struct Router2
         overused_wires = 0;
         total_wire_use = 0;
         failed_nets.clear();
-        pool<WireId> already_updated;
+        dict<WireId, std::vector<IdString>> already_updated;
         for (size_t i = 0; i < nets.size(); i++) {
             auto &nd = nets.at(i);
             for (const auto &w : nd.wires) {
                 ++total_wire_use;
                 auto &wd = wire_data(w.first);
                 if (wd.curr_cong > 1) {
-                    if (already_updated.count(w.first)) {
+                    auto x = already_updated.find(w.first);
+                    if (x != already_updated.end()) {
                         ++total_overuse;
+                        x->second.push_back(nets_by_udata.at(i)->name);
                     } else {
                         if (curr_cong_weight > 0)
                             wd.hist_cong_cost =
                                     std::min(1e9, wd.hist_cong_cost + (wd.curr_cong - 1) * hist_cong_weight);
-                        already_updated.insert(w.first);
+                        already_updated.insert({w.first, std::vector<IdString>{nets_by_udata.at(i)->name}});
                         ++overused_wires;
                     }
                     failed_nets.insert(i);
+                }
+            }
+        }
+        if (already_updated.size() <= 40) {
+            for (const auto& pair : already_updated) {
+                auto wire = pair.first;
+                auto& nets = pair.second;
+                log_info("    %s:\n", ctx->nameOfWire(wire));
+                for (auto net_name : nets) {
+                    log_info("        %s\n", net_name.c_str(ctx));
                 }
             }
         }

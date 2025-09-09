@@ -263,7 +263,7 @@ def main():
                     plane = int(mux.name[10:12])
                 if mux.name == "CPE.C_SN":
                     mux_flags |= MUX_ROUTING
-                if mux.name.startswith("CPE.IN") and  mux.name.endswith("_int"):
+                if mux.name.startswith("CPE.IN") and mux.name.endswith("_int"):
                     mux_flags |= MUX_PERMUTATION
                 pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(mux.name), mux.bits, mux.value, mux_flags, plane)
 
