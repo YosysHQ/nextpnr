@@ -694,6 +694,7 @@ void GateMatePacker::reassign_clocks()
                     NetInfo *new_signal = ctx->createNet(ctx->idf("%s$die%d", net->name.c_str(ctx), cell_die));
                     new_bufg[cell_die][index] = new_signal;
                     uarch->glbout[cell_die]->connectPort(ctx->idf("GLB%d", index), new_signal);
+                    copy_constraint(net, new_signal);
                 }
                 user.cell->disconnectPort(user.port);
                 user.cell->connectPort(user.port, new_bufg[cell_die][index]);
