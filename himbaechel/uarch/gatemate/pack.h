@@ -54,7 +54,7 @@ struct GateMatePacker
     void pack_addf();
     void pack_bufg();
     void sort_bufg();
-    void insert_pll_bufg();
+    void insert_clocking();
     void pack_pll();
     void pack_misc();
     void pack_mult();
@@ -73,7 +73,6 @@ struct GateMatePacker
     void rename_param(CellInfo *cell, IdString name, IdString new_name, int width);
     void dff_to_cpe(CellInfo *dff);
     void dff_update_params();
-    void insert_bufg(CellInfo *cell, IdString port);
     void disconnect_if_gnd(CellInfo *cell, IdString input);
     void pll_out(CellInfo *cell, IdString origPort, Loc fixed);
 

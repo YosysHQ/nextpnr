@@ -263,24 +263,7 @@ void GateMatePacker::pll_out(CellInfo *cell, IdString origPort, Loc fixed)
     }
 }
 
-void GateMatePacker::insert_bufg(CellInfo *cell, IdString port)
-{
-    NetInfo *clk = cell->getPort(port);
-    if (clk) {
-        if (!(clk->users.entries() == 1 && (*clk->users.begin()).cell->type == id_CC_BUFG)) {
-            CellInfo *bufg =
-                    create_cell_ptr(id_CC_BUFG, ctx->idf("%s$BUFG_%s", cell->name.c_str(ctx), port.c_str(ctx)));
-            cell->movePortTo(port, bufg, id_O);
-            cell->addOutput(port);
-            NetInfo *net = ctx->createNet(ctx->idf("%s", bufg->name.c_str(ctx)));
-            cell->connectPort(port, net);
-            bufg->connectPort(id_I, net);
-            log_info("    Added BUFG for cell '%s' signal %s\n", cell->name.c_str(ctx), port.c_str(ctx));
-        }
-    }
-}
-
-void GateMatePacker::insert_pll_bufg()
+void GateMatePacker::insert_clocking()
 {
     log_info("Insert clocking cells..\n");
     for (int i = 0; i < uarch->dies; i++) {
@@ -292,20 +275,6 @@ void GateMatePacker::insert_pll_bufg()
         fixed_loc = uarch->locations[std::make_pair(id_GLBOUT, i)];
         BelId glbout_bel = ctx->getBelByLocation(fixed_loc);
         ctx->bindBel(glbout_bel, glbout.back(), PlaceStrength::STRENGTH_FIXED);
-    }
-    log_info("Insert BUFGs for PLLs..\n");
-    std::vector<CellInfo *> cells;
-    for (auto &cell : ctx->cells) {
-        CellInfo &ci = *cell.second;
-        if (!ci.type.in(id_CC_PLL, id_CC_PLL_ADV))
-            continue;
-        cells.push_back(&ci);
-    }
-    for (auto &cell : cells) {
-        insert_bufg(cell, id_CLK0);
-        insert_bufg(cell, id_CLK90);
-        insert_bufg(cell, id_CLK180);
-        insert_bufg(cell, id_CLK270);
     }
 }
 

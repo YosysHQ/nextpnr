@@ -389,7 +389,7 @@ void GateMateImpl::pack()
     packer.pack_constants();
     packer.cleanup();
     packer.pack_io();
-    packer.insert_pll_bufg();
+    packer.insert_clocking();
     packer.sort_bufg();
     packer.pack_pll();
     packer.pack_bufg();
