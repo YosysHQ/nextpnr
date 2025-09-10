@@ -71,6 +71,7 @@ struct GateMateImpl : HimbaechelAPI
     bool isPipInverting(PipId pip) const override;
 
     const GateMateTileExtraDataPOD *tile_extra_data(int tile) const;
+    const GateMateBelExtraDataPOD *bel_extra_data(BelId bel) const;
     const GateMatePipExtraDataPOD *pip_extra_data(PipId pip) const;
 
     int get_dff_config(CellInfo *dff) const;
@@ -87,7 +88,6 @@ struct GateMateImpl : HimbaechelAPI
     pool<IdString> multiplier_zero_drivers;
     std::vector<CellInfo *> multipliers;
     std::vector<bool> used_cpes;
-    dict<PipId, IdString> cpe_bridges;
     int fpga_mode;
     int timing_mode;
 
@@ -105,8 +105,6 @@ struct GateMateImpl : HimbaechelAPI
     void reassign_bridges(NetInfo *net, const dict<WireId, PipMap> &net_wires, WireId wire,
                           dict<WireId, IdString> &wire_to_net, int &num);
     void repack();
-
-    const GateMateBelExtraDataPOD *bel_extra_data(BelId bel) const;
 
     bool get_delay_from_tmg_db(IdString id, DelayQuad &delay) const;
     void get_setuphold_from_tmg_db(IdString id_setup, IdString id_hold, DelayPair &setup, DelayPair &hold) const;

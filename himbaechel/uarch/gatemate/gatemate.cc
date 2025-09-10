@@ -100,11 +100,6 @@ void GateMateImpl::init_database(Arch *arch)
     arch->set_speed_grade(speed_grade);
 }
 
-const GateMateTileExtraDataPOD *GateMateImpl::tile_extra_data(int tile) const
-{
-    return reinterpret_cast<const GateMateTileExtraDataPOD *>(ctx->chip_info->tile_insts[tile].extra_data.get());
-}
-
 void GateMateImpl::init(Context *ctx)
 {
     HimbaechelAPI::init(ctx);
@@ -373,7 +368,6 @@ void GateMateImpl::postRoute()
             if (w.second.pip != PipId()) {
                 const auto &extra_data = *pip_extra_data(w.second.pip);
                 if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_ROUTING)) {
-                    this->cpe_bridges.insert({w.second.pip, ni->name});
                     nets_with_bridges.insert(ni->name);
                 }
             }
@@ -456,7 +450,8 @@ void GateMateImpl::expandBoundingBox(BoundingBox &bb) const
     bb.y1 = std::min((bb.y1 & 0xfffe) + 5, ctx->getGridDimY());
 }
 
-void GateMateImpl::configurePlacerHeap(PlacerHeapCfg &cfg) {
+void GateMateImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
+{
     cfg.chainRipup = true;
     cfg.placeAllAtOnce = true;
 }
@@ -569,6 +564,11 @@ bool GateMateImpl::isPipInverting(PipId pip) const
 {
     const auto &extra_data = *pip_extra_data(pip);
     return extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_INVERT);
+}
+
+const GateMateTileExtraDataPOD *GateMateImpl::tile_extra_data(int tile) const
+{
+    return reinterpret_cast<const GateMateTileExtraDataPOD *>(ctx->chip_info->tile_insts[tile].extra_data.get());
 }
 
 const GateMateBelExtraDataPOD *GateMateImpl::bel_extra_data(BelId bel) const

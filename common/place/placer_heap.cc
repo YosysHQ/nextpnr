@@ -1116,7 +1116,9 @@ class HeAPPlacer
                         }
                         for (auto &move : moves_made) {
                             // Where we have ripped up cells; add them to the queue
-                            if (move.second != nullptr && (move.second->cluster == ClusterId() || ctx->getClusterRootCell(move.second->cluster) == move.second))
+                            if (move.second != nullptr &&
+                                (move.second->cluster == ClusterId() ||
+                                 ctx->getClusterRootCell(move.second->cluster) == move.second))
                                 remaining.emplace(chain_size[move.second->name] *
                                                           cfg.get_cell_legalisation_weight(ctx, move.second),
                                                   move.second->name);
