@@ -370,12 +370,12 @@ void GateMatePacker::pack_io_sel()
             } else if (clk_net == net_PACKER_VCC) {
                 cell->disconnectPort(id_CLK);
             } else {
-                if (!global_signals.count(clk_net)) {
+                if (!uarch->global_signals.count(clk_net)) {
                     cell->movePortTo(id_CLK, target, id_OUT4);
                     target->params[id_SEL_OUT_CLOCK] = Property(Property::State::S1);
                     return true;
                 } else {
-                    int index = global_signals[clk_net];
+                    int index = uarch->global_signals[clk_net];
                     cell->movePortTo(id_CLK, target, ctx->idf("CLOCK%d", index + 1));
                     target->params[id_OUT_CLOCK] = Property(index, 2);
                 }
@@ -391,11 +391,11 @@ void GateMatePacker::pack_io_sel()
             } else if (clk_net == net_PACKER_VCC) {
                 cell->disconnectPort(id_CLK);
             } else {
-                if (!global_signals.count(clk_net)) {
+                if (!uarch->global_signals.count(clk_net)) {
                     cell->movePortTo(id_CLK, target, id_OUT4);
                     target->params[id_SEL_IN_CLOCK] = Property(Property::State::S1);
                 } else {
-                    int index = global_signals[clk_net];
+                    int index = uarch->global_signals[clk_net];
                     cell->movePortTo(id_CLK, target, ctx->idf("CLOCK%d", index + 1));
                     target->params[id_IN_CLOCK] = Property(index, 2);
                 }
@@ -406,7 +406,7 @@ void GateMatePacker::pack_io_sel()
     auto merge_ibf = [&](NetInfo *di_net, CellInfo &ci, bool use_custom_clock) -> bool {
         CellInfo *dff = (*di_net->users.begin()).cell;
         if (is_gpio_valid_dff(dff)) {
-            if (!global_signals.count(ci.getPort(id_CLK)) && use_custom_clock) {
+            if (!uarch->global_signals.count(ci.getPort(id_CLK)) && use_custom_clock) {
                 log_warning("Found DFF %s cell, but not enough CLK signals.\n", dff->name.c_str(ctx));
                 return false;
             }
@@ -431,7 +431,7 @@ void GateMatePacker::pack_io_sel()
 
     auto merge_iddr = [&](NetInfo *di_net, CellInfo &ci, bool use_custom_clock) -> bool {
         CellInfo *iddr = (*di_net->users.begin()).cell;
-        if (!global_signals.count(ci.getPort(id_CLK)) && use_custom_clock) {
+        if (!uarch->global_signals.count(ci.getPort(id_CLK)) && use_custom_clock) {
             log_warning("Found IDDR %s cell, but not enough CLK signals.\n", iddr->name.c_str(ctx));
             return false;
         }

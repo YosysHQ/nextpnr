@@ -68,6 +68,7 @@ struct GateMatePacker
     void cleanup();
     void repack_cpe();
     void repack_ram();
+    void reassign_clocks();
 
   private:
     void rename_param(CellInfo *cell, IdString name, IdString new_name, int width);
@@ -107,9 +108,6 @@ struct GateMatePacker
     void copy_constraint(NetInfo *in_net, NetInfo *out_net);
 
     pool<IdString> packed_cells;
-    std::map<NetInfo *, int> global_signals;
-    std::vector<CellInfo *> clkin;
-    std::vector<CellInfo *> glbout;
 
     Context *ctx;
     GateMateImpl *uarch;
