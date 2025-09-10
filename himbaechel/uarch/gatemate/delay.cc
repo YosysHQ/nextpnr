@@ -33,6 +33,16 @@ delay_t GateMateImpl::estimateDelay(WireId src, WireId dst) const
     tile_xy(ctx->chip_info, src.tile, sx, sy);
     tile_xy(ctx->chip_info, dst.tile, dx, dy);
 
+    sx &= ~1;
+    sy &= ~1;
+    dx &= ~1;
+    dy &= ~1;
+
+    auto delta_x = float(std::abs(dx - sx));
+    auto delta_y = float(std::abs(dy - sy));
+
+    return delay_t(814.74908 + 34.7511573*delta_x + 48.5764437*delta_y - 0.235635034*delta_x*delta_x - 0.715346192*delta_y*delta_y);
+
     return 100 + 100 * (std::abs(dx - sx) + std::abs(dy - sy));
 }
 
