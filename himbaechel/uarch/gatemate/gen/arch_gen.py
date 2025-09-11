@@ -44,7 +44,6 @@ import chip
 import die
 
 pip_tmg_names = set()
-node_tmg_names = set()
 
 @dataclass
 class TileExtraData(BBAStruct):
@@ -187,9 +186,6 @@ def set_timings(ch):
                 continue
             name = "timing_" + re.sub(r"[-= >]", "_", rename_table.get(name, name))
             tmg.get_speed_grade(speed).extra_data.add_timing(name=ch.strs.id(name), delay=convert_timing(val))
-        #for k in node_tmg_names:
-        #    assert k in timing, f"node class {k} not found in timing data"
-        #    tmg.set_node_class(grade=speed, name=k, delay=convert_timing(timing[k]))
         #for k in pip_tmg_names:
         #    assert k in timing, f"pip class {k} not found in timing data"
         #    tmg.set_pip_class(grade=speed, name=k, delay=convert_timing(timing[k]))
@@ -294,14 +290,9 @@ def main():
     # Create nodes between tiles
     for _,nodes in dev.get_connections():
         node = []
-        timing = ""
         for conn in sorted(nodes):
             node.append(NodeWire(conn.x + 2, conn.y + 2, (conn.name + "_n") if conn.endpoint else conn.name))
-            # for now update to last one we have defined
-            if len(conn.delay)>0:
-                timing = conn.delay
-                node_tmg_names.add(conn.delay)
-        ch.add_node(node, timing)
+        ch.add_node(node)
     set_timings(ch)
 
     for package in dev.get_packages():
