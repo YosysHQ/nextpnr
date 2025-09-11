@@ -64,15 +64,18 @@ void route_mult_diag(Context *ctx, NetInfo *net, Loc loc, WireId last_wire, int 
         log_info("  routing diagonal: %d hops\n", hops);
 
     for (int i = 0; i < hops; i++) {
+        auto in_mux_y = ctx->getWireByName(
+                IdStringList::concat(ctx->idf("X%dY%d", loc.x + i, loc.y + i), ctx->idf("IM.P%02d.Y", plane)));
         auto cpe_in = ctx->getWireByName(
                 IdStringList::concat(ctx->idf("X%dY%d", loc.x + i, loc.y + i), ctx->idf("CPE.IN%d", plane)));
         auto cpe_in_int = ctx->getWireByName(
                 IdStringList::concat(ctx->idf("X%dY%d", loc.x + i, loc.y + i), ctx->idf("CPE.IN%d_int", plane)));
 
-        find_and_bind_downhill_pip(ctx, last_wire, cpe_in, net); // inverting
+        find_and_bind_downhill_pip(ctx, last_wire, in_mux_y, net); // inverting
+        find_and_bind_downhill_pip(ctx, in_mux_y, cpe_in, net); // inverting
         find_and_bind_downhill_pip(ctx, cpe_in, cpe_in_int, net);
 
-        last_wire = cpe_in;
+        last_wire = in_mux_y;
     }
 }
 
@@ -209,17 +212,18 @@ void route_mult_x1y2_lower(Context *ctx, NetInfo *net, CellInfo *lower, Loc loc,
 
     auto cpe_combout1 = ctx->getBelPinWire(lower->bel, id_OUT);
     auto cpe_out1_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("CPE.OUT1_int")));
+    auto cpe_out1 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("CPE.OUT1")));
     auto in_mux = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("IM.P05.D2")));
 
     ctx->bindWire(cpe_combout1, net, STRENGTH_LOCKED);
     find_and_bind_downhill_pip(ctx, cpe_combout1, cpe_out1_int, net);
+    find_and_bind_downhill_pip(ctx, cpe_out1_int, cpe_out1, net);
 
     if (is_fourgroup_a) {
         auto sb_sml_p06_d0 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_SML.P06.D0")));
         auto sb_sml_p06_y1_int = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_SML.P06.Y1_int")));
         auto sb_sml_p06_ydiag_int = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_SML.P06.YDIAG_int")));
-        auto sb_sml_p06_ydiag =
-                ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_SML.P06.YDIAG"))); // AKA SB_SML.P05.X23
+        auto sb_sml_p06_ydiag = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_SML.P06.YDIAG")));
         auto sb_sml_p05_ydiag_int = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_SML.P05.YDIAG_int")));
         auto sb_sml_p05_y1_int = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_SML.P05.Y1_int")));
         auto sb_sml_p05_y1 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_SML.P05.Y1")));
@@ -227,7 +231,7 @@ void route_mult_x1y2_lower(Context *ctx, NetInfo *net, CellInfo *lower, Loc loc,
         auto sb_big_ydiag = ctx->getWireByName(IdStringList::concat(x4y1, ctx->idf("SB_BIG.P05.YDIAG")));
         // x2y1/IM.P05.D2 is x4y1/SB_BIG.P05.Y3
 
-        find_and_bind_downhill_pip(ctx, cpe_out1_int, sb_sml_p06_d0, net);
+        find_and_bind_downhill_pip(ctx, cpe_out1, sb_sml_p06_d0, net);
         find_and_bind_downhill_pip(ctx, sb_sml_p06_d0, sb_sml_p06_y1_int, net);
         find_and_bind_downhill_pip(ctx, sb_sml_p06_y1_int, sb_sml_p06_ydiag_int, net);
         find_and_bind_downhill_pip(ctx, sb_sml_p06_ydiag_int, sb_sml_p06_ydiag, net);
@@ -241,22 +245,29 @@ void route_mult_x1y2_lower(Context *ctx, NetInfo *net, CellInfo *lower, Loc loc,
         auto sb_big_p06_d0 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P06.D0")));
         auto sb_big_p06_y1 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P06.Y1")));
         auto sb_big_p06_ydiag =
-                ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P06.YDIAG"))); // AKA SB_BIG.P05.X23
+                ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P06.YDIAG")));
+        auto sb_big_p05_x23 =
+                ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P05.X23")));
         auto sb_big_p05_ydiag = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P05.YDIAG")));
         auto sb_big_p05_y1 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P05.Y1")));
+        auto sb_sml_d2_1 = ctx->getWireByName(IdStringList::concat(x4y1, ctx->idf("SB_SML.P05.D2_1")));        
         auto sb_sml_y1_int = ctx->getWireByName(IdStringList::concat(x4y1, ctx->idf("SB_SML.P05.Y1_int")));
         auto sb_sml_ydiag_int = ctx->getWireByName(IdStringList::concat(x4y1, ctx->idf("SB_SML.P05.YDIAG_int")));
         auto sb_sml_y3_int = ctx->getWireByName(IdStringList::concat(x4y1, ctx->idf("SB_SML.P05.Y3_int")));
+        auto sb_sml_y3 = ctx->getWireByName(IdStringList::concat(x4y1, ctx->idf("SB_SML.P05.Y3")));
 
-        find_and_bind_downhill_pip(ctx, cpe_out1_int, sb_big_p06_d0, net);
+        find_and_bind_downhill_pip(ctx, cpe_out1, sb_big_p06_d0, net);
         find_and_bind_downhill_pip(ctx, sb_big_p06_d0, sb_big_p06_y1, net);
         find_and_bind_downhill_pip(ctx, sb_big_p06_y1, sb_big_p06_ydiag, net);
-        find_and_bind_downhill_pip(ctx, sb_big_p06_ydiag, sb_big_p05_ydiag, net);
+        find_and_bind_downhill_pip(ctx, sb_big_p06_ydiag, sb_big_p05_x23, net);
+        find_and_bind_downhill_pip(ctx, sb_big_p05_x23, sb_big_p05_ydiag, net);
         find_and_bind_downhill_pip(ctx, sb_big_p05_ydiag, sb_big_p05_y1, net);
-        find_and_bind_downhill_pip(ctx, sb_big_p05_y1, sb_sml_y1_int, net);
+        find_and_bind_downhill_pip(ctx, sb_big_p05_y1, sb_sml_d2_1, net);
+        find_and_bind_downhill_pip(ctx, sb_sml_d2_1, sb_sml_y1_int, net);
         find_and_bind_downhill_pip(ctx, sb_sml_y1_int, sb_sml_ydiag_int, net);
         find_and_bind_downhill_pip(ctx, sb_sml_ydiag_int, sb_sml_y3_int, net);
-        find_and_bind_downhill_pip(ctx, sb_sml_y3_int, in_mux, net);
+        find_and_bind_downhill_pip(ctx, sb_sml_y3_int, sb_sml_y3, net);
+        find_and_bind_downhill_pip(ctx, sb_sml_y3, in_mux, net);
     }
 
     route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 5);
