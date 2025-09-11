@@ -275,6 +275,14 @@ def main():
         if type_name in new_wires:
             for wire in sorted(new_wires[type_name]):
                 pp = tt.create_pip(wire+"_n", wire)
+                plane = 0
+                if wire.startswith("IM"):
+                    plane = int(wire[4:6])
+                if wire.startswith("SB_SML") or wire.startswith("SB_BIG"):
+                    plane = int(wire[8:10])
+                if wire.startswith("SB_DRIVE"):
+                    plane = int(wire[10:12])
+                pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(""), 0, 0, 0, plane)
 
     # Setup tile grid
     for x in range(dev.max_col() + 3):
