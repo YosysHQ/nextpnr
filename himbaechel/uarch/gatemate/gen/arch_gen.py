@@ -226,12 +226,24 @@ def main():
         print("==============================================================================")
         os._exit(-1)
 
+    new_wires = dict()
+    for _,nodes in dev.get_connections():
+        for conn in nodes:
+            if conn.endpoint:
+                t_name = dev.get_tile_type(conn.x,conn.y)
+                if t_name not in new_wires:
+                    new_wires[t_name] = set()
+                new_wires[t_name].add(conn.name)
+
     for type_name in sorted(die.get_tile_type_list()):
         tt = ch.create_tile_type(type_name)
         for group in sorted(die.get_groups_for_type(type_name)):
             tt.create_group(group.name, group.type)
         for wire in sorted(die.get_endpoints_for_type(type_name)):
             tt.create_wire(wire.name, wire.type)
+        if type_name in new_wires:
+            for wire in sorted(new_wires[type_name]):
+                tt.create_wire(wire+"_n", "NODE_WIRE")
         for prim in sorted(die.get_primitives_for_type(type_name)):
             bel = tt.create_bel(prim.name, prim.type, prim.z)
             if (prim.name in ["CPE_LT_FULL", "CPE_BRIDGE"]):
@@ -260,6 +272,9 @@ def main():
                 if mux.name == "CPE.C_SN":
                     mux_flags |= MUX_ROUTING
                 pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(mux.name), mux.bits, mux.value, mux_flags, plane)
+        if type_name in new_wires:
+            for wire in sorted(new_wires[type_name]):
+                pp = tt.create_pip(wire+"_n", wire)
 
     # Setup tile grid
     for x in range(dev.max_col() + 3):
@@ -273,7 +288,7 @@ def main():
         node = []
         timing = ""
         for conn in sorted(nodes):
-            node.append(NodeWire(conn.x + 2, conn.y + 2, conn.name))
+            node.append(NodeWire(conn.x + 2, conn.y + 2, (conn.name + "_n") if conn.endpoint else conn.name))
             # for now update to last one we have defined
             if len(conn.delay)>0:
                 timing = conn.delay
