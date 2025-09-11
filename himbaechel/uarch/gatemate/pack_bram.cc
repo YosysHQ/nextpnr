@@ -387,9 +387,9 @@ void GateMatePacker::pack_ram()
                 log_error("Dynamic FIFO offset configuration is currently not supported.\n");
             ci.params[id_RAM_cfg_dyn_stat_select] = Property(dyn_stat_select << 1, 2);
             ci.params[id_RAM_cfg_almost_empty_offset] =
-                    Property(int_or_default(ci.params, id_F_ALMOST_EMPTY_OFFSET, 0), 15);
+                    Property(int_or_default(ci.params, id_ALMOST_EMPTY_OFFSET, 0), 15);
             ci.params[id_RAM_cfg_almost_full_offset] =
-                    Property(int_or_default(ci.params, id_F_ALMOST_FULL_OFFSET, 0), 15);
+                    Property(int_or_default(ci.params, id_ALMOST_FULL_OFFSET, 0), 15);
         }
 
         for (int i = 0; i < 40; i++) {
