@@ -231,9 +231,10 @@ def main():
                 if t_name not in new_wires:
                     new_wires[t_name] = set()
                 new_wires[t_name].add(conn.name)
-                #if conn.name in wire_delay:
-                #    if wire_delay[conn.name][:3]!=conn.delay[:3]:
-                #        print(conn.name, conn.delay)
+                # Check to confirm no duplicates
+                if conn.name in wire_delay:
+                    if wire_delay[conn.name]!=conn.delay:
+                        print(conn.name, conn.delay)
                 wire_delay[conn.name] = conn.delay
 
     for type_name in sorted(die.get_tile_type_list()):
@@ -278,8 +279,6 @@ def main():
                 delay = wire_delay[wire]
                 if len(delay)>0:
                     pip_tmg_names.add(delay)
-                else:
-                    delay = "del_dummy"
                 pp = tt.create_pip(wire+"_n", wire, delay)
                 plane = 0
                 if wire.startswith("IM"):
