@@ -446,7 +446,7 @@ void GateMatePacker::pack_ram()
             ci.renamePort(id_F_RST_N, ctx->id("F_RSTN"));
             move_ram_o(&ci, ctx->id("F_RSTN"));
 
-            for (int i = 0; i < 15; i++) {
+            for (int i = 0; i < 16; i++) {
                 ci.renamePort(ctx->idf("F_RD_PTR[%d]", i), ctx->idf("FRD_ADDR[%d]", i));
                 move_ram_i(&ci, ctx->idf("FRD_ADDR[%d]", i));
 
