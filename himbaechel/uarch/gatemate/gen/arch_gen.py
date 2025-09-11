@@ -186,9 +186,9 @@ def set_timings(ch):
                 continue
             name = "timing_" + re.sub(r"[-= >]", "_", rename_table.get(name, name))
             tmg.get_speed_grade(speed).extra_data.add_timing(name=ch.strs.id(name), delay=convert_timing(val))
-        #for k in pip_tmg_names:
-        #    assert k in timing, f"pip class {k} not found in timing data"
-        #    tmg.set_pip_class(grade=speed, name=k, delay=convert_timing(timing[k]))
+        for k in pip_tmg_names:
+            assert k in timing, f"pip class {k} not found in timing data"
+            tmg.set_pip_class(grade=speed, name=k, delay=convert_timing(timing[k]))
 
 EXPECTED_VERSION = 1.7
 
@@ -223,6 +223,7 @@ def main():
         os._exit(-1)
 
     new_wires = dict()
+    wire_delay = dict()
     for _,nodes in dev.get_connections():
         for conn in nodes:
             if conn.endpoint:
@@ -230,6 +231,10 @@ def main():
                 if t_name not in new_wires:
                     new_wires[t_name] = set()
                 new_wires[t_name].add(conn.name)
+                #if conn.name in wire_delay:
+                #    if wire_delay[conn.name][:3]!=conn.delay[:3]:
+                #        print(conn.name, conn.delay)
+                wire_delay[conn.name] = conn.delay
 
     for type_name in sorted(die.get_tile_type_list()):
         tt = ch.create_tile_type(type_name)
@@ -270,7 +275,12 @@ def main():
                 pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(mux.name), mux.bits, mux.value, mux_flags, plane)
         if type_name in new_wires:
             for wire in sorted(new_wires[type_name]):
-                pp = tt.create_pip(wire+"_n", wire)
+                delay = wire_delay[wire]
+                if len(delay)>0:
+                    pip_tmg_names.add(delay)
+                else:
+                    delay = "del_dummy"
+                pp = tt.create_pip(wire+"_n", wire, delay)
                 plane = 0
                 if wire.startswith("IM"):
                     plane = int(wire[4:6])
