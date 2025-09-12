@@ -361,7 +361,7 @@ void GateMatePacker::pack_ram()
                 log_error("The FIFO configuration of A_WIDTH and B_WIDTH must be equal.\n");
 
             if (a_rd_width != 80 && ram_mode == 1)
-                log_error("FIFO SDP is ony supported in 80 bit mode.\n");
+                log_error("FIFO SDP is only supported in 80 bit mode.\n");
 
             ci.params[id_RAM_cfg_input_config_b0] = Property(width_to_config(b_wr_width), 3);
             ci.params[id_RAM_cfg_output_config_a0] = Property(width_to_config(a_rd_width), 3);
@@ -377,19 +377,27 @@ void GateMatePacker::pack_ram()
             else
                 ci.params[id_RAM_cfg_fifo_async_enable] = Property(0b1, 1);
 
-            // TODO: Handle dynamic almost empty/full
             int dyn_stat_select = int_or_default(ci.params, id_DYN_STAT_SELECT, 0);
             if (dyn_stat_select != 0 && dyn_stat_select != 1)
                 log_error("DYN_STAT_SELECT must be 0 or 1.\n");
             if (dyn_stat_select != 0 && ram_mode == 1)
                 log_error("Dynamic FIFO offset configuration is not supported in SDP mode.\n");
-            if (dyn_stat_select != 0)
-                log_error("Dynamic FIFO offset configuration is currently not supported.\n");
             ci.params[id_RAM_cfg_dyn_stat_select] = Property(dyn_stat_select << 1, 2);
             ci.params[id_RAM_cfg_almost_empty_offset] =
-                    Property(int_or_default(ci.params, id_F_ALMOST_EMPTY_OFFSET, 0), 15);
+                    Property(int_or_default(ci.params, id_ALMOST_EMPTY_OFFSET, 0), 15);
             ci.params[id_RAM_cfg_almost_full_offset] =
-                    Property(int_or_default(ci.params, id_F_ALMOST_FULL_OFFSET, 0), 15);
+                    Property(int_or_default(ci.params, id_ALMOST_FULL_OFFSET, 0), 15);
+
+            if (dyn_stat_select != 0 && ram_mode == 0) {
+                for (int i = 0; i < 15; ++i) {
+                    // WEA[14:0] = F_ALMOST_EMPTY_OFFSET
+                    ci.disconnectPort(ctx->idf("WEA[%d]", i));
+                    ci.renamePort(ctx->idf("F_ALMOST_EMPTY_OFFSET[%d]", i), ctx->idf("WEA[%d]", i));
+                    // WEA[34:20] = F_ALMOST_FULL_OFFSET
+                    ci.disconnectPort(ctx->idf("WEA[%d]", 20 + i));
+                    ci.renamePort(ctx->idf("F_ALMOST_FULL_OFFSET[%d]", i),  ctx->idf("WEA[%d]", 20 + i));
+                }
+            }
         }
 
         for (int i = 0; i < 40; i++) {
@@ -446,7 +454,7 @@ void GateMatePacker::pack_ram()
             ci.renamePort(id_F_RST_N, ctx->id("F_RSTN"));
             move_ram_o(&ci, ctx->id("F_RSTN"));
 
-            for (int i = 0; i < 15; i++) {
+            for (int i = 0; i < 16; i++) {
                 ci.renamePort(ctx->idf("F_RD_PTR[%d]", i), ctx->idf("FRD_ADDR[%d]", i));
                 move_ram_i(&ci, ctx->idf("FRD_ADDR[%d]", i));
 
