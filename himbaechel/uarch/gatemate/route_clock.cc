@@ -64,12 +64,12 @@ void GateMateImpl::route_clock()
     };
 
     auto reserve = [&](WireId wire, NetInfo *net) {
+        for (auto pip : ctx->getPipsUphill(wire)) {
+            wire = ctx->getPipSrcWire(pip);
+            break;
+        }
         if (ctx->debug) {
             auto wire_name = "(uninitialized)";
-            for (auto pip : ctx->getPipsUphill(wire)) {
-                wire = ctx->getPipSrcWire(pip);
-                break;
-            }
             if (wire != WireId())
                 wire_name = ctx->nameOfWire(wire);
             log_info("        reserving wire %s\n", wire_name);
