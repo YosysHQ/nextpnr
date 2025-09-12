@@ -199,8 +199,10 @@ void GateMateImpl::route_clock()
                             continue;
                     }
                     backtrace[src] = uh;
-                    auto delay = ctx->getDelayNS(ctx->getPipDelay(uh).maxDelay() + ctx->getWireDelay(src).maxDelay() +
-                                                 ctx->getDelayEpsilon());
+                    //auto delay = ctx->getDelayNS(ctx->getPipDelay(uh).maxDelay() + ctx->getWireDelay(src).maxDelay() +
+                    //                             ctx->getDelayEpsilon());
+                    // Do not use actual delay, enough is to know number of passed pips
+                    auto delay = ctx->getDelayNS(ctx->getDelayEpsilon());
                     visit.push(QueuedWire(src, curr.delay + delay));
                 }
             }
