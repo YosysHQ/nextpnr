@@ -139,10 +139,12 @@ void route_mult_x1y1_upper_in1(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
     find_and_bind_downhill_pip(ctx, cpe_out2_int, cpe_out2, net);
 
     if (is_fourgroup_a) {
-        auto sb_big = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P01.D0")));
+        auto sb_big_d0 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P01.D0")));
+        auto sb_big_y1 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P01.Y1")));
 
-        find_and_bind_downhill_pip(ctx, cpe_out2, sb_big, net);
-        find_and_bind_downhill_pip(ctx, sb_big, in_mux, net); // inverting
+        find_and_bind_downhill_pip(ctx, cpe_out2, sb_big_d0, net);
+        find_and_bind_downhill_pip(ctx, sb_big_d0, sb_big_y1, net);
+        find_and_bind_downhill_pip(ctx, sb_big_y1, in_mux, net); // inverting
     } else {
         auto sb_sml_d0 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P01.D0")));
         auto sb_sml_y1_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P01.Y1_int")));
