@@ -146,10 +146,12 @@ void route_mult_x1y1_upper_in1(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
     } else {
         auto sb_sml_d0 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P01.D0")));
         auto sb_sml_y1_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P01.Y1_int")));
+        auto sb_sml_y1 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P01.Y1")));
 
         find_and_bind_downhill_pip(ctx, cpe_out2, sb_sml_d0, net);
         find_and_bind_downhill_pip(ctx, sb_sml_d0, sb_sml_y1_int, net);
-        find_and_bind_downhill_pip(ctx, sb_sml_y1_int, in_mux, net); // inverting
+        find_and_bind_downhill_pip(ctx, sb_sml_y1_int, sb_sml_y1, net);
+        find_and_bind_downhill_pip(ctx, sb_sml_y1, in_mux, net);
     }
 
     route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 1);
