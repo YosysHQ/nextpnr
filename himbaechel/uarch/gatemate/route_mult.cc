@@ -430,17 +430,23 @@ void route_mult_x2y1_lower(Context *ctx, NetInfo *net, CellInfo *lower, Loc loc,
         auto sb_big_p07_d0 = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P07.D0")));
         auto sb_big_p07_y1 = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P07.Y1")));
         auto sb_big_p07_ydiag =
-                ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P07.YDIAG"))); // AKA SB_BIG.P06.X23
+                ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P07.YDIAG")));
+        auto sb_big_p06_x23 =
+                ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P06.X23")));
         auto sb_big_p06_ydiag =
-                ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P06.YDIAG"))); // AKA SB_BIG.P05.X23
+                ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P06.YDIAG")));
+        auto sb_big_p05_x23 =
+                ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P05.X23")));
         auto sb_big_p05_ydiag = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P05.YDIAG")));
         // x2y1/IM.P05.D0 is x0y1/SB_BIG.P05.Y1
 
         find_and_bind_downhill_pip(ctx, cpe_out1, sb_big_p07_d0, net);
         find_and_bind_downhill_pip(ctx, sb_big_p07_d0, sb_big_p07_y1, net);
         find_and_bind_downhill_pip(ctx, sb_big_p07_y1, sb_big_p07_ydiag, net);
-        find_and_bind_downhill_pip(ctx, sb_big_p07_ydiag, sb_big_p06_ydiag, net);
-        find_and_bind_downhill_pip(ctx, sb_big_p06_ydiag, sb_big_p05_ydiag, net);
+        find_and_bind_downhill_pip(ctx, sb_big_p07_ydiag, sb_big_p06_x23, net);
+        find_and_bind_downhill_pip(ctx, sb_big_p06_x23, sb_big_p06_ydiag, net);
+        find_and_bind_downhill_pip(ctx, sb_big_p06_ydiag, sb_big_p05_x23, net);
+        find_and_bind_downhill_pip(ctx, sb_big_p05_x23, sb_big_p05_ydiag, net);
         find_and_bind_downhill_pip(ctx, sb_big_p05_ydiag, in_mux, net);
     } else {
         auto sb_sml_p07_d0 = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P07.D0")));
