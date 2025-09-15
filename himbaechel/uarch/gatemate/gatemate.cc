@@ -98,6 +98,7 @@ void GateMateImpl::init_database(Arch *arch)
                                             : timing_mode == 3 ? "SPEED"
                                                                : "");
     arch->set_speed_grade(speed_grade);
+    force_die = args.options.count("force_die") != 0;
 }
 
 void GateMateImpl::init(Context *ctx)
@@ -158,6 +159,9 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
     if (cell == nullptr) {
         return true;
     }
+
+    if (force_die && cell->belStrength != PlaceStrength::STRENGTH_FIXED && tile_extra_data(bel.tile)->die != preferred_die)
+        return false;
 
     if (getBelBucketForBel(bel) == id_CPE_FF) {
         Loc loc = ctx->getBelLocation(bel);
