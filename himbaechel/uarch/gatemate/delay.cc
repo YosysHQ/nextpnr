@@ -29,12 +29,27 @@ NEXTPNR_NAMESPACE_BEGIN
 
 delay_t GateMateImpl::estimateDelay(WireId src, WireId dst) const
 {
+    int d2d = 0;
+    if (tile_extra_data(src.tile)->die != tile_extra_data(dst.tile)->die)
+        d2d += 5000;
+
     int sx, sy, dx, dy;
     tile_xy(ctx->chip_info, src.tile, sx, sy);
     tile_xy(ctx->chip_info, dst.tile, dx, dy);
 
-    return 100 + 100 * (std::abs(dx - sx) + std::abs(dy - sy));
+    return 100 + 100 * (std::abs(dx - sx) + std::abs(dy - sy)) + d2d;
 }
+
+delay_t GateMateImpl::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const
+{
+    int d2d = 0;
+    if (tile_extra_data(src_bel.tile)->die != tile_extra_data(dst_bel.tile)->die)
+        d2d += 5000;
+
+    Loc src_loc = ctx->getBelLocation(src_bel), dst_loc = ctx->getBelLocation(dst_bel);
+    return 100 * (std::abs(dst_loc.x - src_loc.x) + std::abs(dst_loc.y - src_loc.y)) + d2d;
+}
+
 
 bool GateMateImpl::get_delay_from_tmg_db(IdString id, DelayQuad &delay) const
 {
