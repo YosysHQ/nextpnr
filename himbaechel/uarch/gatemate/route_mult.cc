@@ -631,21 +631,31 @@ void route_mult_x2y2_lower(Context *ctx, NetInfo *net, CellInfo *lower, Loc loc,
         auto sb_big_p08_d0 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P08.D0")));
         auto sb_big_p08_y1 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P08.Y1")));
         auto sb_big_p08_ydiag =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P08.YDIAG"))); // AKA SB_BIG.P07.X23
+                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P08.YDIAG")));
+        auto sb_big_p07_x23 =
+                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P07.X23")));
         auto sb_big_p07_ydiag =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P07.YDIAG"))); // AKA SB_BIG.P06.X23
+                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P07.YDIAG")));
+        auto sb_big_p06_x23 =
+                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P06.X23")));
         auto sb_big_p06_ydiag =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P06.YDIAG"))); // AKA SB_BIG.P05.X23
+                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P06.YDIAG")));
+        auto sb_big_p05_x23 =
+                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P05.X23")));
         auto sb_big_p05_ydiag = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P05.YDIAG")));
-        // x2y1/IM.P05.D0 is x1y1/SB_BIG.P05.Y1
+        auto sb_big_p05_y1 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P05.Y1")));
 
         find_and_bind_downhill_pip(ctx, cpe_out1, sb_big_p08_d0, net);
         find_and_bind_downhill_pip(ctx, sb_big_p08_d0, sb_big_p08_y1, net);
         find_and_bind_downhill_pip(ctx, sb_big_p08_y1, sb_big_p08_ydiag, net);
-        find_and_bind_downhill_pip(ctx, sb_big_p08_ydiag, sb_big_p07_ydiag, net);
-        find_and_bind_downhill_pip(ctx, sb_big_p07_ydiag, sb_big_p06_ydiag, net);
-        find_and_bind_downhill_pip(ctx, sb_big_p06_ydiag, sb_big_p05_ydiag, net);
-        find_and_bind_downhill_pip(ctx, sb_big_p05_ydiag, in_mux, net);
+        find_and_bind_downhill_pip(ctx, sb_big_p08_ydiag, sb_big_p07_x23, net);
+        find_and_bind_downhill_pip(ctx, sb_big_p07_x23, sb_big_p07_ydiag, net);
+        find_and_bind_downhill_pip(ctx, sb_big_p07_ydiag, sb_big_p06_x23, net);
+        find_and_bind_downhill_pip(ctx, sb_big_p06_x23, sb_big_p06_ydiag, net);
+        find_and_bind_downhill_pip(ctx, sb_big_p06_ydiag, sb_big_p05_x23, net);
+        find_and_bind_downhill_pip(ctx, sb_big_p05_x23, sb_big_p05_ydiag, net);
+        find_and_bind_downhill_pip(ctx, sb_big_p05_ydiag, sb_big_p05_y1, net);
+        find_and_bind_downhill_pip(ctx, sb_big_p05_y1, in_mux, net);
     }
 
     route_mult_diag(ctx, net, Loc{loc.x + 1, loc.y, 0}, in_mux, 5);
