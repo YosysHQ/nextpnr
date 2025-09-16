@@ -1894,15 +1894,11 @@ struct GowinPacker
             return cin_ci;
         }
         // CIN from logic
-        cin_ci->addInput(id_I0);
-        cin_ci->connectPort(id_I0, ctx->nets.at(ctx->id("$PACKER_GND")).get());
-        cin_ci->addInput(id_I1);
-        cin_ci->addInput(id_I3);
-        cin_ci->connectPort(id_I1, cin_net);
-        cin_ci->connectPort(id_I3, cin_net);
         cin_ci->addInput(id_I2);
         cin_ci->connectPort(id_I2, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
-        cin_ci->setParam(id_ALU_MODE, std::string("0")); // ADD
+        cin_ci->addInput(id_I0);
+        cin_ci->connectPort(id_I0, cin_net);
+        cin_ci->setParam(id_RAW_ALU_LUT, 0x505a); // 0101_0000_0101_1010 -> ignore I1 and I3, out carry = I0
         cin_ci->setParam(id_CIN_NETTYPE, Property("LOGIC"));
         return cin_ci;
     }
