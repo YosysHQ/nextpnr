@@ -111,7 +111,7 @@ void GateMateImpl::route_clock()
     }
 
     for (auto clk_net : clk_nets) {
-        log_info("    routing net '%s'\n", clk_net->name.c_str(ctx));
+        log_info("    routing net '%s' to %d users\n", clk_net->name.c_str(ctx), clk_net->users.entries());
         ctx->bindWire(ctx->getNetinfoSourceWire(clk_net), clk_net, STRENGTH_LOCKED);
 
         auto clk_plane = 0;
