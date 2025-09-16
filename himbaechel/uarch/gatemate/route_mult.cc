@@ -180,9 +180,9 @@ void route_mult_x1y1_upper_in8(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
         ctx->bindWire(cpe_combout2, net, STRENGTH_LOCKED);
         find_and_bind_downhill_pip(ctx, cpe_combout2, cpe_out2_int, net);
         find_and_bind_downhill_pip(ctx, cpe_out2_int, cpe_out2, net);
-        find_and_bind_downhill_pip(ctx, cpe_out2, out_mux_d0, net);
     }
 
+    find_and_bind_downhill_pip(ctx, cpe_out2, out_mux_d0, net);
     find_and_bind_downhill_pip(ctx, out_mux_d0, out_mux_y, net); // inverting
 
     if (is_fourgroup_a) {
@@ -414,9 +414,9 @@ void route_mult_x1y2_upper_in8(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
         ctx->bindWire(cpe_combout2, net, STRENGTH_LOCKED);
         find_and_bind_downhill_pip(ctx, cpe_combout2, cpe_out2_int, net);
         find_and_bind_downhill_pip(ctx, cpe_out2_int,  cpe_out2, net);
-        find_and_bind_downhill_pip(ctx, cpe_out2, out_mux_d1, net);
     }
 
+    find_and_bind_downhill_pip(ctx, cpe_out2, out_mux_d1, net);
     find_and_bind_downhill_pip(ctx, out_mux_d1, out_mux_y, net); // inverting
 
     if (is_fourgroup_a) {
@@ -625,9 +625,9 @@ void route_mult_x2y1_upper_in8(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
         ctx->bindWire(cpe_combout2, net, STRENGTH_LOCKED);
         find_and_bind_downhill_pip(ctx, cpe_combout2, cpe_out2_int, net);
         find_and_bind_downhill_pip(ctx, cpe_out2_int, cpe_out2, net);
-        find_and_bind_downhill_pip(ctx, cpe_out2, out_mux_d2, net);
     }
 
+    find_and_bind_downhill_pip(ctx, cpe_out2, out_mux_d2, net);
     find_and_bind_downhill_pip(ctx, out_mux_d2, out_mux_y, net); // inverting
 
     if (is_fourgroup_a) {
@@ -860,13 +860,6 @@ void route_mult_x2y2_upper_in8(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
         ctx->bindWire(cpe_combout2, net, STRENGTH_LOCKED);
         find_and_bind_downhill_pip(ctx, cpe_combout2, cpe_out2_int, net);
         find_and_bind_downhill_pip(ctx, cpe_out2_int, cpe_out2, net);
-        if (is_fourgroup_a) {
-            auto sb_big_d0 = ctx->getWireByName(IdStringList::concat(x0y0, ctx->idf("SB_BIG.P08.D0")));
-            find_and_bind_downhill_pip(ctx, cpe_out2, sb_big_d0, net);
-        } else {
-            auto sb_sml_d0 = ctx->getWireByName(IdStringList::concat(x0y0, ctx->idf("SB_SML.P08.D0")));
-            find_and_bind_downhill_pip(ctx, cpe_out2, sb_sml_d0, net);
-        }
     }
 
     if (is_fourgroup_a) {
@@ -878,6 +871,7 @@ void route_mult_x2y2_upper_in8(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
         auto sb_sml_y2_int = ctx->getWireByName(IdStringList::concat(x2y0, ctx->idf("SB_SML.P08.Y2_int")));
         auto sb_sml_y2 = ctx->getWireByName(IdStringList::concat(x2y0, ctx->idf("SB_SML.P08.Y2")));
 
+        find_and_bind_downhill_pip(ctx, cpe_out2, sb_big_d0, net);
         find_and_bind_downhill_pip(ctx, sb_big_d0, sb_big_y1, net);
         find_and_bind_downhill_pip(ctx, sb_big_y1, sb_sml_d2_1, net);
         find_and_bind_downhill_pip(ctx, sb_sml_d2_1, sb_sml_y1_int, net);
@@ -894,6 +888,7 @@ void route_mult_x2y2_upper_in8(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
         auto sb_big_ydiag = ctx->getWireByName(IdStringList::concat(x2y0, ctx->idf("SB_BIG.P08.YDIAG")));
         auto sb_big_y2 = ctx->getWireByName(IdStringList::concat(x2y0, ctx->idf("SB_BIG.P08.Y2")));
 
+        find_and_bind_downhill_pip(ctx, cpe_out2, sb_sml_d0, net);
         find_and_bind_downhill_pip(ctx, sb_sml_d0, sb_sml_y1_int, net);
         find_and_bind_downhill_pip(ctx, sb_sml_y1_int, sb_sml_y1, net);
         find_and_bind_downhill_pip(ctx, sb_sml_y1, sb_big_d2_1, net);
