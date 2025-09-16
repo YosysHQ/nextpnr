@@ -33,10 +33,10 @@ namespace {
 
 struct QueuedWire
 {
-    explicit QueuedWire(WireId wire, int delay = 0) : wire{wire}, delay{delay} {};
+    explicit QueuedWire(WireId wire, delay_t delay = 0) : wire{wire}, delay{delay} {};
 
     WireId wire;
-    int delay;
+    delay_t delay;
 
     bool operator>(const QueuedWire &rhs) const { return this->delay > rhs.delay; }
 };
@@ -155,7 +155,7 @@ void GateMateImpl::route_clock()
                 visit.pop();
                 if (curr.wire == ctx->getNetinfoSourceWire(clk_net)) {
                     if (ctx->debug)
-                        log_info("            (%d)\n", curr.delay);
+                        log_info("            (%.3fns)\n", ctx->getDelayNS(curr.delay));
                     dest = curr.wire;
                     break;
                 }
@@ -199,10 +199,9 @@ void GateMateImpl::route_clock()
                             continue;
                     }
                     backtrace[src] = uh;
-                    //auto delay = ctx->getDelayNS(ctx->getPipDelay(uh).maxDelay() + ctx->getWireDelay(src).maxDelay() +
-                    //                             ctx->getDelayEpsilon());
-                    // Do not use actual delay, enough is to know number of passed pips
-                    visit.push(QueuedWire(src, curr.delay + 1));
+                    auto delay = ctx->getPipDelay(uh).maxDelay() + ctx->getWireDelay(src).maxDelay() +
+                                                 ctx->getDelayEpsilon();
+                    visit.push(QueuedWire(src, curr.delay + delay));
                 }
             }
             if (dest == WireId()) {
