@@ -45,6 +45,9 @@ struct QueuedWire
 
 void GateMateImpl::route_clock()
 {
+    log_info("Routing clock nets...\n");
+    auto rstart = std::chrono::high_resolution_clock::now();
+
     auto clk_nets = std::vector<NetInfo *>{};
     auto reserved_wires = dict<WireId, IdString>{};
 
@@ -76,8 +79,6 @@ void GateMateImpl::route_clock()
         }
         reserved_wires.insert({wire, net->name});
     };
-
-    log_info("Routing clock nets...\n");
 
     for (auto &net_pair : ctx->nets) {
         NetInfo *net = net_pair.second.get();
@@ -115,7 +116,7 @@ void GateMateImpl::route_clock()
         auto src_wire = ctx->getNetinfoSourceWire(clk_net);
         ctx->bindWire(src_wire, clk_net, STRENGTH_LOCKED);
 
-        auto clk_plane = 0;
+        /*auto clk_plane = 0;
         switch (clk_net->driver.port.index) {
         case id_GLB0.index:
             clk_plane = 9;
@@ -129,7 +130,7 @@ void GateMateImpl::route_clock()
         case id_GLB3.index:
             clk_plane = 12;
             break;
-        }
+        }*/
 
         auto sink_wires = dict<WireId, PortRef>{};
         auto sink_wires_to_do = pool<WireId>{};
@@ -147,7 +148,7 @@ void GateMateImpl::route_clock()
         dict<WireId, PipId> backtrace;
 
         //auto cpe_loc = ctx->getBelLocation(usr.cell->bel);
-        auto is_glb_clk = clk_net->driver.cell->type == id_GLBOUT;
+        //auto is_glb_clk = clk_net->driver.cell->type == id_GLBOUT;
 
         visit.push(QueuedWire(src_wire));
         while (!visit.empty()) {
@@ -177,7 +178,7 @@ void GateMateImpl::route_clock()
                 auto reserved = reserved_wires.find(dst);
                 if (reserved != reserved_wires.end() && reserved->second != clk_net->name)
                     continue;
-                auto pip_loc = ctx->getPipLocation(dh);
+                //auto pip_loc = ctx->getPipLocation(dh);
                 // Use only a specific plane to minimise congestion for global clocks.
                 /*if (is_glb_clk && (pip_loc.x != cpe_loc.x || pip_loc.y != cpe_loc.y)) {
                     // Plane 9 is the clock plane, so it should only ever use itself.
@@ -239,6 +240,8 @@ void GateMateImpl::route_clock()
             }
         }
     }
+    auto rend = std::chrono::high_resolution_clock::now();
+    log_info("Clock router time %.02fs\n", std::chrono::duration<float>(rend - rstart).count());
 }
 
 NEXTPNR_NAMESPACE_END
