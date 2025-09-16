@@ -656,6 +656,7 @@ void route_mult_x2y1_upper_in8(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
     auto in_mux_p04_y = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P04.Y")));
     auto in_mux_p08 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("IM.P08.D6")));
 
+    find_and_bind_downhill_pip(ctx, in_mux_p09, in_mux_p09_y, net);
     find_and_bind_downhill_pip(ctx, in_mux_p09_y, in_mux_p12, net);
     find_and_bind_downhill_pip(ctx, in_mux_p12, in_mux_p12_y, net);
     find_and_bind_downhill_pip(ctx, in_mux_p12_y, in_mux_p04, net);
