@@ -77,7 +77,8 @@ void route_mult_diag(Context *ctx, NetInfo *net, Loc loc, WireId last_wire, int 
         find_and_bind_downhill_pip(ctx, in_mux_y, cpe_in, net);
         find_and_bind_downhill_pip(ctx, cpe_in, cpe_in_int, net);
 
-        find_and_bind_downhill_pip(ctx, in_mux_y, d4, net);
+        if (i != hops - 1)
+            find_and_bind_downhill_pip(ctx, in_mux_y, d4, net);
 
         last_wire = d4;
     }
