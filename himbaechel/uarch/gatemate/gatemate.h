@@ -93,6 +93,7 @@ struct GateMateImpl : HimbaechelAPI
     std::map<NetInfo *, int> global_signals;
     std::vector<CellInfo *> clkin;
     std::vector<CellInfo *> glbout;
+    std::vector<CellInfo *> pll;
 
   private:
     bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
