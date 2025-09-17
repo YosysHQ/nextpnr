@@ -174,9 +174,7 @@ void GateMatePacker::pack_bufg()
                         die = uarch->tile_extra_data(in_net->driver.cell->bel.tile)->die;
                         clkin[die]->params[ctx->idf("REF%d", i)] = Property(pad_info->flags - 1, 3);
                         clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
-                        NetInfo *conn = ctx->createNet(ci.name);
-                        clkin[die]->connectPort(ctx->idf("CLK_REF%d", i), conn);
-                        glbout[die]->connectPort(ctx->idf("CLK_REF_OUT%d", i), conn);
+                        clkin[die]->connectPorts(ctx->idf("CLK_REF%d", i), glbout[die], ctx->idf("CLK_REF_OUT%d", i));
                         user_glb = false;
                     }
                 }
@@ -207,9 +205,7 @@ void GateMatePacker::pack_bufg()
                 // SER_CLK
                 clkin[die]->params[ctx->idf("REF%d", i)] = Property(0b100, 3);
                 clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
-                NetInfo *conn = ctx->createNet(ci.name);
-                clkin[die]->connectPort(ctx->idf("CLK_REF%d", i), conn);
-                glbout[die]->connectPort(ctx->idf("CLK_REF_OUT%d", i), conn);
+                clkin[die]->connectPorts(ctx->idf("CLK_REF%d", i), glbout[die], ctx->idf("CLK_REF_OUT%d", i));
             }
 
             ci.movePortTo(id_O, glbout[die], ctx->idf("GLB%d", i));
@@ -233,10 +229,7 @@ void GateMatePacker::pack_bufg()
                     glbout[die]->params[ctx->idf("FB%d_CFG", i)] = Property(index, 2);
                     pll[i]->disconnectPort(id_CLK_FEEDBACK);
                 }
-                NetInfo *conn =
-                        ctx->createNet(ctx->idf("%s_%s", glbout[die]->name.c_str(ctx), feedback_net->name.c_str(ctx)));
-                pll[i]->connectPort(id_CLK_FEEDBACK, conn);
-                glbout[die]->connectPort(ctx->idf("CLK_FB%d", i), conn);
+                pll[i]->connectPorts(id_CLK_FEEDBACK, glbout[die], ctx->idf("CLK_FB%d", i));
             }
         }
     }
@@ -389,9 +382,7 @@ void GateMatePacker::pack_pll()
             }
             if (clk->clkconstr)
                 period = clk->clkconstr->period.minDelay();
-            NetInfo *conn = ctx->createNet(ctx->idf("%s_CLK_REF", ci.name.c_str(ctx)));
-            clkin[die]->connectPort(ctx->idf("CLK_REF%d", pll_index[die]), conn);
-            ci.connectPort(id_CLK_REF, conn);
+            clkin[die]->connectPorts(ctx->idf("CLK_REF%d", pll_index[die]), &ci, id_CLK_REF);
         }
 
         clk = ci.getPort(id_USR_CLK_REF);
