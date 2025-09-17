@@ -217,8 +217,25 @@ void GateMatePacker::pack_bufg()
 
     for (int i = 0; i < 4; i++) {
         if (pll[i]) {
-            NetInfo *feedback_net = pll[i]->getPort(id_CLK_FEEDBACK);
+            CellInfo &ci = *pll[i];
+            NetInfo *clk = ci.getPort(id_CLK_REF);
             int die = uarch->tile_extra_data(pll[i]->bel.tile)->die;
+            if (clk) {
+                if (clk->driver.cell) {
+                    auto pad_info = uarch->bel_to_pad[clk->driver.cell->bel];
+                    clkin[die]->params[ctx->idf("REF%d", i)] = Property(pad_info->flags - 1, 3);
+                    clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
+                    ci.movePortTo(id_CLK_REF, clkin[die], ctx->idf("CLK%d", pad_info->flags - 1));
+                } else {
+                    // SER_CLK
+                    clkin[die]->params[ctx->idf("REF%d", i)] = Property(0b100, 3);
+                    clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
+                    ci.movePortTo(id_CLK_REF, clkin[die], id_SER_CLK);
+                }
+                clkin[die]->connectPorts(ctx->idf("CLK_REF%d", i), &ci, id_CLK_REF);
+            }
+
+            NetInfo *feedback_net = pll[i]->getPort(id_CLK_FEEDBACK);
             if (feedback_net) {
                 if (!global_signals.count(feedback_net)) {
                     pll[i]->movePortTo(id_CLK_FEEDBACK, glbout[die], ctx->idf("USR_FB%d", i));
@@ -369,20 +386,13 @@ void GateMatePacker::pack_pll()
                 auto pad_info = uarch->bel_to_pad[clk->driver.cell->bel];
                 if (pad_info->flags == 0)
                     log_error("CLK_REF must be driven with CLK dedicated pin.\n");
-                clkin[die]->params[ctx->idf("REF%d", pll_index[die])] = Property(pad_info->flags - 1, 3);
-                clkin[die]->params[ctx->idf("REF%d_INV", pll_index[die])] = Property(Property::State::S0);
-                ci.movePortTo(id_CLK_REF, clkin[die], ctx->idf("CLK%d", pad_info->flags - 1));
             } else {
                 // SER_CLK
                 if (clk != net_SER_CLK)
                     log_error("CLK_REF connected to uknown pin.\n");
-                clkin[die]->params[ctx->idf("REF%d", pll_index[die])] = Property(0b100, 3);
-                clkin[die]->params[ctx->idf("REF%d_INV", pll_index[die])] = Property(Property::State::S0);
-                ci.movePortTo(id_CLK_REF, clkin[die], id_SER_CLK);
             }
             if (clk->clkconstr)
                 period = clk->clkconstr->period.minDelay();
-            clkin[die]->connectPorts(ctx->idf("CLK_REF%d", pll_index[die]), &ci, id_CLK_REF);
         }
 
         clk = ci.getPort(id_USR_CLK_REF);
