@@ -3905,16 +3905,33 @@ struct GowinPacker
         for (auto &cell : ctx->cells) {
             auto &ci = *cell.second;
 
-            if (ci.type.in(id_rPLL, id_PLLVR)) {
+            if (ci.type.in(id_rPLL, id_PLLVR, id_PLLA)) {
                 // pin renaming for compatibility
-                for (int i = 0; i < 6; ++i) {
-                    ci.renamePort(ctx->idf("FBDSEL[%d]", i), ctx->idf("FBDSEL%d", i));
-                    ci.renamePort(ctx->idf("IDSEL[%d]", i), ctx->idf("IDSEL%d", i));
-                    ci.renamePort(ctx->idf("ODSEL[%d]", i), ctx->idf("ODSEL%d", i));
-                    if (i < 4) {
-                        ci.renamePort(ctx->idf("PSDA[%d]", i), ctx->idf("PSDA%d", i));
-                        ci.renamePort(ctx->idf("DUTYDA[%d]", i), ctx->idf("DUTYDA%d", i));
-                        ci.renamePort(ctx->idf("FDLY[%d]", i), ctx->idf("FDLY%d", i));
+                if (ci.type == id_PLLA) {
+                    for (int i = 0; i < 8; ++i) {
+                        ci.renamePort(ctx->idf("MDWDI[%d]", i), ctx->idf("MDWDI%d", i));
+                        ci.renamePort(ctx->idf("MDRDO[%d]", i), ctx->idf("MDRDO%d", i));
+                        if (i < 7) {
+                            ci.renamePort(ctx->idf("SSCMDSEL[%d]", i), ctx->idf("SSCMDSEL%d", i));
+                            if (i < 3) {
+                                ci.renamePort(ctx->idf("SSCMDSEL_FRAC[%d]", i), ctx->idf("SSCMDSEL_FRAC%d", i));
+                                ci.renamePort(ctx->idf("PSSEL[%d]", i), ctx->idf("PSSEL%d", i));
+                            }
+                            if (i < 2) {
+                                ci.renamePort(ctx->idf("MDOPC[%d]", i), ctx->idf("MDOPC%d", i));
+                            }
+                        }
+                    }
+                } else {
+                    for (int i = 0; i < 6; ++i) {
+                        ci.renamePort(ctx->idf("FBDSEL[%d]", i), ctx->idf("FBDSEL%d", i));
+                        ci.renamePort(ctx->idf("IDSEL[%d]", i), ctx->idf("IDSEL%d", i));
+                        ci.renamePort(ctx->idf("ODSEL[%d]", i), ctx->idf("ODSEL%d", i));
+                        if (i < 4) {
+                            ci.renamePort(ctx->idf("PSDA[%d]", i), ctx->idf("PSDA%d", i));
+                            ci.renamePort(ctx->idf("DUTYDA[%d]", i), ctx->idf("DUTYDA%d", i));
+                            ci.renamePort(ctx->idf("FDLY[%d]", i), ctx->idf("FDLY%d", i));
+                        }
                     }
                 }
                 // If CLKIN is connected to a special pin, then it makes sense

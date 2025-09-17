@@ -510,8 +510,7 @@ def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
         if not tt.has_wire(dst):
             tt.create_wire(dst, get_wire_type(dst))
         for src in srcs.keys():
-            if src not in db.wire_delay:
-                continue
+            assert src in db.wire_delay, f"No timing info for {src} wire"
             if not tt.has_wire(src):
                 if src in {"VSS", "VCC"}:
                     tt.create_wire(src, get_wire_type(src), const_value = src)
@@ -770,6 +769,15 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                     if not tt.has_wire(wire):
                         tt.create_wire(wire, "PINCFG_IN")
                     tt.add_bel_pin(bel, port, wire, PinType.INPUT)
+        elif func == 'pll':
+                pll = tt.create_bel("PLL", "PLLA", z = PLL_Z)
+                pll.flags = BEL_FLAG_GLOBAL
+                for pin, wire in desc['outputs'].items():
+                    tt.create_wire(wire, "PLL_O")
+                    tt.add_bel_pin(pll, pin, wire, PinType.OUTPUT)
+                for pin, wire in desc['inputs'].items():
+                    tt.create_wire(wire, "PLL_I")
+                    tt.add_bel_pin(pll, pin, wire, PinType.INPUT)
 
 def set_wire_flags(tt: TileType, tdesc: TypeDesc):
     if tdesc.extra_func and 'clock_gates' in tdesc.extra_func:
@@ -1314,13 +1322,6 @@ def create_dsp_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc
     return tt
 
 # PLL main tile
-_pll_inputs = {'CLKFB', 'FBDSEL0', 'FBDSEL1', 'FBDSEL2', 'FBDSEL3',
-        'FBDSEL4', 'FBDSEL5', 'IDSEL0', 'IDSEL1', 'IDSEL2', 'IDSEL3',
-        'IDSEL4', 'IDSEL5', 'ODSEL0', 'ODSEL1', 'ODSEL2', 'ODSEL3',
-        'ODSEL4', 'ODSEL5', 'RESET', 'RESET_P', 'PSDA0', 'PSDA1',
-        'PSDA2', 'PSDA3', 'DUTYDA0', 'DUTYDA1', 'DUTYDA2', 'DUTYDA3',
-        'FDLY0', 'FDLY1', 'FDLY2', 'FDLY3', 'CLKIN', 'VREN'}
-_pll_outputs = {'CLKOUT', 'LOCK', 'CLKOUTP', 'CLKOUTD', 'CLKOUTD3'}
 def create_pll_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc: TypeDesc):
     typename = "PLL"
     tiletype = f"{typename}_{ttyp}"
@@ -1337,8 +1338,8 @@ def create_pll_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc
     tt = chip.create_tile_type(tiletype)
     tt.extra_data = TileExtraData(chip.strs.id(typename))
 
-
     # wires
+    pll_outputs = {'CLKOUT', 'LOCK', 'CLKOUTP', 'CLKOUTD', 'CLKOUTD3'}
     if chip.name == 'GW1NS-4':
         pll_name = 'PLLVR'
         bel_type = 'PLLVR'
@@ -1349,13 +1350,12 @@ def create_pll_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc
     pll = tt.create_bel("PLL", bel_type, z = PLL_Z)
     pll.flags = BEL_FLAG_GLOBAL
     for pin, wire in portmap.items():
-        if pin in _pll_inputs:
-            tt.create_wire(wire, "PLL_I")
-            tt.add_bel_pin(pll, pin, wire, PinType.INPUT)
-        else:
-            assert pin in _pll_outputs, f"Unknown PLL pin {pin}"
+        if pin in pll_outputs:
             tt.create_wire(wire, "PLL_O")
             tt.add_bel_pin(pll, pin, wire, PinType.OUTPUT)
+        else:
+            tt.create_wire(wire, "PLL_I")
+            tt.add_bel_pin(pll, pin, wire, PinType.INPUT)
     tdesc.tiletype = tiletype
     return tt
 
