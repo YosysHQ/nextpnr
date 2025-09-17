@@ -390,7 +390,6 @@ void GateMateImpl::pack()
     packer.cleanup();
     packer.pack_io();
     packer.insert_clocking();
-    packer.sort_bufg();
     packer.pack_pll();
     packer.pack_bufg();
     packer.pack_io_sel(); // merge in FF and DDR
