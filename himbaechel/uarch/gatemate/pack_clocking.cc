@@ -111,6 +111,44 @@ void GateMatePacker::pack_bufg()
         }
     };
 
+    std::vector<int> pll_index(uarch->dies);
+    for (auto &cell : uarch->pll) {
+        int die = uarch->preferred_die;
+        CellInfo &ci = *cell;
+
+        NetInfo *clk = ci.getPort(id_CLK_REF);
+        if (clk && clk->driver.cell) { // Only for GPIO pins
+            if (ctx->getBelBucketForCellType(clk->driver.cell->type) == id_CC_BUFG) {
+                clk = clk->driver.cell->getPort(id_I);
+            }
+            if (ctx->getBelBucketForCellType(clk->driver.cell->type) == id_IOSEL) {
+                auto pad_info = uarch->bel_to_pad[clk->driver.cell->bel];
+                if (pad_info->flags != 0) {
+                    die = uarch->tile_extra_data(clk->driver.cell->bel.tile)->die;
+                }
+            }
+        }
+        ci.cluster = ci.name;
+        ci.constr_abs_z = true;
+        ci.constr_z = 2 + pll_index[die]; // Position to a proper Z location
+
+        Loc fixed_loc = uarch->locations[std::make_pair(ctx->idf("PLL%d", pll_index[die]), die)];
+        BelId pll_bel = ctx->getBelByLocation(fixed_loc);
+        ctx->bindBel(pll_bel, &ci, PlaceStrength::STRENGTH_FIXED);
+
+        pll_out(&ci, id_CLK0, fixed_loc);
+        pll_out(&ci, id_CLK90, fixed_loc);
+        pll_out(&ci, id_CLK180, fixed_loc);
+        pll_out(&ci, id_CLK270, fixed_loc);
+
+        move_ram_i_fixed(&ci, id_USR_PLL_LOCKED, fixed_loc);
+        move_ram_i_fixed(&ci, id_USR_PLL_LOCKED_STDY, fixed_loc);
+        move_ram_o_fixed(&ci, id_USR_LOCKED_STDY_RST, fixed_loc);
+        move_ram_o_fixed(&ci, id_USR_CLK_REF, fixed_loc);
+        move_ram_o_fixed(&ci, id_USR_SEL_A_B, fixed_loc);
+        pll_index[die]++;
+    }
+
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_PLL))
@@ -327,7 +365,6 @@ static const char *timing_mode_to_str(int mode)
 
 void GateMatePacker::pack_pll()
 {
-    std::vector<int> pll_index(uarch->dies);
     log_info("Packing PLLs..\n");
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
@@ -339,22 +376,7 @@ void GateMatePacker::pack_pll()
         disconnect_if_gnd(&ci, id_CLK_FEEDBACK);
         disconnect_if_gnd(&ci, id_USR_LOCKED_STDY_RST);
 
-        int die = uarch->preferred_die;
-
-        NetInfo *clk = ci.getPort(id_CLK_REF);
-        if (clk && clk->driver.cell) { // Only for GPIO pins
-            if (ctx->getBelBucketForCellType(clk->driver.cell->type) == id_CC_BUFG) {
-                clk = clk->driver.cell->getPort(id_I);
-            }
-            if (ctx->getBelBucketForCellType(clk->driver.cell->type) == id_IOSEL) {
-                auto pad_info = uarch->bel_to_pad[clk->driver.cell->bel];
-                if (pad_info->flags != 0) {
-                    die = uarch->tile_extra_data(clk->driver.cell->bel.tile)->die;
-                }
-            }
-        }
-
-        if (pll_index[die] >= 4)
+        if (uarch->pll.size() >= (uarch->dies * 4U))
             log_error("Used more than available PLLs.\n");
 
         if (ci.getPort(id_CLK_REF) == nullptr && ci.getPort(id_USR_CLK_REF) == nullptr)
@@ -363,15 +385,7 @@ void GateMatePacker::pack_pll()
         if (ci.getPort(id_CLK_REF) != nullptr && ci.getPort(id_USR_CLK_REF) != nullptr)
             log_error("CLK_REF and USR_CLK_REF are not allowed to be set in same time.\n");
 
-        ci.cluster = ci.name;
-        ci.constr_abs_z = true;
-        ci.constr_z = 2 + pll_index[die]; // Position to a proper Z location
-
-        Loc fixed_loc = uarch->locations[std::make_pair(ctx->idf("PLL%d", pll_index[die]), die)];
-        BelId pll_bel = ctx->getBelByLocation(fixed_loc);
-        ctx->bindBel(pll_bel, &ci, PlaceStrength::STRENGTH_FIXED);
-
-        clk = ci.getPort(id_CLK_REF);
+        NetInfo *clk = ci.getPort(id_CLK_REF);
         delay_t period = ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq"));
         if (clk) {
             if (clk->driver.cell) {
@@ -397,7 +411,6 @@ void GateMatePacker::pack_pll()
 
         clk = ci.getPort(id_USR_CLK_REF);
         if (clk) {
-            move_ram_o_fixed(&ci, id_USR_CLK_REF, fixed_loc);
             ci.params[ctx->id("USR_CLK_REF")] = Property(0b1, 1);
             if (clk->clkconstr)
                 period = clk->clkconstr->period.minDelay();
@@ -405,15 +418,6 @@ void GateMatePacker::pack_pll()
 
         if (ci.getPort(id_CLK_REF_OUT))
             log_error("Output CLK_REF_OUT cannot be used if PLL is used.\n");
-
-        pll_out(&ci, id_CLK0, fixed_loc);
-        pll_out(&ci, id_CLK90, fixed_loc);
-        pll_out(&ci, id_CLK180, fixed_loc);
-        pll_out(&ci, id_CLK270, fixed_loc);
-
-        move_ram_i_fixed(&ci, id_USR_PLL_LOCKED, fixed_loc);
-        move_ram_i_fixed(&ci, id_USR_PLL_LOCKED_STDY, fixed_loc);
-        move_ram_o_fixed(&ci, id_USR_LOCKED_STDY_RST, fixed_loc);
 
         double out_clk_max = 0;
         int clk270_doub = 0;
@@ -581,7 +585,6 @@ void GateMatePacker::pack_pll()
                 ci.disconnectPort(id_USR_SEL_A_B);
             } else {
                 ci.params[ctx->id("USR_SET")] = Property(0b1, 1);
-                move_ram_o_fixed(&ci, id_USR_SEL_A_B, fixed_loc);
             }
             ci.params[ctx->id("LOCK_REQ")] = Property(0b1, 1);
             ci.unsetParam(id_PLL_CFG_A);
@@ -618,7 +621,7 @@ void GateMatePacker::pack_pll()
 
         ci.type = id_PLL;
 
-        pll_index[die]++;
+        uarch->pll.push_back(&ci);
     }
 }
 
