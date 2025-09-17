@@ -117,6 +117,7 @@ struct GateMatePacker
     HimbaechelHelpers h;
     NetInfo *net_PACKER_VCC;
     NetInfo *net_PACKER_GND;
+    NetInfo *net_SER_CLK;
     int count;
     std::map<IdString, int> count_per_type;
 };
