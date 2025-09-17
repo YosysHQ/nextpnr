@@ -135,14 +135,14 @@ void GateMatePacker::pack_bufg()
                     if (pad_info->flags) {
                         int index = pad_info->flags - 1;
                         die = uarch->tile_extra_data(in_net->driver.cell->bel.tile)->die;
-                        if (!clkin[die]->getPort(ctx->idf("CLK%d", index))) {
-                            clkin[die]->connectPort(ctx->idf("CLK%d", index), in_net->driver.cell->getPort(id_Y));
+                        if (!uarch->clkin[die]->getPort(ctx->idf("CLK%d", index))) {
+                            uarch->clkin[die]->connectPort(ctx->idf("CLK%d", index), in_net->driver.cell->getPort(id_Y));
                         }
                     }
                 }
             } else {
                 // SER_CLK
-                clkin[die]->connectPort(id_SER_CLK, in_net);
+                uarch->clkin[die]->connectPort(id_SER_CLK, in_net);
             }
 
             copy_constraint(in_net, ci.getPort(id_O));
@@ -162,7 +162,7 @@ void GateMatePacker::pack_bufg()
     for (int i = 0; i < 4; i++) {
         if (bufg[i]) {
             CellInfo &ci = *bufg[i];
-            global_signals.emplace(ci.getPort(id_O), i);
+            uarch->global_signals.emplace(ci.getPort(id_O), i);
             int glb_mux = 0;
             NetInfo *in_net = ci.getPort(id_I);
             int die = uarch->preferred_die;
@@ -172,9 +172,9 @@ void GateMatePacker::pack_bufg()
                     auto pad_info = uarch->bel_to_pad[in_net->driver.cell->bel];
                     if (pad_info->flags) {
                         die = uarch->tile_extra_data(in_net->driver.cell->bel.tile)->die;
-                        clkin[die]->params[ctx->idf("REF%d", i)] = Property(pad_info->flags - 1, 3);
-                        clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
-                        clkin[die]->connectPorts(ctx->idf("CLK_REF%d", i), glbout[die], ctx->idf("CLK_REF_OUT%d", i));
+                        uarch->clkin[die]->params[ctx->idf("REF%d", i)] = Property(pad_info->flags - 1, 3);
+                        uarch->clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
+                        uarch->clkin[die]->connectPorts(ctx->idf("CLK_REF%d", i), uarch->glbout[die], ctx->idf("CLK_REF_OUT%d", i));
                         user_glb = false;
                     }
                 }
@@ -193,24 +193,24 @@ void GateMatePacker::pack_bufg()
                     else
                         log_error("Uknown connecton on BUFG to PLL.\n");
                     glb_mux = glb_mux_mapping[i * 16 + pll_index * 4 + pll_out];
-                    ci.movePortTo(id_I, glbout[die], ctx->idf("%s_%d", in_net->driver.port.c_str(ctx), pll_index));
+                    ci.movePortTo(id_I, uarch->glbout[die], ctx->idf("%s_%d", in_net->driver.port.c_str(ctx), pll_index));
                     user_glb = false;
                 }
                 if (user_glb) {
-                    ci.movePortTo(id_I, glbout[die], ctx->idf("USR_GLB%d", i));
-                    move_ram_o_fixed(glbout[die], ctx->idf("USR_GLB%d", i), ctx->getBelLocation(glbout[die]->bel));
-                    glbout[die]->params[ctx->idf("USR_GLB%d_EN", i)] = Property(Property::State::S1);
+                    ci.movePortTo(id_I, uarch->glbout[die], ctx->idf("USR_GLB%d", i));
+                    move_ram_o_fixed(uarch->glbout[die], ctx->idf("USR_GLB%d", i), ctx->getBelLocation(uarch->glbout[die]->bel));
+                    uarch->glbout[die]->params[ctx->idf("USR_GLB%d_EN", i)] = Property(Property::State::S1);
                 }
             } else {
                 // SER_CLK
-                clkin[die]->params[ctx->idf("REF%d", i)] = Property(0b100, 3);
-                clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
-                clkin[die]->connectPorts(ctx->idf("CLK_REF%d", i), glbout[die], ctx->idf("CLK_REF_OUT%d", i));
+                uarch->clkin[die]->params[ctx->idf("REF%d", i)] = Property(0b100, 3);
+                uarch->clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
+                uarch->clkin[die]->connectPorts(ctx->idf("CLK_REF%d", i), uarch->glbout[die], ctx->idf("CLK_REF_OUT%d", i));
             }
 
-            ci.movePortTo(id_O, glbout[die], ctx->idf("GLB%d", i));
-            glbout[die]->params[ctx->idf("GLB%d_EN", i)] = Property(Property::State::S1);
-            glbout[die]->params[ctx->idf("GLB%d_CFG", i)] = Property(glb_mux, 3);
+            ci.movePortTo(id_O, uarch->glbout[die], ctx->idf("GLB%d", i));
+            uarch->glbout[die]->params[ctx->idf("GLB%d_EN", i)] = Property(Property::State::S1);
+            uarch->glbout[die]->params[ctx->idf("GLB%d_CFG", i)] = Property(glb_mux, 3);
             packed_cells.emplace(ci.name);
         }
     }
@@ -223,30 +223,30 @@ void GateMatePacker::pack_bufg()
             if (clk) {
                 if (clk->driver.cell) {
                     auto pad_info = uarch->bel_to_pad[clk->driver.cell->bel];
-                    clkin[die]->params[ctx->idf("REF%d", i)] = Property(pad_info->flags - 1, 3);
-                    clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
-                    ci.movePortTo(id_CLK_REF, clkin[die], ctx->idf("CLK%d", pad_info->flags - 1));
+                    uarch->clkin[die]->params[ctx->idf("REF%d", i)] = Property(pad_info->flags - 1, 3);
+                    uarch->clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
+                    ci.movePortTo(id_CLK_REF, uarch->clkin[die], ctx->idf("CLK%d", pad_info->flags - 1));
                 } else {
                     // SER_CLK
-                    clkin[die]->params[ctx->idf("REF%d", i)] = Property(0b100, 3);
-                    clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
-                    ci.movePortTo(id_CLK_REF, clkin[die], id_SER_CLK);
+                    uarch->clkin[die]->params[ctx->idf("REF%d", i)] = Property(0b100, 3);
+                    uarch->clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
+                    ci.movePortTo(id_CLK_REF, uarch->clkin[die], id_SER_CLK);
                 }
-                clkin[die]->connectPorts(ctx->idf("CLK_REF%d", i), &ci, id_CLK_REF);
+                uarch->clkin[die]->connectPorts(ctx->idf("CLK_REF%d", i), &ci, id_CLK_REF);
             }
 
             NetInfo *feedback_net = pll[i]->getPort(id_CLK_FEEDBACK);
             if (feedback_net) {
-                if (!global_signals.count(feedback_net)) {
-                    pll[i]->movePortTo(id_CLK_FEEDBACK, glbout[die], ctx->idf("USR_FB%d", i));
-                    move_ram_o_fixed(glbout[die], ctx->idf("USR_FB%d", i), ctx->getBelLocation(glbout[die]->bel));
-                    glbout[die]->params[ctx->idf("USR_FB%d_EN", i)] = Property(Property::State::S1);
+                if (!uarch->global_signals.count(feedback_net)) {
+                    pll[i]->movePortTo(id_CLK_FEEDBACK, uarch->glbout[die], ctx->idf("USR_FB%d", i));
+                    move_ram_o_fixed(uarch->glbout[die], ctx->idf("USR_FB%d", i), ctx->getBelLocation(uarch->glbout[die]->bel));
+                    uarch->glbout[die]->params[ctx->idf("USR_FB%d_EN", i)] = Property(Property::State::S1);
                 } else {
-                    int index = global_signals[feedback_net];
-                    glbout[die]->params[ctx->idf("FB%d_CFG", i)] = Property(index, 2);
+                    int index = uarch->global_signals[feedback_net];
+                    uarch->glbout[die]->params[ctx->idf("FB%d_CFG", i)] = Property(index, 2);
                     pll[i]->disconnectPort(id_CLK_FEEDBACK);
                 }
-                pll[i]->connectPorts(id_CLK_FEEDBACK, glbout[die], ctx->idf("CLK_FB%d", i));
+                pll[i]->connectPorts(id_CLK_FEEDBACK, uarch->glbout[die], ctx->idf("CLK_FB%d", i));
             }
         }
     }
@@ -278,13 +278,13 @@ void GateMatePacker::insert_clocking()
     log_info("Insert clocking cells..\n");
     for (int i = 0; i < uarch->dies; i++) {
         Loc fixed_loc = uarch->locations[std::make_pair(id_CLKIN, i)];
-        clkin.push_back(create_cell_ptr(id_CLKIN, ctx->idf("CLKIN%d", i)));
+        uarch->clkin.push_back(create_cell_ptr(id_CLKIN, ctx->idf("CLKIN%d", i)));
         BelId clkin_bel = ctx->getBelByLocation(fixed_loc);
-        ctx->bindBel(clkin_bel, clkin.back(), PlaceStrength::STRENGTH_FIXED);
-        glbout.push_back(create_cell_ptr(id_GLBOUT, ctx->idf("GLBOUT%d", i)));
+        ctx->bindBel(clkin_bel, uarch->clkin.back(), PlaceStrength::STRENGTH_FIXED);
+        uarch->glbout.push_back(create_cell_ptr(id_GLBOUT, ctx->idf("GLBOUT%d", i)));
         fixed_loc = uarch->locations[std::make_pair(id_GLBOUT, i)];
         BelId glbout_bel = ctx->getBelByLocation(fixed_loc);
-        ctx->bindBel(glbout_bel, glbout.back(), PlaceStrength::STRENGTH_FIXED);
+        ctx->bindBel(glbout_bel, uarch->glbout.back(), PlaceStrength::STRENGTH_FIXED);
     }
 }
 
@@ -308,8 +308,8 @@ void GateMatePacker::remove_clocking()
             }
         }
     };
-    remove_unused_cells(clkin);
-    remove_unused_cells(glbout);
+    remove_unused_cells(uarch->clkin);
+    remove_unused_cells(uarch->glbout);
     flush_cells();
 }
 
