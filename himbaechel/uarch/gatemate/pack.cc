@@ -401,7 +401,6 @@ void GateMateImpl::pack()
     packer.pack_addf();
     packer.pack_cpe();
     packer.remove_constants();
-    packer.remove_clocking();
 }
 
 void GateMateImpl::repack()
@@ -409,6 +408,7 @@ void GateMateImpl::repack()
     GateMatePacker packer(ctx, this);
     packer.repack_ram();
     packer.repack_cpe();
+    packer.remove_clocking();
 }
 
 NEXTPNR_NAMESPACE_END

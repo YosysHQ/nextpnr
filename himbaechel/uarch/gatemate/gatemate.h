@@ -90,6 +90,9 @@ struct GateMateImpl : HimbaechelAPI
     std::vector<bool> used_cpes;
     int fpga_mode;
     int timing_mode;
+    std::map<NetInfo *, int> global_signals;
+    std::vector<CellInfo *> clkin;
+    std::vector<CellInfo *> glbout;
 
   private:
     bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
