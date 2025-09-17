@@ -381,6 +381,8 @@ void GateMatePacker::pack_pll()
                 ci.movePortTo(id_CLK_REF, clkin[die], ctx->idf("CLK%d", pad_info->flags - 1));
             } else {
                 // SER_CLK
+                if (clk != net_SER_CLK)
+                    log_error("CLK_REF connected to uknown pin.\n");
                 clkin[die]->params[ctx->idf("REF%d", pll_index[die])] = Property(0b100, 3);
                 clkin[die]->params[ctx->idf("REF%d_INV", pll_index[die])] = Property(Property::State::S0);
                 ci.movePortTo(id_CLK_REF, clkin[die], id_SER_CLK);

@@ -142,6 +142,7 @@ void GateMatePacker::pack_io()
                     s.cell->disconnectPort(s.port);
                     s.cell->connectPort(s.port, ser_clk);
                 }
+                net_SER_CLK = ser_clk;
                 ci.disconnectPort(id_I);
                 packed_cells.emplace(ci.name);
                 continue;
