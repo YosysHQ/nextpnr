@@ -98,23 +98,48 @@ void GateMatePacker::pack_bufg()
     sort_bufg();
 
     log_info("Packing BUFGs..\n");
-    CellInfo *bufg[4] = {nullptr};
-    CellInfo *pll[4] = {nullptr};
-
-    auto update_bufg_port = [&](CellInfo *cell, int port_num, int pll_num) {
+    auto update_bufg_port = [&](CellInfo *bufg[4], CellInfo *cell, int port_num, int pll_num) {
         CellInfo *b = net_only_drives(ctx, cell->getPort(ctx->idf("CLK%d", 90 * port_num)), is_bufg, id_I, false);
         if (b) {
             if (bufg[port_num] == nullptr) {
                 bufg[port_num] = b;
+                return true;
             } else {
                 if (bufg[pll_num] == nullptr) {
                     bufg[pll_num] = b;
+                    return true;
                 } else {
-                    log_error("Unable to place BUFG for PLL.\n");
+                    return false;
                 }
             }
         }
+        return true;
     };
+
+    unsigned max_plls = 4;
+    // Index vector for permutation
+    std::vector<unsigned> indexes(max_plls);
+    for (unsigned i = 0; i < max_plls; ++i) indexes[i] = i;
+
+    CellInfo *bufg[4] = {nullptr};
+
+    bool valid = true;
+    do {
+        valid = true;
+        CellInfo *tmp_bufg[4] = {nullptr};
+        for (unsigned i = 0; i < max_plls; ++i) {
+            if (indexes[i] < uarch->pll.size()) {
+                for (int j = 0; j < 4; j++)
+                    valid &= update_bufg_port(tmp_bufg, uarch->pll[indexes[i]], j, i);
+            }
+        }
+        if (valid) {
+            std::copy(std::begin(tmp_bufg), std::end(tmp_bufg), std::begin(bufg));
+            break;
+        }
+    } while (std::next_permutation(indexes.begin(), indexes.end()));
+    if (!valid)
+        log_error("Unable to place PLLs and BUFGs\n");
 
     std::vector<int> pll_index(uarch->dies);
     for (auto &cell : uarch->pll) {
@@ -149,14 +174,6 @@ void GateMatePacker::pack_bufg()
         move_ram_o_fixed(&ci, id_USR_CLK_REF, fixed_loc);
         move_ram_o_fixed(&ci, id_USR_SEL_A_B, fixed_loc);
         pll_index[die]++;
-    }
-
-    for (auto &cell : uarch->pll) {
-        CellInfo &ci = *cell;
-        int index = ci.constr_z - 2;
-        pll[index] = &ci;
-        for (int j = 0; j < 4; j++)
-            update_bufg_port(pll[index], j, index);
     }
 
     for (auto &cell : ctx->cells) {
@@ -253,39 +270,39 @@ void GateMatePacker::pack_bufg()
         }
     }
 
-    for (int i = 0; i < 4; i++) {
-        if (pll[i]) {
-            CellInfo &ci = *pll[i];
-            NetInfo *clk = ci.getPort(id_CLK_REF);
-            int die = uarch->tile_extra_data(pll[i]->bel.tile)->die;
-            if (clk) {
-                if (clk->driver.cell) {
-                    auto pad_info = uarch->bel_to_pad[clk->driver.cell->bel];
-                    uarch->clkin[die]->params[ctx->idf("REF%d", i)] = Property(pad_info->flags - 1, 3);
-                    uarch->clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
-                    ci.movePortTo(id_CLK_REF, uarch->clkin[die], ctx->idf("CLK%d", pad_info->flags - 1));
-                } else {
-                    // SER_CLK
-                    uarch->clkin[die]->params[ctx->idf("REF%d", i)] = Property(0b100, 3);
-                    uarch->clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
-                    ci.movePortTo(id_CLK_REF, uarch->clkin[die], id_SER_CLK);
-                }
-                uarch->clkin[die]->connectPorts(ctx->idf("CLK_REF%d", i), &ci, id_CLK_REF);
-            }
 
-            NetInfo *feedback_net = pll[i]->getPort(id_CLK_FEEDBACK);
-            if (feedback_net) {
-                if (!uarch->global_signals.count(feedback_net)) {
-                    pll[i]->movePortTo(id_CLK_FEEDBACK, uarch->glbout[die], ctx->idf("USR_FB%d", i));
-                    move_ram_o_fixed(uarch->glbout[die], ctx->idf("USR_FB%d", i), ctx->getBelLocation(uarch->glbout[die]->bel));
-                    uarch->glbout[die]->params[ctx->idf("USR_FB%d_EN", i)] = Property(Property::State::S1);
-                } else {
-                    int index = uarch->global_signals[feedback_net];
-                    uarch->glbout[die]->params[ctx->idf("FB%d_CFG", i)] = Property(index, 2);
-                    pll[i]->disconnectPort(id_CLK_FEEDBACK);
-                }
-                pll[i]->connectPorts(id_CLK_FEEDBACK, uarch->glbout[die], ctx->idf("CLK_FB%d", i));
+    for (auto &cell : uarch->pll) {
+        CellInfo &ci = *cell;
+        int i = ci.constr_z - 2;
+        NetInfo *clk = ci.getPort(id_CLK_REF);
+        int die = uarch->tile_extra_data(ci.bel.tile)->die;
+        if (clk) {
+            if (clk->driver.cell) {
+                auto pad_info = uarch->bel_to_pad[clk->driver.cell->bel];
+                uarch->clkin[die]->params[ctx->idf("REF%d", i)] = Property(pad_info->flags - 1, 3);
+                uarch->clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
+                ci.movePortTo(id_CLK_REF, uarch->clkin[die], ctx->idf("CLK%d", pad_info->flags - 1));
+            } else {
+                // SER_CLK
+                uarch->clkin[die]->params[ctx->idf("REF%d", i)] = Property(0b100, 3);
+                uarch->clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
+                ci.movePortTo(id_CLK_REF, uarch->clkin[die], id_SER_CLK);
             }
+            uarch->clkin[die]->connectPorts(ctx->idf("CLK_REF%d", i), &ci, id_CLK_REF);
+        }
+
+        NetInfo *feedback_net = ci.getPort(id_CLK_FEEDBACK);
+        if (feedback_net) {
+            if (!uarch->global_signals.count(feedback_net)) {
+                ci.movePortTo(id_CLK_FEEDBACK, uarch->glbout[die], ctx->idf("USR_FB%d", i));
+                move_ram_o_fixed(uarch->glbout[die], ctx->idf("USR_FB%d", i), ctx->getBelLocation(uarch->glbout[die]->bel));
+                uarch->glbout[die]->params[ctx->idf("USR_FB%d_EN", i)] = Property(Property::State::S1);
+            } else {
+                int index = uarch->global_signals[feedback_net];
+                uarch->glbout[die]->params[ctx->idf("FB%d_CFG", i)] = Property(index, 2);
+                ci.disconnectPort(id_CLK_FEEDBACK);
+            }
+            ci.connectPorts(id_CLK_FEEDBACK, uarch->glbout[die], ctx->idf("CLK_FB%d", i));
         }
     }
 
