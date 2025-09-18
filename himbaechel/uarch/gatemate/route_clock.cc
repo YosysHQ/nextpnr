@@ -116,22 +116,6 @@ void GateMateImpl::route_clock()
         auto src_wire = ctx->getNetinfoSourceWire(clk_net);
         ctx->bindWire(src_wire, clk_net, STRENGTH_LOCKED);
 
-        /*auto clk_plane = 0;
-        switch (clk_net->driver.port.index) {
-        case id_GLB0.index:
-            clk_plane = 9;
-            break;
-        case id_GLB1.index:
-            clk_plane = 10;
-            break;
-        case id_GLB2.index:
-            clk_plane = 11;
-            break;
-        case id_GLB3.index:
-            clk_plane = 12;
-            break;
-        }*/
-
         auto sink_wires = dict<WireId, PortRef>{};
         auto sink_wires_to_do = pool<WireId>{};
         for (auto &usr : clk_net->users) {
@@ -147,8 +131,7 @@ void GateMateImpl::route_clock()
         std::priority_queue<QueuedWire, std::vector<QueuedWire>, std::greater<QueuedWire>> visit;
         dict<WireId, PipId> backtrace;
 
-        //auto cpe_loc = ctx->getBelLocation(usr.cell->bel);
-        //auto is_glb_clk = clk_net->driver.cell->type == id_GLBOUT;
+        auto is_glb_clk = clk_net->driver.cell->type == id_GLBOUT;
 
         visit.push(QueuedWire(src_wire));
         while (!visit.empty()) {
@@ -178,24 +161,7 @@ void GateMateImpl::route_clock()
                 auto reserved = reserved_wires.find(dst);
                 if (reserved != reserved_wires.end() && reserved->second != clk_net->name)
                     continue;
-                //auto pip_loc = ctx->getPipLocation(dh);
-                // Use only a specific plane to minimise congestion for global clocks.
-                /*if (is_glb_clk && (pip_loc.x != cpe_loc.x || pip_loc.y != cpe_loc.y)) {
-                    // Plane 9 is the clock plane, so it should only ever use itself.
-                    if (clk_plane == 9 && pip_plane(dh) != 9)
-                        continue;
-                    // Plane 10 is the enable plane.
-                    // When there's a set/reset, we want to use the switchbox X23 pip to change directly to plane 9.
-                    if (clk_plane == 10 && pip_plane(dh) != 9 && pip_plane(dh) != 10)
-                        continue;
-                    // Plane 11 is the set/reset plane; we want to use the switchbox X14 pip to go to plane 12, then
-                    // use the IM to switch to plane 9.
-                    if (clk_plane == 11 && pip_plane(dh) == 10)
-                        continue;
-                    // Plane 12 is the spare plane; we can use the IM to change directly to plane 9.
-                    if (clk_plane == 12 && pip_plane(dh) != 9 && pip_plane(dh) != 12)
-                        continue;
-                }*/
+                auto pip_loc = ctx->getPipLocation(dh);
                 backtrace[dst] = dh;
                 auto delay = ctx->getPipDelay(dh).maxDelay() + ctx->getWireDelay(dst).maxDelay() +
                                                 ctx->getDelayEpsilon();
@@ -229,7 +195,7 @@ void GateMateImpl::route_clock()
                     if (ctx->debug)
                         log_info("            bind pip %s --> %s (plane %hhd)\n", ctx->nameOfPip(uh),
                                     ctx->nameOfWire(src), pip_plane(uh));
-                    ctx->bindPip(uh, clk_net, STRENGTH_LOCKED);
+                    ctx->bindPip(uh, clk_net, is_glb_clk ? STRENGTH_LOCKED : STRENGTH_WEAK);
                 } else {
                     log_error("Can't bind pip %s because wire %s is already bound\n", ctx->nameOfPip(uh),
                                 ctx->nameOfWire(src));
