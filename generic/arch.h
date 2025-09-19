@@ -226,6 +226,8 @@ struct Arch : BaseArch<ArchRanges>
 
     void addCellTimingClock(IdString cell, IdString port);
     void addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort, delay_t delay);
+    void addCellTimingDelayMinMax(IdString cell, IdString fromPort, IdString toPort, delay_t min_delay,
+                                  delay_t max_delay);
     void addCellTimingSetupHold(IdString cell, IdString port, IdString clock, delay_t setup, delay_t hold);
     void addCellTimingClockToOut(IdString cell, IdString port, IdString clock, delay_t clktoq);
 

@@ -323,12 +323,61 @@ struct FabulousPacker
 
     void handle_io()
     {
-        // As per the preferred approach for new nextpnr flows, we require IO to be inserted by Yosys
-        // pre-place-and-route, or just manually instantiated
-        const pool<CellTypePort> top_ports{
-                CellTypePort(id_IO_1_bidirectional_frame_config_pass, id_PAD),
-        };
-        h.remove_nextpnr_iobs(top_ports);
+        // Any remaining $nextpnr_*buf cells were not constrained via PCF.
+        // Verify each connects to an IO cell via PAD, then remove it.
+        IdString ibuf = ctx->id("$nextpnr_ibuf");
+        IdString obuf = ctx->id("$nextpnr_obuf");
+        IdString iobuf = ctx->id("$nextpnr_iobuf");
+
+        std::vector<IdString> to_remove;
+        for (auto &cell : ctx->cells) {
+            auto &ci = *cell.second;
+            if (!ci.type.in(ibuf, obuf, iobuf))
+                continue;
+            log_info("port is unconstrained: %s This pin will be assigned randomly\n", ctx->nameOf(&ci));
+            bool found_pad = false;
+            for (auto &port : ci.ports) {
+                NetInfo *net = port.second.net;
+                if (!net)
+                    continue;
+
+                for (auto &usr : net->users) {
+                    if (usr.cell == &ci)
+                        continue;
+                    if (usr.port != id_PAD)
+                        log_error("Top-level port '%s' connected to illegal port %s.%s (must be PAD)\n",
+                                  ctx->nameOf(&ci), ctx->nameOf(usr.cell), ctx->nameOf(usr.port));
+                    if (found_pad)
+                        log_error("Top-level port '%s' connected to multiple PAD ports (at least %s.%s and %s.%s)\n",
+                                  ctx->nameOf(&ci), ctx->nameOf(usr.cell), ctx->nameOf(usr.port),
+                                  ctx->nameOf(net->driver.cell), ctx->nameOf(net->driver.port));
+                    found_pad = true;
+                }
+
+                if (found_pad)
+                    continue;
+
+                auto &drv = net->driver;
+                if (drv.cell && drv.cell != &ci) {
+                    if (drv.port != id_PAD)
+                        log_error("Top-level port '%s' connected to illegal port %s.%s (must be PAD)\n",
+                                  ctx->nameOf(&ci), ctx->nameOf(drv.cell), ctx->nameOf(drv.port));
+                    if (found_pad)
+                        log_error("Top-level port '%s' connected to multiple PAD ports (at least %s.%s and %s.%s)\n",
+                                  ctx->nameOf(&ci), ctx->nameOf(drv.cell), ctx->nameOf(drv.port),
+                                  ctx->nameOf(net->driver.cell), ctx->nameOf(net->driver.port));
+                    found_pad = true;
+                }
+            }
+            if (!found_pad)
+                log_error("No IO cell found connected to '%s' via PAD port. Was iopadmap run in Yosys?\n",
+                          ctx->nameOf(&ci));
+            ci.disconnectPort(id_I);
+            ci.disconnectPort(id_O);
+            to_remove.push_back(ci.name);
+        }
+        for (IdString cell_name : to_remove)
+            ctx->cells.erase(cell_name);
     }
 
     void constrain_carries()

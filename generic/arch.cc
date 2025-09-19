@@ -230,6 +230,16 @@ void Arch::addCellTimingDelay(IdString cell, IdString fromPort, IdString toPort,
     cellTiming[cell].combDelays[CellDelayKey{fromPort, toPort}] = DelayQuad(delay);
 }
 
+void Arch::addCellTimingDelayMinMax(IdString cell, IdString fromPort, IdString toPort, delay_t min_delay,
+                                    delay_t max_delay)
+{
+    if (get_or_default(cellTiming[cell].portClasses, fromPort, TMG_IGNORE) == TMG_IGNORE)
+        cellTiming[cell].portClasses[fromPort] = TMG_COMB_INPUT;
+    if (get_or_default(cellTiming[cell].portClasses, toPort, TMG_IGNORE) == TMG_IGNORE)
+        cellTiming[cell].portClasses[toPort] = TMG_COMB_OUTPUT;
+    cellTiming[cell].combDelays[CellDelayKey{fromPort, toPort}] = DelayQuad(min_delay, max_delay);
+}
+
 void Arch::addCellTimingSetupHold(IdString cell, IdString port, IdString clock, delay_t setup, delay_t hold)
 {
     TimingClockingInfo ci;
