@@ -150,7 +150,7 @@ struct GowinGlobalRouter
         bool src_valid = ((!src_is_spine) && src_type.in(id_GLOBAL_CLK, id_IO_O, id_PLL_O, id_HCLK)) ||
                          src_name.in(id_SPINE6, id_SPINE7, id_SPINE14, id_SPINE15, id_SPINE22, id_SPINE23, id_SPINE30,
                                      id_SPINE31);
-        bool dst_valid = dst_type.in(id_GLOBAL_CLK, id_TILE_CLK, id_PLL_I, id_IO_I, id_HCLK);
+        bool dst_valid = dst_type.in(id_GLOBAL_CLK, id_TILE_CLK, id_PLL_I, id_PLL_O, id_IO_I, id_HCLK);
 
         bool res = (src_valid && dst_valid) || (src_valid && is_local(dst_type)) || (is_local(src_type) && dst_valid);
         if (ctx->debug && false /*&& res*/) {
@@ -207,6 +207,7 @@ struct GowinGlobalRouter
                 if (!pip_filter(pip, src)) {
                     continue;
                 }
+
                 // Add to the queue
                 visit.push(prev);
                 backtrace[prev] = pip;
@@ -399,6 +400,8 @@ struct GowinGlobalRouter
 
     void route_dcs_net(NetInfo *net)
     {
+        IdString dcs_clock_input_prefix = gwu.get_dcs_prefix();
+        const char *dcs_clock_input_prefix_str = dcs_clock_input_prefix.c_str(ctx);
         // Since CLKOUT is responsible for only one quadrant, we will do
         // routing not from it, but from any CLK0-3 input actually connected to
         // the clock source.
@@ -406,7 +409,7 @@ struct GowinGlobalRouter
         NetInfo *net_before_dcs;
         PortRef driver;
         for (int i = 0; i < 4; ++i) {
-            net_before_dcs = dcs_ci->getPort(ctx->idf("CLK%d", i));
+            net_before_dcs = dcs_ci->getPort(ctx->idf("%s%d", dcs_clock_input_prefix_str, i));
             if (net_before_dcs == nullptr) {
                 continue;
             }
@@ -449,7 +452,8 @@ struct GowinGlobalRouter
             }
             WireId dst = ctx->getPipDstWire(pip);
             IdString dst_name = ctx->getWireName(dst)[1];
-            if (dst_name.str(ctx).rfind("PCLK", 0) == 0 || dst_name.str(ctx).rfind("LWSPINE", 0) == 0) {
+            if (dst_name.str(ctx).rfind("PCLK", 0) == 0 || dst_name.str(ctx).rfind("LWSPINE", 0) == 0 ||
+                dst_name.str(ctx).rfind("PLL") == 0) {
                 // step over dummy pip
                 for (PipId next_pip : ctx->getPipsDownhill(dst)) {
                     if (ctx->getBoundPipNet(next_pip) != nullptr) {
@@ -498,7 +502,7 @@ struct GowinGlobalRouter
 
             // The input networks must bs same for all hardware dcs.
             dcs_ci->copyPortTo(id_SELFORCE, hw_dcs, id_SELFORCE);
-            dcs_ci->copyPortBusTo(id_CLK, 0, false, hw_dcs, id_CLK, 0, false, 4);
+            dcs_ci->copyPortBusTo(dcs_clock_input_prefix, 0, false, hw_dcs, dcs_clock_input_prefix, 0, false, 4);
             dcs_ci->copyPortBusTo(id_CLKSEL, 0, true, hw_dcs, id_CLKSEL, 0, false, 4);
         }
 
@@ -507,7 +511,7 @@ struct GowinGlobalRouter
         dcs_ci->disconnectPort(id_CLKOUT);
         for (int i = 0; i < 4; ++i) {
             dcs_ci->disconnectPort(ctx->idf("CLKSEL[%d]", i));
-            dcs_ci->disconnectPort(ctx->idf("CLK%d", i));
+            dcs_ci->disconnectPort(ctx->idf("%s%d", dcs_clock_input_prefix_str, i));
         }
         log_info("    '%s' net was routed.\n", ctx->nameOf(net));
         ctx->cells.erase(dcs_ci->name);
@@ -1281,7 +1285,7 @@ struct GowinGlobalRouter
             }
             if (route_clk_net(ni) == NOT_ROUTED) {
                 if (ctx->verbose) {
-                    log_info("  try to route as a segmented network.\n");
+                    log_info("  will try to route it as a segmented network.\n");
                 }
                 seg_nets.push_back(net_name);
             }
