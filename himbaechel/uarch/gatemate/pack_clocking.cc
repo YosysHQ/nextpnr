@@ -64,7 +64,7 @@ void GateMatePacker::sort_bufg()
     }
 
     if (count > (uarch->dies * 4)) {
-        //log_error("More than %d BUFG used. Unable to place them.\n", uarch->dies * 4);
+        // log_error("More than %d BUFG used. Unable to place them.\n", uarch->dies * 4);
         log_warning("More than 4 BUFG used. Those with highest fan-out will be used.\n");
         std::sort(bufg.begin(), bufg.end(), [](const ItemBufG &a, const ItemBufG &b) { return a.fan_out > b.fan_out; });
         for (size_t i = (uarch->dies * 4); i < bufg.size(); i++) {
@@ -119,7 +119,8 @@ void GateMatePacker::pack_bufg()
     unsigned max_plls = 4;
     // Index vector for permutation
     std::vector<unsigned> indexes(max_plls);
-    for (unsigned i = 0; i < max_plls; ++i) indexes[i] = i;
+    for (unsigned i = 0; i < max_plls; ++i)
+        indexes[i] = i;
 
     CellInfo *bufg[4] = {nullptr};
 
@@ -191,7 +192,8 @@ void GateMatePacker::pack_bufg()
                         int index = pad_info->flags - 1;
                         die = uarch->tile_extra_data(in_net->driver.cell->bel.tile)->die;
                         if (!uarch->clkin[die]->getPort(ctx->idf("CLK%d", index))) {
-                            uarch->clkin[die]->connectPort(ctx->idf("CLK%d", index), in_net->driver.cell->getPort(id_Y));
+                            uarch->clkin[die]->connectPort(ctx->idf("CLK%d", index),
+                                                           in_net->driver.cell->getPort(id_Y));
                         }
                     }
                 }
@@ -229,7 +231,8 @@ void GateMatePacker::pack_bufg()
                         die = uarch->tile_extra_data(in_net->driver.cell->bel.tile)->die;
                         uarch->clkin[die]->params[ctx->idf("REF%d", i)] = Property(pad_info->flags - 1, 3);
                         uarch->clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
-                        uarch->clkin[die]->connectPorts(ctx->idf("CLK_REF%d", i), uarch->glbout[die], ctx->idf("CLK_REF_OUT%d", i));
+                        uarch->clkin[die]->connectPorts(ctx->idf("CLK_REF%d", i), uarch->glbout[die],
+                                                        ctx->idf("CLK_REF_OUT%d", i));
                         user_glb = false;
                     }
                 }
@@ -248,19 +251,22 @@ void GateMatePacker::pack_bufg()
                     else
                         log_error("Uknown connecton on BUFG to PLL.\n");
                     glb_mux = glb_mux_mapping[i * 16 + pll_index * 4 + pll_out];
-                    ci.movePortTo(id_I, uarch->glbout[die], ctx->idf("%s_%d", in_net->driver.port.c_str(ctx), pll_index));
+                    ci.movePortTo(id_I, uarch->glbout[die],
+                                  ctx->idf("%s_%d", in_net->driver.port.c_str(ctx), pll_index));
                     user_glb = false;
                 }
                 if (user_glb) {
                     ci.movePortTo(id_I, uarch->glbout[die], ctx->idf("USR_GLB%d", i));
-                    move_ram_o_fixed(uarch->glbout[die], ctx->idf("USR_GLB%d", i), ctx->getBelLocation(uarch->glbout[die]->bel));
+                    move_ram_o_fixed(uarch->glbout[die], ctx->idf("USR_GLB%d", i),
+                                     ctx->getBelLocation(uarch->glbout[die]->bel));
                     uarch->glbout[die]->params[ctx->idf("USR_GLB%d_EN", i)] = Property(Property::State::S1);
                 }
             } else {
                 // SER_CLK
                 uarch->clkin[die]->params[ctx->idf("REF%d", i)] = Property(0b100, 3);
                 uarch->clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
-                uarch->clkin[die]->connectPorts(ctx->idf("CLK_REF%d", i), uarch->glbout[die], ctx->idf("CLK_REF_OUT%d", i));
+                uarch->clkin[die]->connectPorts(ctx->idf("CLK_REF%d", i), uarch->glbout[die],
+                                                ctx->idf("CLK_REF_OUT%d", i));
             }
 
             ci.movePortTo(id_O, uarch->glbout[die], ctx->idf("GLB%d", i));
@@ -269,7 +275,6 @@ void GateMatePacker::pack_bufg()
             packed_cells.emplace(ci.name);
         }
     }
-
 
     for (auto &cell : uarch->pll) {
         CellInfo &ci = *cell;
@@ -295,7 +300,8 @@ void GateMatePacker::pack_bufg()
         if (feedback_net) {
             if (!uarch->global_signals.count(feedback_net)) {
                 ci.movePortTo(id_CLK_FEEDBACK, uarch->glbout[die], ctx->idf("USR_FB%d", i));
-                move_ram_o_fixed(uarch->glbout[die], ctx->idf("USR_FB%d", i), ctx->getBelLocation(uarch->glbout[die]->bel));
+                move_ram_o_fixed(uarch->glbout[die], ctx->idf("USR_FB%d", i),
+                                 ctx->getBelLocation(uarch->glbout[die]->bel));
                 uarch->glbout[die]->params[ctx->idf("USR_FB%d_EN", i)] = Property(Property::State::S1);
             } else {
                 int index = uarch->global_signals[feedback_net];

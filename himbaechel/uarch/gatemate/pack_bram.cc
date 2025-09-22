@@ -395,7 +395,7 @@ void GateMatePacker::pack_ram()
                     ci.renamePort(ctx->idf("F_ALMOST_EMPTY_OFFSET[%d]", i), ctx->idf("WEA[%d]", i));
                     // WEA[34:20] = F_ALMOST_FULL_OFFSET
                     ci.disconnectPort(ctx->idf("WEA[%d]", 20 + i));
-                    ci.renamePort(ctx->idf("F_ALMOST_FULL_OFFSET[%d]", i),  ctx->idf("WEA[%d]", 20 + i));
+                    ci.renamePort(ctx->idf("F_ALMOST_FULL_OFFSET[%d]", i), ctx->idf("WEA[%d]", 20 + i));
                 }
             }
         }
