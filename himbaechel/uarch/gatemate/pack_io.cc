@@ -455,6 +455,9 @@ void GateMatePacker::pack_io_sel()
         return true;
     };
 
+    // Invert CPE out for output enable (OUT3)
+    bool is_inverted[4] = {false, false, true, false};
+
     for (auto &cell : cells) {
         CellInfo &ci = *cell;
         bool ff_obf = bool_or_default(ci.params, id_FF_OBF, 0);
@@ -504,6 +507,16 @@ void GateMatePacker::pack_io_sel()
                     }
                 }
                 bool oddr_merged = false;
+                if (do_net->driver.cell && do_net->driver.cell->type == id_CC_LUT1 && do_net->users.entries() == 1) {
+                    NetInfo *net = do_net->driver.cell->getPort(id_I0);
+                    if (net->driver.cell && net->driver.cell->type == id_CC_ODDR && net->users.entries() == 1) {
+                        do_net = net;
+                        packed_cells.insert(net->driver.cell->name);
+                        // Inverting both input is equal to inverter at output
+                        is_inverted[0] = true;
+                        is_inverted[1] = true;
+                    }
+                }
                 if (do_net->driver.cell && do_net->driver.cell->type == id_CC_ODDR && do_net->users.entries() == 1) {
                     CellInfo *oddr = do_net->driver.cell;
                     ci.params[id_OUT1_FF] = Property(Property::State::S1);
@@ -559,8 +572,8 @@ void GateMatePacker::pack_io_sel()
         Loc root_loc = ctx->getBelLocation(ci.bel);
         for (int i = 0; i < 4; i++) {
             CellInfo *cpe = move_ram_o_fixed(&ci, ctx->idf("OUT%d", i + 1), root_loc).first;
-            if (cpe && i == 2)
-                cpe->params[id_INIT_L10] = Property(LUT_INV_D0, 4); // Invert CPE out for output enable (OUT3)
+            if (cpe && is_inverted[i])
+                cpe->params[id_INIT_L10] = Property(LUT_INV_D0, 4);
         }
     }
     flush_cells();
