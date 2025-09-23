@@ -266,13 +266,17 @@ class Segment(BBAStruct):
 class ChipExtraData(BBAStruct):
     strs: StringPool
     flags: int
-    bottom_io: BottomIO
+    dcs_prefix: IdString = field(default = None)
+    bottom_io: BottomIO = field(default = None)
     diff_io_types: list[IdString] = field(default_factory = list)
     dqce_bels: list[SpineBel] = field(default_factory = list)
     dcs_bels: list[SpineBel] = field(default_factory = list)
     dhcen_bels: list[WireBel] = field(default_factory = list)
     io_dlldly_bels: list[IoBel] = field(default_factory = list)
     segments: list[Segment] = field(default_factory = list)
+
+    def set_dcs_prefix(self, prefix: str):
+        self.dcs_prefix = self.strs.id(prefix)
 
     def create_bottom_io(self):
         self.bottom_io = BottomIO()
@@ -334,6 +338,7 @@ class ChipExtraData(BBAStruct):
 
     def serialise(self, context: str, bba: BBAWriter):
         bba.u32(self.flags)
+        bba.u32(self.dcs_prefix.index)
         self.bottom_io.serialise(f"{context}_bottom_io", bba)
         bba.slice(f"{context}_diff_io_types", len(self.diff_io_types))
         bba.slice(f"{context}_dqce_bels", len(self.dqce_bels))
@@ -662,6 +667,9 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
             for idx in range(2):
                 if idx not in desc:
                     continue
+                dcs_prefix = 'CLK'
+                if hasattr(db, "dcs_prefix"):
+                    dcs_prefix = db.dcs_prefix
                 bel_z = DCS_Z + idx
                 bel = tt.create_bel(f"DCS{idx}", "DCS", bel_z)
                 wire = desc[idx]['clkout']
@@ -672,7 +680,7 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                 for clk_idx, wire in enumerate(desc[idx]['clk']):
                     if not tt.has_wire(wire):
                         tt.create_wire(wire, "GLOBAL_CLK")
-                    tt.add_bel_pin(bel, f"CLK{clk_idx}", wire, PinType.INPUT)
+                    tt.add_bel_pin(bel, f"{dcs_prefix}{clk_idx}", wire, PinType.INPUT)
                     # This is a fake PIP that allows routing “through” this
                     # primitive from the CLK input to the CLKOUT output.
                     tt.create_pip(wire, clkout_wire)
@@ -1413,7 +1421,11 @@ def create_packages(chip: Chip, db: chipdb):
 
 # Extra chip data
 def create_extra_data(chip: Chip, db: chipdb, chip_flags: int):
-    chip.extra_data = ChipExtraData(chip.strs, chip_flags, None)
+    chip.extra_data = ChipExtraData(chip.strs, chip_flags)
+    if hasattr(db, "dcs_prefix"):
+        chip.extra_data.set_dcs_prefix(db.dcs_prefix)
+    else:
+        chip.extra_data.set_dcs_prefix("CLK")
     chip.extra_data.create_bottom_io()
     for net_a, net_b in db.bottom_io[2]:
         chip.extra_data.add_bottom_io_cnd(net_a, net_b)

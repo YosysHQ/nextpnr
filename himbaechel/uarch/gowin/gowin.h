@@ -184,6 +184,7 @@ NPNR_PACKED_STRUCT(struct Extra_package_data_POD { RelSlice<Constraint_POD> cst;
 
 NPNR_PACKED_STRUCT(struct Extra_chip_data_POD {
     int32_t chip_flags;
+    IdString dcs_prefix;
     Bottom_io_POD bottom_io;
     RelSlice<IdString> diff_io_types;
     RelSlice<Spine_bel_POD> dqce_bels;

@@ -4141,12 +4141,7 @@ struct GowinPacker
                 if (dcs_bel != BelId()) {
                     IdString dcs_name = ctx->idf("$PACKER_DCS_SPINE%d", 8 * (i % 4) + 6 + (i >> 2));
                     CellInfo *dcs = ctx->createCell(dcs_name, id_DCS);
-                    dcs->addInput(id_SELFORCE);
-                    for (int j = 0; j < 4; ++j) {
-                        dcs->addInput(ctx->idf("CLK%d", j));
-                        dcs->addInput(ctx->idf("CLKSEL%d", j));
-                    }
-                    dcs->addOutput(id_CLKOUT);
+                    ctx->copyBelPorts(dcs_name, dcs_bel);
                     ctx->bindBel(dcs_bel, dcs, STRENGTH_LOCKED);
                 }
             }

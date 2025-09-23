@@ -290,6 +290,12 @@ BelId GowinUtils::get_dhcen_bel(WireId hclkin_wire, IdString &side)
     return BelId();
 }
 
+IdString GowinUtils::get_dcs_prefix(void)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->dcs_prefix;
+}
+
 bool GowinUtils::is_simple_io_bel(BelId bel)
 {
     return chip_bel_info(ctx->chip_info, bel).flags & BelFlags::FLAG_SIMPLE_IO;
