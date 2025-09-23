@@ -163,14 +163,14 @@ void GateMateImpl::route_clock()
                     continue;
                 auto pip_loc = ctx->getPipLocation(dh);
                 backtrace[dst] = dh;
-                auto delay = ctx->getPipDelay(dh).maxDelay() + ctx->getWireDelay(dst).maxDelay() +
-                                                ctx->getDelayEpsilon();
+                auto delay =
+                        ctx->getPipDelay(dh).maxDelay() + ctx->getWireDelay(dst).maxDelay() + ctx->getDelayEpsilon();
                 visit.push(QueuedWire(dst, curr.delay + delay));
             }
         }
         for (auto sink_wire : sink_wires_to_do) {
             log_info("            failed to find a route using dedicated resources. %s -> %s\n",
-                        clk_net->driver.cell->name.c_str(ctx), ctx->nameOfWire(sink_wire));
+                     clk_net->driver.cell->name.c_str(ctx), ctx->nameOfWire(sink_wire));
         }
         for (auto pair : sink_wires) {
             auto sink_wire = pair.first;
@@ -190,15 +190,15 @@ void GateMateImpl::route_clock()
                 if (ctx->getBoundWireNet(src) == clk_net) {
                     if (ctx->debug)
                         log_info("                 pip %s --> %s (plane %hhd)\n", ctx->nameOfPip(uh),
-                                    ctx->nameOfWire(src), pip_plane(uh));
+                                 ctx->nameOfWire(src), pip_plane(uh));
                 } else if (ctx->getBoundWireNet(src) == nullptr) {
                     if (ctx->debug)
                         log_info("            bind pip %s --> %s (plane %hhd)\n", ctx->nameOfPip(uh),
-                                    ctx->nameOfWire(src), pip_plane(uh));
+                                 ctx->nameOfWire(src), pip_plane(uh));
                     ctx->bindPip(uh, clk_net, is_glb_clk ? STRENGTH_LOCKED : STRENGTH_WEAK);
                 } else {
                     log_error("Can't bind pip %s because wire %s is already bound\n", ctx->nameOfPip(uh),
-                                ctx->nameOfWire(src));
+                              ctx->nameOfWire(src));
                 }
                 if (src == src_wire)
                     break;

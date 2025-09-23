@@ -198,16 +198,14 @@ void route_mult_x1y1_upper_in8(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
         find_and_bind_downhill_pip(ctx, out_mux_y, sb_sml_d0, net);
         find_and_bind_downhill_pip(ctx, sb_sml_d0, sb_sml_y1_int, net);
         find_and_bind_downhill_pip(ctx, sb_sml_y1_int, sb_sml_y1, net);
-        find_and_bind_downhill_pip(ctx, sb_sml_y1, sb_big_d2_1, net);   // inverting
-        find_and_bind_downhill_pip(ctx, sb_big_d2_1, sb_big_y1, net);   // inverting
-        find_and_bind_downhill_pip(ctx, sb_big_y1, sb_big_ydiag, net);  // inverting
-        find_and_bind_downhill_pip(ctx, sb_big_ydiag, sb_big_y3, net);  // inverting
-        find_and_bind_downhill_pip(ctx, sb_big_y3, in_mux_p12, net);    // inverting
+        find_and_bind_downhill_pip(ctx, sb_sml_y1, sb_big_d2_1, net);  // inverting
+        find_and_bind_downhill_pip(ctx, sb_big_d2_1, sb_big_y1, net);  // inverting
+        find_and_bind_downhill_pip(ctx, sb_big_y1, sb_big_ydiag, net); // inverting
+        find_and_bind_downhill_pip(ctx, sb_big_ydiag, sb_big_y3, net); // inverting
+        find_and_bind_downhill_pip(ctx, sb_big_y3, in_mux_p12, net);   // inverting
     } else {
-        auto sb_big_d0 =
-                ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("SB_BIG.P12.D0")));
-        auto sb_big_y1 =
-                ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("SB_BIG.P12.Y1")));
+        auto sb_big_d0 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("SB_BIG.P12.D0")));
+        auto sb_big_y1 = ctx->getWireByName(IdStringList::concat(x2y2, ctx->idf("SB_BIG.P12.Y1")));
         auto sb_sml_d2_1 = ctx->getWireByName(IdStringList::concat(x4y2, ctx->idf("SB_SML.P12.D2_1")));
         auto sb_sml_y1_int = ctx->getWireByName(IdStringList::concat(x4y2, ctx->idf("SB_SML.P12.Y1_int")));
         auto sb_sml_ydiag_int = ctx->getWireByName(IdStringList::concat(x4y2, ctx->idf("SB_SML.P12.YDIAG_int")));
@@ -285,13 +283,11 @@ void route_mult_x1y2_lower(Context *ctx, NetInfo *net, CellInfo *lower, Loc loc,
     } else {
         auto sb_big_p06_d0 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P06.D0")));
         auto sb_big_p06_y1 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P06.Y1")));
-        auto sb_big_p06_ydiag =
-                ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P06.YDIAG")));
-        auto sb_big_p05_x23 =
-                ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P05.X23")));
+        auto sb_big_p06_ydiag = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P06.YDIAG")));
+        auto sb_big_p05_x23 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P05.X23")));
         auto sb_big_p05_ydiag = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P05.YDIAG")));
         auto sb_big_p05_y1 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P05.Y1")));
-        auto sb_sml_d2_1 = ctx->getWireByName(IdStringList::concat(x4y1, ctx->idf("SB_SML.P05.D2_1")));        
+        auto sb_sml_d2_1 = ctx->getWireByName(IdStringList::concat(x4y1, ctx->idf("SB_SML.P05.D2_1")));
         auto sb_sml_y1_int = ctx->getWireByName(IdStringList::concat(x4y1, ctx->idf("SB_SML.P05.Y1_int")));
         auto sb_sml_ydiag_int = ctx->getWireByName(IdStringList::concat(x4y1, ctx->idf("SB_SML.P05.YDIAG_int")));
         auto sb_sml_y3_int = ctx->getWireByName(IdStringList::concat(x4y1, ctx->idf("SB_SML.P05.Y3_int")));
@@ -337,10 +333,8 @@ void route_mult_x1y2_upper_in1(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
         auto sb_sml_p02_d0 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_SML.P02.D0")));
         auto sb_sml_p02_y1 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_SML.P02.Y1_int")));
         auto sb_sml_p02_ydiag_int = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_SML.P02.YDIAG_int")));
-        auto sb_sml_p02_ydiag =
-                ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_SML.P02.YDIAG")));
-        auto sb_sml_p01_x23 =
-                ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_SML.P01.X23")));
+        auto sb_sml_p02_ydiag = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_SML.P02.YDIAG")));
+        auto sb_sml_p01_x23 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_SML.P01.X23")));
         auto sb_sml_p01_ydiag = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_SML.P01.YDIAG_int")));
         auto sb_sml_p01_y1_int = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_SML.P01.Y1_int")));
         auto sb_sml_p01_y1 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_SML.P01.Y1")));
@@ -365,10 +359,8 @@ void route_mult_x1y2_upper_in1(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
     } else {
         auto sb_big_p02_d0 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P02.D0")));
         auto sb_big_p02_y1 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P02.Y1")));
-        auto sb_big_p02_ydiag =
-                ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P02.YDIAG")));
-        auto sb_big_p01_x23 =
-                ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P01.X23")));
+        auto sb_big_p02_ydiag = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P02.YDIAG")));
+        auto sb_big_p01_x23 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P01.X23")));
         auto sb_big_p01_ydiag = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P01.YDIAG")));
         auto sb_big_p01_y1 = ctx->getWireByName(IdStringList::concat(x2y1, ctx->idf("SB_BIG.P01.Y1")));
         auto sb_sml_d2_1 = ctx->getWireByName(IdStringList::concat(x4y1, ctx->idf("SB_SML.P01.D2_1")));
@@ -414,7 +406,7 @@ void route_mult_x1y2_upper_in8(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
     if (bind_route_start) {
         ctx->bindWire(cpe_combout2, net, STRENGTH_LOCKED);
         find_and_bind_downhill_pip(ctx, cpe_combout2, cpe_out2_int, net);
-        find_and_bind_downhill_pip(ctx, cpe_out2_int,  cpe_out2, net);
+        find_and_bind_downhill_pip(ctx, cpe_out2_int, cpe_out2, net);
     }
 
     find_and_bind_downhill_pip(ctx, cpe_out2, out_mux_d1, net);
@@ -476,14 +468,10 @@ void route_mult_x2y1_lower(Context *ctx, NetInfo *net, CellInfo *lower, Loc loc,
     if (is_fourgroup_a) {
         auto sb_big_p07_d0 = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P07.D0")));
         auto sb_big_p07_y1 = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P07.Y1")));
-        auto sb_big_p07_ydiag =
-                ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P07.YDIAG")));
-        auto sb_big_p06_x23 =
-                ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P06.X23")));
-        auto sb_big_p06_ydiag =
-                ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P06.YDIAG")));
-        auto sb_big_p05_x23 =
-                ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P05.X23")));
+        auto sb_big_p07_ydiag = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P07.YDIAG")));
+        auto sb_big_p06_x23 = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P06.X23")));
+        auto sb_big_p06_ydiag = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P06.YDIAG")));
+        auto sb_big_p05_x23 = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P05.X23")));
         auto sb_big_p05_ydiag = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P05.YDIAG")));
         auto sb_big_p05_y1 = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P05.Y1")));
 
@@ -500,15 +488,11 @@ void route_mult_x2y1_lower(Context *ctx, NetInfo *net, CellInfo *lower, Loc loc,
         auto sb_sml_p07_d0 = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P07.D0")));
         auto sb_sml_p07_y1_int = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P07.Y1_int")));
         auto sb_sml_p07_ydiag_int = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P07.YDIAG_int")));
-        auto sb_sml_p07_ydiag =
-                ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P07.YDIAG")));
-        auto sb_sml_p06_x23 =
-                ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P06.X23")));
+        auto sb_sml_p07_ydiag = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P07.YDIAG")));
+        auto sb_sml_p06_x23 = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P06.X23")));
         auto sb_sml_p06_ydiag_int = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P06.YDIAG_int")));
-        auto sb_sml_p06_ydiag =
-                ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P06.YDIAG")));
-        auto sb_sml_p05_x23 =
-                ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P05.X23")));
+        auto sb_sml_p06_ydiag = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P06.YDIAG")));
+        auto sb_sml_p05_x23 = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P05.X23")));
         auto sb_sml_p05_ydiag_int = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P05.YDIAG_int")));
         auto sb_sml_p05_y1_int = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P05.Y1_int")));
         auto sb_sml_p05_y1 = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P05.Y1")));
@@ -551,14 +535,10 @@ void route_mult_x2y1_upper_in1(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
     if (is_fourgroup_a) {
         auto sb_big_p03_d0 = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P03.D0")));
         auto sb_big_p03_y1 = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P03.Y1")));
-        auto sb_big_p03_ydiag =
-                ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P03.YDIAG")));
-        auto sb_big_p02_x23 =
-                ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P02.X23")));
-        auto sb_big_p02_ydiag =
-                ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P02.YDIAG")));
-        auto sb_big_p01_x23 =
-                ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P01.X23")));
+        auto sb_big_p03_ydiag = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P03.YDIAG")));
+        auto sb_big_p02_x23 = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P02.X23")));
+        auto sb_big_p02_ydiag = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P02.YDIAG")));
+        auto sb_big_p01_x23 = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P01.X23")));
         auto sb_big_p01_ydiag = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P01.YDIAG")));
         auto sb_big_p01_y1 = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_BIG.P01.Y1")));
 
@@ -575,15 +555,11 @@ void route_mult_x2y1_upper_in1(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
         auto sb_sml_p03_d0 = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P03.D0")));
         auto sb_sml_p03_y1_int = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P03.Y1_int")));
         auto sb_sml_p03_ydiag_int = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P03.YDIAG_int")));
-        auto sb_sml_p03_ydiag =
-                ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P03.YDIAG")));
-        auto sb_sml_p02_x23 =
-                ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P02.X23")));
+        auto sb_sml_p03_ydiag = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P03.YDIAG")));
+        auto sb_sml_p02_x23 = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P02.X23")));
         auto sb_sml_p02_ydiag_int = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P02.YDIAG_int")));
-        auto sb_sml_p02_ydiag =
-                ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P02.YDIAG")));
-        auto sb_sml_p01_x23 =
-                ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P01.X23")));
+        auto sb_sml_p02_ydiag = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P02.YDIAG")));
+        auto sb_sml_p01_x23 = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P01.X23")));
         auto sb_sml_p01_ydiag_int = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P01.YDIAG_int")));
         auto sb_sml_p01_y1_int = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P01.Y1_int")));
         auto sb_sml_p01_y1 = ctx->getWireByName(IdStringList::concat(x0y1, ctx->idf("SB_SML.P01.Y1")));
@@ -687,20 +663,14 @@ void route_mult_x2y2_lower(Context *ctx, NetInfo *net, CellInfo *lower, Loc loc,
         auto sb_sml_p08_d0 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P08.D0")));
         auto sb_sml_p08_y1_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P08.Y1_int")));
         auto sb_sml_p08_ydiag_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P08.YDIAG_int")));
-        auto sb_sml_p08_ydiag =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P08.YDIAG")));
-        auto sb_sml_p07_x23 =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P07.X23")));
+        auto sb_sml_p08_ydiag = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P08.YDIAG")));
+        auto sb_sml_p07_x23 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P07.X23")));
         auto sb_sml_p07_ydiag_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P07.YDIAG_int")));
-        auto sb_sml_p07_ydiag =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P07.YDIAG")));
-        auto sb_sml_p06_x23 =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P06.X23")));
+        auto sb_sml_p07_ydiag = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P07.YDIAG")));
+        auto sb_sml_p06_x23 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P06.X23")));
         auto sb_sml_p06_ydiag_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P06.YDIAG_int")));
-        auto sb_sml_p06_ydiag =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P06.YDIAG")));
-        auto sb_sml_p05_x23 =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P05.X23")));
+        auto sb_sml_p06_ydiag = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P06.YDIAG")));
+        auto sb_sml_p05_x23 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P05.X23")));
         auto sb_sml_p05_ydiag_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P05.YDIAG_int")));
         auto sb_sml_p05_y1_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P05.Y1_int")));
         auto sb_sml_p05_y1 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P05.Y1")));
@@ -723,18 +693,12 @@ void route_mult_x2y2_lower(Context *ctx, NetInfo *net, CellInfo *lower, Loc loc,
     } else {
         auto sb_big_p08_d0 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P08.D0")));
         auto sb_big_p08_y1 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P08.Y1")));
-        auto sb_big_p08_ydiag =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P08.YDIAG")));
-        auto sb_big_p07_x23 =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P07.X23")));
-        auto sb_big_p07_ydiag =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P07.YDIAG")));
-        auto sb_big_p06_x23 =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P06.X23")));
-        auto sb_big_p06_ydiag =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P06.YDIAG")));
-        auto sb_big_p05_x23 =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P05.X23")));
+        auto sb_big_p08_ydiag = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P08.YDIAG")));
+        auto sb_big_p07_x23 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P07.X23")));
+        auto sb_big_p07_ydiag = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P07.YDIAG")));
+        auto sb_big_p06_x23 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P06.X23")));
+        auto sb_big_p06_ydiag = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P06.YDIAG")));
+        auto sb_big_p05_x23 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P05.X23")));
         auto sb_big_p05_ydiag = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P05.YDIAG")));
         auto sb_big_p05_y1 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P05.Y1")));
 
@@ -775,20 +739,14 @@ void route_mult_x2y2_upper_in1(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
         auto sb_sml_p04_d0 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P04.D0")));
         auto sb_sml_p04_y1_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P04.Y1_int")));
         auto sb_sml_p04_ydiag_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P04.YDIAG_int")));
-        auto sb_sml_p04_ydiag =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P04.YDIAG")));
-        auto sb_sml_p03_x23 =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P03.X23")));
+        auto sb_sml_p04_ydiag = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P04.YDIAG")));
+        auto sb_sml_p03_x23 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P03.X23")));
         auto sb_sml_p03_ydiag_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P03.YDIAG_int")));
-        auto sb_sml_p03_ydiag =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P03.YDIAG")));
-        auto sb_sml_p02_x23 =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P02.X23")));
+        auto sb_sml_p03_ydiag = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P03.YDIAG")));
+        auto sb_sml_p02_x23 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P02.X23")));
         auto sb_sml_p02_ydiag_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P02.YDIAG_int")));
-        auto sb_sml_p02_ydiag =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P02.YDIAG")));
-        auto sb_sml_p01_x23 =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P01.X23")));
+        auto sb_sml_p02_ydiag = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P02.YDIAG")));
+        auto sb_sml_p01_x23 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P01.X23")));
         auto sb_sml_p01_ydiag_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P01.YDIAG_int")));
         auto sb_sml_p01_y1_int = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P01.Y1_int")));
         auto sb_sml_p01_y1 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_SML.P01.Y1")));
@@ -811,18 +769,12 @@ void route_mult_x2y2_upper_in1(Context *ctx, NetInfo *net, CellInfo *upper, Loc 
     } else {
         auto sb_big_p04_d0 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P04.D0")));
         auto sb_big_p04_y1 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P04.Y1")));
-        auto sb_big_p04_ydiag =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P04.YDIAG")));
-        auto sb_big_p03_x23 =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P03.X23")));
-        auto sb_big_p03_ydiag =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P03.YDIAG")));
-        auto sb_big_p02_x23 =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P02.X23")));
-        auto sb_big_p02_ydiag =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P02.YDIAG")));
-        auto sb_big_p01_x23 =
-                ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P01.X23")));
+        auto sb_big_p04_ydiag = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P04.YDIAG")));
+        auto sb_big_p03_x23 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P03.X23")));
+        auto sb_big_p03_ydiag = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P03.YDIAG")));
+        auto sb_big_p02_x23 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P02.X23")));
+        auto sb_big_p02_ydiag = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P02.YDIAG")));
+        auto sb_big_p01_x23 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P01.X23")));
         auto sb_big_p01_ydiag = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P01.YDIAG")));
         auto sb_big_p01_y1 = ctx->getWireByName(IdStringList::concat(x1y1, ctx->idf("SB_BIG.P01.Y1")));
 
