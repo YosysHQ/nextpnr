@@ -161,7 +161,6 @@ void GateMateImpl::route_clock()
                 auto reserved = reserved_wires.find(dst);
                 if (reserved != reserved_wires.end() && reserved->second != clk_net->name)
                     continue;
-                auto pip_loc = ctx->getPipLocation(dh);
                 backtrace[dst] = dh;
                 auto delay =
                         ctx->getPipDelay(dh).maxDelay() + ctx->getWireDelay(dst).maxDelay() + ctx->getDelayEpsilon();
