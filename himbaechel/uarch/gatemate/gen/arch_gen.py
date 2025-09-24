@@ -233,8 +233,7 @@ def main():
                 new_wires[t_name].add(conn.name)
                 # Check to confirm no duplicates
                 if conn.name in wire_delay:
-                    if wire_delay[conn.name]!=conn.delay:
-                        print(conn.name, conn.delay)
+                    assert wire_delay[conn.name] == conn.delay, f"conflict delay {conn.name}"
                 wire_delay[conn.name] = conn.delay
 
     for type_name in sorted(die.get_tile_type_list()):
