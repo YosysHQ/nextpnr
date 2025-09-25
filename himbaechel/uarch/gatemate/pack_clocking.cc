@@ -772,13 +772,18 @@ void GateMatePacker::copy_clocks()
             }
             // Copy GLBOUT inputs
             for (int i = 0; i < 4; i++) {
+                Loc new_loc = uarch->locations[std::make_pair(id_GLBOUT, new_die)];
                 // Plain copy of user signals
                 NetInfo *net = uarch->glbout[0]->getPort(ctx->idf("USR_GLB%d", i));
                 if (net)
-                    uarch->glbout[new_die]->connectPort(ctx->idf("USR_GLB%d", i), net);
+                    rewire_ram_o(uarch->glbout[0], ctx->idf("USR_GLB%d", i), uarch->glbout[new_die]);
+
                 net = uarch->glbout[0]->getPort(ctx->idf("USR_FB%d", i));
                 if (net)
-                    uarch->glbout[new_die]->connectPort(ctx->idf("USR_FB%d", i), net);
+                    rewire_ram_o(uarch->glbout[0], ctx->idf("USR_FB%d", i), uarch->glbout[new_die]);
+
+                move_ram_o_fixed(uarch->glbout[new_die], ctx->idf("USR_GLB%d", i), new_loc);
+                move_ram_o_fixed(uarch->glbout[new_die], ctx->idf("USR_FB%d", i), new_loc);
 
                 if (uarch->glbout[0]->getPort(ctx->idf("CLK_REF_OUT%d", i)))
                     uarch->clkin[new_die]->connectPorts(ctx->idf("CLK_REF%d", i), uarch->glbout[new_die],
