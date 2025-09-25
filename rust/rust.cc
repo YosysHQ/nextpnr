@@ -17,7 +17,8 @@
  */
 
 #include <array>
-#include <numeric>
+#include "arch.h"
+#include "context.h"
 #include "log.h"
 #include "nextpnr.h"
 
@@ -77,6 +78,12 @@ using PipIterWrapper = IterWrapper<PipIter>;
 
 using WireIter = decltype(Context(ArchArgs()).getWires().begin());
 using WireIterWrapper = IterWrapper<WireIter>;
+
+using NetIter = decltype(Context(ArchArgs()).nets.begin());
+using NetIterWrapper = IterWrapper<NetIter>;
+
+using CellIter = decltype(Context(ArchArgs()).cells.begin());
+using CellIterWrapper = IterWrapper<CellIter>;
 
 extern "C" {
 USING_NEXTPNR_NAMESPACE;
@@ -150,21 +157,6 @@ uint64_t npnr_context_get_netinfo_sink_wire(const Context *ctx, const NetInfo *n
     return wrap(ctx->getNetinfoSinkWire(net, *sink, n));
 }
 
-uint32_t npnr_context_nets_leak(const Context *ctx, int **names, NetInfo ***nets)
-{
-    auto size = ctx->nets.size();
-    *names = new int[size];
-    *nets = new NetInfo *[size];
-    auto idx = 0;
-    for (auto &item : ctx->nets) {
-        (*names)[idx] = item.first.index;
-        (*nets)[idx] = item.second.get();
-        idx++;
-    }
-    // Yes, by never deleting `names` and `nets` we leak memory.
-    return size;
-}
-
 DownhillIterWrapper *npnr_context_get_pips_downhill(Context *ctx, uint64_t wire_id)
 {
     auto wire = unwrap_wire(wire_id);
@@ -216,6 +208,26 @@ void npnr_delete_wire_iter(WireIterWrapper *iter) { delete iter; }
 void npnr_inc_wire_iter(WireIterWrapper *iter) { ++iter->current; }
 uint64_t npnr_deref_wire_iter(WireIterWrapper *iter) { return wrap(*iter->current); }
 bool npnr_is_wire_iter_done(WireIterWrapper *iter) { return !(iter->current != iter->end); }
+
+NetIterWrapper *npnr_context_net_iter(Context *ctx)
+{
+    return new NetIterWrapper(ctx->nets.begin(), ctx->nets.end());
+}
+void npnr_delete_net_iter(NetIterWrapper *iter) { delete iter; }
+void npnr_inc_net_iter(NetIterWrapper *iter) { ++iter->current; }
+int npnr_deref_net_iter_first(NetIterWrapper *iter) { return wrap(iter->current->first.index); }
+NetInfo *npnr_deref_net_iter_second(NetIterWrapper *iter) { return iter->current->second.get(); }
+bool npnr_is_net_iter_done(NetIterWrapper *iter) { return !(iter->current != iter->end); }
+
+CellIterWrapper *npnr_context_cell_iter(Context *ctx)
+{
+    return new CellIterWrapper(ctx->cells.begin(), ctx->cells.end());
+}
+void npnr_delete_cell_iter(CellIterWrapper *iter) { delete iter; }
+void npnr_inc_cell_iter(CellIterWrapper *iter) { ++iter->current; }
+int npnr_deref_cell_iter_first(CellIterWrapper *iter) { return wrap(iter->current->first.index); }
+CellInfo *npnr_deref_cell_iter_second(CellIterWrapper *iter) { return iter->current->second.get(); }
+bool npnr_is_cell_iter_done(CellIterWrapper *iter) { return !(iter->current != iter->end); }
 
 PortRef *npnr_netinfo_driver(NetInfo *net)
 {
