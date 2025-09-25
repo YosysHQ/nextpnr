@@ -41,7 +41,6 @@ void GateMatePacker::sort_bufg()
 
     log_info("Sort BUFGs..\n");
     std::vector<ItemBufG> bufg;
-    int count = 0;
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_BUFG))
@@ -59,12 +58,11 @@ void GateMatePacker::sort_bufg()
             packed_cells.emplace(ci.name); // Remove if no output
             continue;
         }
-        count++;
         bufg.push_back(ItemBufG(&ci, o_net->users.entries()));
     }
 
-    if (count > 4) { // uarch->dies * 4
-        log_warning("More than %d BUFG used. Those with highest fan-out will be used.\n", 4);
+    if (bufg.size() > 4) {
+        log_warning("More than 4 BUFG used. Those with highest fan-out will be used.\n");
         std::sort(bufg.begin(), bufg.end(), [](const ItemBufG &a, const ItemBufG &b) { return a.fan_out > b.fan_out; });
         for (size_t i = 4; i < bufg.size(); i++) {
             log_warning("Removing BUFG cell %s.\n", bufg.at(i).cell->name.c_str(ctx));
