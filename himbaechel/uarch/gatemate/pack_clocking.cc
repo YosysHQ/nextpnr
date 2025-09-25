@@ -757,6 +757,7 @@ void GateMatePacker::reassign_clocks()
         int index = glob.second;
         int drv_die = uarch->tile_extra_data(net->driver.cell->bel.tile)->die;
         auto users = net->users; // make a copy
+        int count = 0;
         for (auto &user : users) {
             int cell_die = uarch->tile_extra_data(user.cell->bel.tile)->die;
             if (cell_die != drv_die) {
@@ -768,8 +769,11 @@ void GateMatePacker::reassign_clocks()
                 }
                 user.cell->disconnectPort(user.port);
                 user.cell->connectPort(user.port, new_bufg[cell_die][index]);
+                count++;
             }
         }
+        if (count)
+            log_info("    reassign %d net '%s' users\n", count, net->name.c_str(ctx));
     }
 }
 
