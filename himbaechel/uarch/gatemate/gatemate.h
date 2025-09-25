@@ -90,7 +90,7 @@ struct GateMateImpl : HimbaechelAPI
     std::vector<bool> used_cpes;
     int fpga_mode;
     int timing_mode;
-    std::map<NetInfo *, int> global_signals;
+    std::map<const NetInfo *, int> global_signals;
     std::vector<CellInfo *> clkin;
     std::vector<CellInfo *> glbout;
     std::vector<CellInfo *> pll;
@@ -126,6 +126,7 @@ struct GateMateImpl : HimbaechelAPI
     std::map<BelId, std::map<IdString, const GateMateBelPinConstraintPOD *>> pin_to_constr;
     std::map<IdString, const GateMateTimingExtraDataPOD *> timing;
     dict<IdString, int> ram_signal_clk;
+    bool force_die;
 };
 
 NEXTPNR_NAMESPACE_END
