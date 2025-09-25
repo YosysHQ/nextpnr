@@ -77,6 +77,7 @@ struct GateMatePacker
     void dff_update_params();
     void disconnect_if_gnd(CellInfo *cell, IdString input);
     void pll_out(CellInfo *cell, IdString origPort, Loc fixed);
+    void rewire_ram_o(CellInfo *first, IdString port, CellInfo *second);
 
     void disconnect_not_used();
     void optimize_lut();

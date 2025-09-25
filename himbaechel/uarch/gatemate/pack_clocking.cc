@@ -646,6 +646,36 @@ void GateMatePacker::pack_pll()
     }
 }
 
+void GateMatePacker::rewire_ram_o(CellInfo *first, IdString port, CellInfo *second)
+{
+    NetInfo *net = first->getPort(port);
+    if (net && net->driver.cell) {
+        net = net->driver.cell->getPort(id_I);
+        if (net && net->driver.cell) {
+            uint8_t val = int_or_default(net->driver.cell->params, id_INIT_L00, 0);
+            switch (val) {
+            case LUT_ZERO:
+                net = net_PACKER_GND;
+                break;
+            case LUT_ONE:
+                net = net_PACKER_VCC;
+                break;
+            case LUT_D0:
+                net = net->driver.cell->getPort(id_IN1);
+                break;
+            default:
+                log_error("Unsupported config, rewire from '%s' port '%s'\n", first->name.c_str(ctx), port.c_str(ctx));
+                break;
+            }
+            second->connectPort(port, net);
+        } else {
+            log_error("Missing cell, rewire from '%s' port '%s'\n", first->name.c_str(ctx), port.c_str(ctx));
+        }
+    } else {
+        log_error("Missing cell, rewire from '%s' port '%s'\n", first->name.c_str(ctx), port.c_str(ctx));
+    }
+}
+
 void GateMatePacker::copy_clocks()
 {
     if (uarch->dies == 1)
@@ -729,6 +759,15 @@ void GateMatePacker::copy_clocks()
                         pll_new->connectPorts(id_CLK180, uarch->glbout[new_die], ctx->idf("CLK180_%d", i));
                     if (pll->getPort(id_CLK270))
                         pll_new->connectPorts(id_CLK270, uarch->glbout[new_die], ctx->idf("CLK270_%d", i));
+                    if (pll->getPort(id_USR_LOCKED_STDY_RST))
+                        rewire_ram_o(pll, id_USR_LOCKED_STDY_RST, pll_new);
+                    if (pll->getPort(id_USR_CLK_REF))
+                        rewire_ram_o(pll, id_USR_CLK_REF, pll_new);
+                    if (pll->getPort(id_USR_SEL_A_B))
+                        rewire_ram_o(pll, id_USR_SEL_A_B, pll_new);
+                    move_ram_o_fixed(pll_new, id_USR_LOCKED_STDY_RST, new_loc);
+                    move_ram_o_fixed(pll_new, id_USR_CLK_REF, new_loc);
+                    move_ram_o_fixed(pll_new, id_USR_SEL_A_B, new_loc);
                 }
             }
             // Copy GLBOUT inputs
