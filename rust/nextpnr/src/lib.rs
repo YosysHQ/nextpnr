@@ -1,5 +1,4 @@
-use core::slice;
-use std::{collections::HashMap, ffi::CStr, marker::PhantomData, sync::Mutex};
+use std::{ffi::CStr, marker::PhantomData, sync::Mutex};
 
 use libc::c_char;
 
@@ -392,6 +391,11 @@ impl Context {
     pub fn verbose(&self) -> bool {
         unsafe { npnr_context_verbose(self) }
     }
+
+    #[must_use]
+    pub fn nets(&self) -> Nets<'_> {
+        Nets { ctx: self }
+    }
 }
 
 unsafe extern "C" {
@@ -455,12 +459,6 @@ unsafe extern "C" {
         n: u32,
     ) -> WireId;
 
-    fn npnr_context_nets_leak(
-        ctx: &Context,
-        names: *mut *mut libc::c_int,
-        nets: *mut *mut *mut NetInfo,
-    ) -> u32;
-
     fn npnr_netinfo_driver(net: &mut NetInfo) -> Option<&mut PortRef>;
     fn npnr_netinfo_users_leak(net: &NetInfo, users: *mut *mut *const PortRef) -> u32;
     fn npnr_netinfo_is_global(net: &NetInfo) -> bool;
@@ -499,94 +497,54 @@ unsafe extern "C" {
     fn npnr_inc_wire_iter(iter: &mut RawWireIter);
     fn npnr_deref_wire_iter(iter: &mut RawWireIter) -> WireId;
     fn npnr_is_wire_iter_done(iter: &mut RawWireIter) -> bool;
+
+    fn npnr_context_net_iter(ctx: &Context) -> &mut RawNetIter;
+    fn npnr_delete_net_iter(iter: &mut RawNetIter);
+    fn npnr_inc_net_iter(iter: &mut RawNetIter);
+    fn npnr_deref_net_iter_first(iter: &RawNetIter) -> libc::c_int;
+    fn npnr_deref_net_iter_second(iter: &RawNetIter) -> &mut NetInfo;
+    fn npnr_is_net_iter_done(iter: &RawNetIter) -> bool;
+
+    fn npnr_context_cell_iter(ctx: &Context) -> &mut RawCellIter;
+    fn npnr_delete_cell_iter(iter: &mut RawCellIter);
+    fn npnr_inc_cell_iter(iter: &mut RawCellIter);
+    fn npnr_deref_cell_iter_first(iter: &mut RawCellIter) -> libc::c_int;
+    fn npnr_deref_cell_iter_second(iter: &mut RawCellIter) -> &mut CellInfo;
+    fn npnr_is_cell_iter_done(iter: &mut RawCellIter) -> bool;
 }
 
 /// Store for the nets of a context.
 pub struct Nets<'a> {
-    nets: HashMap<IdString, &'a mut NetInfo>,
-    users: HashMap<IdString, &'a [&'a PortRef]>,
-    index_to_net: Vec<IdString>,
-    _data: PhantomData<&'a Context>,
+    ctx: &'a Context,
 }
 
-impl<'a> Nets<'a> {
-    /// Create a new store for the nets of a context.
-    ///
-    /// Note that this leaks memory created by nextpnr; the intention is this is called once.
-    #[must_use]
-    pub fn new(ctx: &'a Context) -> Self {
-        let mut names: *mut libc::c_int = std::ptr::null_mut();
-        let mut nets_ptr: *mut *mut NetInfo = std::ptr::null_mut();
-        let size = unsafe {
-            npnr_context_nets_leak(
-                ctx,
-                &raw mut names,
-                &raw mut nets_ptr,
-            )
-        };
-        let mut nets = HashMap::new();
-        let mut users = HashMap::new();
-        let mut index_to_net = Vec::new();
-        for i in 0..size {
-            let name = unsafe { IdString(*names.add(i as usize)) };
-            let net = unsafe { &mut **nets_ptr.add(i as usize) };
-            let mut users_ptr = std::ptr::null_mut();
-            // SAFETY: net is not null because it's a &mut, and users is only written to.
-            // Leaking memory is the most convenient FFI I could think of.
-            let len =
-                unsafe { npnr_netinfo_users_leak(net, &raw mut users_ptr) };
-            let users_slice =
-                unsafe { slice::from_raw_parts(users_ptr.cast::<&PortRef>(), len as usize) };
-            let index = index_to_net.len() as i32;
-            index_to_net.push(name);
-            unsafe {
-                npnr_netinfo_udata_set(net, NetIndex(index));
-            }
-            nets.insert(name, net);
-            users.insert(name, users_slice);
-        }
-        // Note: the contents of `names` and `nets_ptr` are now lost.
-        Self {
-            nets,
-            users,
-            index_to_net,
-            _data: PhantomData,
+impl<'a> IntoIterator for &'a Nets<'a> {
+    type Item = (IdString, *const NetInfo);
+
+    type IntoIter = NetIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        NetIter {
+            iter: unsafe { npnr_context_net_iter(self.ctx) },
+            phantom_data: PhantomData,
         }
     }
+}
 
-    /// Find net users given a net's name.
-    #[must_use]
-    pub fn users_by_name(&self, net: IdString) -> Option<&&[&PortRef]> {
-        self.users.get(&net)
-    }
+pub struct Cells<'a> {
+    ctx: &'a Context,
+}
 
-    /// Return the number of nets in the store.
-    #[must_use]
-    pub fn len(&self) -> usize {
-        self.nets.len()
-    }
+impl<'a> IntoIterator for &'a Cells<'a> {
+    type Item = (IdString, *const CellInfo);
 
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.nets.len() == 0
-    }
+    type IntoIter = CellIter<'a>;
 
-    #[must_use]
-    pub fn name_from_index(&self, index: NetIndex) -> IdString {
-        self.index_to_net[index.0 as usize]
-    }
-
-    #[must_use]
-    pub fn net_from_index(&self, index: NetIndex) -> &NetInfo {
-        self.nets.get(&self.name_from_index(index)).unwrap()
-    }
-
-    #[must_use]
-    pub fn to_vec(&self) -> Vec<(&IdString, &&mut NetInfo)> {
-        let mut v = Vec::new();
-        v.extend(self.nets.iter());
-        v.sort_by_key(|(name, _net)| name.0);
-        v
+    fn into_iter(self) -> Self::IntoIter {
+        CellIter {
+            iter: unsafe { npnr_context_cell_iter(self.ctx) },
+            phantom_data: PhantomData,
+        }
     }
 }
 
@@ -758,6 +716,68 @@ impl Iterator for WireIter<'_> {
 impl Drop for WireIter<'_> {
     fn drop(&mut self) {
         unsafe { npnr_delete_wire_iter(self.iter) };
+    }
+}
+
+#[repr(C)]
+struct RawNetIter {
+    content: [u8; 0],
+}
+
+pub struct NetIter<'a> {
+    iter: &'a mut RawNetIter,
+    phantom_data: PhantomData<&'a NetInfo>,
+}
+
+impl Iterator for NetIter<'_> {
+    type Item = (IdString, *const NetInfo);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if unsafe { npnr_is_net_iter_done(self.iter) } {
+            None
+        } else {
+            let s = IdString(unsafe { npnr_deref_net_iter_first(self.iter) });
+            let net = unsafe { &raw const *npnr_deref_net_iter_second(self.iter) };
+            unsafe { npnr_inc_net_iter(self.iter) };
+            Some((s, net))
+        }
+    }
+}
+
+impl Drop for NetIter<'_> {
+    fn drop(&mut self) {
+        unsafe { npnr_delete_net_iter(self.iter) };
+    }
+}
+
+#[repr(C)]
+struct RawCellIter {
+    content: [u8; 0],
+}
+
+pub struct CellIter<'a> {
+    iter: &'a mut RawCellIter,
+    phantom_data: PhantomData<&'a CellInfo>,
+}
+
+impl Iterator for CellIter<'_> {
+    type Item = (IdString, *const CellInfo);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if unsafe { npnr_is_cell_iter_done(self.iter) } {
+            None
+        } else {
+            let s = IdString(unsafe { npnr_deref_cell_iter_first(self.iter) });
+            let cell = unsafe { &raw const *npnr_deref_cell_iter_second(self.iter) };
+            unsafe { npnr_inc_cell_iter(self.iter) };
+            Some((s, cell))
+        }
+    }
+}
+
+impl Drop for CellIter<'_> {
+    fn drop(&mut self) {
+        unsafe { npnr_delete_cell_iter(self.iter) };
     }
 }
 
