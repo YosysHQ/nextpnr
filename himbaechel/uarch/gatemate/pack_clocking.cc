@@ -270,7 +270,11 @@ void GateMatePacker::pack_bufg()
                 auto pad_info = uarch->bel_to_pad[clk->driver.cell->bel];
                 uarch->clkin[die]->params[ctx->idf("REF%d", i)] = Property(pad_info->flags - 1, 3);
                 uarch->clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
-                ci.movePortTo(id_CLK_REF, uarch->clkin[die], ctx->idf("CLK%d", pad_info->flags - 1));
+                int index = pad_info->flags - 1;
+                if (!uarch->clkin[die]->getPort(ctx->idf("CLK%d", index)))
+                    ci.movePortTo(id_CLK_REF, uarch->clkin[die], ctx->idf("CLK%d", index));
+                else
+                    ci.disconnectPort(id_CLK_REF);
             } else {
                 // SER_CLK
                 uarch->clkin[die]->params[ctx->idf("REF%d", i)] = Property(0b100, 3);
