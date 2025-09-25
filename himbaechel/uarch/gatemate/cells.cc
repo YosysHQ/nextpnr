@@ -127,6 +127,9 @@ CellInfo *GateMatePacker::create_cell_ptr(IdString type, IdString name)
         add_port(id_I, PORT_IN);
     } else if (type.in(id_PLL)) {
         add_port(id_CLK_REF, PORT_IN);
+        add_port(id_USR_CLK_REF, PORT_IN);
+        add_port(id_USR_SEL_A_B, PORT_IN);
+        add_port(id_CLK_FEEDBACK, PORT_IN);
         add_port(id_CLK0, PORT_OUT);
         add_port(id_CLK90, PORT_OUT);
         add_port(id_CLK180, PORT_OUT);
