@@ -98,7 +98,7 @@ void GateMatePacker::disconnect_not_used()
     }
 }
 
-void GateMatePacker::copy_constraint(NetInfo *in_net, NetInfo *out_net)
+void GateMatePacker::copy_constraint(const NetInfo *in_net, NetInfo *out_net)
 {
     if (!in_net || !out_net)
         return;
@@ -399,6 +399,7 @@ void GateMateImpl::pack()
     packer.pack_mult();
     packer.pack_addf();
     packer.pack_cpe();
+    packer.copy_clocks();
     packer.remove_constants();
 }
 
@@ -407,6 +408,7 @@ void GateMateImpl::repack()
     GateMatePacker packer(ctx, this);
     packer.repack_ram();
     packer.repack_cpe();
+    packer.reassign_clocks();
     packer.remove_clocking();
 }
 

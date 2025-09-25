@@ -63,11 +63,10 @@ void GateMatePacker::sort_bufg()
         bufg.push_back(ItemBufG(&ci, o_net->users.entries()));
     }
 
-    if (count > (uarch->dies * 4)) {
-        // log_error("More than %d BUFG used. Unable to place them.\n", uarch->dies * 4);
-        log_warning("More than 4 BUFG used. Those with highest fan-out will be used.\n");
+    if (count > 4) { // uarch->dies * 4
+        log_warning("More than %d BUFG used. Those with highest fan-out will be used.\n", 4);
         std::sort(bufg.begin(), bufg.end(), [](const ItemBufG &a, const ItemBufG &b) { return a.fan_out > b.fan_out; });
-        for (size_t i = (uarch->dies * 4); i < bufg.size(); i++) {
+        for (size_t i = 4; i < bufg.size(); i++) {
             log_warning("Removing BUFG cell %s.\n", bufg.at(i).cell->name.c_str(ctx));
             CellInfo *cell = bufg.at(i).cell;
             NetInfo *i_net = cell->getPort(id_I);
@@ -98,7 +97,7 @@ void GateMatePacker::pack_bufg()
     sort_bufg();
 
     log_info("Packing BUFGs..\n");
-    auto update_bufg_port = [&](CellInfo *bufg[4], CellInfo *cell, int port_num, int pll_num) {
+    auto update_bufg_port = [&](std::vector<CellInfo *> &bufg, CellInfo *cell, int port_num, int pll_num) {
         CellInfo *b = net_only_drives(ctx, cell->getPort(ctx->idf("CLK%d", 90 * port_num)), is_bufg, id_I, false);
         if (b) {
             if (bufg[port_num] == nullptr) {
@@ -116,51 +115,50 @@ void GateMatePacker::pack_bufg()
         return true;
     };
 
-    unsigned max_plls = 4;
+    unsigned max_plls = 4; // * uarch->dies;
     // Index vector for permutation
     std::vector<unsigned> indexes(max_plls);
     for (unsigned i = 0; i < max_plls; ++i)
         indexes[i] = i;
 
-    CellInfo *bufg[4] = {nullptr};
-
+    std::vector<CellInfo *> bufg(max_plls, nullptr);
+    std::vector<CellInfo *> pll(max_plls, nullptr);
+    pool<IdString> used_bufg;
     bool valid = true;
     do {
         valid = true;
-        CellInfo *tmp_bufg[4] = {nullptr};
+        std::vector<std::vector<CellInfo *>> tmp_bufg(uarch->dies, std::vector<CellInfo *>(4, nullptr));
         for (unsigned i = 0; i < max_plls; ++i) {
             if (indexes[i] < uarch->pll.size()) {
                 for (int j = 0; j < 4; j++)
-                    valid &= update_bufg_port(tmp_bufg, uarch->pll[indexes[i]], j, i);
+                    valid &= update_bufg_port(tmp_bufg[i >> 2], uarch->pll[indexes[i]], j, i & 3);
             }
         }
         if (valid) {
-            std::copy(std::begin(tmp_bufg), std::end(tmp_bufg), std::begin(bufg));
+            for (unsigned i = 0; i < max_plls; ++i) {
+                bufg[i] = tmp_bufg[i >> 2][i & 3];
+                if (bufg[i])
+                    used_bufg.insert(bufg[i]->name);
+                if (indexes[i] < uarch->pll.size())
+                    pll[i] = uarch->pll[indexes[i]];
+            }
             break;
         }
     } while (std::next_permutation(indexes.begin(), indexes.end()));
     if (!valid)
         log_error("Unable to place PLLs and BUFGs\n");
 
-    std::vector<int> pll_index(uarch->dies);
-    for (auto &cell : uarch->pll) {
-        int die = uarch->preferred_die;
-        CellInfo &ci = *cell;
+    for (unsigned i = 0; i < max_plls; ++i) {
 
-        NetInfo *clk = ci.getPort(id_CLK_REF);
-        if (clk && clk->driver.cell) { // Only for GPIO pins
-            if (ctx->getBelBucketForCellType(clk->driver.cell->type) == id_IOSEL) {
-                auto pad_info = uarch->bel_to_pad[clk->driver.cell->bel];
-                if (pad_info->flags != 0) {
-                    die = uarch->tile_extra_data(clk->driver.cell->bel.tile)->die;
-                }
-            }
-        }
+        int die = i >> 2;
+        if (!pll[i])
+            continue;
+        CellInfo &ci = *pll[i];
         ci.cluster = ci.name;
         ci.constr_abs_z = true;
-        ci.constr_z = 2 + pll_index[die]; // Position to a proper Z location
+        ci.constr_z = 2 + (i & 3); // Position to a proper Z location
 
-        Loc fixed_loc = uarch->locations[std::make_pair(ctx->idf("PLL%d", pll_index[die]), die)];
+        Loc fixed_loc = uarch->locations[std::make_pair(ctx->idf("PLL%d", i & 3), die)];
         BelId pll_bel = ctx->getBelByLocation(fixed_loc);
         ctx->bindBel(pll_bel, &ci, PlaceStrength::STRENGTH_FIXED);
 
@@ -174,40 +172,21 @@ void GateMatePacker::pack_bufg()
         move_ram_o_fixed(&ci, id_USR_LOCKED_STDY_RST, fixed_loc);
         move_ram_o_fixed(&ci, id_USR_CLK_REF, fixed_loc);
         move_ram_o_fixed(&ci, id_USR_SEL_A_B, fixed_loc);
-        pll_index[die]++;
     }
 
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_BUFG))
             continue;
+        if (used_bufg.count(cell.second->name))
+            continue;
 
         NetInfo *in_net = ci.getPort(id_I);
-        int die = uarch->preferred_die;
         if (in_net) {
-            if (in_net->driver.cell) {
-                if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_IOSEL) {
-                    auto pad_info = uarch->bel_to_pad[in_net->driver.cell->bel];
-                    if (pad_info->flags) {
-                        int index = pad_info->flags - 1;
-                        die = uarch->tile_extra_data(in_net->driver.cell->bel.tile)->die;
-                        if (!uarch->clkin[die]->getPort(ctx->idf("CLK%d", index))) {
-                            uarch->clkin[die]->connectPort(ctx->idf("CLK%d", index),
-                                                           in_net->driver.cell->getPort(id_Y));
-                        }
-                    }
-                }
-            } else {
-                // SER_CLK
-                uarch->clkin[die]->connectPort(id_SER_CLK, in_net);
-            }
-
-            copy_constraint(in_net, ci.getPort(id_O));
-
             if ((in_net->driver.cell && ctx->getBelBucketForCellType(in_net->driver.cell->type) != id_PLL) ||
                 !in_net->driver.cell) {
-                for (int i = 0; i < 4; i++) {
-                    if (bufg[i] == nullptr) {
+                for (unsigned i = 0; i < max_plls; ++i) {
+                    if (bufg[i] == nullptr && pll[i] == nullptr) { // PLL must not be used
                         bufg[i] = &ci;
                         break;
                     }
@@ -216,23 +195,29 @@ void GateMatePacker::pack_bufg()
         }
     }
 
-    for (int i = 0; i < 4; i++) {
-        if (bufg[i]) {
-            CellInfo &ci = *bufg[i];
-            uarch->global_signals.emplace(ci.getPort(id_O), i);
+    for (unsigned j = 0; j < max_plls; ++j) {
+        if (bufg[j]) {
+            CellInfo &ci = *bufg[j];
+            int i = j & 3;
+            int die = j >> 2;
+            uarch->global_signals.emplace(ci.getPort(id_O), j);
             int glb_mux = 0;
             NetInfo *in_net = ci.getPort(id_I);
-            int die = uarch->preferred_die;
+            copy_constraint(in_net, ci.getPort(id_O));
             if (in_net->driver.cell) {
                 bool user_glb = true;
                 if (ctx->getBelBucketForCellType(in_net->driver.cell->type) == id_IOSEL) {
                     auto pad_info = uarch->bel_to_pad[in_net->driver.cell->bel];
                     if (pad_info->flags) {
-                        die = uarch->tile_extra_data(in_net->driver.cell->bel.tile)->die;
                         uarch->clkin[die]->params[ctx->idf("REF%d", i)] = Property(pad_info->flags - 1, 3);
                         uarch->clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
                         uarch->clkin[die]->connectPorts(ctx->idf("CLK_REF%d", i), uarch->glbout[die],
                                                         ctx->idf("CLK_REF_OUT%d", i));
+                        int index = pad_info->flags - 1;
+                        if (!uarch->clkin[die]->getPort(ctx->idf("CLK%d", index))) {
+                            uarch->clkin[die]->connectPort(ctx->idf("CLK%d", index),
+                                                           in_net->driver.cell->getPort(id_Y));
+                        }
                         user_glb = false;
                     }
                 }
@@ -263,6 +248,7 @@ void GateMatePacker::pack_bufg()
                 }
             } else {
                 // SER_CLK
+                uarch->clkin[die]->connectPort(id_SER_CLK, in_net);
                 uarch->clkin[die]->params[ctx->idf("REF%d", i)] = Property(0b100, 3);
                 uarch->clkin[die]->params[ctx->idf("REF%d_INV", i)] = Property(Property::State::S0);
                 uarch->clkin[die]->connectPorts(ctx->idf("CLK_REF%d", i), uarch->glbout[die],
@@ -305,6 +291,8 @@ void GateMatePacker::pack_bufg()
                 uarch->glbout[die]->params[ctx->idf("USR_FB%d_EN", i)] = Property(Property::State::S1);
             } else {
                 int index = uarch->global_signals[feedback_net];
+                if ((index >> 2) != die)
+                    log_error("TODO: Feedback signal from another die.\n");
                 uarch->glbout[die]->params[ctx->idf("FB%d_CFG", i)] = Property(index, 2);
                 ci.disconnectPort(id_CLK_FEEDBACK);
             }
@@ -653,6 +641,137 @@ void GateMatePacker::pack_pll()
         ci.type = id_PLL;
 
         uarch->pll.push_back(&ci);
+    }
+}
+
+void GateMatePacker::copy_clocks()
+{
+    if (uarch->dies == 1)
+        return;
+    log_info("Copy clocks..\n");
+
+    // Save first CLKIN inputs
+    std::vector<CellInfo *> clk_iosel(4, nullptr);
+    bool use_ser_clk = false;
+    for (int i = 0; i < 4; i++) {
+        NetInfo *in_net = uarch->clkin[0]->getPort(ctx->idf("CLK%d", i));
+        if (in_net) {
+            if (in_net->driver.cell)
+                clk_iosel[i] = in_net->driver.cell;
+            else
+                use_ser_clk = true;
+        }
+        uarch->clkin[0]->disconnectPort(ctx->idf("CLK%d", i));
+    }
+
+    for (int new_die = 0; new_die < uarch->dies; new_die++) {
+        // Reconnect CLKIN and create appropriate GPIO and IOSEL cells
+        for (int i = 0; i < 4; i++) {
+            if (clk_iosel[i]) {
+                CellInfo *iosel = clk_iosel[i];
+                auto pad_info = uarch->bel_to_pad[iosel->bel];
+                Loc l = uarch->locations[std::make_pair(IdString(pad_info->package_pin), new_die)];
+                CellInfo *iosel_new = ctx->getBoundBelCell(ctx->getBelByLocation(l));
+                if (!iosel_new) {
+                    iosel_new = create_cell_ptr(iosel->type, ctx->idf("%s$die%d", iosel->name.c_str(ctx), new_die));
+                    iosel_new->params = iosel->params;
+                    ctx->bindBel(ctx->getBelByLocation(l), iosel_new, PlaceStrength::STRENGTH_FIXED);
+
+                    CellInfo *gpio = iosel->getPort(id_GPIO_IN)->driver.cell;
+                    CellInfo *gpio_new =
+                            create_cell_ptr(gpio->type, ctx->idf("%s$die%d", gpio->name.c_str(ctx), new_die));
+                    gpio_new->params = gpio->params;
+                    ctx->bindBel(ctx->getBelByLocation({l.x, l.y, 0}), gpio_new, PlaceStrength::STRENGTH_FIXED);
+
+                    // Duplicate input connection
+                    gpio_new->connectPort(id_I, gpio->getPort(id_I));
+                    // Connect IOSEL and CPE_IBUF
+                    gpio_new->connectPorts(id_Y, iosel_new, id_GPIO_IN);
+                }
+                if (iosel_new->getPort(id_IN1))
+                    uarch->clkin[new_die]->connectPort(ctx->idf("CLK%d", i), iosel_new->getPort(id_IN1));
+                else
+                    iosel_new->connectPorts(id_IN1, uarch->clkin[new_die], ctx->idf("CLK%d", i));
+            }
+        }
+        if (use_ser_clk)
+            uarch->clkin[new_die]->connectPort(id_SER_CLK, net_SER_CLK);
+
+        if (new_die != 0) {
+            // Copy configuration from first die to other dies
+            uarch->clkin[new_die]->params = uarch->clkin[0]->params;
+            uarch->glbout[new_die]->params = uarch->glbout[0]->params;
+
+            // Copy PLLs
+            for (int i = 0; i < 4; i++) {
+                Loc fixed_loc = uarch->locations[std::make_pair(ctx->idf("PLL%d", i), 0)];
+                BelId pll_bel = ctx->getBelByLocation(fixed_loc);
+                CellInfo *pll = ctx->getBoundBelCell(pll_bel);
+                if (pll) {
+                    // Create new PLL
+                    CellInfo *pll_new = create_cell_ptr(pll->type, ctx->idf("%s$die%d", pll->name.c_str(ctx), new_die));
+                    pll_new->params = pll->params;
+                    // Bind to new location
+                    Loc new_loc = uarch->locations[std::make_pair(ctx->idf("PLL%d", i), new_die)];
+                    BelId bel = ctx->getBelByLocation(new_loc);
+                    ctx->bindBel(bel, pll_new, PlaceStrength::STRENGTH_FIXED);
+
+                    if (pll->getPort(id_CLK_REF))
+                        uarch->clkin[new_die]->connectPorts(ctx->idf("CLK_REF%d", i), pll_new, id_CLK_REF);
+
+                    if (pll->getPort(id_CLK0))
+                        pll_new->connectPorts(id_CLK0, uarch->glbout[new_die], ctx->idf("CLK0_%d", i));
+                    if (pll->getPort(id_CLK90))
+                        pll_new->connectPorts(id_CLK90, uarch->glbout[new_die], ctx->idf("CLK90_%d", i));
+                    if (pll->getPort(id_CLK180))
+                        pll_new->connectPorts(id_CLK180, uarch->glbout[new_die], ctx->idf("CLK180_%d", i));
+                    if (pll->getPort(id_CLK270))
+                        pll_new->connectPorts(id_CLK270, uarch->glbout[new_die], ctx->idf("CLK270_%d", i));
+                }
+            }
+            // Copy GLBOUT inputs
+            for (int i = 0; i < 4; i++) {
+                // Plain copy of user signals
+                NetInfo *net = uarch->glbout[0]->getPort(ctx->idf("USR_GLB%d", i));
+                if (net)
+                    uarch->glbout[new_die]->connectPort(ctx->idf("USR_GLB%d", i), net);
+                net = uarch->glbout[0]->getPort(ctx->idf("USR_FB%d", i));
+                if (net)
+                    uarch->glbout[new_die]->connectPort(ctx->idf("USR_FB%d", i), net);
+
+                if (uarch->glbout[0]->getPort(ctx->idf("CLK_REF_OUT%d", i)))
+                    uarch->clkin[new_die]->connectPorts(ctx->idf("CLK_REF%d", i), uarch->glbout[new_die],
+                                                        ctx->idf("CLK_REF_OUT%d", i));
+            }
+        }
+    }
+}
+void GateMatePacker::reassign_clocks()
+{
+    if (uarch->dies == 1)
+        return;
+    log_info("Reassign clocks..\n");
+
+    std::vector<std::vector<NetInfo *>> new_bufg(uarch->dies, std::vector<NetInfo *>(4));
+
+    for (auto &glob : uarch->global_signals) {
+        const NetInfo *net = glob.first;
+        int index = glob.second;
+        int drv_die = uarch->tile_extra_data(net->driver.cell->bel.tile)->die;
+        auto users = net->users; // make a copy
+        for (auto &user : users) {
+            int cell_die = uarch->tile_extra_data(user.cell->bel.tile)->die;
+            if (cell_die != drv_die) {
+                if (!new_bufg[cell_die][index]) {
+                    NetInfo *new_signal = ctx->createNet(ctx->idf("%s$die%d", net->name.c_str(ctx), cell_die));
+                    new_bufg[cell_die][index] = new_signal;
+                    uarch->glbout[cell_die]->connectPort(ctx->idf("GLB%d", index), new_signal);
+                    copy_constraint(net, new_signal);
+                }
+                user.cell->disconnectPort(user.port);
+                user.cell->connectPort(user.port, new_bufg[cell_die][index]);
+            }
+        }
     }
 }
 
