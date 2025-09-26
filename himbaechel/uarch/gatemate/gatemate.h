@@ -90,6 +90,10 @@ struct GateMateImpl : HimbaechelAPI
     std::vector<bool> used_cpes;
     int fpga_mode;
     int timing_mode;
+    std::map<const NetInfo *, int> global_signals;
+    std::vector<CellInfo *> clkin;
+    std::vector<CellInfo *> glbout;
+    std::vector<CellInfo *> pll;
 
   private:
     bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
@@ -122,6 +126,8 @@ struct GateMateImpl : HimbaechelAPI
     std::map<BelId, std::map<IdString, const GateMateBelPinConstraintPOD *>> pin_to_constr;
     std::map<IdString, const GateMateTimingExtraDataPOD *> timing;
     dict<IdString, int> ram_signal_clk;
+    IdString forced_die;
+    dict<IdString, int> die_to_index;
 };
 
 NEXTPNR_NAMESPACE_END

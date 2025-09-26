@@ -69,6 +69,16 @@ NPNR_PACKED_STRUCT(struct GateMateTimingExtraDataPOD {
 
 NPNR_PACKED_STRUCT(struct GateMateSpeedGradeExtraDataPOD { RelSlice<GateMateTimingExtraDataPOD> timings; });
 
+NPNR_PACKED_STRUCT(struct GateMateDieRegionPOD {
+    int32_t name;
+    uint16_t x1;
+    uint16_t y1;
+    uint16_t x2;
+    uint16_t y2;
+});
+
+NPNR_PACKED_STRUCT(struct GateMateChipExtraDataPOD { RelSlice<GateMateDieRegionPOD> dies; });
+
 enum MuxFlags
 {
     MUX_INVERT = 1,

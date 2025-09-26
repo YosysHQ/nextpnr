@@ -122,6 +122,21 @@ CellInfo *GateMatePacker::create_cell_ptr(IdString type, IdString name)
         add_port(id_CLOCK2, PORT_IN);
         add_port(id_CLOCK3, PORT_IN);
         add_port(id_CLOCK4, PORT_IN);
+    } else if (type.in(id_CPE_IBUF)) {
+        add_port(id_Y, PORT_OUT);
+        add_port(id_I, PORT_IN);
+    } else if (type.in(id_PLL)) {
+        add_port(id_CLK_REF, PORT_IN);
+        add_port(id_USR_CLK_REF, PORT_IN);
+        add_port(id_USR_SEL_A_B, PORT_IN);
+        add_port(id_CLK_FEEDBACK, PORT_IN);
+        add_port(id_CLK0, PORT_OUT);
+        add_port(id_CLK90, PORT_OUT);
+        add_port(id_CLK180, PORT_OUT);
+        add_port(id_CLK270, PORT_OUT);
+        add_port(id_USR_PLL_LOCKED, PORT_OUT);
+        add_port(id_USR_PLL_LOCKED_STDY, PORT_OUT);
+        add_port(id_USR_LOCKED_STDY_RST, PORT_IN);
     } else {
         log_error("Trying to create unknown cell type %s\n", type.c_str(ctx));
     }

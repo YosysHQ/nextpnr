@@ -94,6 +94,11 @@ struct GateMateCCFReader
                         count[i]--;
                 }
                 uarch->available_pads.erase(ctx->id(value));
+                // Erase aliases as well
+                if (value == "SER_CLK")
+                    uarch->available_pads.erase(ctx->id("SER_CLK_N"));
+                if (value == "SER_CLK_N")
+                    uarch->available_pads.erase(ctx->id("SER_CLK"));
             } else if (name == "SCHMITT_TRIGGER" || name == "PULLUP" || name == "PULLDOWN" || name == "KEEPER" ||
                        name == "FF_IBF" || name == "FF_OBF" || name == "LVDS_BOOST" || name == "LVDS_RTERM") {
                 if (value == "1")

@@ -678,6 +678,7 @@ void GateMatePacker::pack_constants()
     h.replace_constants(CellTypePort(id_CPE_L2T4, id_OUT), CellTypePort(id_CPE_L2T4, id_OUT), vcc_params, gnd_params);
     net_PACKER_VCC = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
     net_PACKER_GND = ctx->nets.at(ctx->id("$PACKER_GND")).get();
+    net_SER_CLK = nullptr;
 }
 
 void GateMatePacker::remove_constants()
