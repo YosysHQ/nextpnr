@@ -130,6 +130,7 @@ void GateMateImpl::route_clock()
 
         std::priority_queue<QueuedWire, std::vector<QueuedWire>, std::greater<QueuedWire>> visit;
         dict<WireId, PipId> backtrace;
+        dict<WireId, delay_t> delay_map;
 
         auto is_glb_clk = clk_net->driver.cell->type == id_GLBOUT;
 
@@ -153,18 +154,19 @@ void GateMateImpl::route_clock()
                 if (!ctx->checkPipAvailForNet(dh, clk_net))
                     continue;
                 WireId dst = ctx->getPipDstWire(dh);
-                if (backtrace.count(dst))
-                    continue;
                 if (!ctx->checkWireAvail(dst) && ctx->getBoundWireNet(dst) != clk_net)
                     continue;
                 // Has this wire been reserved for another net?
                 auto reserved = reserved_wires.find(dst);
                 if (reserved != reserved_wires.end() && reserved->second != clk_net->name)
                     continue;
+                auto delay = curr.delay + ctx->getPipDelay(dh).maxDelay() + ctx->getWireDelay(dst).maxDelay() +
+                             ctx->getDelayEpsilon();
+                if (backtrace.count(dst) && delay_map.at(dst) <= delay)
+                    continue;
+                delay_map[dst] = delay;
                 backtrace[dst] = dh;
-                auto delay =
-                        ctx->getPipDelay(dh).maxDelay() + ctx->getWireDelay(dst).maxDelay() + ctx->getDelayEpsilon();
-                visit.push(QueuedWire(dst, curr.delay + delay));
+                visit.push(QueuedWire(dst, delay));
             }
         }
         for (auto sink_wire : sink_wires_to_do) {
