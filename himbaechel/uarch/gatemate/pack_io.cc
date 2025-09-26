@@ -303,7 +303,6 @@ void GateMatePacker::pack_io()
             uarch->available_pads.erase(id);
             loc = id.c_str(ctx);
         }
-        ci.params[id_LOC] = Property(loc);
 
         BelId bel;
         if (uarch->locations.count(std::make_pair(ctx->id(loc), uarch->preferred_die)))
@@ -471,8 +470,6 @@ void GateMatePacker::pack_io_sel()
         }
 
         ci.cluster = ci.name;
-        std::string loc = str_or_default(ci.params, id_LOC, "UNPLACED");
-        ci.unsetParam(id_LOC);
 
         NetInfo *do_net = ci.getPort(id_A);
         bool use_custom_clock = false;
@@ -526,7 +523,7 @@ void GateMatePacker::pack_io_sel()
                     ci.disconnectPort(id_A);
                     oddr->movePortTo(id_D0, &ci, id_OUT2);
                     oddr->movePortTo(id_D1, &ci, id_OUT1);
-                    const auto &pad = ctx->get_package_pin(ctx->id(loc));
+                    const auto &pad = uarch->bel_to_pad[ci.bel];
                     int die = uarch->tile_extra_data(ci.bel.tile)->die;
                     auto [cpe_half, cpe_ramio] = ddr[die][pad->pad_bank];
                     if (cpe_half) {
