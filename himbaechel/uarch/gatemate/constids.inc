@@ -2468,6 +2468,12 @@ X(MULT_INVERT)
 X(RAM_HALF)
 X(RAM_HALF_DUMMY)
 
+// Dies
+X(1A)
+X(1B)
+X(2A)
+X(2B)
+
 // Timing
 X(timing_ADDF2x_IN5_8_comb2)
 X(timing_CIN_C_CINI)
