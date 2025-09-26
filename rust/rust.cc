@@ -85,6 +85,9 @@ using NetIterWrapper = IterWrapper<NetIter>;
 using CellIter = decltype(Context(ArchArgs()).cells.begin());
 using CellIterWrapper = IterWrapper<CellIter>;
 
+using NetUserIter = decltype(NetInfo(IdString()).users.begin());
+using NetUserIterWrapper = IterWrapper<NetUserIter>;
+
 extern "C" {
 USING_NEXTPNR_NAMESPACE;
 
@@ -229,25 +232,22 @@ int npnr_deref_cell_iter_first(CellIterWrapper *iter) { return wrap(iter->curren
 CellInfo *npnr_deref_cell_iter_second(CellIterWrapper *iter) { return iter->current->second.get(); }
 bool npnr_is_cell_iter_done(CellIterWrapper *iter) { return !(iter->current != iter->end); }
 
+NetUserIterWrapper *npnr_context_net_user_iter(NetInfo *net)
+{
+    return new NetUserIterWrapper(net->users.begin(), net->users.end());
+}
+void npnr_delete_net_user_iter(NetUserIterWrapper *iter) { delete iter; }
+void npnr_inc_net_user_iter(NetUserIterWrapper *iter) { ++iter->current; }
+CellInfo *npnr_deref_net_user_iter_cell(NetUserIterWrapper *iter) { return (*iter->current).cell; }
+uint64_t npnr_deref_net_user_iter_port(NetUserIterWrapper *iter) { return wrap((*iter->current).port.index); }
+bool npnr_is_net_user_iter_done(NetUserIterWrapper *iter) { return !(iter->current != iter->end); }
+
 PortRef *npnr_netinfo_driver(NetInfo *net)
 {
     if (net == nullptr) {
         return nullptr;
     }
     return &net->driver;
-}
-
-uint32_t npnr_netinfo_users_leak(const NetInfo *net, const PortRef ***users)
-{
-    auto size = net->users.entries();
-    *users = new const PortRef *[size];
-    auto idx = 0;
-    for (auto &item : net->users) {
-        (*users)[idx] = &item;
-        idx++;
-    }
-    // Yes, by not freeing `users`, we leak memory.
-    return size;
 }
 
 #ifdef ARCH_ECP5
@@ -260,7 +260,9 @@ int32_t npnr_netinfo_udata(NetInfo *net) { return net->udata; }
 void npnr_netinfo_udata_set(NetInfo *net, int32_t value) { net->udata = value; }
 
 CellInfo *npnr_portref_cell(const PortRef *port) { return port->cell; }
-Loc npnr_cellinfo_get_location(const CellInfo *info) { return info->getLocation(); }
+uint64_t npnr_portref_port(const PortRef *port) { return wrap(port->port); }
+Loc npnr_cellinfo_get_location(const CellInfo *cell) { return cell->getLocation(); }
+uint64_t npnr_cellinfo_name(const CellInfo *cell) { return wrap(cell->name.index); }
 
 void rust_example_printnets(Context *ctx);
 }

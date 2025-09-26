@@ -24,6 +24,11 @@ impl CellInfo {
     pub fn location(&self) -> Loc {
         unsafe { npnr_cellinfo_get_location(self) }
     }
+
+    #[must_use]
+    pub fn name(&self) -> IdString {
+        IdString(unsafe { npnr_cellinfo_name(self) })
+    }
 }
 
 #[repr(C)]
@@ -32,7 +37,7 @@ pub struct NetInfo {
 }
 
 impl NetInfo {
-    pub fn driver(&mut self) -> Option<&mut PortRef> {
+    pub fn driver(&self) -> Option<&PortRef> {
         unsafe { npnr_netinfo_driver(self) }
     }
 
@@ -44,6 +49,14 @@ impl NetInfo {
     #[must_use]
     pub fn index(&self) -> NetIndex {
         unsafe { npnr_netinfo_udata(self) }
+    }
+
+    #[must_use]
+    pub fn users(&self) -> NetUserIter<'_> {
+        NetUserIter { 
+            iter: unsafe { npnr_context_net_user_iter(self) },
+            phantom_data: PhantomData
+        }
     }
 }
 
@@ -68,6 +81,11 @@ impl PortRef {
     pub fn cell(&self) -> Option<&CellInfo> {
         // SAFETY: handing out &s is safe when we have &self.
         unsafe { npnr_portref_cell(self) }
+    }
+
+    #[must_use]
+    pub fn port(&self) -> IdString {
+        IdString(unsafe { npnr_portref_port(self) })
     }
 }
 
@@ -459,14 +477,15 @@ unsafe extern "C" {
         n: u32,
     ) -> WireId;
 
-    fn npnr_netinfo_driver(net: &mut NetInfo) -> Option<&mut PortRef>;
-    fn npnr_netinfo_users_leak(net: &NetInfo, users: *mut *mut *const PortRef) -> u32;
+    fn npnr_netinfo_driver(net: &NetInfo) -> Option<&PortRef>;
     fn npnr_netinfo_is_global(net: &NetInfo) -> bool;
     fn npnr_netinfo_udata(net: &NetInfo) -> NetIndex;
     fn npnr_netinfo_udata_set(net: &mut NetInfo, value: NetIndex);
 
     fn npnr_portref_cell(port: &PortRef) -> Option<&CellInfo>;
-    fn npnr_cellinfo_get_location(info: &CellInfo) -> Loc;
+    fn npnr_portref_port(port: &PortRef) -> libc::c_int;
+    fn npnr_cellinfo_get_location(cell: &CellInfo) -> Loc;
+    fn npnr_cellinfo_name(cell: &CellInfo) -> libc::c_int;
 
     fn npnr_context_get_pips_downhill(ctx: &Context, wire: WireId) -> &mut RawDownhillIter;
     fn npnr_delete_downhill_iter(iter: &mut RawDownhillIter);
@@ -511,6 +530,13 @@ unsafe extern "C" {
     fn npnr_deref_cell_iter_first(iter: &mut RawCellIter) -> libc::c_int;
     fn npnr_deref_cell_iter_second(iter: &mut RawCellIter) -> &mut CellInfo;
     fn npnr_is_cell_iter_done(iter: &mut RawCellIter) -> bool;
+
+    fn npnr_context_net_user_iter(net: &NetInfo) -> &mut RawNetUserIter;
+    fn npnr_delete_net_user_iter(iter: &mut RawNetUserIter);
+    fn npnr_inc_net_user_iter(iter: &mut RawNetUserIter);
+    fn npnr_deref_net_user_iter_cell(iter: &mut RawNetUserIter) -> &mut CellInfo;
+    fn npnr_deref_net_user_iter_port(iter: &mut RawNetUserIter) -> libc::c_int;
+    fn npnr_is_net_user_iter_done(iter: &mut RawNetUserIter) -> bool;
 }
 
 /// Store for the nets of a context.
@@ -778,6 +804,37 @@ impl Iterator for CellIter<'_> {
 impl Drop for CellIter<'_> {
     fn drop(&mut self) {
         unsafe { npnr_delete_cell_iter(self.iter) };
+    }
+}
+
+#[repr(C)]
+struct RawNetUserIter {
+    content: [u8; 0],
+}
+
+pub struct NetUserIter<'a> {
+    iter: &'a mut RawNetUserIter,
+    phantom_data: PhantomData<&'a CellInfo>,
+}
+
+impl Iterator for NetUserIter<'_> {
+    type Item = (*const CellInfo, IdString);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if unsafe { npnr_is_net_user_iter_done(self.iter) } {
+            None
+        } else {
+            let cell = unsafe { &raw const *npnr_deref_net_user_iter_cell(self.iter) };
+            let port = IdString(unsafe { npnr_deref_net_user_iter_port(self.iter) });
+            unsafe { npnr_inc_net_user_iter(self.iter) };
+            Some((cell, port))
+        }
+    }
+}
+
+impl Drop for NetUserIter<'_> {
+    fn drop(&mut self) {
+        unsafe { npnr_delete_net_user_iter(self.iter) };
     }
 }
 
