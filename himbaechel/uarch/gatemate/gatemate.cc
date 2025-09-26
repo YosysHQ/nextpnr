@@ -151,6 +151,11 @@ void GateMateImpl::init(Context *ctx)
             ram_signal_clk.emplace(ctx->idf("DOB[%d]", i + num * 20), num + 2);
         }
     }
+
+    const GateMateChipExtraDataPOD *extra =
+            reinterpret_cast<const GateMateChipExtraDataPOD *>(ctx->chip_info->extra_data.get());
+    for (auto &die : extra->dies)
+        ctx->createRectangularRegion(IdString(die.name), die.x1, die.y1, die.x2, die.y2);
 }
 
 bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
