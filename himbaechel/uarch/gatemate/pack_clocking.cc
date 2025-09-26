@@ -303,7 +303,7 @@ void GateMatePacker::remove_clocking()
     flush_cells();
 }
 
-static const char *fpga_mode_to_str(int mode)
+static const char *timing_mode_to_str(int mode)
 {
     switch (mode) {
     case 1:
@@ -444,9 +444,9 @@ void GateMatePacker::pack_pll()
                 log_error("Unknown PERF_MD parameter value '%s' for cell %s.\n", mode.c_str(), ci.name.c_str(ctx));
             }
 
-            if (perf_md != uarch->fpga_mode)
-                log_warning("PLL '%s' mode is '%s' but FPGA mode is '%s'.\n", ci.name.c_str(ctx),
-                            fpga_mode_to_str(perf_md), fpga_mode_to_str(uarch->fpga_mode));
+            if (perf_md != uarch->timing_mode)
+                log_warning("PLL '%s' timing mode is '%s' but FPGA timing mode is '%s'.\n", ci.name.c_str(ctx),
+                            timing_mode_to_str(perf_md), timing_mode_to_str(uarch->timing_mode));
 
             double ref_clk = double_or_default(ci.params, id_REF_CLK, 0.0);
             if (ref_clk <= 0 || ref_clk > 125)
