@@ -98,7 +98,6 @@ void GateMateImpl::init_database(Arch *arch)
                                             : timing_mode == 3 ? "SPEED"
                                                                : "");
     arch->set_speed_grade(speed_grade);
-    force_die = args.options.count("force_die") != 0;
 }
 
 void GateMateImpl::init(Context *ctx)
@@ -154,8 +153,24 @@ void GateMateImpl::init(Context *ctx)
 
     const GateMateChipExtraDataPOD *extra =
             reinterpret_cast<const GateMateChipExtraDataPOD *>(ctx->chip_info->extra_data.get());
-    for (auto &die : extra->dies)
-        ctx->createRectangularRegion(IdString(die.name), die.x1, die.y1, die.x2, die.y2);
+
+    const ArchArgs &args = ctx->args;
+    std::string die_name;
+    if (args.options.count("force_die"))
+        die_name = args.options.at("force_die");
+    bool found = false;
+    int index = 0;
+    for (auto &die : extra->dies) {
+        IdString name(die.name);
+        die_to_index[name] = index++;
+        ctx->createRectangularRegion(name, die.x1, die.y1, die.x2, die.y2);
+        if (die_name == name.c_str(ctx)) {
+            found = true;
+            forced_die = name;
+        }
+    }
+    if (!die_name.empty() && !found)
+        log_error("Unable to select forced die '%s'.\n", die_name.c_str());
 }
 
 bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
@@ -164,10 +179,6 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
     if (cell == nullptr) {
         return true;
     }
-
-    if (force_die && cell->belStrength != PlaceStrength::STRENGTH_FIXED &&
-        tile_extra_data(bel.tile)->die != preferred_die)
-        return false;
 
     if (getBelBucketForBel(bel) == id_CPE_FF) {
         Loc loc = ctx->getBelLocation(bel);

@@ -126,7 +126,8 @@ struct GateMateImpl : HimbaechelAPI
     std::map<BelId, std::map<IdString, const GateMateBelPinConstraintPOD *>> pin_to_constr;
     std::map<IdString, const GateMateTimingExtraDataPOD *> timing;
     dict<IdString, int> ram_signal_clk;
-    bool force_die;
+    IdString forced_die;
+    dict<IdString, int> die_to_index;
 };
 
 NEXTPNR_NAMESPACE_END

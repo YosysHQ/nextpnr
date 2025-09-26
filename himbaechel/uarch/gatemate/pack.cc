@@ -385,6 +385,9 @@ void GateMateImpl::pack()
         parse_ccf(args.options.at("ccf"));
     }
 
+    if (forced_die != IdString())
+        preferred_die = die_to_index[forced_die];
+
     GateMatePacker packer(ctx, this);
     packer.pack_constants();
     packer.cleanup();
@@ -401,6 +404,13 @@ void GateMateImpl::pack()
     packer.pack_cpe();
     packer.copy_clocks();
     packer.remove_constants();
+
+    if (forced_die != IdString()) {
+        for (auto &cell : ctx->cells) {
+            if (cell.second->belStrength != PlaceStrength::STRENGTH_FIXED)
+                ctx->constrainCellToRegion(cell.second->name, forced_die);
+        }
+    }
 }
 
 void GateMateImpl::repack()
