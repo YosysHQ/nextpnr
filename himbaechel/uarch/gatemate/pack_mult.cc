@@ -573,6 +573,7 @@ void GateMatePacker::pack_mult()
         // we also constrain it to proper Z location
         auto *root = m.cols[0].b_passthru.upper;
         root->cluster = root->name;
+        root->region = mult->region;
         root->constr_abs_z = true;
         root->constr_z = CPE_LT_U_Z;
 
@@ -581,6 +582,7 @@ void GateMatePacker::pack_mult()
                 return;
             root->constr_children.push_back(cell);
             cell->cluster = root->name;
+            cell->region = root->region;
             cell->constr_abs_z = true;
             cell->constr_x = x_offset;
             cell->constr_y = y_offset;

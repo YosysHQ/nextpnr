@@ -173,6 +173,7 @@ void GateMatePacker::pack_cpe()
 
     auto merge_dff = [&](CellInfo &ci, CellInfo *dff) {
         dff->cluster = ci.name;
+        dff->region = ci.region;
         dff->constr_abs_z = false;
         dff->constr_z = +2;
         ci.cluster = ci.name;
@@ -253,6 +254,7 @@ void GateMatePacker::pack_cpe()
                     CellInfo *lower = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$lower", ci.name.c_str(ctx)));
                     ci.constr_children.push_back(lower);
                     lower->cluster = ci.name;
+                    lower->region = ci.region;
                     lower->constr_abs_z = true;
                     lower->constr_z = CPE_LT_L_Z;
                     lower->params[id_INIT_L20] = Property(LUT_D0, 4);
@@ -280,6 +282,7 @@ void GateMatePacker::pack_cpe()
     for (auto ci : l2t5_list) {
         CellInfo *upper = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$upper", ci->name.c_str(ctx)));
         upper->cluster = ci->name;
+        upper->region = ci->region;
         upper->constr_abs_z = true;
         upper->constr_z = CPE_LT_U_Z;
         ci->movePortTo(id_I4, upper, id_IN1);
@@ -334,6 +337,7 @@ void GateMatePacker::pack_cpe()
 
         CellInfo *upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$upper", ci.name.c_str(ctx)));
         upper->cluster = ci.name;
+        upper->region = ci.region;
         upper->constr_abs_z = false;
         upper->constr_z = -1;
         upper->params[id_INIT_L10] = Property(select, 4); // Selection bits
@@ -365,6 +369,7 @@ void GateMatePacker::pack_cpe()
         CellInfo &ci = *cell;
         CellInfo *lt = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$lt", ci.name.c_str(ctx)));
         lt->cluster = ci.name;
+        lt->region = ci.region;
         lt->constr_abs_z = false;
         lt->constr_z = -2;
         ci.cluster = ci.name;
@@ -515,6 +520,7 @@ void GateMatePacker::pack_addf()
             CellInfo *dff = net_only_drives(ctx, o, is_dff, id_D, true);
             if (dff && are_ffs_compatible(dff, other)) {
                 dff->cluster = cell->cluster;
+                dff->region = cell->region;
                 dff->constr_abs_z = false;
                 dff->constr_z = +2;
                 cell->constr_children.push_back(dff);
@@ -534,6 +540,7 @@ void GateMatePacker::pack_addf()
         CellInfo *ci_upper = create_cell_ptr(id_CPE_DUMMY, ctx->idf("%s$ci_upper", root->name.c_str(ctx)));
         root->constr_children.push_back(ci_upper);
         ci_upper->cluster = root->name;
+        ci_upper->region = root->region;
         ci_upper->constr_abs_z = false;
         ci_upper->constr_z = -1;
         ci_upper->constr_y = -1;
@@ -541,6 +548,7 @@ void GateMatePacker::pack_addf()
         CellInfo *ci_lower = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$ci", root->name.c_str(ctx)));
         root->constr_children.push_back(ci_lower);
         ci_lower->cluster = root->name;
+        ci_lower->region = root->region;
         ci_lower->constr_abs_z = false;
         ci_lower->constr_y = -1;
         ci_lower->params[id_INIT_L00] = Property(LUT_ZERO, 4);
@@ -551,6 +559,7 @@ void GateMatePacker::pack_addf()
         ci_cplines->params[id_C_CY1_I] = Property(1, 1);
         root->constr_children.push_back(ci_cplines);
         ci_cplines->cluster = root->name;
+        ci_cplines->region = root->region;
         ci_cplines->constr_abs_z = true;
         ci_cplines->constr_y = -1;
         ci_cplines->constr_z = CPE_CPLINES_Z;
@@ -580,6 +589,7 @@ void GateMatePacker::pack_addf()
             CellInfo *cy = grp.at(i);
             if (i != 0) {
                 cy->cluster = root->name;
+                cy->region = root->region;
                 root->constr_children.push_back(cy);
                 cy->constr_abs_z = false;
                 cy->constr_y = +i;
@@ -602,6 +612,7 @@ void GateMatePacker::pack_addf()
 
             CellInfo *upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$upper", cy->name.c_str(ctx)));
             upper->cluster = root->name;
+            upper->region = root->region;
             root->constr_children.push_back(upper);
             upper->constr_abs_z = false;
             upper->constr_y = +i;
@@ -625,12 +636,14 @@ void GateMatePacker::pack_addf()
                     break;
                 CellInfo *co_upper = create_cell_ptr(id_CPE_DUMMY, ctx->idf("%s$co_upper", cy->name.c_str(ctx)));
                 co_upper->cluster = root->name;
+                co_upper->region = root->region;
                 root->constr_children.push_back(co_upper);
                 co_upper->constr_abs_z = false;
                 co_upper->constr_z = -1;
                 co_upper->constr_y = +i + 1;
                 CellInfo *co_lower = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$co", cy->name.c_str(ctx)));
                 co_lower->cluster = root->name;
+                co_lower->region = root->region;
                 root->constr_children.push_back(co_lower);
                 co_lower->constr_abs_z = false;
                 co_lower->constr_y = +i + 1;
@@ -720,6 +733,7 @@ std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_i(CellInfo *cell, IdS
         if (place) {
             cell->constr_children.push_back(cpe_ramio);
             cpe_ramio->cluster = cell->cluster;
+            cpe_ramio->region = cell->region;
             cpe_ramio->constr_abs_z = false;
             cpe_ramio->constr_z = PLACE_DB_CONSTR + origPort.index;
         } else {
@@ -731,6 +745,7 @@ std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_i(CellInfo *cell, IdS
         if (place) {
             cpe_ramio->constr_children.push_back(cpe_half);
             cpe_half->cluster = cell->cluster;
+            cpe_half->region = cell->region;
             cpe_half->constr_abs_z = false;
             cpe_half->constr_z = -4;
         } else {
@@ -758,6 +773,7 @@ std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_o(CellInfo *cell, IdS
         if (place) {
             cell->constr_children.push_back(cpe_ramio);
             cpe_ramio->cluster = cell->cluster;
+            cpe_ramio->region = cell->region;
             cpe_ramio->constr_abs_z = false;
             cpe_ramio->constr_z = PLACE_DB_CONSTR + origPort.index;
         } else {
@@ -768,6 +784,7 @@ std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_o(CellInfo *cell, IdS
         if (place) {
             cpe_ramio->constr_children.push_back(cpe_half);
             cpe_half->cluster = cell->cluster;
+            cpe_half->region = cell->region;
             cpe_half->constr_abs_z = false;
             cpe_half->constr_z = -4;
         } else {
@@ -816,6 +833,7 @@ std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_io(CellInfo *cell, Id
     if (place) {
         cell->constr_children.push_back(cpe_ramio);
         cpe_ramio->cluster = cell->cluster;
+        cpe_ramio->region = cell->region;
         cpe_ramio->constr_abs_z = false;
         cpe_ramio->constr_z = PLACE_DB_CONSTR + oPort.index;
     } else {
@@ -827,6 +845,7 @@ std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_io(CellInfo *cell, Id
     if (place) {
         cpe_ramio->constr_children.push_back(cpe_half);
         cpe_half->cluster = cell->cluster;
+        cpe_half->region = cell->region;
         cpe_half->constr_abs_z = false;
         cpe_half->constr_z = -4;
     } else {
