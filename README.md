@@ -9,7 +9,8 @@ Currently nextpnr supports:
  * Lattice ECP5 devices supported by [Project Trellis](https://github.com/YosysHQ/prjtrellis)
  * Lattice Nexus devices supported by [Project Oxide](https://github.com/gatecat/prjoxide)
  * Gowin LittleBee devices supported by [Project Apicula](https://github.com/YosysHQ/apicula)
- * NanoXplore NG-Ultra devices supported by [Project Beyond](https://github.com/yosyshq-GmbH/prjbeyond-db)
+ * NanoXplore NG-Ultra devices supported by [Project Beyond](https://github.com/YosysHQ-GmbH/prjbeyond-db)
+ * Cologne Chip GateMate devices supported by [Project Peppercorn](https://github.com/YosysHQ/prjpeppercorn)
  * *(experimental)* Cyclone V devices supported by [Mistral](https://github.com/Ravenslofty/mistral)
  * *(experimental)* Lattice MachXO2 devices supported by [Project Trellis](https://github.com/YosysHQ/prjtrellis)
  * *(experimental)* a "generic" back-end for user-defined architectures
@@ -170,6 +171,17 @@ sudo make install
 ```
 
 *Please note that binary bitstream creation requires Impulse tool from NanoXplore.*
+
+#### gatemate
+
+For Cologne Chip GateMate support, clone [Project Peppercorn](https://github.com/YosysHQ/prjpeppercorn)
+
+```
+mkdir -p build && cd build
+cmake .. -DARCH="himbaechel" -DHIMBAECHEL_UARCH="gatemate" -DHIMBAECHEL_PEPPERCORN_PATH=/path/to/prjpeppercorn
+make -j$(nproc)
+sudo make install
+```
 
 ### GUI
 
