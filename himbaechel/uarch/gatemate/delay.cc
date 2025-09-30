@@ -157,6 +157,10 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
         return get_delay_from_tmg_db(ctx->idf("timing_glbout_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
     } else if (cell->type.in(id_RAM, id_RAM_HALF)) {
         return false;
+    } else if (cell->type.in(id_PLL)) {
+        if (fromPort.in(id_CLK_REF, id_USR_CLK_REF) && toPort.in(id_CLK0, id_CLK90, id_CLK180, id_CLK270))
+            return get_delay_from_tmg_db(ctx->id("timing_pll_clk_ref_i_clk_core0_o"), delay);
+        return false;
     }
     return false;
 }

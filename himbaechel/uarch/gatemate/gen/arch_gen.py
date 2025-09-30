@@ -44,7 +44,6 @@ import chip
 import die
 
 pip_tmg_names = set()
-node_tmg_names = set()
 
 @dataclass
 class TileExtraData(BBAStruct):
@@ -187,14 +186,11 @@ def set_timings(ch):
                 continue
             name = "timing_" + re.sub(r"[-= >]", "_", rename_table.get(name, name))
             tmg.get_speed_grade(speed).extra_data.add_timing(name=ch.strs.id(name), delay=convert_timing(val))
-        #for k in node_tmg_names:
-        #    assert k in timing, f"node class {k} not found in timing data"
-        #    tmg.set_node_class(grade=speed, name=k, delay=convert_timing(timing[k]))
-        #for k in pip_tmg_names:
-        #    assert k in timing, f"pip class {k} not found in timing data"
-        #    tmg.set_pip_class(grade=speed, name=k, delay=convert_timing(timing[k]))
+        for k in pip_tmg_names:
+            assert k in timing, f"pip class {k} not found in timing data"
+            tmg.set_pip_class(grade=speed, name=k, delay=convert_timing(timing[k]))
 
-EXPECTED_VERSION = 1.7
+EXPECTED_VERSION = 1.8
 
 def main():
     # Range needs to be +1, but we are adding +2 more to coordinates, since 
@@ -226,12 +222,29 @@ def main():
         print("==============================================================================")
         os._exit(-1)
 
+    new_wires = dict()
+    wire_delay = dict()
+    for _,nodes in dev.get_connections():
+        for conn in nodes:
+            if conn.endpoint:
+                t_name = dev.get_tile_type(conn.x,conn.y)
+                if t_name not in new_wires:
+                    new_wires[t_name] = set()
+                new_wires[t_name].add(conn.name)
+                # Check to confirm no duplicates
+                if conn.name in wire_delay:
+                    assert wire_delay[conn.name] == conn.delay, f"conflict delay {conn.name}"
+                wire_delay[conn.name] = conn.delay
+
     for type_name in sorted(die.get_tile_type_list()):
         tt = ch.create_tile_type(type_name)
         for group in sorted(die.get_groups_for_type(type_name)):
             tt.create_group(group.name, group.type)
         for wire in sorted(die.get_endpoints_for_type(type_name)):
             tt.create_wire(wire.name, wire.type)
+        if type_name in new_wires:
+            for wire in sorted(new_wires[type_name]):
+                tt.create_wire(wire+"_n", "NODE_WIRE")
         for prim in sorted(die.get_primitives_for_type(type_name)):
             bel = tt.create_bel(prim.name, prim.type, prim.z)
             if (prim.name in ["CPE_LT_FULL", "CPE_BRIDGE"]):
@@ -260,6 +273,20 @@ def main():
                 if mux.name == "CPE.C_SN":
                     mux_flags |= MUX_ROUTING
                 pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(mux.name), mux.bits, mux.value, mux_flags, plane)
+        if type_name in new_wires:
+            for wire in sorted(new_wires[type_name]):
+                delay = wire_delay[wire]
+                if len(delay)>0:
+                    pip_tmg_names.add(delay)
+                pp = tt.create_pip(wire+"_n", wire, delay)
+                plane = 0
+                if wire.startswith("IM"):
+                    plane = int(wire[4:6])
+                if wire.startswith("SB_SML") or wire.startswith("SB_BIG"):
+                    plane = int(wire[8:10])
+                if wire.startswith("SB_DRIVE"):
+                    plane = int(wire[10:12])
+                pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(""), 0, 0, 0, plane)
 
     # Setup tile grid
     for x in range(dev.max_col() + 3):
@@ -271,14 +298,9 @@ def main():
     # Create nodes between tiles
     for _,nodes in dev.get_connections():
         node = []
-        timing = ""
         for conn in sorted(nodes):
-            node.append(NodeWire(conn.x + 2, conn.y + 2, conn.name))
-            # for now update to last one we have defined
-            if len(conn.delay)>0:
-                timing = conn.delay
-                node_tmg_names.add(conn.delay)
-        ch.add_node(node, timing)
+            node.append(NodeWire(conn.x + 2, conn.y + 2, (conn.name + "_n") if conn.endpoint else conn.name))
+        ch.add_node(node)
     set_timings(ch)
 
     for package in dev.get_packages():
