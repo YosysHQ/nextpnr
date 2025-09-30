@@ -770,6 +770,7 @@ void GateMatePacker::copy_clocks()
                     move_ram_o_fixed(pll_new, id_USR_LOCKED_STDY_RST, new_loc);
                     move_ram_o_fixed(pll_new, id_USR_CLK_REF, new_loc);
                     move_ram_o_fixed(pll_new, id_USR_SEL_A_B, new_loc);
+                    // TODO: AND outputs of all USR_LOCKED_STDY_RST and use that signal to drive logic
                 }
             }
             // Copy GLBOUT inputs
