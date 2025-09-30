@@ -393,10 +393,12 @@ void GateMatePacker::pack_pll()
             log_error("Used more than available PLLs.\n");
 
         if (ci.getPort(id_CLK_REF) == nullptr && ci.getPort(id_USR_CLK_REF) == nullptr)
-            log_error("At least one reference clock (CLK_REF or USR_CLK_REF) must be set.\n");
+            log_error("At least one reference clock (CLK_REF or USR_CLK_REF) must be set for cell '%s'.\n",
+                      ci.name.c_str(ctx));
 
         if (ci.getPort(id_CLK_REF) != nullptr && ci.getPort(id_USR_CLK_REF) != nullptr)
-            log_error("CLK_REF and USR_CLK_REF are not allowed to be set in same time.\n");
+            log_error("CLK_REF and USR_CLK_REF are not allowed to be set in same time for cell '%s'.\n",
+                      ci.name.c_str(ctx));
 
         NetInfo *clk = ci.getPort(id_CLK_REF);
         delay_t period = ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq"));
@@ -409,14 +411,14 @@ void GateMatePacker::pack_pll()
                     clk = in;
                 }
                 if (ctx->getBelBucketForCellType(clk->driver.cell->type) != id_IOSEL)
-                    log_error("CLK_REF must be driven with GPIO pin.\n");
+                    log_error("CLK_REF must be driven with GPIO pin for cell '%s'.\n", ci.name.c_str(ctx));
                 auto pad_info = uarch->bel_to_pad[clk->driver.cell->bel];
                 if (pad_info->flags == 0)
-                    log_error("CLK_REF must be driven with CLK dedicated pin.\n");
+                    log_error("CLK_REF must be driven with CLK dedicated pin for cell '%s'.\n", ci.name.c_str(ctx));
             } else {
                 // SER_CLK
                 if (clk != net_SER_CLK)
-                    log_error("CLK_REF connected to uknown pin.\n");
+                    log_error("CLK_REF connected to uknown pin for cell '%s'.\n", ci.name.c_str(ctx));
             }
             if (clk->clkconstr)
                 period = clk->clkconstr->period.minDelay();
@@ -438,7 +440,7 @@ void GateMatePacker::pack_pll()
         }
 
         if (ci.getPort(id_CLK_REF_OUT))
-            log_error("Output CLK_REF_OUT cannot be used if PLL is used.\n");
+            log_error("Output CLK_REF_OUT cannot be used if PLL '%s' is used.\n", ci.name.c_str(ctx));
 
         double out_clk_max = 0;
         int clk270_doub = 0;
@@ -478,18 +480,18 @@ void GateMatePacker::pack_pll()
 
             double ref_clk = double_or_default(ci.params, id_REF_CLK, 0.0);
             if (ref_clk <= 0 || ref_clk > 125)
-                log_error("REF_CLK parameter is out of range (0,125.00].\n");
+                log_error("REF_CLK parameter is out of range (0,125.00] for '%s'.\n", ci.name.c_str(ctx));
 
             double out_clk = double_or_default(ci.params, id_OUT_CLK, 0.0);
             if (out_clk <= 0 || out_clk > max_freq)
-                log_error("OUT_CLK parameter is out of range (0,%.2lf].\n", max_freq);
+                log_error("OUT_CLK parameter is out of range (0,%.2lf] for '%s'.\n", max_freq, ci.name.c_str(ctx));
 
             if ((ci_const < 1) || (ci_const > 31)) {
-                log_warning("CI const out of range. Set to default CI = 2\n");
+                log_warning("CI const out of range. Set to default CI = 2 for '%s'\n", ci.name.c_str(ctx));
                 ci_const = 2;
             }
             if ((cp_const < 1) || (cp_const > 31)) {
-                log_warning("CP const out of range. Set to default CP = 4\n");
+                log_warning("CP const out of range. Set to default CP = 4 for '%s'\n", ci.name.c_str(ctx));
                 cp_const = 4;
             }
             // PLL_cfg_val_800_1400  PLL values from 11.08.2021
