@@ -142,6 +142,7 @@ void GateMatePacker::pack_io()
                     s.cell->disconnectPort(s.port);
                     s.cell->connectPort(s.port, ser_clk);
                 }
+                net_SER_CLK = ser_clk;
                 ci.disconnectPort(id_I);
                 packed_cells.emplace(ci.name);
                 continue;
@@ -302,7 +303,6 @@ void GateMatePacker::pack_io()
             uarch->available_pads.erase(id);
             loc = id.c_str(ctx);
         }
-        ci.params[id_LOC] = Property(loc);
 
         BelId bel;
         if (uarch->locations.count(std::make_pair(ctx->id(loc), uarch->preferred_die)))
@@ -370,12 +370,12 @@ void GateMatePacker::pack_io_sel()
             } else if (clk_net == net_PACKER_VCC) {
                 cell->disconnectPort(id_CLK);
             } else {
-                if (!global_signals.count(clk_net)) {
+                if (!uarch->global_signals.count(clk_net)) {
                     cell->movePortTo(id_CLK, target, id_OUT4);
                     target->params[id_SEL_OUT_CLOCK] = Property(Property::State::S1);
                     return true;
                 } else {
-                    int index = global_signals[clk_net];
+                    int index = uarch->global_signals[clk_net];
                     cell->movePortTo(id_CLK, target, ctx->idf("CLOCK%d", index + 1));
                     target->params[id_OUT_CLOCK] = Property(index, 2);
                 }
@@ -391,11 +391,11 @@ void GateMatePacker::pack_io_sel()
             } else if (clk_net == net_PACKER_VCC) {
                 cell->disconnectPort(id_CLK);
             } else {
-                if (!global_signals.count(clk_net)) {
+                if (!uarch->global_signals.count(clk_net)) {
                     cell->movePortTo(id_CLK, target, id_OUT4);
                     target->params[id_SEL_IN_CLOCK] = Property(Property::State::S1);
                 } else {
-                    int index = global_signals[clk_net];
+                    int index = uarch->global_signals[clk_net];
                     cell->movePortTo(id_CLK, target, ctx->idf("CLOCK%d", index + 1));
                     target->params[id_IN_CLOCK] = Property(index, 2);
                 }
@@ -406,7 +406,7 @@ void GateMatePacker::pack_io_sel()
     auto merge_ibf = [&](NetInfo *di_net, CellInfo &ci, bool use_custom_clock) -> bool {
         CellInfo *dff = (*di_net->users.begin()).cell;
         if (is_gpio_valid_dff(dff)) {
-            if (!global_signals.count(ci.getPort(id_CLK)) && use_custom_clock) {
+            if (!uarch->global_signals.count(ci.getPort(id_CLK)) && use_custom_clock) {
                 log_warning("Found DFF %s cell, but not enough CLK signals.\n", dff->name.c_str(ctx));
                 return false;
             }
@@ -431,7 +431,7 @@ void GateMatePacker::pack_io_sel()
 
     auto merge_iddr = [&](NetInfo *di_net, CellInfo &ci, bool use_custom_clock) -> bool {
         CellInfo *iddr = (*di_net->users.begin()).cell;
-        if (!global_signals.count(ci.getPort(id_CLK)) && use_custom_clock) {
+        if (!uarch->global_signals.count(ci.getPort(id_CLK)) && use_custom_clock) {
             log_warning("Found IDDR %s cell, but not enough CLK signals.\n", iddr->name.c_str(ctx));
             return false;
         }
@@ -454,6 +454,9 @@ void GateMatePacker::pack_io_sel()
         return true;
     };
 
+    // Invert CPE out for output enable (OUT3)
+    bool is_inverted[4] = {false, false, true, false};
+
     for (auto &cell : cells) {
         CellInfo &ci = *cell;
         bool ff_obf = bool_or_default(ci.params, id_FF_OBF, 0);
@@ -467,8 +470,6 @@ void GateMatePacker::pack_io_sel()
         }
 
         ci.cluster = ci.name;
-        std::string loc = str_or_default(ci.params, id_LOC, "UNPLACED");
-        ci.unsetParam(id_LOC);
 
         NetInfo *do_net = ci.getPort(id_A);
         bool use_custom_clock = false;
@@ -503,6 +504,16 @@ void GateMatePacker::pack_io_sel()
                     }
                 }
                 bool oddr_merged = false;
+                if (do_net->driver.cell && do_net->driver.cell->type == id_CC_LUT1 && do_net->users.entries() == 1) {
+                    NetInfo *net = do_net->driver.cell->getPort(id_I0);
+                    if (net->driver.cell && net->driver.cell->type == id_CC_ODDR && net->users.entries() == 1) {
+                        do_net = net;
+                        packed_cells.insert(net->driver.cell->name);
+                        // Inverting both input is equal to inverter at output
+                        is_inverted[0] = true;
+                        is_inverted[1] = true;
+                    }
+                }
                 if (do_net->driver.cell && do_net->driver.cell->type == id_CC_ODDR && do_net->users.entries() == 1) {
                     CellInfo *oddr = do_net->driver.cell;
                     ci.params[id_OUT1_FF] = Property(Property::State::S1);
@@ -512,7 +523,7 @@ void GateMatePacker::pack_io_sel()
                     ci.disconnectPort(id_A);
                     oddr->movePortTo(id_D0, &ci, id_OUT2);
                     oddr->movePortTo(id_D1, &ci, id_OUT1);
-                    const auto &pad = ctx->get_package_pin(ctx->id(loc));
+                    const auto &pad = uarch->bel_to_pad[ci.bel];
                     int die = uarch->tile_extra_data(ci.bel.tile)->die;
                     auto [cpe_half, cpe_ramio] = ddr[die][pad->pad_bank];
                     if (cpe_half) {
@@ -558,8 +569,8 @@ void GateMatePacker::pack_io_sel()
         Loc root_loc = ctx->getBelLocation(ci.bel);
         for (int i = 0; i < 4; i++) {
             CellInfo *cpe = move_ram_o_fixed(&ci, ctx->idf("OUT%d", i + 1), root_loc).first;
-            if (cpe && i == 2)
-                cpe->params[id_INIT_L10] = Property(LUT_INV_D0, 4); // Invert CPE out for output enable (OUT3)
+            if (cpe && is_inverted[i])
+                cpe->params[id_INIT_L10] = Property(LUT_INV_D0, 4);
         }
     }
     flush_cells();

@@ -47,10 +47,10 @@ uint8_t GateMatePacker::ram_ctrl_signal(CellInfo *cell, IdString port, bool alt)
 uint8_t GateMatePacker::ram_clk_signal(CellInfo *cell, IdString port)
 {
     NetInfo *clk_net = cell->getPort(port);
-    if (!global_signals.count(clk_net)) {
+    if (!uarch->global_signals.count(clk_net)) {
         return 0b00000000;
     } else {
-        int index = global_signals[clk_net];
+        int index = uarch->global_signals[clk_net];
         uint8_t val = 0;
         switch (index) {
         case 0:
@@ -348,6 +348,7 @@ void GateMatePacker::pack_ram()
             cell->constr_y = +8;
             cell->constr_z = RAM_HALF_L_Z;
             cell->cluster = ci.cluster;
+            cell->region = ci.region;
             cell->params[id_RAM_cfg_ecc_enable] = Property(b_ecc_en << 1 | a_ecc_en, 2);
             cell->params[id_RAM_cfg_sram_mode] = Property(ram_mode << 1 | split, 2);
         }
@@ -395,7 +396,7 @@ void GateMatePacker::pack_ram()
                     ci.renamePort(ctx->idf("F_ALMOST_EMPTY_OFFSET[%d]", i), ctx->idf("WEA[%d]", i));
                     // WEA[34:20] = F_ALMOST_FULL_OFFSET
                     ci.disconnectPort(ctx->idf("WEA[%d]", 20 + i));
-                    ci.renamePort(ctx->idf("F_ALMOST_FULL_OFFSET[%d]", i),  ctx->idf("WEA[%d]", 20 + i));
+                    ci.renamePort(ctx->idf("F_ALMOST_FULL_OFFSET[%d]", i), ctx->idf("WEA[%d]", 20 + i));
                 }
             }
         }

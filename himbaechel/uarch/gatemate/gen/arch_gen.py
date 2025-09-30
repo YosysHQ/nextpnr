@@ -161,6 +161,40 @@ class SpeedGradeExtraData(BBAStruct):
     def serialise(self, context: str, bba: BBAWriter):
         bba.slice(f"{context}_timings", len(self.timings))
 
+@dataclass
+class DieRegion(BBAStruct):
+    name: IdString
+    x1: int = 0
+    y1: int = 0
+    x2: int = 0
+    y2: int = 0
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.u32(self.name.index)
+        bba.u16(self.x1)
+        bba.u16(self.y1)
+        bba.u16(self.x2)
+        bba.u16(self.y2)
+
+@dataclass
+class ChipExtraData(BBAStruct):
+    dies: list[DieRegion] = field(default_factory = list)
+
+    def add_die(self, name: IdString, x1: int, y1: int, x2:int, y2:int):
+        item = DieRegion(name,x1,y1,x2,y2)
+        self.dies.append(item)
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        self.dies.sort(key=lambda p: p.name.index)
+        bba.label(f"{context}_dies")
+        for i, t in enumerate(self.dies):
+            t.serialise(f"{context}_die{i}", bba)
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.slice(f"{context}_dies", len(self.dies))
+
 def convert_timing(tim):
     return TimingValue(tim.rise.min, tim.rise.max, tim.fall.min, tim.fall.max)
 
@@ -221,6 +255,10 @@ def main():
         print("       Run delay.sh in prjpeppercorn to download needed files")
         print("==============================================================================")
         os._exit(-1)
+
+    ch.extra_data = ChipExtraData()
+    for d in sorted(dev.dies):
+        ch.extra_data.add_die(ch.strs.id(dev.dies[d].name), dev.dies[d].offset_x, dev.dies[d].offset_y, dev.dies[d].offset_x + die.num_cols() - 1, dev.dies[d].offset_y + die.num_rows()-1)
 
     new_wires = dict()
     wire_delay = dict()

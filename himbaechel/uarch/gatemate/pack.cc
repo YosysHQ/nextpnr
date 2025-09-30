@@ -98,7 +98,7 @@ void GateMatePacker::disconnect_not_used()
     }
 }
 
-void GateMatePacker::copy_constraint(NetInfo *in_net, NetInfo *out_net)
+void GateMatePacker::copy_constraint(const NetInfo *in_net, NetInfo *out_net)
 {
     if (!in_net || !out_net)
         return;
@@ -385,12 +385,14 @@ void GateMateImpl::pack()
         parse_ccf(args.options.at("ccf"));
     }
 
+    if (forced_die != IdString())
+        preferred_die = die_to_index[forced_die];
+
     GateMatePacker packer(ctx, this);
     packer.pack_constants();
     packer.cleanup();
     packer.pack_io();
     packer.insert_clocking();
-    packer.sort_bufg();
     packer.pack_pll();
     packer.pack_bufg();
     packer.pack_io_sel(); // merge in FF and DDR
@@ -400,8 +402,15 @@ void GateMateImpl::pack()
     packer.pack_mult();
     packer.pack_addf();
     packer.pack_cpe();
+    packer.copy_clocks();
     packer.remove_constants();
-    packer.remove_clocking();
+
+    if (forced_die != IdString()) {
+        for (auto &cell : ctx->cells) {
+            if (cell.second->belStrength != PlaceStrength::STRENGTH_FIXED)
+                ctx->constrainCellToRegion(cell.second->name, forced_die);
+        }
+    }
 }
 
 void GateMateImpl::repack()
@@ -409,6 +418,8 @@ void GateMateImpl::repack()
     GateMatePacker packer(ctx, this);
     packer.repack_ram();
     packer.repack_cpe();
+    packer.reassign_clocks();
+    packer.remove_clocking();
 }
 
 NEXTPNR_NAMESPACE_END

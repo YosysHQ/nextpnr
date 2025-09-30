@@ -68,6 +68,8 @@ struct GateMatePacker
     void cleanup();
     void repack_cpe();
     void repack_ram();
+    void reassign_clocks();
+    void copy_clocks();
 
   private:
     void rename_param(CellInfo *cell, IdString name, IdString new_name, int width);
@@ -75,6 +77,7 @@ struct GateMatePacker
     void dff_update_params();
     void disconnect_if_gnd(CellInfo *cell, IdString input);
     void pll_out(CellInfo *cell, IdString origPort, Loc fixed);
+    void rewire_ram_o(CellInfo *first, IdString port, CellInfo *second);
 
     void disconnect_not_used();
     void optimize_lut();
@@ -104,12 +107,9 @@ struct GateMatePacker
     CellInfo *create_cell_ptr(IdString type, IdString name);
     void flush_cells();
     void pack_ram_cell(CellInfo &ci, CellInfo *cell, bool is_split);
-    void copy_constraint(NetInfo *in_net, NetInfo *out_net);
+    void copy_constraint(const NetInfo *in_net, NetInfo *out_net);
 
     pool<IdString> packed_cells;
-    std::map<NetInfo *, int> global_signals;
-    std::vector<CellInfo *> clkin;
-    std::vector<CellInfo *> glbout;
 
     Context *ctx;
     GateMateImpl *uarch;
@@ -117,6 +117,7 @@ struct GateMatePacker
     HimbaechelHelpers h;
     NetInfo *net_PACKER_VCC;
     NetInfo *net_PACKER_GND;
+    NetInfo *net_SER_CLK;
     int count;
     std::map<IdString, int> count_per_type;
 };

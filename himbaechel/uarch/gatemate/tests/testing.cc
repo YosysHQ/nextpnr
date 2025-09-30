@@ -201,4 +201,11 @@ CellInfo *GateMateTest::create_cell_ptr(IdString type, std::string name)
     return cell;
 }
 
+void GateMateTest::direct_connect(CellInfo *o_cell, IdString o_port, CellInfo *i_cell, IdString i_port)
+{
+    NetInfo *net = ctx->createNet(ctx->idf("%s_%s", o_cell->name.c_str(ctx), o_port.c_str(ctx)));
+    o_cell->connectPort(o_port, net);
+    i_cell->connectPort(i_port, net);
+}
+
 NEXTPNR_NAMESPACE_END
