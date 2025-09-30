@@ -212,10 +212,7 @@ void npnr_inc_wire_iter(WireIterWrapper *iter) { ++iter->current; }
 uint64_t npnr_deref_wire_iter(WireIterWrapper *iter) { return wrap(*iter->current); }
 bool npnr_is_wire_iter_done(WireIterWrapper *iter) { return !(iter->current != iter->end); }
 
-NetIterWrapper *npnr_context_net_iter(Context *ctx)
-{
-    return new NetIterWrapper(ctx->nets.begin(), ctx->nets.end());
-}
+NetIterWrapper *npnr_context_net_iter(Context *ctx) { return new NetIterWrapper(ctx->nets.begin(), ctx->nets.end()); }
 void npnr_delete_net_iter(NetIterWrapper *iter) { delete iter; }
 void npnr_inc_net_iter(NetIterWrapper *iter) { ++iter->current; }
 int npnr_deref_net_iter_first(NetIterWrapper *iter) { return wrap(iter->current->first.index); }
