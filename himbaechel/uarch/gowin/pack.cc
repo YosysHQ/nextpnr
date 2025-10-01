@@ -2632,6 +2632,13 @@ struct GowinPacker
             ci->connectPort(id_WREB, vss_net);
             bsram_rename_ports(ci, bit_width, "DO[%d]", "DO%d", 18);
         }
+
+        // If misconnected RESET
+        if (gwu.need_BSRAM_RESET_fix()) {
+            ci->renamePort(id_RESET, id_RESETB);
+            ci->addInput(id_RESET);
+            ci->connectPort(id_RESET, vcc_net);
+        }
     }
 
     void pack_DPB(CellInfo *ci)
