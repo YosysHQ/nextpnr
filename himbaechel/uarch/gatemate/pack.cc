@@ -137,6 +137,8 @@ void GateMatePacker::optimize_lut()
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_LUT1, id_CC_LUT2))
             continue;
+        if (ci.attrs.count(ctx->id("keep")))
+            continue;
         NetInfo *o_net = ci.getPort(id_O);
         if (!o_net) {
             count_cell(ci);
@@ -175,6 +177,8 @@ void GateMatePacker::optimize_mx()
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_MX2, id_CC_MX4))
+            continue;
+        if (ci.attrs.count(ctx->id("keep")))
             continue;
         NetInfo *y_net = ci.getPort(id_Y);
         if (!y_net) {
@@ -219,6 +223,8 @@ void GateMatePacker::optimize_ff()
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
         if (!ci.type.in(id_CC_DFF, id_CC_DLT))
+            continue;
+        if (ci.attrs.count(ctx->id("keep")))
             continue;
 
         NetInfo *q_net = ci.getPort(id_Q);
@@ -378,6 +384,19 @@ void GateMatePacker::repack_cpe()
     flush_cells();
 }
 
+void GateMatePacker::remove_double_constrained()
+{
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (!ci.attrs.count(ctx->id("BEL")))
+            continue;
+        if (ci.cluster != ClusterId()) {
+            log_warning("Removing BEL attribute for cell '%s'.\n", ci.name.c_str(ctx));
+            ci.unsetAttr(ctx->id("BEL"));
+        }
+    }
+}
+
 void GateMateImpl::pack()
 {
     const ArchArgs &args = ctx->args;
@@ -404,6 +423,7 @@ void GateMateImpl::pack()
     packer.pack_cpe();
     packer.copy_clocks();
     packer.remove_constants();
+    packer.remove_double_constrained();
 
     if (forced_die != IdString()) {
         for (auto &cell : ctx->cells) {

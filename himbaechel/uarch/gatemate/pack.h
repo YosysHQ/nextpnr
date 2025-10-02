@@ -64,6 +64,7 @@ struct GateMatePacker
 
     void remove_constants();
     void remove_clocking();
+    void remove_double_constrained();
 
     void cleanup();
     void repack_cpe();
