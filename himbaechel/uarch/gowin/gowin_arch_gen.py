@@ -786,6 +786,17 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                 for pin, wire in desc['inputs'].items():
                     tt.create_wire(wire, "PLL_I")
                     tt.add_bel_pin(pll, pin, wire, PinType.INPUT)
+        elif func == 'gnd_source':
+                # GND is the logic low level generator
+                tt.create_wire('VSS', 'GND', const_value = 'VSS')
+                gnd = tt.create_bel('GND', 'GND', z = GND_Z)
+                tt.add_bel_pin(gnd, "G", "VSS", PinType.OUTPUT)
+        elif func == 'vcc_source':
+                # VCC is the logic high level generator
+                tt.create_wire('VCC', 'VCC', const_value = 'VCC')
+                gnd = tt.create_bel('VCC', 'VCC', z = VCC_Z)
+                tt.add_bel_pin(gnd, "V", "VCC", PinType.OUTPUT)
+
 
 def set_wire_flags(tt: TileType, tdesc: TypeDesc):
     if tdesc.extra_func and 'clock_gates' in tdesc.extra_func:
@@ -868,29 +879,6 @@ def create_null_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdes
     tt.extra_data = TileExtraData(chip.strs.id(typename))
     tdesc.tiletype = tiletype
     return tt
-
-# responsible nodes, there will be IO banks, configuration, etc.
-def create_corner_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc: TypeDesc):
-    typename = "CORNER"
-    tiletype = f"{typename}_{ttyp}"
-    if tdesc.sfx != 0:
-        tiletype += f"_{tdesc.sfx}"
-    tt = chip.create_tile_type(tiletype)
-    tt.extra_data = TileExtraData(chip.strs.id(typename))
-
-    if x == 0 and y == 0:
-        # GND is the logic low level generator
-        tt.create_wire('VSS', 'GND', const_value = 'VSS')
-        gnd = tt.create_bel('GND', 'GND', z = GND_Z)
-        tt.add_bel_pin(gnd, "G", "VSS", PinType.OUTPUT)
-        # VCC is the logic high level generator
-        tt.create_wire('VCC', 'VCC', const_value = 'VCC')
-        gnd = tt.create_bel('VCC', 'VCC', z = VCC_Z)
-        tt.add_bel_pin(gnd, "V", "VCC", PinType.OUTPUT)
-
-    tdesc.tiletype = tiletype
-    return tt
-
 
 # IO
 def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc: TypeDesc):
@@ -1580,6 +1568,15 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
                 for name, mapping in [("LUT_OUT", "FFan"), ("FF_OUT", "QFan"), ("OF", "OFFan")]:
                     tmg.set_pip_class(speed, name, TimingValue(), group_to_timingvalue(groups["fanout"][mapping]), TimingValue(round(1e6 / groups["fanout"][f"{mapping}Num"])))
 
+# If Apicula does not specify a special location for the global GND and VCC
+# sources, place them at X0Y0.
+def check_place_VCC_GND(db: chipdb.Device):
+    for funcs in db.extra_func.values():
+        if 'gnd_source' in funcs or 'vcc_source' in funcs:
+            return
+    db.extra_func.setdefault((0, 0), {}).update({'gnd_source':{}, 'vcc_source': {}})
+
+# *******************************
 def main():
     parser = argparse.ArgumentParser(description='Make Gowin BBA')
     parser.add_argument('-d', '--device', required=True)
@@ -1639,15 +1636,15 @@ def main():
     bsram_tiletypes = db.tile_types.get('B', set())
     dsp_tiletypes = db.tile_types.get('D', set())
 
+    # If Apicula does not specify a special location for the global GND and VCC
+    # sources, place them at X0Y0.
+    check_place_VCC_GND(db)
+
     # Setup tile grid
     for x in range(X):
         for y in range(Y):
             ttyp = db.grid[y][x].ttyp
-            if (x == 0 or x == X - 1) and (y == 0 or y == Y - 1):
-                assert ttyp not in created_tiletypes, "Duplication of corner types"
-                create_tiletype(create_corner_tiletype, ch, db, x, y, ttyp)
-                continue
-            elif ttyp in logic_tiletypes:
+            if ttyp in logic_tiletypes:
                 create_tiletype(create_logic_tiletype, ch, db, x, y, ttyp)
             elif ttyp in ssram_tiletypes:
                 create_tiletype(create_ssram_tiletype, ch, db, x, y, ttyp)
