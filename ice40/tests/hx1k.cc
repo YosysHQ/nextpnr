@@ -37,7 +37,7 @@ class HX1KTest : public ::testing::Test
     virtual void TearDown() { delete ctx; }
 
     ArchArgs chipArgs;
-    Context *ctx;
+    Context *ctx = nullptr;
 };
 
 TEST_F(HX1KTest, bel_names)
