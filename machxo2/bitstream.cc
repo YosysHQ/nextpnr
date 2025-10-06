@@ -29,6 +29,7 @@
 #include "config.h"
 #include "log.h"
 #include "util.h"
+#include "pio.h"
 
 #define fmt_str(x) (static_cast<const std::ostringstream &>(std::ostringstream() << x).str())
 
@@ -420,9 +421,45 @@ struct MachXO2Bitgen
         BelId bel = ci->bel;
         std::string pio = ctx->tile_info(bel)->bel_data[bel.index].name.get();
         std::string iotype = str_or_default(ci->attrs, id_IO_TYPE, "LVCMOS33");
+        IOType io_type = ioType_from_str(iotype);
         std::string dir = str_or_default(ci->params, id_DIR, "INPUT");
         std::string pic_tile = get_pic_tile(bel);
         cc.tiles[pic_tile].add_enum(pio + ".BASE_TYPE", dir + "_" + iotype);
+        bool is_opendrain = false;
+        
+        if (ci->attrs.count(id_OPENDRAIN)) {
+            if (opendrain_capable(io_type, dir)) {
+                cc.tiles[pic_tile].add_enum(pio + ".OPENDRAIN", str_or_default(ci->attrs, id_OPENDRAIN, "OFF"));
+                is_opendrain = true;
+            }
+            else
+                log_error("IO of type %s and direction %s cannot be set to opendrain\n", iotype.c_str(), dir.c_str());
+        }
+        
+        if (ci->attrs.count(id_SLEWRATE) && !is_differential(io_type) && dir != "INPUT")
+            cc.tiles[pic_tile].add_enum(pio + ".SLEWRATE", str_or_default(ci->attrs, id_SLEWRATE, "SLOW"));
+        if (ci->attrs.count(id_DIFFRESISTOR))
+            cc.tiles[pic_tile].add_enum(pio + ".DIFFRESISTOR", str_or_default(ci->attrs, id_DIFFRESISTOR, "OFF"));
+            
+        if (!is_opendrain) {
+            if (ci->attrs.count(id_CLAMP))
+                cc.tiles[pic_tile].add_enum(pio + ".CLAMP", str_or_default(ci->attrs, id_CLAMP, "OFF"));
+            if (ci->attrs.count(id_PULLMODE) || dir == "INPUT")
+                cc.tiles[pic_tile].add_enum(pio + ".PULLMODE", str_or_default(ci->attrs, id_PULLMODE, is_lvcmos(io_type) ? "DOWN" : "NONE"));
+        }
+        
+        if (ci->attrs.count(id_DRIVE) && !is_differential(io_type) && dir != "INPUT") {
+            std::string drive = str_or_default(ci->attrs, id_DRIVE, "8");
+            if (is_drive_ok(io_type, drive))
+                cc.tiles[pic_tile].add_enum(pio + ".DRIVE", drive);
+            else
+                log_error("DRIVE %s cannot be set for IO type %s\n", drive.c_str(), iotype.c_str());
+        }
+        
+        if ((dir == "INPUT" || dir == "BIDIR") && !is_differential(ioType_from_str(iotype)) &&
+            !is_referenced(ioType_from_str(iotype)) && ci->attrs.count(id_HYSTERESIS)) {
+            cc.tiles[pic_tile].add_enum(pio + ".HYSTERESIS", str_or_default(ci->attrs, id_HYSTERESIS, "SMALL"));
+        }
     }
 
     void write_dcc(CellInfo *ci)
