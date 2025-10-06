@@ -37,7 +37,7 @@ class LP384Test : public ::testing::Test
     virtual void TearDown() { delete ctx; }
 
     ArchArgs chipArgs;
-    Context *ctx;
+    Context *ctx = nullptr;
 };
 
 TEST_F(LP384Test, bel_names)
