@@ -96,7 +96,7 @@ struct GowinCstReader
                     std::regex("INS_LOC +\"([^\"]+)\" +(TOP|RIGHT|BOTTOM|LEFT)SIDE\\[([0,1])\\] *;*[\\s\\S]*");
             std::regex clockre = std::regex("CLOCK_LOC +\"([^\"]+)\" +BUF([GS])(\\[([0-7])\\])?[^;]*;.*[\\s\\S]*");
             std::smatch match, match_attr, match_pinloc;
-            std::string line, pinline;
+            std::string line, pinlines[2];
             std::vector<IdStringList> constrained_clkdivs;
             enum
             {
@@ -171,27 +171,53 @@ struct GowinCstReader
                     }
                 } break;
                 case ioloc: { // IO_LOC name pin
-                    IdString pinname = ctx->id(match[2]);
-                    pinline = match[2];
+                    int nb_iter = 1;
+                    IdString nets[2];
 
-                    const PadInfoPOD *belname =
-                            pinLookup(ctx->package_info->pads.get(), ctx->package_info->pads.ssize(), pinname);
-                    if (belname != nullptr) {
-                        IdStringList bel = IdStringList::concat(IdString(belname->tile), IdString(belname->bel));
-                        it->second->setAttr(IdString(ID_BEL), bel.str(ctx));
-                        debug_cell(it->second->name, bel);
-                    } else {
-                        if (std::regex_match(pinline, match_pinloc, iobelre)) {
-                            // may be it's IOx#[AB] style?
-                            Loc loc = getLoc(match_pinloc, ctx->getGridDimX(), ctx->getGridDimY());
-                            BelId bel = ctx->getBelByLocation(loc);
-                            if (bel == BelId()) {
-                                log_error("Pin %s not found (TRBL style). \n", pinline.c_str());
-                            }
-                            it->second->setAttr(IdString(ID_BEL), std::string(ctx->nameOfBel(bel)));
-                            debug_cell(it->second->name, ctx->getBelName(bel));
+                    // Prepare pinlines and nets (default: one Pin, one LOC).
+                    pinlines[0] = match[2];
+                    nets[0] = ctx->id(match[1]);
+
+                    // Differential case: one Pin (_p), two LOCs separated by a ','
+                    if (match[3].length() > 0) {
+                        nb_iter++;
+                        // Uses second pin after removing ','
+                        pinlines[1] = std::regex_replace(match[3].str(), std::regex("^,"), "");
+
+                        // Replaces _p with _n in pinname.
+                        std::string tmp = std::regex_replace(match[1].str(), std::regex("_p$"), "_n");
+
+                        nets[1] = ctx->id(tmp);
+                        it = ctx->cells.find(nets[1]);
+                        if (cst_type != clock && it == ctx->cells.end()) {
+                            log_info("Cell %s not found\n", nets[1].c_str(ctx));
+                            continue;
+                        }
+                    }
+
+                    for (int iter = 0; iter < nb_iter; iter++) {
+                        IdString pinname = ctx->id(pinlines[iter]);
+                        auto it = ctx->cells.find(nets[iter]);
+
+                        const PadInfoPOD *belname =
+                                pinLookup(ctx->package_info->pads.get(), ctx->package_info->pads.ssize(), pinname);
+                        if (belname != nullptr) {
+                            IdStringList bel = IdStringList::concat(IdString(belname->tile), IdString(belname->bel));
+                            it->second->setAttr(IdString(ID_BEL), bel.str(ctx));
+                            debug_cell(it->second->name, bel);
                         } else {
-                            log_error("Pin %s not found (pin# style)\n", pinname.c_str(ctx));
+                            if (std::regex_match(pinlines[iter], match_pinloc, iobelre)) {
+                                // may be it's IOx#[AB] style?
+                                Loc loc = getLoc(match_pinloc, ctx->getGridDimX(), ctx->getGridDimY());
+                                BelId bel = ctx->getBelByLocation(loc);
+                                if (bel == BelId()) {
+                                    log_error("Pin %s not found (TRBL style). \n", pinlines[iter].c_str());
+                                }
+                                it->second->setAttr(IdString(ID_BEL), std::string(ctx->nameOfBel(bel)));
+                                debug_cell(it->second->name, ctx->getBelName(bel));
+                            } else {
+                                log_error("Pin %s not found (pin# style)\n", pinname.c_str(ctx));
+                            }
                         }
                     }
                 } break;
