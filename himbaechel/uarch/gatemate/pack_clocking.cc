@@ -113,7 +113,7 @@ void GateMatePacker::pack_bufg()
         return true;
     };
 
-    unsigned max_plls = 4; // * uarch->dies;
+    unsigned max_plls = 4 * uarch->dies;
     // Index vector for permutation
     std::vector<unsigned> indexes(max_plls);
     for (unsigned i = 0; i < max_plls; ++i)
@@ -684,9 +684,13 @@ void GateMatePacker::copy_clocks()
         return;
     switch (strategy) {
     case MultiDieStrategy::REUSE_CLK1:
+        if (uarch->global_signals.size() > 1 || uarch->pll.size() > 1)
+            log_error("Unable to use REUSE CLK1 strategy when there is more than one clock/PLL.\n");
         strategy_clk1();
         break;
     case MultiDieStrategy::CLOCK_MIRROR:
+        if (uarch->global_signals.size() > 4 || uarch->pll.size() > 4)
+            log_error("Unable to use MIRROR CLOCK strategy when there is more than 4 clocks/PLLs.\n");
         strategy_mirror();
         break;
     }
