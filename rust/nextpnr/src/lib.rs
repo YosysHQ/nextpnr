@@ -53,9 +53,9 @@ impl NetInfo {
 
     #[must_use]
     pub fn users(&self) -> NetUserIter<'_> {
-        NetUserIter { 
+        NetUserIter {
             iter: unsafe { npnr_context_net_user_iter(self) },
-            phantom_data: PhantomData
+            phantom_data: PhantomData,
         }
     }
 }
@@ -297,19 +297,28 @@ impl Context {
     #[must_use]
     pub fn bels(&self) -> BelIter<'_> {
         let iter = unsafe { npnr_context_get_bels(self) };
-        BelIter { iter, phantom_data: PhantomData }
+        BelIter {
+            iter,
+            phantom_data: PhantomData,
+        }
     }
 
     #[must_use]
     pub fn pips(&self) -> PipIter<'_> {
         let iter = unsafe { npnr_context_get_pips(self) };
-        PipIter { iter, phantom_data: PhantomData }
+        PipIter {
+            iter,
+            phantom_data: PhantomData,
+        }
     }
 
     #[must_use]
     pub fn wires(&self) -> WireIter<'_> {
         let iter = unsafe { npnr_context_get_wires(self) };
-        WireIter { iter, phantom_data: PhantomData }
+        WireIter {
+            iter,
+            phantom_data: PhantomData,
+        }
     }
 
     #[must_use]
@@ -337,8 +346,8 @@ impl Context {
 
     #[must_use]
     pub fn pip_direction(&self, pip: PipId) -> Loc {
-        let mut src = Loc{x: 0, y: 0, z: 0};
-        let mut dst = Loc{x: 0, y: 0, z: 0};
+        let mut src = Loc { x: 0, y: 0, z: 0 };
+        let mut dst = Loc { x: 0, y: 0, z: 0 };
 
         let mut pips = 0;
         for pip in self.get_uphill_pips(self.pip_src_wire(pip)) {
@@ -364,7 +373,11 @@ impl Context {
             dst.y /= pips;
         }
 
-        Loc{x: dst.x - src.x, y: dst.y - src.y, z: 0}
+        Loc {
+            x: dst.x - src.x,
+            y: dst.y - src.y,
+            z: 0,
+        }
     }
 
     #[must_use]
@@ -455,11 +468,7 @@ unsafe extern "C" {
     fn npnr_context_get_pip_delay(ctx: &Context, pip: PipId) -> f32;
     fn npnr_context_get_wire_delay(ctx: &Context, wire: WireId) -> f32;
     fn npnr_context_get_pip_location(ctx: &Context, pip: PipId) -> Loc;
-    fn npnr_context_check_pip_avail_for_net(
-        ctx: &Context,
-        pip: PipId,
-        net: &NetInfo,
-    ) -> bool;
+    fn npnr_context_check_pip_avail_for_net(ctx: &Context, pip: PipId, net: &NetInfo) -> bool;
 
     fn npnr_context_check(ctx: &Context);
     fn npnr_context_debug(ctx: &Context) -> bool;
@@ -851,4 +860,3 @@ macro_rules! log_error {
         unsafe { crate::npnr::npnr_log_error(s.as_ptr()); }
     };
 }
-
