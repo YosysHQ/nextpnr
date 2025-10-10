@@ -404,10 +404,32 @@ void GateMateImpl::pack()
         parse_ccf(args.options.at("ccf"));
     }
 
+    MultiDieStrategy strategy;
+    if (args.options.count("multi")) {
+        std::string val = args.options.at("multi");
+        if (val == "mirror") {
+            strategy = MultiDieStrategy::CLOCK_MIRROR;
+            log_info("Multidie mode: CLOCK MIRROR\n");
+        } else if (val == "clk1") {
+            strategy = MultiDieStrategy::REUSE_CLK1;
+            log_info("Multidie mode: REUSE CLK1\n");
+        } else {
+            log_error("Unknown value for 'multi' option. Allowed values are 'mirror' and 'clk1'.\n");
+        }
+    } else {
+        strategy = MultiDieStrategy::CLOCK_MIRROR;
+        if (dies != 1)
+            log_warning("Multi die clock placement strategy set to 'mirror'.\n");
+    }
+
     if (forced_die != IdString())
         preferred_die = die_to_index[forced_die];
 
+    if (strategy == MultiDieStrategy::REUSE_CLK1)
+        preferred_die = 0;
+
     GateMatePacker packer(ctx, this);
+    packer.set_strategy(strategy);
     packer.pack_constants();
     packer.cleanup();
     packer.pack_io();
