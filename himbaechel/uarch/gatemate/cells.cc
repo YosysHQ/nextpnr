@@ -125,6 +125,11 @@ CellInfo *GateMatePacker::create_cell_ptr(IdString type, IdString name)
     } else if (type.in(id_CPE_IBUF)) {
         add_port(id_Y, PORT_OUT);
         add_port(id_I, PORT_IN);
+    } else if (type.in(id_CPE_IOBUF)) {
+        add_port(id_Y, PORT_OUT);
+        add_port(id_T, PORT_IN);
+        add_port(id_A, PORT_IN);
+        add_port(id_IO, PORT_INOUT);
     } else if (type.in(id_PLL)) {
         add_port(id_CLK_REF, PORT_IN);
         add_port(id_USR_CLK_REF, PORT_IN);

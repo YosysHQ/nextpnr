@@ -376,7 +376,14 @@ void GateMatePacker::pack_io_sel()
                     return true;
                 } else {
                     int index = uarch->global_signals[clk_net];
-                    cell->movePortTo(id_CLK, target, ctx->idf("CLOCK%d", index + 1));
+                    NetInfo *net = target->getPort(ctx->idf("CLOCK%d", index + 1));
+                    if (net) {
+                        if (net != clk_net)
+                            log_error("Not able to connected different CLK signal to cell '%s'.\n",
+                                      cell->name.c_str(ctx));
+                    } else {
+                        cell->movePortTo(id_CLK, target, ctx->idf("CLOCK%d", index + 1));
+                    }
                     target->params[id_OUT_CLOCK] = Property(index, 2);
                 }
             }
@@ -396,7 +403,14 @@ void GateMatePacker::pack_io_sel()
                     target->params[id_SEL_IN_CLOCK] = Property(Property::State::S1);
                 } else {
                     int index = uarch->global_signals[clk_net];
-                    cell->movePortTo(id_CLK, target, ctx->idf("CLOCK%d", index + 1));
+                    NetInfo *net = target->getPort(ctx->idf("CLOCK%d", index + 1));
+                    if (net) {
+                        if (net != clk_net)
+                            log_error("Not able to connected different CLK signal to cell '%s'.\n",
+                                      cell->name.c_str(ctx));
+                    } else {
+                        cell->movePortTo(id_CLK, target, ctx->idf("CLOCK%d", index + 1));
+                    }
                     target->params[id_IN_CLOCK] = Property(index, 2);
                 }
             }

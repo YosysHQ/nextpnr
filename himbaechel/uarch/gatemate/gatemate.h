@@ -91,9 +91,12 @@ struct GateMateImpl : HimbaechelAPI
     int fpga_mode;
     int timing_mode;
     std::map<const NetInfo *, int> global_signals;
+    dict<std::pair<IdString, int>, NetInfo *> global_mapping;
+    dict<std::pair<IdString, int>, IdString> global_clk_mapping;
     std::vector<CellInfo *> clkin;
     std::vector<CellInfo *> glbout;
     std::vector<CellInfo *> pll;
+    pool<IdString> ignore;
 
   private:
     bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
