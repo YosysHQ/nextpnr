@@ -8,7 +8,9 @@ pub extern "C" fn rust_example_printnets(ctx: &mut Context) {
         let driver = net.driver();
         println!("  {}:", ctx.name_of(name).to_str().unwrap());
         if let Some(driver) = driver {
-            let cell = driver.cell().map_or("(no cell)", |cell| ctx.name_of(cell.name()).to_str().unwrap());
+            let cell = driver.cell().map_or("(no cell)", |cell| {
+                ctx.name_of(cell.name()).to_str().unwrap()
+            });
             let port = ctx.name_of(driver.port()).to_str().unwrap();
             println!("    driver: {cell}.{port}");
         } else {
