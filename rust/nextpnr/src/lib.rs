@@ -1,6 +1,4 @@
-use std::{ffi::CStr, marker::PhantomData, sync::Mutex};
-
-use libc::c_char;
+use std::{ffi::{c_char, c_int, CStr, CString}, marker::PhantomData, sync::Mutex};
 
 #[derive(Clone, Copy)]
 #[repr(C)]
@@ -91,7 +89,7 @@ impl PortRef {
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
-pub struct IdString(libc::c_int);
+pub struct IdString(c_int);
 
 /// A type representing a bel name.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -163,9 +161,9 @@ impl WireId {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Loc {
-    pub x: libc::c_int,
-    pub y: libc::c_int,
-    pub z: libc::c_int,
+    pub x: c_int,
+    pub y: c_int,
+    pub z: c_int,
 }
 
 impl From<(i32, i32)> for Loc {
@@ -396,7 +394,7 @@ impl Context {
 
     #[must_use]
     pub fn id(&self, s: &str) -> IdString {
-        let s = std::ffi::CString::new(s).unwrap();
+        let s = CString::new(s).unwrap();
         unsafe { npnr_context_id(self, s.as_ptr()) }
     }
 
@@ -437,8 +435,8 @@ unsafe extern "C" {
     safe fn npnr_wireid_null() -> WireId;
     safe fn npnr_pipid_null() -> PipId;
 
-    fn npnr_context_get_grid_dim_x(ctx: &Context) -> libc::c_int;
-    fn npnr_context_get_grid_dim_y(ctx: &Context) -> libc::c_int;
+    fn npnr_context_get_grid_dim_x(ctx: &Context) -> c_int;
+    fn npnr_context_get_grid_dim_y(ctx: &Context) -> c_int;
     fn npnr_context_bind_bel(
         ctx: &mut Context,
         bel: BelId,
@@ -473,9 +471,9 @@ unsafe extern "C" {
     fn npnr_context_check(ctx: &Context);
     fn npnr_context_debug(ctx: &Context) -> bool;
     fn npnr_context_id(ctx: &Context, s: *const c_char) -> IdString;
-    fn npnr_context_name_of(ctx: &Context, s: IdString) -> *const libc::c_char;
-    fn npnr_context_name_of_pip(ctx: &Context, pip: PipId) -> *const libc::c_char;
-    fn npnr_context_name_of_wire(ctx: &Context, wire: WireId) -> *const libc::c_char;
+    fn npnr_context_name_of(ctx: &Context, s: IdString) -> *const c_char;
+    fn npnr_context_name_of_pip(ctx: &Context, pip: PipId) -> *const c_char;
+    fn npnr_context_name_of_wire(ctx: &Context, wire: WireId) -> *const c_char;
     fn npnr_context_verbose(ctx: &Context) -> bool;
 
     fn npnr_context_get_netinfo_source_wire(ctx: &Context, net: &NetInfo) -> WireId;
@@ -492,9 +490,9 @@ unsafe extern "C" {
     fn npnr_netinfo_udata_set(net: &mut NetInfo, value: NetIndex);
 
     fn npnr_portref_cell(port: &PortRef) -> Option<&CellInfo>;
-    fn npnr_portref_port(port: &PortRef) -> libc::c_int;
+    fn npnr_portref_port(port: &PortRef) -> c_int;
     fn npnr_cellinfo_get_location(cell: &CellInfo) -> Loc;
-    fn npnr_cellinfo_name(cell: &CellInfo) -> libc::c_int;
+    fn npnr_cellinfo_name(cell: &CellInfo) -> c_int;
 
     fn npnr_context_get_pips_downhill(ctx: &Context, wire: WireId) -> &mut RawDownhillIter;
     fn npnr_delete_downhill_iter(iter: &mut RawDownhillIter);
@@ -529,14 +527,14 @@ unsafe extern "C" {
     fn npnr_context_net_iter(ctx: &Context) -> &mut RawNetIter;
     fn npnr_delete_net_iter(iter: &mut RawNetIter);
     fn npnr_inc_net_iter(iter: &mut RawNetIter);
-    fn npnr_deref_net_iter_first(iter: &RawNetIter) -> libc::c_int;
+    fn npnr_deref_net_iter_first(iter: &RawNetIter) -> c_int;
     fn npnr_deref_net_iter_second(iter: &RawNetIter) -> &mut NetInfo;
     fn npnr_is_net_iter_done(iter: &RawNetIter) -> bool;
 
     fn npnr_context_cell_iter(ctx: &Context) -> &mut RawCellIter;
     fn npnr_delete_cell_iter(iter: &mut RawCellIter);
     fn npnr_inc_cell_iter(iter: &mut RawCellIter);
-    fn npnr_deref_cell_iter_first(iter: &mut RawCellIter) -> libc::c_int;
+    fn npnr_deref_cell_iter_first(iter: &mut RawCellIter) -> c_int;
     fn npnr_deref_cell_iter_second(iter: &mut RawCellIter) -> &mut CellInfo;
     fn npnr_is_cell_iter_done(iter: &mut RawCellIter) -> bool;
 
@@ -544,7 +542,7 @@ unsafe extern "C" {
     fn npnr_delete_net_user_iter(iter: &mut RawNetUserIter);
     fn npnr_inc_net_user_iter(iter: &mut RawNetUserIter);
     fn npnr_deref_net_user_iter_cell(iter: &mut RawNetUserIter) -> &mut CellInfo;
-    fn npnr_deref_net_user_iter_port(iter: &mut RawNetUserIter) -> libc::c_int;
+    fn npnr_deref_net_user_iter_port(iter: &mut RawNetUserIter) -> c_int;
     fn npnr_is_net_user_iter_done(iter: &mut RawNetUserIter) -> bool;
 }
 

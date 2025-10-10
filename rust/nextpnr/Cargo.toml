@@ -12,4 +12,3 @@ path = "src/lib.rs"
 crate-type = ["rlib"]
 
 [dependencies]
-libc = "0.2"
