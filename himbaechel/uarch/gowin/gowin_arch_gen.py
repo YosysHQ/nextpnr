@@ -29,6 +29,7 @@ CHIP_HAS_PINCFG            = 0x80
 CHIP_HAS_DFF67             = 0x100
 CHIP_HAS_CIN_MUX           = 0x200
 CHIP_NEED_BSRAM_RESET_FIX  = 0x400
+CHIP_NEED_SDP_FIX          = 0x800
 
 # Tile flags
 TILE_I3C_CAPABLE_IO        = 0x1
@@ -1617,6 +1618,8 @@ def main():
             chip_flags |= CHIP_HAS_CIN_MUX;
         if "NEED_BSRAM_RESET_FIX" in db.chip_flags:
             chip_flags |= CHIP_NEED_BSRAM_RESET_FIX;
+        if "NEED_SDP_FIX" in db.chip_flags:
+            chip_flags |= CHIP_NEED_SDP_FIX;
 
     X = db.cols;
     Y = db.rows;

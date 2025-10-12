@@ -2583,7 +2583,83 @@ struct GowinPacker
         }
     }
 
-    void pack_SDPB(CellInfo *ci)
+    void divide_sdp(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &new_cells)
+    {
+        if (ctx->verbose) {
+            log_info("  divide SDP\n");
+        }
+
+        int bw = ci->params.at(id_BIT_WIDTH_0).as_int64();
+        NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
+        NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
+
+        IdString cell_type = bw == 32 ? id_SDPB : id_SDPX9B;
+        IdString name = ctx->idf("%s_AUX", ctx->nameOf(ci));
+
+        auto sdp_cell = gwu.create_cell(name, cell_type);
+        CellInfo *sdp = sdp_cell.get();
+        sdp->setAttr(id_AUX, 1);
+
+        int new_bw = bw / 2;
+        ci->setParam(id_BIT_WIDTH_0, new_bw);
+        ci->setParam(id_BIT_WIDTH_1, new_bw);
+        sdp->params = ci->params;
+        sdp->setParam(id_BIT_WIDTH_0, new_bw);
+        sdp->setParam(id_BIT_WIDTH_1, new_bw);
+
+        // copy control ports
+        ci->copyPortBusTo(ctx->id("BLKSELA"), 0, true, sdp, ctx->id("BLKSELA"), 0, true, 3);
+        ci->copyPortBusTo(ctx->id("BLKSELB"), 0, true, sdp, ctx->id("BLKSELB"), 0, true, 3);
+        ci->copyPortTo(id_CEA, sdp, id_CEA);
+        ci->copyPortTo(id_CEB, sdp, id_CEB);
+        ci->copyPortTo(id_CLKA, sdp, id_CLKA);
+        ci->copyPortTo(id_CLKB, sdp, id_CLKB);
+        ci->copyPortTo(id_OCE, sdp, id_OCE);
+        ci->copyPortTo(id_RESET, sdp, id_RESET);
+
+        //  Separate port A
+        ci->movePortTo(ctx->id("ADA[2]"), sdp, ctx->id("ADA[0]"));
+        ci->movePortTo(ctx->id("ADA[3]"), sdp, ctx->id("ADA[1]"));
+
+        ci->addInput(ctx->id("ADA[2]"));
+        ci->addInput(ctx->id("ADA[3]"));
+        ci->connectPort(ctx->id("ADA[2]"), vss_net);
+        ci->connectPort(ctx->id("ADA[3]"), vss_net);
+
+        sdp->addInput(ctx->id("ADA[2]"));
+        sdp->addInput(ctx->id("ADA[3]"));
+        sdp->connectPort(ctx->id("ADA[2]"), vss_net);
+        sdp->connectPort(ctx->id("ADA[3]"), vss_net);
+
+        ci->disconnectPort(ctx->id("ADA[4]"));
+        ci->connectPort(ctx->id("ADA[4]"), vss_net);
+        sdp->addInput(ctx->id("ADA[4]"));
+        sdp->connectPort(ctx->id("ADA[4]"), vcc_net);
+
+        ci->copyPortBusTo(id_ADA, 5, true, sdp, id_ADA, 5, true, 9);
+
+        //  Separate port B
+        for (int i = 0; i < 4; ++i) {
+            IdString port = ctx->idf("ADB[%d]", i);
+            ci->disconnectPort(port);
+            ci->connectPort(port, vss_net);
+            ci->copyPortTo(port, sdp, port);
+        }
+
+        ci->disconnectPort(ctx->id("ADB[4]"));
+        ci->connectPort(ctx->id("ADB[4]"), vss_net);
+        sdp->addInput(ctx->id("ADB[4]"));
+        sdp->connectPort(ctx->id("ADB[4]"), vcc_net);
+
+        ci->copyPortBusTo(id_ADB, 5, true, sdp, id_ADB, 5, true, 9);
+
+        ci->movePortBusTo(id_DI, new_bw, true, sdp, id_DI, 0, true, new_bw);
+        ci->movePortBusTo(id_DO, new_bw, true, sdp, id_DO, 0, true, new_bw);
+
+        new_cells.push_back(std::move(sdp_cell));
+    }
+
+    void pack_SDPB(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &new_cells)
     {
         int default_bw = 32;
         if (ci->type == id_SDPB) {
@@ -2591,6 +2667,26 @@ struct GowinPacker
         } else {
             ci->setAttr(id_BSRAM_SUBTYPE, Property("X9"));
             default_bw = 36;
+        }
+
+        if (!ci->params.count(id_BIT_WIDTH_0)) {
+            ci->setParam(id_BIT_WIDTH_0, Property(default_bw, 32));
+        }
+        if (!ci->params.count(id_BIT_WIDTH_1)) {
+            ci->setParam(id_BIT_WIDTH_1, Property(default_bw, 32));
+        }
+
+        int bit_width = ci->params.at(id_BIT_WIDTH_0).as_int64();
+
+        if ((bit_width == 32 || bit_width == 36) && gwu.need_SDP_fix()) {
+            int bit_width_b = ci->params.at(id_BIT_WIDTH_1).as_int64();
+            if (bit_width == bit_width_b) {
+                divide_sdp(ci, new_cells);
+            } else {
+                log_error("The fix for SDP when ports A and B have different bit widths has not yet been implemented. "
+                          "Cell'%s'\n",
+                          ci->type.c_str(ctx));
+            }
         }
 
         NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
@@ -2608,23 +2704,19 @@ struct GowinPacker
 
         ci->copyPortTo(id_OCE, ci, id_OCEB);
 
-        // Port A
-        ci->addInput(id_WRE);
-        ci->connectPort(id_WRE, vcc_net);
-
-        if (!ci->params.count(id_BIT_WIDTH_0)) {
-            ci->setParam(id_BIT_WIDTH_0, Property(default_bw, 32));
+        // If misconnected RESET
+        if (gwu.need_BSRAM_RESET_fix()) {
+            ci->renamePort(id_RESET, id_RESETB);
         }
 
-        int bit_width = ci->params.at(id_BIT_WIDTH_0).as_int64();
-        bsram_rename_ports(ci, bit_width, "DI[%d]", "DI%d");
+        // Port A
+        ci->addInput(id_WREA);
+        ci->connectPort(id_WREA, vcc_net);
 
         // Port B
         ci->addInput(id_WREB);
-        if (!ci->params.count(id_BIT_WIDTH_1)) {
-            ci->setParam(id_BIT_WIDTH_1, Property(default_bw, 32));
-        }
         bit_width = ci->params.at(id_BIT_WIDTH_1).as_int64();
+
         if (bit_width == 32 || bit_width == 36) {
             ci->connectPort(id_WREB, vcc_net);
             bsram_rename_ports(ci, bit_width, "DO[%d]", "DO%d");
@@ -2632,13 +2724,7 @@ struct GowinPacker
             ci->connectPort(id_WREB, vss_net);
             bsram_rename_ports(ci, bit_width, "DO[%d]", "DO%d", 18);
         }
-
-        // If misconnected RESET
-        if (gwu.need_BSRAM_RESET_fix()) {
-            ci->renamePort(id_RESET, id_RESETB);
-            ci->addInput(id_RESET);
-            ci->connectPort(id_RESET, vcc_net);
-        }
+        bsram_rename_ports(ci, bit_width, "DI[%d]", "DI%d");
     }
 
     void pack_DPB(CellInfo *ci)
@@ -2678,6 +2764,10 @@ struct GowinPacker
 
     void divide_sp(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &new_cells)
     {
+        if (ctx->verbose) {
+            log_info("  divide SP\n");
+        }
+
         int bw = ci->params.at(id_BIT_WIDTH).as_int64();
         NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
         NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
@@ -2687,6 +2777,7 @@ struct GowinPacker
 
         auto sp_cell = gwu.create_cell(name, cell_type);
         CellInfo *sp = sp_cell.get();
+        sp->setAttr(id_AUX, 1);
 
         ci->copyPortTo(id_CLK, sp, id_CLK);
         ci->copyPortTo(id_OCE, sp, id_OCE);
@@ -2695,38 +2786,32 @@ struct GowinPacker
         ci->copyPortTo(id_WRE, sp, id_WRE);
 
         // XXX Separate "byte enable" port
-        ci->movePortTo(ctx->id("AD[2]"), sp, ctx->id("AD0"));
-        ci->movePortTo(ctx->id("AD[3]"), sp, ctx->id("AD1"));
+        ci->movePortTo(ctx->id("AD[2]"), sp, ctx->id("AD[0]"));
+        ci->movePortTo(ctx->id("AD[3]"), sp, ctx->id("AD[1]"));
         ci->connectPort(ctx->id("AD[2]"), vss_net);
         ci->connectPort(ctx->id("AD[3]"), vss_net);
 
-        sp->addInput(ctx->id("AD2"));
-        sp->connectPort(ctx->id("AD2"), vss_net);
-        sp->addInput(ctx->id("AD3"));
-        sp->connectPort(ctx->id("AD3"), vss_net);
+        sp->addInput(ctx->id("AD[2]"));
+        sp->connectPort(ctx->id("AD[2]"), vss_net);
+        sp->addInput(ctx->id("AD[3]"));
+        sp->connectPort(ctx->id("AD[3]"), vss_net);
 
         ci->disconnectPort(ctx->id("AD[4]"));
         ci->connectPort(ctx->id("AD[4]"), vss_net);
-        sp->addInput(ctx->id("AD4"));
-        sp->connectPort(ctx->id("AD4"), vcc_net);
+        sp->addInput(ctx->id("AD[4]"));
+        sp->connectPort(ctx->id("AD[4]"), vcc_net);
 
-        ci->copyPortBusTo(id_AD, 5, true, sp, id_AD, 5, false, 14 - 5 + 1);
+        ci->copyPortBusTo(id_AD, 5, true, sp, id_AD, 5, true, 9);
 
         sp->params = ci->params;
-        sp->setAttr(id_BSRAM_SUBTYPE, ci->attrs.at(id_BSRAM_SUBTYPE));
 
-        if (bw == 32) {
-            ci->setParam(id_BIT_WIDTH, Property(16, 32));
-            sp->setParam(id_BIT_WIDTH, Property(16, 32));
-            ci->movePortBusTo(id_DI, 16, true, sp, id_DI, 0, false, 16);
-            ci->movePortBusTo(id_DO, 16, true, sp, id_DO, 0, false, 16);
-        } else {
-            ci->setParam(id_BIT_WIDTH, Property(18, 32));
-            sp->setParam(id_BIT_WIDTH, Property(18, 32));
-            ci->movePortBusTo(id_DI, 18, true, sp, id_DI, 0, false, 18);
-            ci->movePortBusTo(id_DO, 18, true, sp, id_DO, 0, false, 18);
-        }
-        ci->copyPortBusTo(ctx->id("BLKSEL"), 0, true, sp, ctx->id("BLKSEL"), 0, false, 3);
+        bw /= 2;
+        ci->setParam(id_BIT_WIDTH, Property(bw, 32));
+        sp->setParam(id_BIT_WIDTH, Property(bw, 32));
+        ci->movePortBusTo(id_DI, bw, true, sp, id_DI, 0, true, bw);
+        ci->movePortBusTo(id_DO, bw, true, sp, id_DO, 0, true, bw);
+
+        ci->copyPortBusTo(ctx->id("BLKSEL"), 0, true, sp, ctx->id("BLKSEL"), 0, true, 3);
 
         new_cells.push_back(std::move(sp_cell));
     }
@@ -2746,22 +2831,24 @@ struct GowinPacker
 
         int bit_width = ci->params.at(id_BIT_WIDTH).as_int64();
 
-        // XXX strange WRE<->CE relations
-        // Gowin IDE adds two LUTs to the WRE and CE signals. The logic is
-        // unclear, but without them effects occur. Perhaps this is a
-        // correction of some BSRAM defects.
-        if (gwu.need_SP_fix()) {
-            bsram_fix_sp(ci, new_cells);
-        }
+        if (!ci->attrs.count(id_AUX)) {
+            // XXX strange WRE<->CE relations
+            // Gowin IDE adds two LUTs to the WRE and CE signals. The logic is
+            // unclear, but without them effects occur. Perhaps this is a
+            // correction of some BSRAM defects.
+            if (gwu.need_SP_fix()) {
+                bsram_fix_sp(ci, new_cells);
+            }
 
-        // Some chips have faulty output registers
-        if (gwu.need_BSRAM_OUTREG_fix()) {
-            bsram_fix_outreg(ci, new_cells);
-        }
+            // Some chips have faulty output registers
+            if (gwu.need_BSRAM_OUTREG_fix()) {
+                bsram_fix_outreg(ci, new_cells);
+            }
 
-        // Some chips have problems with BLKSEL ports
-        if (gwu.need_BLKSEL_fix()) {
-            bsram_fix_blksel(ci, new_cells);
+            // Some chips have problems with BLKSEL ports
+            if (gwu.need_BLKSEL_fix()) {
+                bsram_fix_blksel(ci, new_cells);
+            }
         }
 
         // XXX UG285-1.3.6_E Gowin BSRAM & SSRAM User Guide:
@@ -2805,40 +2892,49 @@ struct GowinPacker
         std::vector<std::unique_ptr<CellInfo>> new_cells;
         log_info("Pack BSRAMs...\n");
 
+        auto do_bsram = [&](CellInfo *ci) {
+            if (ctx->verbose) {
+                log_info(" pack %s\n", ci->type.c_str(ctx));
+            }
+            switch (ci->type.hash()) {
+            case ID_pROMX9: /* fallthrough */
+            case ID_pROM:
+                pack_ROM(ci);
+                ci->type = id_ROM;
+                break;
+            case ID_SDPX9B: /* fallthrough */
+            case ID_SDPB:
+                pack_SDPB(ci, new_cells);
+                ci->type = id_SDP;
+                break;
+            case ID_DPX9B: /* fallthrough */
+            case ID_DPB:
+                pack_DPB(ci);
+                ci->type = id_DP;
+                break;
+            case ID_SPX9: /* fallthrough */
+            case ID_SP:
+                pack_SP(ci, new_cells);
+                ci->type = id_SP;
+                break;
+            default:
+                log_error("Unsupported BSRAM type '%s'\n", ci->type.c_str(ctx));
+            }
+        };
+
         for (auto &cell : ctx->cells) {
             auto ci = cell.second.get();
             if (is_bsram(ci)) {
-                if (ctx->verbose) {
-                    log_info(" pack %s\n", ci->type.c_str(ctx));
-                }
-                switch (ci->type.hash()) {
-                case ID_pROMX9: /* fallthrough */
-                case ID_pROM:
-                    pack_ROM(ci);
-                    ci->type = id_ROM;
-                    break;
-                case ID_SDPX9B: /* fallthrough */
-                case ID_SDPB:
-                    pack_SDPB(ci);
-                    ci->type = id_SDP;
-                    break;
-                case ID_DPX9B: /* fallthrough */
-                case ID_DPB:
-                    pack_DPB(ci);
-                    ci->type = id_DP;
-                    break;
-                case ID_SPX9: /* fallthrough */
-                case ID_SP:
-                    pack_SP(ci, new_cells);
-                    ci->type = id_SP;
-                    break;
-                default:
-                    log_error("Unsupported BSRAM type '%s'\n", ci->type.c_str(ctx));
-                }
+                do_bsram(ci);
             }
         }
 
+        // Process new cells. New cells should not generate more.
         for (auto &cell : new_cells) {
+            auto ci = cell.get();
+            if (is_bsram(ci)) {
+                do_bsram(ci);
+            }
             ctx->cells[cell->name] = std::move(cell);
         }
     }
