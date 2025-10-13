@@ -616,7 +616,6 @@ void QtTreePropertyBrowserPrivate::propertyInserted(QtBrowserItem *index, QtBrow
 
     newItem->setFlags(newItem->flags() | Qt::ItemIsEditable);
     newItem->setExpanded(true);
-
     updateItem(newItem);
 }
 
