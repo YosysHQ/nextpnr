@@ -132,9 +132,9 @@ public:
 protected:
     void mouseMoveEvent(QMouseEvent *event) override;
     void leaveEvent(QEvent *event) override;
-    void keyPressEvent(QKeyEvent *event) override;
-    void mousePressEvent(QMouseEvent *event) override;
-    void drawRow(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override;
+    void keyPressEvent(QKeyEvent *event);
+    void mousePressEvent(QMouseEvent *event);
+    void drawRow(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const;
 
 Q_SIGNALS:
     void hoverPropertyChanged(QtBrowserItem *item);
@@ -160,7 +160,8 @@ void QtPropertyEditorView::drawRow(QPainter *painter, const QStyleOptionViewItem
             hasValue = property->hasValue();
     }
     if (!hasValue && m_editorPrivate->markPropertiesWithoutValue()) {
-        const QColor c = option.palette.color(QPalette::Dark);
+        QColor c = m_editorPrivate->calculatedBackgroundColor(m_editorPrivate->indexToBrowserItem(index));
+        if (!c.isValid()) c = option.palette.color(QPalette::Dark);
         painter->fillRect(option.rect, c);
         opt.palette.setColor(QPalette::AlternateBase, c);
     } else {
@@ -379,7 +380,8 @@ void QtPropertyEditorDelegate::paint(QPainter *painter, const QStyleOptionViewIt
     }
     QColor c;
     if (!hasValue && m_editorPrivate->markPropertiesWithoutValue()) {
-        c = opt.palette.color(QPalette::Dark);
+        c = m_editorPrivate->calculatedBackgroundColor(m_editorPrivate->indexToBrowserItem(index));
+        if (!c.isValid()) c = opt.palette.color(QPalette::Dark);
         opt.palette.setColor(QPalette::Text, opt.palette.color(QPalette::BrightText));
     } else {
         c = m_editorPrivate->calculatedBackgroundColor(m_editorPrivate->indexToBrowserItem(index));
@@ -486,7 +488,11 @@ static QIcon drawIndicatorIcon(const QPalette &palette, QStyle *style)
 void QtTreePropertyBrowserPrivate::init(QWidget *parent)
 {
     QHBoxLayout *layout = new QHBoxLayout(parent);
+#if QT_VERSION_MAJOR >= 6
+    layout->setContentsMargins(0,0,0,0);
+#else
     layout->setMargin(0);
+#endif
     m_treeWidget = new QtPropertyEditorView(parent);
     m_treeWidget->setEditorPrivate(this);
     m_treeWidget->setIconSize(QSize(18, 18));

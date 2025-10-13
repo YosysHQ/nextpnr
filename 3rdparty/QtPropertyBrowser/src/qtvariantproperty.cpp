@@ -986,8 +986,13 @@ QtVariantPropertyManager::QtVariantPropertyManager(QObject *parent)
     QtStringPropertyManager *stringPropertyManager = new QtStringPropertyManager(this);
     d_ptr->m_typeToPropertyManager[QVariant::String] = stringPropertyManager;
     d_ptr->m_typeToValueType[QVariant::String] = QVariant::String;
+#if QT_VERSION_MAJOR >= 6
+    d_ptr->m_typeToAttributeToAttributeType[QVariant::String][d_ptr->m_regExpAttribute] =
+            QMetaType::QRegularExpression; // int value for the type
+#else
     d_ptr->m_typeToAttributeToAttributeType[QVariant::String][d_ptr->m_regExpAttribute] =
             QVariant::RegExp;
+#endif
     connect(stringPropertyManager, SIGNAL(valueChanged(QtProperty *, const QString &)),
                 this, SLOT(slotValueChanged(QtProperty *, const QString &)));
     connect(stringPropertyManager, SIGNAL(regExpChanged(QtProperty *, const QRegExp &)),

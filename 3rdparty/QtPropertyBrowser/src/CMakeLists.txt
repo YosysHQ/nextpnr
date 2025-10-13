@@ -23,8 +23,13 @@ set(_RESOURCES
   qtpropertybrowser.qrc
   )
   
-QT5_WRAP_UI(_UI_SRCS ${_UI_FORMS})
-QT5_ADD_RESOURCES(_QRC_SRCS ${_RESOURCES})
+if (Qt6_FOUND)
+  QT6_WRAP_UI(_UI_SRCS ${_UI_FORMS})
+  QT6_ADD_RESOURCES(_QRC_SRCS ${_RESOURCES})
+else()
+  QT5_WRAP_UI(_UI_SRCS ${_UI_FORMS})
+  QT5_ADD_RESOURCES(_QRC_SRCS ${_RESOURCES})
+endif()
 
 set(TARGET_NAME ${PROJECT_NAME})
 
@@ -38,4 +43,8 @@ if (MSVC)
   target_compile_options(${TARGET_NAME} PRIVATE /wd4457 /wd4718)
 endif()
 
-target_link_libraries(${TARGET_NAME} Qt5::Widgets)
+if (Qt6_FOUND)
+  target_link_libraries(${TARGET_NAME} Qt6::Widgets)
+else()
+  target_link_libraries(${TARGET_NAME} Qt5::Widgets)
+endif()
