@@ -99,6 +99,7 @@ struct GowinUtils
     // BSRAM
     bool has_SP32(void);
     bool need_SP_fix(void);
+    bool need_SDP_fix(void);
     bool need_BSRAM_OUTREG_fix(void);
     bool need_BSRAM_RESET_fix(void);
     bool need_BLKSEL_fix(void);

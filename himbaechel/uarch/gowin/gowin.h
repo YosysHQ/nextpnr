@@ -204,6 +204,7 @@ NPNR_PACKED_STRUCT(struct Extra_chip_data_POD {
     static constexpr int32_t HAS_DFF67 = 256;
     static constexpr int32_t HAS_CIN_MUX = 512;
     static constexpr int32_t NEED_BSRAM_RESET_FIX = 1024;
+    static constexpr int32_t NEED_SDP_FIX = 2048;
 });
 
 } // namespace
