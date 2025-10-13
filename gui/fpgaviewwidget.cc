@@ -22,7 +22,6 @@
 
 #include <QApplication>
 #include <QCoreApplication>
-#include <QDesktopWidget>
 #include <QDir>
 #include <QFileInfo>
 #include <QImageWriter>
@@ -35,6 +34,12 @@
 #include "fpgaviewwidget.h"
 #include "log.h"
 #include "mainwindow.h"
+
+#if QT_VERSION_MAJOR >= 6
+#define EVENT_POS(event) ((event)->position())
+#else
+#define EVENT_POS(event) ((event)->pos())
+#endif
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -728,7 +733,7 @@ void FPGAViewWidget::mousePressEvent(QMouseEvent *event)
         lastDragPos_ = event->pos();
     }
     if (btn_left && !shift) {
-        auto world = mouseToWorldCoordinates(event->x(), event->y());
+        auto world = mouseToWorldCoordinates(EVENT_POS(event).x(), EVENT_POS(event).y());
         auto closestOr = pickElement(world.x(), world.y());
         if (!closestOr) {
             // If we clicked on empty space and aren't holding down ctrl,
@@ -765,8 +770,8 @@ void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
     bool btn_left = event->buttons() & Qt::LeftButton;
 
     if (btn_right || btn_mid || (btn_left && shift)) {
-        const int dx = event->x() - lastDragPos_.x();
-        const int dy = event->y() - lastDragPos_.y();
+        const int dx = EVENT_POS(event).x() - lastDragPos_.x();
+        const int dy = EVENT_POS(event).y() - lastDragPos_.y();
         lastDragPos_ = event->pos();
 
         auto world = mouseToWorldDimensions(dx, dy);
@@ -776,7 +781,7 @@ void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
         return;
     }
 
-    auto world = mouseToWorldCoordinates(event->x(), event->y());
+    auto world = mouseToWorldCoordinates(EVENT_POS(event).x(), EVENT_POS(event).y());
     auto closestOr = pickElement(world.x(), world.y());
     // No elements? No decal.
     if (!closestOr) {
@@ -794,8 +799,8 @@ void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
         QMutexLocker locked(&rendererArgsLock_);
         rendererArgs_->hoveredDecal = closest.decal(ctx_);
         rendererArgs_->changed = true;
-        rendererArgs_->x = event->x();
-        rendererArgs_->y = event->y();
+        rendererArgs_->x = EVENT_POS(event).x();
+        rendererArgs_->y = EVENT_POS(event).y();
         if (closest.type == ElementType::BEL) {
             rendererArgs_->hintText = std::string("BEL\n") + ctx_->getBelName(closest.bel).str(ctx_);
             CellInfo *cell = ctx_->getBoundBelCell(closest.bel);
