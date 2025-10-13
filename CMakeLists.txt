@@ -198,7 +198,7 @@ endif()
 
 if (BUILD_GUI)
     # Find the Qt6/5 libraries
-    find_package(Qt6 COMPONENTS Core Widgets OpenGL OpenGLWidgets REQUIRED)
+    find_package(Qt6 COMPONENTS Core Widgets OpenGL OpenGLWidgets QUIET)
     if (Qt6_FOUND)
         message(STATUS "Using Qt6")
     else()
