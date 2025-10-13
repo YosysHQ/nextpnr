@@ -22,6 +22,8 @@ set(SOURCES
     globals.cc
     lpf.cc
     pack.cc
+    pio.cc
+    pio.h
 )
 
 add_nextpnr_architecture(${family}
