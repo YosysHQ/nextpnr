@@ -30,7 +30,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 inline bool is_bufg(const BaseCtx *ctx, const CellInfo *cell) { return cell->type.in(id_CC_BUFG); }
 
-void GateMatePacker::sort_bufg()
+void GateMatePacker::sort_bufg(unsigned max_num)
 {
     struct ItemBufG
     {
@@ -61,8 +61,8 @@ void GateMatePacker::sort_bufg()
         bufg.push_back(ItemBufG(&ci, o_net->users.entries()));
     }
 
-    if (bufg.size() > 4) {
-        log_warning("More than 4 BUFG used. Those with highest fan-out will be used.\n");
+    if (bufg.size() > max_num) {
+        log_warning("More than %d BUFG used. Those with highest fan-out will be used.\n", max_num);
         std::sort(bufg.begin(), bufg.end(), [](const ItemBufG &a, const ItemBufG &b) { return a.fan_out > b.fan_out; });
         for (size_t i = 4; i < bufg.size(); i++) {
             log_warning("Removing BUFG cell %s.\n", bufg.at(i).cell->name.c_str(ctx));
@@ -92,7 +92,7 @@ static int glb_mux_mapping[] = {
 
 void GateMatePacker::pack_bufg()
 {
-    sort_bufg();
+    sort_bufg(uarch->strategy == MultiDieStrategy::FULL_USE ? 4 * uarch->dies : 4);
 
     log_info("Packing BUFGs..\n");
     auto update_bufg_port = [&](std::vector<CellInfo *> &bufg, CellInfo *cell, int port_num, int pll_num) {
@@ -682,7 +682,7 @@ void GateMatePacker::copy_clocks()
 {
     if (uarch->dies == 1)
         return;
-    switch (strategy) {
+    switch (uarch->strategy) {
     case MultiDieStrategy::REUSE_CLK1:
         if (uarch->global_signals.size() > 1 || uarch->pll.size() > 1)
             log_error("Unable to use REUSE CLK1 strategy when there is more than one clock/PLL.\n");
@@ -693,6 +693,48 @@ void GateMatePacker::copy_clocks()
             log_error("Unable to use MIRROR CLOCK strategy when there is more than 4 clocks/PLLs.\n");
         strategy_mirror();
         break;
+    case MultiDieStrategy::FULL_USE:
+        strategy_full();
+        break;
+    }
+}
+
+void GateMatePacker::strategy_full()
+{
+    log_info("All resources for clock distribution..\n");
+
+    for (int new_die = 1; new_die < uarch->dies; new_die++) {
+        // Create appropriate GPIO and IOSEL cells
+        for (int i = 0; i < 4; i++) {
+            NetInfo *in_net = uarch->clkin[new_die]->getPort(ctx->idf("CLK%d", i));
+            if (in_net && in_net->driver.cell) {
+                CellInfo *iosel = in_net->driver.cell;
+                auto pad_info = uarch->bel_to_pad[iosel->bel];
+                Loc l = uarch->locations[std::make_pair(IdString(pad_info->package_pin), new_die)];
+                CellInfo *iosel_new = ctx->getBoundBelCell(ctx->getBelByLocation(l));
+                if (!iosel_new) {
+                    iosel_new = create_cell_ptr(iosel->type, ctx->idf("%s$die%d", iosel->name.c_str(ctx), new_die));
+                    iosel_new->params = iosel->params;
+                    ctx->bindBel(ctx->getBelByLocation(l), iosel_new, PlaceStrength::STRENGTH_FIXED);
+
+                    CellInfo *gpio = iosel->getPort(id_GPIO_IN)->driver.cell;
+                    CellInfo *gpio_new =
+                            create_cell_ptr(gpio->type, ctx->idf("%s$die%d", gpio->name.c_str(ctx), new_die));
+                    gpio_new->params = gpio->params;
+                    ctx->bindBel(ctx->getBelByLocation({l.x, l.y, 0}), gpio_new, PlaceStrength::STRENGTH_FIXED);
+
+                    // Duplicate input connection
+                    gpio_new->connectPort(id_I, gpio->getPort(id_I));
+                    // Connect IOSEL and CPE_IBUF
+                    gpio_new->connectPorts(id_Y, iosel_new, id_GPIO_IN);
+                }
+                uarch->clkin[new_die]->disconnectPort(ctx->idf("CLK%d", i));
+                if (iosel_new->getPort(id_IN1))
+                    uarch->clkin[new_die]->connectPort(ctx->idf("CLK%d", i), iosel_new->getPort(id_IN1));
+                else
+                    iosel_new->connectPorts(id_IN1, uarch->clkin[new_die], ctx->idf("CLK%d", i));
+            }
+        }
     }
 }
 

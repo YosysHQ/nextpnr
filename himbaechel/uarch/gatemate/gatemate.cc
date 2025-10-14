@@ -162,6 +162,7 @@ void GateMateImpl::init(Context *ctx)
     int index = 0;
     for (auto &die : extra->dies) {
         IdString name(die.name);
+        index_to_die[index] = name;
         die_to_index[name] = index++;
         ctx->createRectangularRegion(name, die.x1, die.y1, die.x2, die.y2);
         if (die_name == name.c_str(ctx)) {

@@ -44,12 +44,6 @@ enum CPELut
     LUT_ONE = 0b1111
 };
 
-enum MultiDieStrategy
-{
-    CLOCK_MIRROR,
-    REUSE_CLK1,
-};
-
 struct GateMatePacker
 {
     GateMatePacker(Context *ctx, GateMateImpl *uarch) : ctx(ctx), uarch(uarch) { h.init(ctx); };
@@ -59,7 +53,7 @@ struct GateMatePacker
     void pack_cpe();
     void pack_addf();
     void pack_bufg();
-    void sort_bufg();
+    void sort_bufg(unsigned max_num);
     void insert_clocking();
     void pack_pll();
     void pack_misc();
@@ -77,8 +71,7 @@ struct GateMatePacker
     void repack_ram();
     void reassign_clocks();
     void copy_clocks();
-
-    void set_strategy(MultiDieStrategy strategy) { this->strategy = strategy; }
+    void assign_clocks();
 
   private:
     void rename_param(CellInfo *cell, IdString name, IdString new_name, int width);
@@ -98,6 +91,9 @@ struct GateMatePacker
 
     void strategy_mirror();
     void strategy_clk1();
+    void strategy_full();
+
+    void recursiveAddToRegion(CellInfo *root, IdString die);
 
     PllCfgRecord get_pll_settings(double f_ref, double f_core, int mode, int low_jitter, bool pdiv0_mux, bool feedback);
 
@@ -132,7 +128,6 @@ struct GateMatePacker
     NetInfo *net_SER_CLK;
     int count;
     std::map<IdString, int> count_per_type;
-    MultiDieStrategy strategy;
 };
 
 NEXTPNR_NAMESPACE_END
