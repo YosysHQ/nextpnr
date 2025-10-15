@@ -1229,7 +1229,11 @@ public:
 
     struct Data
     {
-        Data() : regExp(QString(QLatin1Char('*')),  Qt::CaseSensitive, QRegExp::Wildcard)
+#if QT_VERSION_MAJOR >= 6
+        Data() : regExp(QRegularExpression(QStringLiteral(".*")))
+#else
+        Data() : regExp(QString(QLatin1Char('*')), Qt::CaseSensitive, QRegExp::Wildcard)
+#endif
         {
         }
         QString val;
@@ -1357,7 +1361,11 @@ void QtStringPropertyManager::setValue(QtProperty *property, const QString &val)
     if (data.val == val)
         return;
 
+#if QT_VERSION_MAJOR >= 6
+    if (data.regExp.isValid() && !data.regExp.match(val).hasMatch())
+#else
     if (data.regExp.isValid() && !data.regExp.exactMatch(val))
+#endif
         return;
 
     data.val = val;
@@ -5854,8 +5862,13 @@ void QtFontPropertyManager::setValue(QtProperty *property, const QFont &val)
         return;
 
     const QFont oldVal = it.value();
+#if QT_VERSION_MAJOR >= 6
+    if (oldVal == val && oldVal.resolve(val) == val)
+        return;
+#else
     if (oldVal == val && oldVal.resolve() == val.resolve())
         return;
+#endif
 
     it.value() = val;
 

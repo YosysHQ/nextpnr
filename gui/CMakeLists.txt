@@ -27,10 +27,17 @@ set(GUI_SOURCES
     ${family}/mainwindow.h
 )
 
-qt5_add_resources(GUI_QT_RESOURCES
-    base.qrc
-    ${family}/nextpnr.qrc
-)
+if (Qt6_FOUND)
+    qt6_add_resources(GUI_QT_RESOURCES
+        base.qrc
+        ${family}/nextpnr.qrc
+    )
+else()
+    qt5_add_resources(GUI_QT_RESOURCES
+        base.qrc
+        ${family}/nextpnr.qrc
+    )
+endif()
 
 add_library(nextpnr-${target}-gui OBJECT
     ${GUI_SOURCES}
@@ -54,14 +61,17 @@ target_include_directories(nextpnr-${target}-gui PRIVATE
     ${CMAKE_SOURCE_DIR}/3rdparty/qtimgui
 )
 
-target_link_libraries(nextpnr-${target}-gui PUBLIC
-    Qt5::Widgets
-)
+if (Qt6_FOUND)
+    target_link_libraries(nextpnr-${target}-gui PUBLIC Qt6::Widgets)
+    target_link_libraries(nextpnr-${target}-gui PRIVATE Qt6::OpenGL Qt6::OpenGLWidgets)
+else()
+    target_link_libraries(nextpnr-${target}-gui PUBLIC Qt5::Widgets)
+    target_link_libraries(nextpnr-${target}-gui PRIVATE Qt5::OpenGL)
+endif()
 
 target_link_libraries(nextpnr-${target}-gui PRIVATE
     nextpnr-${target}-defs
     nextpnr_version
-    Qt5::OpenGL
     QtPropertyBrowser
     pybind11::headers
 )

@@ -41,6 +41,8 @@
 #ifndef QTPROPERTYBROWSER_H
 #define QTPROPERTYBROWSER_H
 
+#include "qt5compat.h"
+
 #include <QWidget>
 #include <QtCore/QSet>
 

@@ -20,6 +20,7 @@
 
 #include "designwidget.h"
 #include <QAction>
+#include <QActionGroup>
 #include <QApplication>
 #include <QGridLayout>
 #include <QLineEdit>

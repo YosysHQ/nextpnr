@@ -96,6 +96,7 @@ Application::Application(int &argc, char **argv, bool noantialiasing) : QApplica
     QSurfaceFormat fmt;
     if (!noantialiasing)
         fmt.setSamples(10);
+    fmt.setRenderableType(QSurfaceFormat::OpenGL);
     fmt.setProfile(QSurfaceFormat::CoreProfile);
     // macOS is very picky about this version matching
     // the version of openGL  used in ImGuiRenderer
