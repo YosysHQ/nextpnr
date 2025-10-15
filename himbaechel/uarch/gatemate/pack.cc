@@ -400,11 +400,11 @@ void GateMatePacker::remove_double_constrained()
 void GateMatePacker::recursiveAddToRegion(CellInfo *root, IdString die)
 {
     if (root->region && root->region->name != die)
-        log_error("Trying to assing cell '%s' to multiple regions.\n", root->name.c_str(ctx));
+        log_error("Trying to assign cell '%s' to multiple regions.\n", root->name.c_str(ctx));
     ctx->constrainCellToRegion(root->name, die);
     for (auto cell : root->constr_children) {
         if (cell->region && cell->region->name != die)
-            log_error("Trying to assing cell '%s' to multiple regions.\n", cell->name.c_str(ctx));
+            log_error("Trying to assign cell '%s' to multiple regions.\n", cell->name.c_str(ctx));
         ctx->constrainCellToRegion(cell->name, die);
         recursiveAddToRegion(cell, die);
     }
@@ -418,7 +418,7 @@ void GateMatePacker::assign_clocks()
         for (auto &user : net->users) {
             IdString die = uarch->index_to_die[uarch->tile_extra_data(net->driver.cell->bel.tile)->die];
             if (user.cell->region && user.cell->region->name != die)
-                log_error("Trying to assing cell '%s' to multiple regions.\n", user.cell->name.c_str(ctx));
+                log_error("Trying to assign cell '%s' to multiple regions.\n", user.cell->name.c_str(ctx));
             ctx->constrainCellToRegion(user.cell->name, die);
             if (user.cell->cluster != ClusterId()) {
                 CellInfo *root = ctx->getClusterRootCell(user.cell->cluster);

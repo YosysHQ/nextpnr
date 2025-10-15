@@ -778,8 +778,9 @@ void GateMatePacker::strategy_clk1()
             iosel->connectPorts(id_GPIO_OUT, gpio, id_A);
             iosel->connectPorts(id_GPIO_EN, gpio, id_T);
             gpio->connectPort(id_IO, new_clk1);
-        } else
+        } else {
             gpio->connectPort(id_I, new_clk1);
+        }
 
         NetInfo *new_signal = ctx->createNet(ctx->idf("%s$die%d", net->name.c_str(ctx), new_die));
         uarch->glbout[new_die]->connectPort(ctx->id("GLB1"), new_signal);
