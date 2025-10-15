@@ -209,7 +209,7 @@ bool opendrain_capable(IOType type, std::string dir)
 {
     if (dir != "OUTPUT" && dir != "BIDIR")
         return false;
-        
+
     return is_lvcmos(type);
 }
 
