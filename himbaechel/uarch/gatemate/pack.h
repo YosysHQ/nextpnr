@@ -53,7 +53,7 @@ struct GateMatePacker
     void pack_cpe();
     void pack_addf();
     void pack_bufg();
-    void sort_bufg();
+    void sort_bufg(unsigned max_num);
     void insert_clocking();
     void pack_pll();
     void pack_misc();
@@ -71,6 +71,7 @@ struct GateMatePacker
     void repack_ram();
     void reassign_clocks();
     void copy_clocks();
+    void assign_clocks();
 
   private:
     void rename_param(CellInfo *cell, IdString name, IdString new_name, int width);
@@ -87,6 +88,12 @@ struct GateMatePacker
     void count_cell(CellInfo &ci);
     void move_connections(NetInfo *from_net, NetInfo *to_net);
     void remap_ram_half(CellInfo *half, CellInfo *cell, int num);
+
+    void strategy_mirror();
+    void strategy_clk1();
+    void strategy_full();
+
+    void recursiveAddToRegion(CellInfo *root, IdString die);
 
     PllCfgRecord get_pll_settings(double f_ref, double f_core, int mode, int low_jitter, bool pdiv0_mux, bool feedback);
 

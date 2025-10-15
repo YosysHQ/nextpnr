@@ -30,7 +30,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 inline bool is_bufg(const BaseCtx *ctx, const CellInfo *cell) { return cell->type.in(id_CC_BUFG); }
 
-void GateMatePacker::sort_bufg()
+void GateMatePacker::sort_bufg(unsigned max_num)
 {
     struct ItemBufG
     {
@@ -61,8 +61,8 @@ void GateMatePacker::sort_bufg()
         bufg.push_back(ItemBufG(&ci, o_net->users.entries()));
     }
 
-    if (bufg.size() > 4) {
-        log_warning("More than 4 BUFG used. Those with highest fan-out will be used.\n");
+    if (bufg.size() > max_num) {
+        log_warning("More than %d BUFG used. Those with highest fan-out will be used.\n", max_num);
         std::sort(bufg.begin(), bufg.end(), [](const ItemBufG &a, const ItemBufG &b) { return a.fan_out > b.fan_out; });
         for (size_t i = 4; i < bufg.size(); i++) {
             log_warning("Removing BUFG cell %s.\n", bufg.at(i).cell->name.c_str(ctx));
@@ -92,7 +92,7 @@ static int glb_mux_mapping[] = {
 
 void GateMatePacker::pack_bufg()
 {
-    sort_bufg();
+    sort_bufg(uarch->strategy == MultiDieStrategy::FULL_USE ? 4 * uarch->dies : 4);
 
     log_info("Packing BUFGs..\n");
     auto update_bufg_port = [&](std::vector<CellInfo *> &bufg, CellInfo *cell, int port_num, int pll_num) {
@@ -113,7 +113,7 @@ void GateMatePacker::pack_bufg()
         return true;
     };
 
-    unsigned max_plls = 4; // * uarch->dies;
+    unsigned max_plls = 4 * uarch->dies;
     // Index vector for permutation
     std::vector<unsigned> indexes(max_plls);
     for (unsigned i = 0; i < max_plls; ++i)
@@ -682,7 +682,117 @@ void GateMatePacker::copy_clocks()
 {
     if (uarch->dies == 1)
         return;
-    log_info("Copy clocks..\n");
+    switch (uarch->strategy) {
+    case MultiDieStrategy::REUSE_CLK1:
+        if (uarch->global_signals.size() > 1 || uarch->pll.size() > 1)
+            log_error("Unable to use REUSE CLK1 strategy when there is more than one clock/PLL.\n");
+        strategy_clk1();
+        break;
+    case MultiDieStrategy::CLOCK_MIRROR:
+        if (uarch->global_signals.size() > 4 || uarch->pll.size() > 4)
+            log_error("Unable to use MIRROR CLOCK strategy when there is more than 4 clocks/PLLs.\n");
+        strategy_mirror();
+        break;
+    case MultiDieStrategy::FULL_USE:
+        strategy_full();
+        break;
+    }
+}
+
+void GateMatePacker::strategy_full()
+{
+    log_info("All resources for clock distribution..\n");
+
+    for (int new_die = 1; new_die < uarch->dies; new_die++) {
+        // Create appropriate GPIO and IOSEL cells
+        for (int i = 0; i < 4; i++) {
+            NetInfo *in_net = uarch->clkin[new_die]->getPort(ctx->idf("CLK%d", i));
+            if (in_net && in_net->driver.cell) {
+                CellInfo *iosel = in_net->driver.cell;
+                auto pad_info = uarch->bel_to_pad[iosel->bel];
+                Loc l = uarch->locations[std::make_pair(IdString(pad_info->package_pin), new_die)];
+                CellInfo *iosel_new = ctx->getBoundBelCell(ctx->getBelByLocation(l));
+                if (!iosel_new) {
+                    iosel_new = create_cell_ptr(iosel->type, ctx->idf("%s$die%d", iosel->name.c_str(ctx), new_die));
+                    iosel_new->params = iosel->params;
+                    ctx->bindBel(ctx->getBelByLocation(l), iosel_new, PlaceStrength::STRENGTH_FIXED);
+
+                    CellInfo *gpio = iosel->getPort(id_GPIO_IN)->driver.cell;
+                    CellInfo *gpio_new =
+                            create_cell_ptr(gpio->type, ctx->idf("%s$die%d", gpio->name.c_str(ctx), new_die));
+                    gpio_new->params = gpio->params;
+                    ctx->bindBel(ctx->getBelByLocation({l.x, l.y, 0}), gpio_new, PlaceStrength::STRENGTH_FIXED);
+
+                    // Duplicate input connection
+                    gpio_new->connectPort(id_I, gpio->getPort(id_I));
+                    // Connect IOSEL and CPE_IBUF
+                    gpio_new->connectPorts(id_Y, iosel_new, id_GPIO_IN);
+                }
+                uarch->clkin[new_die]->disconnectPort(ctx->idf("CLK%d", i));
+                if (iosel_new->getPort(id_IN1))
+                    uarch->clkin[new_die]->connectPort(ctx->idf("CLK%d", i), iosel_new->getPort(id_IN1));
+                else
+                    iosel_new->connectPorts(id_IN1, uarch->clkin[new_die], ctx->idf("CLK%d", i));
+            }
+        }
+    }
+}
+
+void GateMatePacker::strategy_clk1()
+{
+    log_info("Reuse CLK1 for clock distribution..\n");
+    NetInfo *net = uarch->glbout[0]->getPort(id_GLB0);
+    NetInfo *new_clk1 = ctx->createNet(ctx->id("$clk1$pin"));
+    for (int new_die = 0; new_die < uarch->dies; new_die++) {
+        CellInfo *iosel = create_cell_ptr(id_IOSEL, ctx->idf("$iosel_clk1$die%d", new_die));
+        iosel->setParam(id_DELAY_IBF, Property(1, 16));
+        iosel->setParam(id_INPUT_ENABLE, Property(1, 1));
+        if (new_die == 0) {
+            // On die 0 it should be output as well
+            iosel->setParam(id_DELAY_OBF, Property(1, 16));
+            iosel->setParam(id_OE_ENABLE, Property(1, 1));
+            iosel->setParam(id_OUT_SIGNAL, Property(1, 1));
+            iosel->setParam(id_SLEW, Property(1, 1));
+        }
+
+        BelId bel = ctx->getBelByLocation(uarch->locations[std::make_pair(ctx->id("IO_SB_A7"), new_die)]);
+        ctx->bindBel(bel, iosel, PlaceStrength::STRENGTH_FIXED);
+
+        CellInfo *gpio = create_cell_ptr((new_die ? id_CPE_IBUF : id_CPE_IOBUF), ctx->idf("$clk1$die%d", new_die));
+        Loc loc = ctx->getBelLocation(bel);
+        ctx->bindBel(ctx->getBelByLocation({loc.x, loc.y, 0}), gpio, PlaceStrength::STRENGTH_FIXED);
+
+        uarch->clkin[new_die]->connectPort(id_CLK1, new_clk1);
+        uarch->clkin[new_die]->params[ctx->id("REF1")] = Property(1, 3);
+        uarch->glbout[new_die]->params[ctx->id("GLB1_EN")] = Property(Property::State::S1);
+        uarch->glbout[new_die]->params[ctx->id("GLB1_CFG")] = Property(0, 3);
+        uarch->clkin[new_die]->connectPorts(ctx->id("CLK_REF1"), uarch->glbout[new_die], ctx->id("CLK_REF_OUT1"));
+
+        gpio->connectPorts(id_Y, iosel, id_GPIO_IN);
+
+        if (new_die == 0) {
+            iosel->connectPort(id_OUT1, ctx->getNetByAlias(uarch->global_signals.begin()->first->name));
+            CellInfo *cpe = move_ram_o_fixed(iosel, id_OUT1, loc).first;
+            uarch->ignore.emplace(cpe->name);
+
+            iosel->connectPorts(id_GPIO_OUT, gpio, id_A);
+            iosel->connectPorts(id_GPIO_EN, gpio, id_T);
+            gpio->connectPort(id_IO, new_clk1);
+        } else {
+            gpio->connectPort(id_I, new_clk1);
+        }
+
+        NetInfo *new_signal = ctx->createNet(ctx->idf("%s$die%d", net->name.c_str(ctx), new_die));
+        uarch->glbout[new_die]->connectPort(ctx->id("GLB1"), new_signal);
+        copy_constraint(net, new_signal);
+        uarch->global_mapping.emplace(std::make_pair(net->name, new_die), new_signal);
+        uarch->global_clk_mapping.emplace(std::make_pair(id_CLOCK1, new_die), id_CLOCK2);
+    }
+}
+
+void GateMatePacker::strategy_mirror()
+{
+    log_info("Mirror clocks..\n");
 
     // Save first CLKIN inputs
     std::vector<CellInfo *> clk_iosel(4, nullptr);
@@ -793,8 +903,52 @@ void GateMatePacker::copy_clocks()
                                                         ctx->idf("CLK_REF_OUT%d", i));
             }
         }
+        for (int i = 0; i < 4; i++) {
+            NetInfo *net = uarch->glbout[0]->getPort(ctx->idf("GLB%d", i));
+            if (net) {
+                if (new_die != 0) {
+                    NetInfo *new_signal = ctx->createNet(ctx->idf("%s$die%d", net->name.c_str(ctx), new_die));
+                    uarch->glbout[new_die]->connectPort(ctx->idf("GLB%d", i), new_signal);
+                    copy_constraint(net, new_signal);
+                    uarch->global_mapping.emplace(std::make_pair(net->name, new_die), new_signal);
+                } else {
+                    uarch->global_mapping.emplace(std::make_pair(net->name, new_die), net);
+                }
+            }
+        }
     }
 }
+
+static int clk_config_val(IdString name)
+{
+    switch (name.index) {
+    case id_CLOCK1.index:
+        return 0b00100011;
+    case id_CLOCK2.index:
+        return 0b00110011;
+    case id_CLOCK3.index:
+        return 0b00000011;
+    case id_CLOCK4.index:
+        return 0b00010011;
+    }
+    return 0;
+}
+
+static int ioclk_config_val(IdString name)
+{
+    switch (name.index) {
+    case id_CLOCK1.index:
+        return 0;
+    case id_CLOCK2.index:
+        return 1;
+    case id_CLOCK3.index:
+        return 2;
+    case id_CLOCK4.index:
+        return 3;
+    }
+    return 0;
+}
+
 void GateMatePacker::reassign_clocks()
 {
     if (uarch->dies == 1)
@@ -805,22 +959,55 @@ void GateMatePacker::reassign_clocks()
 
     for (auto &glob : uarch->global_signals) {
         const NetInfo *net = glob.first;
-        int index = glob.second;
-        int drv_die = uarch->tile_extra_data(net->driver.cell->bel.tile)->die;
         auto users = net->users; // make a copy
         int count = 0;
         for (auto &user : users) {
             int cell_die = uarch->tile_extra_data(user.cell->bel.tile)->die;
-            if (cell_die != drv_die) {
-                if (!new_bufg[cell_die][index]) {
-                    NetInfo *new_signal = ctx->createNet(ctx->idf("%s$die%d", net->name.c_str(ctx), cell_die));
-                    new_bufg[cell_die][index] = new_signal;
-                    uarch->glbout[cell_die]->connectPort(ctx->idf("GLB%d", index), new_signal);
-                    copy_constraint(net, new_signal);
-                }
+            if (uarch->global_mapping.count(std::make_pair(net->name, cell_die))) {
+                NetInfo *new_net = uarch->global_mapping.at(std::make_pair(net->name, cell_die));
+                if (uarch->ignore.count(user.cell->name))
+                    continue;
+
+                if (new_net == net)
+                    continue;
+
                 user.cell->disconnectPort(user.port);
-                user.cell->connectPort(user.port, new_bufg[cell_die][index]);
+
+                if (user.port.in(id_CLOCK1, id_CLOCK2, id_CLOCK3, id_CLOCK4) &&
+                    uarch->global_clk_mapping.count(std::make_pair(user.port, cell_die))) {
+                    IdString newPort = uarch->global_clk_mapping.at(std::make_pair(user.port, cell_die));
+                    if (!user.cell->ports.count(newPort))
+                        user.cell->addInput(newPort);
+                    user.cell->connectPort(newPort, new_net);
+
+                    if (user.cell->type == id_RAM) {
+                        int a0_clk = int_or_default(user.cell->params, id_RAM_cfg_forward_a0_clk, 0);
+                        int a1_clk = int_or_default(user.cell->params, id_RAM_cfg_forward_a1_clk, 0);
+                        int b0_clk = int_or_default(user.cell->params, id_RAM_cfg_forward_b0_clk, 0);
+                        int b1_clk = int_or_default(user.cell->params, id_RAM_cfg_forward_b1_clk, 0);
+
+                        if (a0_clk == clk_config_val(user.port))
+                            user.cell->params[id_RAM_cfg_forward_a0_clk] = Property(clk_config_val(newPort), 8);
+                        if (a1_clk == clk_config_val(user.port))
+                            user.cell->params[id_RAM_cfg_forward_a1_clk] = Property(clk_config_val(newPort), 8);
+                        if (b0_clk == clk_config_val(user.port))
+                            user.cell->params[id_RAM_cfg_forward_b0_clk] = Property(clk_config_val(newPort), 8);
+                        if (b1_clk == clk_config_val(user.port))
+                            user.cell->params[id_RAM_cfg_forward_b1_clk] = Property(clk_config_val(newPort), 8);
+                    }
+                    if (user.cell->type == id_IOSEL) {
+                        int in_clk = int_or_default(user.cell->params, id_IN_CLOCK, 0);
+                        int out_clk = int_or_default(user.cell->params, id_OUT_CLOCK, 0);
+                        if (in_clk == ioclk_config_val(user.port))
+                            user.cell->params[id_IN_CLOCK] = Property(ioclk_config_val(newPort), 2);
+                        if (out_clk == ioclk_config_val(user.port))
+                            user.cell->params[id_OUT_CLOCK] = Property(ioclk_config_val(newPort), 2);
+                    }
+                } else
+                    user.cell->connectPort(user.port, new_net);
                 count++;
+            } else {
+                log_error("Global signal '%s' is not available in die %d.\n", net->name.c_str(ctx), cell_die);
             }
         }
         if (count)

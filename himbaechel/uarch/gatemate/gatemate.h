@@ -30,6 +30,13 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+enum MultiDieStrategy
+{
+    CLOCK_MIRROR,
+    REUSE_CLK1,
+    FULL_USE,
+};
+
 struct GateMateImpl : HimbaechelAPI
 {
     ~GateMateImpl();
@@ -91,9 +98,14 @@ struct GateMateImpl : HimbaechelAPI
     int fpga_mode;
     int timing_mode;
     std::map<const NetInfo *, int> global_signals;
+    dict<std::pair<IdString, int>, NetInfo *> global_mapping;
+    dict<std::pair<IdString, int>, IdString> global_clk_mapping;
     std::vector<CellInfo *> clkin;
     std::vector<CellInfo *> glbout;
     std::vector<CellInfo *> pll;
+    pool<IdString> ignore;
+    MultiDieStrategy strategy;
+    dict<int, IdString> index_to_die;
 
   private:
     bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,

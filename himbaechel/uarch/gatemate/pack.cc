@@ -397,6 +397,37 @@ void GateMatePacker::remove_double_constrained()
     }
 }
 
+void GateMatePacker::recursiveAddToRegion(CellInfo *root, IdString die)
+{
+    if (root->region && root->region->name != die)
+        log_error("Trying to assign cell '%s' to multiple regions.\n", root->name.c_str(ctx));
+    ctx->constrainCellToRegion(root->name, die);
+    for (auto cell : root->constr_children) {
+        if (cell->region && cell->region->name != die)
+            log_error("Trying to assign cell '%s' to multiple regions.\n", cell->name.c_str(ctx));
+        ctx->constrainCellToRegion(cell->name, die);
+        recursiveAddToRegion(cell, die);
+    }
+}
+
+void GateMatePacker::assign_clocks()
+{
+    log_info("Assign cells based on clock..\n");
+    for (auto &glob : uarch->global_signals) {
+        const NetInfo *net = glob.first;
+        for (auto &user : net->users) {
+            IdString die = uarch->index_to_die[uarch->tile_extra_data(net->driver.cell->bel.tile)->die];
+            if (user.cell->region && user.cell->region->name != die)
+                log_error("Trying to assign cell '%s' to multiple regions.\n", user.cell->name.c_str(ctx));
+            ctx->constrainCellToRegion(user.cell->name, die);
+            if (user.cell->cluster != ClusterId()) {
+                CellInfo *root = ctx->getClusterRootCell(user.cell->cluster);
+                recursiveAddToRegion(root, die);
+            }
+        }
+    }
+}
+
 void GateMateImpl::pack()
 {
     const ArchArgs &args = ctx->args;
@@ -404,8 +435,34 @@ void GateMateImpl::pack()
         parse_ccf(args.options.at("ccf"));
     }
 
-    if (forced_die != IdString())
+    if (args.options.count("multi")) {
+        std::string val = args.options.at("multi");
+        if (val == "mirror") {
+            strategy = MultiDieStrategy::CLOCK_MIRROR;
+            log_info("Multidie mode: CLOCK MIRROR\n");
+        } else if (val == "clk1") {
+            strategy = MultiDieStrategy::REUSE_CLK1;
+            log_info("Multidie mode: REUSE CLK1\n");
+        } else if (val == "full") {
+            strategy = MultiDieStrategy::FULL_USE;
+            log_info("Multidie mode: FULL USE\n");
+        } else {
+            log_error("Unknown value for 'multi' option. Allowed values are 'mirror', 'full' and 'clk1'.\n");
+        }
+    } else {
+        strategy = MultiDieStrategy::CLOCK_MIRROR;
+        if (dies != 1)
+            log_warning("Multi die clock placement strategy set to 'mirror'.\n");
+    }
+
+    if (forced_die != IdString()) {
         preferred_die = die_to_index[forced_die];
+        if (strategy == MultiDieStrategy::FULL_USE)
+            log_error("Not allowed to use forced die in FULL USE mode.\n");
+    }
+
+    if (strategy == MultiDieStrategy::REUSE_CLK1 || strategy == MultiDieStrategy::FULL_USE)
+        preferred_die = 0;
 
     GateMatePacker packer(ctx, this);
     packer.pack_constants();
@@ -431,6 +488,9 @@ void GateMateImpl::pack()
                 ctx->constrainCellToRegion(cell.second->name, forced_die);
         }
     }
+
+    if (strategy == MultiDieStrategy::FULL_USE)
+        packer.assign_clocks();
 }
 
 void GateMateImpl::repack()
@@ -438,7 +498,8 @@ void GateMateImpl::repack()
     GateMatePacker packer(ctx, this);
     packer.repack_ram();
     packer.repack_cpe();
-    packer.reassign_clocks();
+    if (strategy != MultiDieStrategy::FULL_USE)
+        packer.reassign_clocks();
     packer.remove_clocking();
 }
 

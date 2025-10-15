@@ -921,8 +921,10 @@ class HeAPPlacer
                     y0 = std::max(y0, r.y0);
                     x1 = std::min(x1, r.x1);
                     y1 = std::min(y1, r.y1);
-                    if (x0 > x1) std::swap(x0, x1);
-                    if (y0 > y1) std::swap(y0, y1);
+                    if (x0 > x1)
+                        std::swap(x0, x1);
+                    if (y0 > y1)
+                        std::swap(y0, y1);
                 }
 
                 // Pick a random X and Y location within our search radius / search box
