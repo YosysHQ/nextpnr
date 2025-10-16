@@ -457,8 +457,8 @@ void GateMateImpl::pack()
         parse_ccf(args.options.at("ccf"));
     }
 
-    if (args.options.count("multi")) {
-        std::string val = args.options.at("multi");
+    if (args.options.count("strategy")) {
+        std::string val = args.options.at("strategy");
         if (val == "mirror") {
             strategy = MultiDieStrategy::CLOCK_MIRROR;
             log_info("Multidie mode: CLOCK MIRROR\n");
@@ -469,7 +469,7 @@ void GateMateImpl::pack()
             strategy = MultiDieStrategy::FULL_USE;
             log_info("Multidie mode: FULL USE\n");
         } else {
-            log_error("Unknown value for 'multi' option. Allowed values are 'mirror', 'full' and 'clk1'.\n");
+            log_error("Unknown value for 'strategy' option. Allowed values are 'mirror', 'full' and 'clk1'.\n");
         }
     } else {
         strategy = MultiDieStrategy::CLOCK_MIRROR;
