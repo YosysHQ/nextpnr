@@ -51,7 +51,8 @@ po::options_description HimbaechelCommandHandler::getArchOptions()
     specific.add_options()("device", po::value<std::string>(), "name of device to use");
     specific.add_options()("chipdb", po::value<std::string>(), "override path to chip database file");
     specific.add_options()("list-uarch", "list included uarches");
-    specific.add_options()("vopt,o", po::value<std::vector<std::string>>(), "options to pass to the himbächel uarch");
+    specific.add_options()("vopt,o", po::value<std::vector<std::string>>(),
+                           "options to pass to the himbächel uarch (use help as argument to get more info)");
 
     return specific;
 }
