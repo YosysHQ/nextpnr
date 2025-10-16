@@ -40,6 +40,7 @@ enum MultiDieStrategy
 struct GateMateImpl : HimbaechelAPI
 {
     ~GateMateImpl();
+    po::options_description getUarchOptions() override;
     void init_database(Arch *arch) override;
 
     void init(Context *ctx) override;

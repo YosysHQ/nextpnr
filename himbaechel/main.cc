@@ -83,13 +83,9 @@ std::unique_ptr<Context> HimbaechelCommandHandler::createContext(dict<std::strin
 
     if (vm.count("vopt")) {
         std::vector<std::string> options = vm["vopt"].as<std::vector<std::string>>();
-        for (const auto &opt : options) {
-            size_t epos = opt.find('=');
-            if (epos == std::string::npos)
-                chipArgs.options[opt] = "";
-            else
-                chipArgs.options[opt.substr(0, epos)] = opt.substr(epos + 1);
-        }
+        chipArgs.vopts.push_back("vopt");
+        for (const auto &opt : options)
+            chipArgs.vopts.push_back("--" + opt);
     }
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
     if (vm.count("gui"))

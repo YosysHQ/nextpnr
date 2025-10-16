@@ -427,7 +427,8 @@ struct ArchArgs
     std::string uarch;
     std::string chipdb_override;
     std::string device;
-    dict<std::string, std::string> options;
+    std::vector<std::string> vopts;
+    po::variables_map options;
 };
 
 typedef TileObjRange<BelId, BelDataPOD, &TileTypePOD::bels> BelRange;
@@ -476,6 +477,7 @@ struct Arch : BaseArch<ArchRanges>
     void set_package(const std::string &package);
 
     void late_init();
+    void parse_vopt();
 
     // Database references
     boost::iostreams::mapped_file_source blob_file;
