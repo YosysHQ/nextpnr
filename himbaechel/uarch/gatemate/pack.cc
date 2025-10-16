@@ -428,6 +428,28 @@ void GateMatePacker::assign_clocks()
     }
 }
 
+/*
+    Since A2 and A4 (multi-die) devices are composed of multiple A1 dies, and each die has its own
+    separate set of global clocks, there are several strategies for distributing these clocks:
+
+    mirror — (default)
+        Allows up to four clocks. A mirrored PLL and BUFG are instantiated on each die.
+        This ensures all clocks are available on all dies, but clocks are not phase-synchronized
+        across dies. As a result, designs may experience timing issues at higher frequencies.
+
+    clk1 — (experimental)
+        Most designs use a single global clock. In this mode, the clock is generated on one die,
+        output through an unused dedicated clock pin, and re-entered as an input on the other dies.
+        Since global clock inputs are shared between dies, this enables higher-frequency operation
+        for designs that span multiple dies.
+
+    full — (experimental)
+        Intended for designs that need to utilize all available PLLs across all dies.
+        In this strategy, placement is restricted so that logic using a specific clock
+        resides only in the die where that clock is available. This generally works well,
+        though it can be problematic for RAM blocks that may require access to multiple
+        global clock signals.
+*/
 void GateMateImpl::pack()
 {
     const ArchArgs &args = ctx->args;
