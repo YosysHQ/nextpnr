@@ -32,6 +32,20 @@ NEXTPNR_NAMESPACE_BEGIN
 
 GateMateImpl::~GateMateImpl() {};
 
+po::options_description GateMateImpl::getUarchOptions()
+{
+    po::options_description specific("GateMate specific options");
+    specific.add_options()("out", po::value<std::string>(), "textual configuration bitstream output file");
+    specific.add_options()("ccf", po::value<std::string>(), "CCF pin constraint file");
+    specific.add_options()("allow-unconstrained", "Allow unconstrained IOs");
+    specific.add_options()("fpga_mode", po::value<std::string>(), "operation mode (1:lowpower, 2:economy, 3:speed)");
+    specific.add_options()("time_mode", po::value<std::string>(), "timing mode (1:best, 2:typical, 3:worst)");
+    specific.add_options()("strategy", po::value<std::string>(),
+                           "multi-die clock placement strategy (mirror, full or clk1)");
+    specific.add_options()("force_die", po::value<std::string>(), "force specific die (example 1A,1B...)");
+    return specific;
+}
+
 static int parse_mode(const std::string &val, const std::map<std::string, int> &map, const char *error_msg)
 {
     try {
@@ -60,10 +74,10 @@ void GateMateImpl::init_database(Arch *arch)
     static const std::map<std::string, int> timing_map = {{"best", 1}, {"typical", 2}, {"worst", 3}};
 
     if (args.options.count("fpga_mode"))
-        fpga_mode = parse_mode(args.options.at("fpga_mode"), fpga_map,
+        fpga_mode = parse_mode(args.options["fpga_mode"].as<std::string>(), fpga_map,
                                "operation mode valid values are {1:lowpower, 2:economy, 3:speed}");
     if (args.options.count("time_mode"))
-        timing_mode = parse_mode(args.options.at("time_mode"), timing_map,
+        timing_mode = parse_mode(args.options["time_mode"].as<std::string>(), timing_map,
                                  "timing mode valid values are {1:best, 2:typical, 3:worst}");
 
     std::string speed_grade = "";
@@ -157,7 +171,7 @@ void GateMateImpl::init(Context *ctx)
     const ArchArgs &args = ctx->args;
     std::string die_name;
     if (args.options.count("force_die"))
-        die_name = args.options.at("force_die");
+        die_name = args.options["force_die"].as<std::string>();
     bool found = false;
     int index = 0;
     for (auto &die : extra->dies) {
@@ -437,7 +451,7 @@ void GateMateImpl::postRoute()
 
     const ArchArgs &args = ctx->args;
     if (args.options.count("out")) {
-        write_bitstream(args.device, args.options.at("out"));
+        write_bitstream(args.device, args.options["out"].as<std::string>());
     }
 }
 
@@ -606,8 +620,7 @@ struct GateMateArch : HimbaechelArch
     {
         return device.size() > 6 && device.substr(0, 6) == "CCGM1A";
     }
-    std::unique_ptr<HimbaechelAPI> create(const std::string &device,
-                                          const dict<std::string, std::string> &args) override
+    std::unique_ptr<HimbaechelAPI> create(const std::string &device) override
     {
         return std::make_unique<GateMateImpl>();
     }

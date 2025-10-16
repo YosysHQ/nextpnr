@@ -109,6 +109,7 @@ struct XilinxImpl : HimbaechelAPI
     };
 
     ~XilinxImpl();
+    po::options_description getUarchOptions() override;
     void init_database(Arch *arch) override;
 
     void init(Context *ctx) override;
