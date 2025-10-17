@@ -185,9 +185,16 @@ sudo make install
 
 ### GUI
 
-The nextpnr GUI is not built by default, to reduce the number of dependencies for a standard headless build. To enable it, add `-DBUILD_GUI=ON` to the CMake command line and ensure that Qt5 and OpenGL are available:
+The nextpnr GUI is not built by default, to reduce the number of dependencies for a standard headless build. To enable it, add `-DBUILD_GUI=ON` to the CMake command line and ensure that Qt5/Qt6 and OpenGL are available:
 
- - On Ubuntu 22.04 LTS, install `qtcreator qtbase5-dev qt5-qmake`
+For Qt6:
+ - On Ubuntu 22.04 LTS or later, install `qt6-base-dev`
+ - For MSVC vcpkg, install `qt-base` (32-bit) or `qt-base:x64-windows` (64-bit)
+ - For Homebrew, install `qt6` and add qt6 in path: `echo 'export PATH="/usr/local/opt/qt/bin:$PATH"' >> ~/.bash_profile`
+` - this change is effective in next terminal session, so please re-open terminal window before building
+
+For Qt5:
+ - On Ubuntu 22.04 LTS, install `qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools`
  - On other Ubuntu versions, install `qt5-default`
  - For MSVC vcpkg, install `qt5-base` (32-bit) or `qt5-base:x64-windows` (64-bit)
  - For Homebrew, install `qt5` and add qt5 in path: `echo 'export PATH="/usr/local/opt/qt/bin:$PATH"' >> ~/.bash_profile`

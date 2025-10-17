@@ -30,7 +30,7 @@ jobs:
     - name: Install
       run: |
         sudo apt-get update
-        sudo apt-get install git make cmake libboost-all-dev python3-dev pypy3 libeigen3-dev tcl-dev lzma-dev libftdi-dev clang bison flex swig qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools iverilog libreadline-dev liblzma-dev cargo rustc
+        sudo apt-get install git make cmake libboost-all-dev python3-dev pypy3 libeigen3-dev tcl-dev lzma-dev libftdi-dev clang bison flex swig qt6-base-dev iverilog libreadline-dev liblzma-dev cargo rustc
 
     - name: Cache yosys installation
       uses: actions/cache@v4
