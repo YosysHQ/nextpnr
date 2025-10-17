@@ -224,7 +224,10 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/3rdparty/sanitizers-cmake/cmake" ${CM
 find_package(Sanitizers)
 
 if (BUILD_TESTS)
-    add_subdirectory(3rdparty/googletest/googletest EXCLUDE_FROM_ALL)
+    # Disable unneeded parts
+    set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
+    set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+    add_subdirectory(3rdparty/googletest EXCLUDE_FROM_ALL)
     enable_testing()
 endif()
 

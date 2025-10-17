@@ -7,3 +7,6 @@
 [submodule "3rdparty/corrosion"]
 	path = 3rdparty/corrosion
 	url = https://github.com/corrosion-rs/corrosion
+[submodule "3rdparty/googletest"]
+	path = 3rdparty/googletest
+	url = https://github.com/google/googletest.git
