@@ -183,12 +183,20 @@ struct GowinPacker
     {
         log_info("Pack IOBs...\n");
         trim_nextpnr_iobs();
+        std::vector<IdString> cells_to_remove;
 
         for (auto &cell : ctx->cells) {
             CellInfo &ci = *cell.second;
             if (!is_io(&ci)) {
                 continue;
             }
+            // Special case of OBUF without input - we delete such things.
+            if (ci.type == id_OBUF && !ci.getPort(id_I)) {
+                ci.disconnectPort(id_O);
+                cells_to_remove.push_back(ci.name);
+                continue;
+            }
+
             if (ci.attrs.count(id_BEL) == 0) {
                 log_error("Unconstrained IO:%s\n", ctx->nameOf(&ci));
             }
@@ -201,6 +209,10 @@ struct GowinPacker
                 config_simple_io(ci);
             }
             make_iob_nets(ci);
+        }
+
+        for (auto cell : cells_to_remove) {
+            ctx->cells.erase(cell);
         }
     }
 
