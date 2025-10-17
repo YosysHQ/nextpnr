@@ -117,11 +117,11 @@ struct GowinArch : HimbaechelArch
 po::options_description GowinImpl::getUarchOptions()
 {
     po::options_description specific("Gowin specific options");
-    specific.add_options()("family", po::value<std::string>(), "select Gowin family");
-    specific.add_options()("cst", po::value<std::string>(), "CST pin constraint file");
-    specific.add_options()("ireg_in_iob", "input register placement in IOB");
-    specific.add_options()("oreg_in_iob", "output register placement in IOB");
-    specific.add_options()("ioreg_in_iob", "I/O register placement in IOB");
+    specific.add_options()("family", po::value<std::string>(), "GOWIN chip family");
+    specific.add_options()("cst", po::value<std::string>(), "name of constraints file");
+    specific.add_options()("ireg_in_iob", "place input registers in IOB");
+    specific.add_options()("oreg_in_iob", "place output registers in IOB");
+    specific.add_options()("ioreg_in_iob", "place I/O registers in IOB");
     specific.add_options()("disable_gp_clock_routing", "disable clock network routing from GP pins");
     specific.add_options()("sspi_as_gpio", "use SSPI pins as GPIO");
     specific.add_options()("i2c_as_gpio", "use I2C pins as GPIO");
