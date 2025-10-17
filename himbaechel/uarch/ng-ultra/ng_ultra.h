@@ -40,7 +40,7 @@ NEXTPNR_NAMESPACE_BEGIN
 struct NgUltraImpl : HimbaechelAPI
 {
     ~NgUltraImpl();
-    po::options_description getUarchOptions() override;
+    po::options_description getUArchOptions() override;
     void init_database(Arch *arch) override;
 
     void init(Context *ctx) override;

@@ -39,7 +39,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 XilinxImpl::~XilinxImpl() {};
 
-po::options_description XilinxImpl::getUarchOptions()
+po::options_description XilinxImpl::getUArchOptions()
 {
     po::options_description specific("Xilinx specific options");
     specific.add_options()("fasm", po::value<std::string>(), "fasm bitstream output file");

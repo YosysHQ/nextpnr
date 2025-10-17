@@ -32,7 +32,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 GateMateImpl::~GateMateImpl() {};
 
-po::options_description GateMateImpl::getUarchOptions()
+po::options_description GateMateImpl::getUArchOptions()
 {
     po::options_description specific("GateMate specific options");
     specific.add_options()("out", po::value<std::string>(), "textual configuration bitstream output file");

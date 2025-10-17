@@ -41,7 +41,7 @@ struct ExampleImpl : HimbaechelAPI
 
     ~ExampleImpl() {};
 
-    po::options_description getUarchOptions()
+    po::options_description getUArchOptions()
     {
         po::options_description specific("Example specific options");
         return specific;
