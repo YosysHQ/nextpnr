@@ -69,7 +69,7 @@ struct GateMateCCFReader
             boost::algorithm::to_upper(name);
 
             if (expr.size() != 2) {
-                if (name == "LOC" || name == "DRIVE" || name == "DELAY_IBF" || name == "DELAY_OBF")
+                if (name == "LOC" || name == "DRIVE" || name == "DELAY_IBF" || name == "DELAY_OBF" || name == "DIE")
                     log_error("Parameter must be in form NAME=VALUE (on line %d)\n", lineno);
                 log_warning("Parameter '%s' missing value, defaulting to '1' (on line %d)\n", name.c_str(), lineno);
                 expr.push_back("1");
@@ -99,6 +99,12 @@ struct GateMateCCFReader
                     uarch->available_pads.erase(ctx->id("SER_CLK_N"));
                 if (value == "SER_CLK_N")
                     uarch->available_pads.erase(ctx->id("SER_CLK"));
+            } else if (name == "DIE") {
+                if (uarch->die_to_index.count(ctx->id(value))) {
+                    props->emplace(ctx->id(name), Property(value));
+                } else
+                    log_error("Uknown value '%s' for parameter '%s' in line %d.\n", value.c_str(), name.c_str(),
+                              lineno);
             } else if (name == "SCHMITT_TRIGGER" || name == "PULLUP" || name == "PULLDOWN" || name == "KEEPER" ||
                        name == "FF_IBF" || name == "FF_OBF" || name == "LVDS_BOOST" || name == "LVDS_RTERM") {
                 if (value == "1")

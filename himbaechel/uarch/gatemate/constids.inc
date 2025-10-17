@@ -2473,6 +2473,8 @@ X(1A)
 X(1B)
 X(2A)
 X(2B)
+X(DIE)
+X(GATEMATE_DIE)
 
 // Timing
 X(timing_ADDF2x_IN5_8_comb2)
