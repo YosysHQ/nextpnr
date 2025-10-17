@@ -47,7 +47,7 @@ po::options_description NgUltraImpl::getUarchOptions()
 {
     po::options_description specific("NG-Ultra specific options");
     specific.add_options()("bit", po::value<std::string>(), "textual configuration bitstream output file");
-    specific.add_options()("csv", po::value<std::string>(), "CSV constraint file");
+    specific.add_options()("csv", po::value<std::string>(), "name of constraints file");
     specific.add_options()("no-xlut", "disable XLUT optimisations");
     specific.add_options()("no-lut-chains", "disable LUT chains optimisations");
     specific.add_options()("no-dff-chains", "disable DFF chains optimisations");

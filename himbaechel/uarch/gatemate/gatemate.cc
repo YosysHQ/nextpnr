@@ -36,8 +36,8 @@ po::options_description GateMateImpl::getUarchOptions()
 {
     po::options_description specific("GateMate specific options");
     specific.add_options()("out", po::value<std::string>(), "textual configuration bitstream output file");
-    specific.add_options()("ccf", po::value<std::string>(), "CCF pin constraint file");
-    specific.add_options()("allow-unconstrained", "Allow unconstrained IOs");
+    specific.add_options()("ccf", po::value<std::string>(), "name of constraints file");
+    specific.add_options()("allow-unconstrained", "allow unconstrained IOs");
     specific.add_options()("fpga_mode", po::value<std::string>(), "operation mode (1:lowpower, 2:economy, 3:speed)");
     specific.add_options()("time_mode", po::value<std::string>(), "timing mode (1:best, 2:typical, 3:worst)");
     specific.add_options()("strategy", po::value<std::string>(),
