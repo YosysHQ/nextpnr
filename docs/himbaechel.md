@@ -11,6 +11,8 @@ Python scripting is defined that allows the user to describe a semi-flattened ro
 
 Most of what's written in the [viaduct docs](./viaduct.md) also applies to bootstrapping a Himbächel arch - this also provides a migration path for an existing Viaduct architecture. Just replace `viaduct` with `himbaechel` and `ViaductAPI` with `HimbaechelAPI` - the set of validity checking and custom flow "hooks" that you have access to is designed to be otherwise as close as possible.
 
+Additionally Himbächel API defines `getUArchOptions` enabling specifying additional command line parameters for given architecture only.
+
 However, the key difference is that you will need to generate a "binary blob" chip database. `himbaechel_dbgen/bba.py` provides a framework for this. The typical steps for using this API would be as follows:
  - Create a `Chip` instance
  - For each unique "tile type" in the design (e.g. logic, BRAM, IO - in some cases multiple variants of these may be multiple tile types):

@@ -23,7 +23,7 @@ struct GowinImpl : HimbaechelAPI
 {
 
     ~GowinImpl() {};
-    po::options_description getUarchOptions() override;
+    po::options_description getUArchOptions() override;
     void init_database(Arch *arch) override;
     void init(Context *ctx) override;
 
@@ -114,7 +114,7 @@ struct GowinArch : HimbaechelArch
     std::unique_ptr<HimbaechelAPI> create(const std::string &device) override { return std::make_unique<GowinImpl>(); }
 } gowinArch;
 
-po::options_description GowinImpl::getUarchOptions()
+po::options_description GowinImpl::getUArchOptions()
 {
     po::options_description specific("Gowin specific options");
     specific.add_options()("family", po::value<std::string>(), "GOWIN chip family");

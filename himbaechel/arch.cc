@@ -59,7 +59,7 @@ Arch::Arch(ArchArgs args) : args(args)
 
 static void print_vopt_help(const po::options_description &vopt_desc)
 {
-    std::cout << "Allowed --vopt options:\n";
+    std::cerr << "Allowed --vopt options:\n";
     size_t maxlen = 0;
     std::vector<std::pair<std::string, std::string>> lines;
 
@@ -76,13 +76,13 @@ static void print_vopt_help(const po::options_description &vopt_desc)
     }
 
     for (auto &[text, desc] : lines)
-        std::cout << "  " << std::left << std::setw(static_cast<int>(maxlen) + 2) << text << desc << "\n";
+        std::cerr << "  " << std::left << std::setw(static_cast<int>(maxlen) + 2) << text << desc << "\n";
 }
 
 void Arch::parse_vopt()
 {
     namespace po = boost::program_options;
-    auto vopt_desc = uarch->getUarchOptions();
+    auto vopt_desc = uarch->getUArchOptions();
     vopt_desc.add_options()("help,h", "show help");
 
     std::vector<const char *> argv;

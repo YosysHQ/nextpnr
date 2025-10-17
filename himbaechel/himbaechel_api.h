@@ -68,7 +68,7 @@ struct HimbaechelAPI
     // then it is responsible for loading the db blob with arch->load_chipdb()
     virtual void init_database(Arch *arch) = 0;
     // Return uarch specific options description
-    virtual po::options_description getUarchOptions() = 0;
+    virtual po::options_description getUArchOptions() = 0;
     Context *ctx;
     bool with_gui = false;
 

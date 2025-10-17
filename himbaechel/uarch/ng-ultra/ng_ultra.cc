@@ -43,7 +43,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 NgUltraImpl::~NgUltraImpl() {};
 
-po::options_description NgUltraImpl::getUarchOptions()
+po::options_description NgUltraImpl::getUArchOptions()
 {
     po::options_description specific("NG-Ultra specific options");
     specific.add_options()("bit", po::value<std::string>(), "textual configuration bitstream output file");
