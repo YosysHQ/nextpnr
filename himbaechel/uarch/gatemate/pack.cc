@@ -429,8 +429,8 @@ void GateMatePacker::assign_regions()
     log_info("Assign cell region based on attributes..\n");
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
-        if (ci.attrs.count(ctx->id("GATEMATE_DIE")) != 0) {
-            std::string die_name = str_or_default(ci.attrs, ctx->id("GATEMATE_DIE"), "");
+        if (ci.attrs.count(id_GATEMATE_DIE) != 0) {
+            std::string die_name = str_or_default(ci.attrs, id_GATEMATE_DIE, "");
             IdString die = ctx->id(die_name);
             if (!uarch->die_to_index.count(die))
                 log_error("Trying to assign cell '%s' to non existing die '%s'.\n", ci.name.c_str(ctx), die.c_str(ctx));
