@@ -2180,7 +2180,7 @@ void NgUltraImpl::pack()
 {
     const ArchArgs &args = ctx->args;
     if (args.options.count("csv")) {
-        parse_csv(args.options.at("csv"));
+        parse_csv(args.options["csv"].as<std::string>());
     }
 
     // Setup

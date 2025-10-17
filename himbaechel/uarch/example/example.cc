@@ -40,6 +40,13 @@ struct ExampleImpl : HimbaechelAPI
     static constexpr int K = 4;
 
     ~ExampleImpl() {};
+
+    po::options_description getUArchOptions()
+    {
+        po::options_description specific("Example specific options");
+        return specific;
+    }
+
     void init_database(Arch *arch) override
     {
         init_uarch_constids(arch);
@@ -329,8 +336,7 @@ struct ExampleArch : HimbaechelArch
 {
     ExampleArch() : HimbaechelArch("example") {};
     bool match_device(const std::string &device) override { return device == "EXAMPLE"; }
-    std::unique_ptr<HimbaechelAPI> create(const std::string &device,
-                                          const dict<std::string, std::string> &args) override
+    std::unique_ptr<HimbaechelAPI> create(const std::string &device) override
     {
         return std::make_unique<ExampleImpl>();
     }

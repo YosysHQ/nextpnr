@@ -39,6 +39,14 @@ NEXTPNR_NAMESPACE_BEGIN
 
 XilinxImpl::~XilinxImpl() {};
 
+po::options_description XilinxImpl::getUArchOptions()
+{
+    po::options_description specific("Xilinx specific options");
+    specific.add_options()("fasm", po::value<std::string>(), "fasm bitstream output file");
+    specific.add_options()("xdc", po::value<std::string>(), "name of constraints file");
+    return specific;
+}
+
 void XilinxImpl::init_database(Arch *arch)
 {
     const ArchArgs &args = arch->args;
@@ -299,7 +307,7 @@ void XilinxImpl::postRoute()
     ctx->assignArchInfo();
     const ArchArgs &args = ctx->args;
     if (args.options.count("fasm")) {
-        write_fasm(args.options.at("fasm"));
+        write_fasm(args.options["fasm"].as<std::string>());
     }
 }
 
@@ -576,11 +584,7 @@ struct XilinxArch : HimbaechelArch
 {
     XilinxArch() : HimbaechelArch("xilinx") {};
     bool match_device(const std::string &device) override { return device.size() > 3 && device.substr(0, 3) == "xc7"; }
-    std::unique_ptr<HimbaechelAPI> create(const std::string &device,
-                                          const dict<std::string, std::string> &args) override
-    {
-        return std::make_unique<XilinxImpl>();
-    }
+    std::unique_ptr<HimbaechelAPI> create(const std::string &device) override { return std::make_unique<XilinxImpl>(); }
 } xilinxArch;
 } // namespace
 

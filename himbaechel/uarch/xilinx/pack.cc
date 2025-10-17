@@ -727,7 +727,7 @@ void XilinxImpl::pack()
 {
     const ArchArgs &args = ctx->args;
     if (args.options.count("xdc")) {
-        parse_xdc(args.options.at("xdc"));
+        parse_xdc(args.options["xdc"].as<std::string>());
     }
 
     XC7Packer packer(ctx, this);

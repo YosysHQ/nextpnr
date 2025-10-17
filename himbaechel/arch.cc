@@ -47,13 +47,72 @@ Arch::Arch(ArchArgs args) : args(args)
     }
     log_info("Using uarch '%s' for device '%s'\n", arch->name.c_str(), args.device.c_str());
     this->args.uarch = arch->name;
-    uarch = arch->create(args.device, args.options);
+    uarch = arch->create(args.device);
+    parse_vopt();
     // Load uarch
     uarch->init_database(this);
     if (!chip_info)
         log_error("uarch didn't load any chipdb, probably a load_chipdb call was missing\n");
 
     init_tiles();
+}
+
+static void print_vopt_help(const po::options_description &vopt_desc)
+{
+    std::cerr << "Allowed --vopt options:\n";
+    size_t maxlen = 0;
+    std::vector<std::pair<std::string, std::string>> lines;
+
+    for (const auto &opt : vopt_desc.options()) {
+        std::string name = opt->canonical_display_name(1);
+        if (name.rfind("--", 0) == 0)
+            name.erase(0, 2);
+
+        bool takes_value = opt->semantic() && opt->semantic()->max_tokens() > 0;
+        std::string text = takes_value ? "--vopt " + name + "=<arg>" : "--vopt " + name;
+
+        maxlen = std::max(maxlen, text.size());
+        lines.emplace_back(std::move(text), opt->description());
+    }
+
+    for (auto &[text, desc] : lines)
+        std::cerr << "  " << std::left << std::setw(static_cast<int>(maxlen) + 2) << text << desc << "\n";
+}
+
+void Arch::parse_vopt()
+{
+    namespace po = boost::program_options;
+    auto vopt_desc = uarch->getUArchOptions();
+    vopt_desc.add_options()("help,h", "show help");
+
+    std::vector<const char *> argv;
+    for (auto &a : args.vopts)
+        argv.push_back(a.c_str());
+
+    try {
+        po::parsed_options parsed =
+                po::command_line_parser((int)argv.size(), argv.data())
+                        .style(po::command_line_style::default_style ^ po::command_line_style::allow_guessing)
+                        .options(vopt_desc)
+                        .run();
+        po::store(parsed, args.options);
+        po::notify(args.options);
+    } catch (const po::unknown_option &e) {
+        std::string option_name = e.get_option_name();
+        if (!option_name.empty() && option_name[0] == '-') {
+            size_t start = option_name.find_first_not_of('-');
+            option_name = option_name.substr(start);
+        }
+        std::cerr << "Error: unrecognized --vopt option: " << option_name << std::endl;
+        exit(0);
+    } catch (std::exception &e) {
+        std::cout << e.what() << "\n";
+        exit(0);
+    }
+    if (args.options.count("help")) {
+        print_vopt_help(vopt_desc);
+        exit(0);
+    }
 }
 
 void Arch::load_chipdb(const std::string &path)

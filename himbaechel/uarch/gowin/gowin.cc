@@ -23,6 +23,7 @@ struct GowinImpl : HimbaechelAPI
 {
 
     ~GowinImpl() {};
+    po::options_description getUArchOptions() override;
     void init_database(Arch *arch) override;
     void init(Context *ctx) override;
 
@@ -110,12 +111,22 @@ struct GowinArch : HimbaechelArch
 
     bool match_device(const std::string &device) override { return device.size() > 2 && device.substr(0, 2) == "GW"; }
 
-    std::unique_ptr<HimbaechelAPI> create(const std::string &device,
-                                          const dict<std::string, std::string> &args) override
-    {
-        return std::make_unique<GowinImpl>();
-    }
+    std::unique_ptr<HimbaechelAPI> create(const std::string &device) override { return std::make_unique<GowinImpl>(); }
 } gowinArch;
+
+po::options_description GowinImpl::getUArchOptions()
+{
+    po::options_description specific("Gowin specific options");
+    specific.add_options()("family", po::value<std::string>(), "GOWIN chip family");
+    specific.add_options()("cst", po::value<std::string>(), "name of constraints file");
+    specific.add_options()("ireg_in_iob", "place input registers in IOB");
+    specific.add_options()("oreg_in_iob", "place output registers in IOB");
+    specific.add_options()("ioreg_in_iob", "place I/O registers in IOB");
+    specific.add_options()("disable_gp_clock_routing", "disable clock network routing from GP pins");
+    specific.add_options()("sspi_as_gpio", "use SSPI pins as GPIO");
+    specific.add_options()("i2c_as_gpio", "use I2C pins as GPIO");
+    return specific;
+}
 
 void GowinImpl::init_database(Arch *arch)
 {
@@ -123,7 +134,7 @@ void GowinImpl::init_database(Arch *arch)
     const ArchArgs &args = arch->args;
     std::string family;
     if (args.options.count("family")) {
-        family = args.options.at("family");
+        family = args.options["family"].as<std::string>();
     } else {
         bool GW2 = args.device.rfind("GW2A", 0) == 0;
         if (GW2) {
@@ -203,7 +214,7 @@ void GowinImpl::init(Context *ctx)
 
     // constraints
     if (args.options.count("cst")) {
-        ctx->settings[ctx->id("cst.filename")] = args.options.at("cst");
+        ctx->settings[ctx->id("cst.filename")] = args.options["cst"].as<std::string>();
     }
 
     // place registers in IO blocks
