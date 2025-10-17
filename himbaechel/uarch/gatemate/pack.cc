@@ -420,10 +420,35 @@ void GateMatePacker::assign_clocks()
             if (user.cell->region && user.cell->region->name != die)
                 log_error("Trying to assign cell '%s' to multiple regions.\n", user.cell->name.c_str(ctx));
             ctx->constrainCellToRegion(user.cell->name, die);
-            if (user.cell->cluster != ClusterId()) {
-                CellInfo *root = ctx->getClusterRootCell(user.cell->cluster);
-                recursiveAddToRegion(root, die);
-            }
+        }
+    }
+}
+
+void GateMatePacker::assign_regions()
+{
+    log_info("Assign cell region based on attributes..\n");
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (ci.attrs.count(ctx->id("GATEMATE_DIE")) != 0) {
+            std::string die_name = str_or_default(ci.attrs, ctx->id("GATEMATE_DIE"), "");
+            IdString die = ctx->id(die_name);
+            if (!uarch->die_to_index.count(die))
+                log_error("Trying to assign cell '%s' to non existing die '%s'.\n", ci.name.c_str(ctx), die.c_str(ctx));
+            if (ci.region && ci.region->name != die)
+                log_error("Trying to assign cell '%s' to multiple regions.\n", ci.name.c_str(ctx));
+            ctx->constrainCellToRegion(ci.name, die);
+        }
+    }
+}
+
+void GateMatePacker::fix_regions()
+{
+    log_info("Fix cell assigned regions..\n");
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        if (ci.region && ci.cluster != ClusterId()) {
+            CellInfo *root = ctx->getClusterRootCell(ci.cluster);
+            recursiveAddToRegion(root, ci.region->name);
         }
     }
 }
@@ -487,6 +512,8 @@ void GateMateImpl::pack()
         preferred_die = 0;
 
     GateMatePacker packer(ctx, this);
+    if (forced_die == IdString())
+        packer.assign_regions();
     packer.pack_constants();
     packer.cleanup();
     packer.pack_io();
@@ -503,16 +530,15 @@ void GateMateImpl::pack()
     packer.copy_clocks();
     packer.remove_constants();
     packer.remove_double_constrained();
-
     if (forced_die != IdString()) {
         for (auto &cell : ctx->cells) {
             if (cell.second->belStrength != PlaceStrength::STRENGTH_FIXED)
                 ctx->constrainCellToRegion(cell.second->name, forced_die);
         }
     }
-
     if (strategy == MultiDieStrategy::FULL_USE)
         packer.assign_clocks();
+    packer.fix_regions();
 }
 
 void GateMateImpl::repack()

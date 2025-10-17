@@ -166,6 +166,18 @@ void GateMatePacker::dff_update_params()
     }
 }
 
+void GateMatePacker::override_region(CellInfo *first, CellInfo *second)
+{
+    if (first->region) {
+        if (second->region && second->region->name != first->region->name) {
+            log_warning("Unable to place cell '%s' in '%s' region\n", first->name.c_str(ctx),
+                        first->region->name.c_str(ctx));
+        }
+    } else {
+        second->region = first->region;
+    }
+}
+
 void GateMatePacker::pack_cpe()
 {
     log_info("Packing CPEs..\n");
@@ -173,7 +185,7 @@ void GateMatePacker::pack_cpe()
 
     auto merge_dff = [&](CellInfo &ci, CellInfo *dff) {
         dff->cluster = ci.name;
-        dff->region = ci.region;
+        override_region(dff, &ci);
         dff->constr_abs_z = false;
         dff->constr_z = +2;
         ci.cluster = ci.name;
@@ -520,7 +532,7 @@ void GateMatePacker::pack_addf()
             CellInfo *dff = net_only_drives(ctx, o, is_dff, id_D, true);
             if (dff && are_ffs_compatible(dff, other)) {
                 dff->cluster = cell->cluster;
-                dff->region = cell->region;
+                override_region(dff, cell);
                 dff->constr_abs_z = false;
                 dff->constr_z = +2;
                 cell->constr_children.push_back(dff);
@@ -589,7 +601,7 @@ void GateMatePacker::pack_addf()
             CellInfo *cy = grp.at(i);
             if (i != 0) {
                 cy->cluster = root->name;
-                cy->region = root->region;
+                override_region(cy, root);
                 root->constr_children.push_back(cy);
                 cy->constr_abs_z = false;
                 cy->constr_y = +i;

@@ -72,6 +72,8 @@ struct GateMatePacker
     void reassign_clocks();
     void copy_clocks();
     void assign_clocks();
+    void assign_regions();
+    void fix_regions();
 
   private:
     void rename_param(CellInfo *cell, IdString name, IdString new_name, int width);
@@ -93,6 +95,7 @@ struct GateMatePacker
     void strategy_clk1();
     void strategy_full();
 
+    void override_region(CellInfo *first, CellInfo *second);
     void recursiveAddToRegion(CellInfo *root, IdString die);
 
     PllCfgRecord get_pll_settings(double f_ref, double f_core, int mode, int low_jitter, bool pdiv0_mux, bool feedback);
