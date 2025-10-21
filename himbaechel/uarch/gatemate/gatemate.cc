@@ -56,18 +56,18 @@ void GateMateImpl::init_database(Arch *arch)
     fpga_mode = 3;
     timing_mode = 3;
 
-    static const std::map<std::string, int> fpga_map = {{"best", 1}, {"typical", 2}, {"worst", 3}};
-    static const std::map<std::string, int> timing_map = {{"lowpower", 1}, {"economy", 2}, {"speed", 3}};
+    static const std::map<std::string, int> fpga_map = {{"lowpower", 1}, {"economy", 2}, {"speed", 3}};
+    static const std::map<std::string, int> timing_map = {{"best", 1}, {"typical", 2}, {"worst", 3}};
 
     if (args.options.count("fpga_mode"))
         fpga_mode = parse_mode(args.options.at("fpga_mode"), fpga_map,
-                               "timing mode valid values are {1:best, 2:typical, 3:worst}");
+                               "operation mode valid values are {1:lowpower, 2:economy, 3:speed}");
     if (args.options.count("time_mode"))
         timing_mode = parse_mode(args.options.at("time_mode"), timing_map,
-                                 "operation mode valid values are {1:lowpower, 2:economy, 3:speed}");
+                                 "timing mode valid values are {1:best, 2:typical, 3:worst}");
 
     std::string speed_grade = "";
-    switch (fpga_mode) {
+    switch (timing_mode) {
     case 1:
         speed_grade = "best_";
         break;
@@ -78,12 +78,12 @@ void GateMateImpl::init_database(Arch *arch)
         speed_grade = "worst_";
         break;
     }
-    log_info("Using timing mode '%s'\n", fpga_mode == 1   ? "BEST"
-                                         : fpga_mode == 2 ? "TYPICAL"
-                                         : fpga_mode == 3 ? "WORST"
-                                                          : "");
+    log_info("Using timing mode '%s'\n", timing_mode == 1   ? "BEST"
+                                         : timing_mode == 2 ? "TYPICAL"
+                                         : timing_mode == 3 ? "WORST"
+                                                            : "");
 
-    switch (timing_mode) {
+    switch (fpga_mode) {
     case 1:
         speed_grade += "lpr";
         break;
@@ -93,10 +93,10 @@ void GateMateImpl::init_database(Arch *arch)
     default:
         speed_grade += "spd";
     }
-    log_info("Using operation mode '%s'\n", timing_mode == 1   ? "LOWPOWER"
-                                            : timing_mode == 2 ? "ECONOMY"
-                                            : timing_mode == 3 ? "SPEED"
-                                                               : "");
+    log_info("Using operation mode '%s'\n", fpga_mode == 1   ? "LOWPOWER"
+                                            : fpga_mode == 2 ? "ECONOMY"
+                                            : fpga_mode == 3 ? "SPEED"
+                                                             : "");
     arch->set_speed_grade(speed_grade);
 }
 
