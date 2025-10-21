@@ -169,11 +169,18 @@ else()
     endif()
 endif()
 
-set(boost_libs filesystem program_options iostreams system)
+set(boost_libs filesystem program_options iostreams)
 if (Threads_FOUND)
     list(APPEND boost_libs thread)
 endif()
 find_package(Boost REQUIRED COMPONENTS ${boost_libs})
+
+# The `boost_system` library stubs were removed in 1.89.0, so only add them if
+# boost is older than that
+if (Boost_VERSION VERSION_LESS "1.89.0")
+    list(APPEND boost_libs system)
+    find_package(Boost REQUIRED COMPONENTS ${boost_libs})
+endif()
 
 if (BUILD_PYTHON)
     # TODO: sensible minimum Python version
