@@ -58,6 +58,7 @@ struct GateMateImpl : HimbaechelAPI
 
     bool isBelLocationValid(BelId bel, bool explain_invalid = false) const override;
     delay_t estimateDelay(WireId src, WireId dst) const override;
+    delay_t predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const override;
     bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const override;
     TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const override;
     TimingClockingInfo getPortClockingInfo(const CellInfo *cell, IdString port, int index) const override;
@@ -106,6 +107,7 @@ struct GateMateImpl : HimbaechelAPI
     pool<IdString> ignore;
     MultiDieStrategy strategy;
     dict<int, IdString> index_to_die;
+    dict<IdString, int> die_to_index;
 
   private:
     bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
@@ -139,7 +141,6 @@ struct GateMateImpl : HimbaechelAPI
     std::map<IdString, const GateMateTimingExtraDataPOD *> timing;
     dict<IdString, int> ram_signal_clk;
     IdString forced_die;
-    dict<IdString, int> die_to_index;
 };
 
 NEXTPNR_NAMESPACE_END

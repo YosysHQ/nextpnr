@@ -28,7 +28,7 @@ std::string get_die_name(int total_dies, int die)
 {
     if (total_dies == 1)
         return "";
-    return stringf("on die '%d%c'", int(die / total_dies) + 1, 'A' + int(die % total_dies));
+    return stringf(" on die '%d%c'", int(die / total_dies) + 1, 'A' + int(die % total_dies));
 }
 
 void GateMatePacker::pack_io()
@@ -187,6 +187,8 @@ void GateMatePacker::pack_io()
                 keys.push_back(p.first);
                 continue;
             }
+            if (p.first.in(id_DIE))
+                continue;
             if (ci.type.in(id_CC_IBUF, id_CC_IOBUF) &&
                 p.first.in(id_PULLUP, id_PULLDOWN, id_KEEPER, id_SCHMITT_TRIGGER, id_DELAY_IBF, id_FF_IBF))
                 continue;
@@ -305,10 +307,20 @@ void GateMatePacker::pack_io()
         }
 
         BelId bel;
-        if (uarch->locations.count(std::make_pair(ctx->id(loc), uarch->preferred_die)))
-            bel = ctx->getBelByLocation(uarch->locations[std::make_pair(ctx->id(loc), uarch->preferred_die)]);
-        else
-            bel = ctx->get_package_pin_bel(ctx->id(loc));
+        if (ci.params.count(id_DIE)) {
+            std::string die_name = str_or_default(ci.params, id_DIE, "");
+            int die = uarch->die_to_index[ctx->id(die_name)];
+            ci.unsetParam(id_DIE);
+            if (uarch->locations.count(std::make_pair(ctx->id(loc), die)))
+                bel = ctx->getBelByLocation(uarch->locations[std::make_pair(ctx->id(loc), die)]);
+            else
+                log_error("Unable to place '%s' to specified '%s' die.\n", ci.name.c_str(ctx), die_name.c_str());
+        } else {
+            if (uarch->locations.count(std::make_pair(ctx->id(loc), uarch->preferred_die)))
+                bel = ctx->getBelByLocation(uarch->locations[std::make_pair(ctx->id(loc), uarch->preferred_die)]);
+            else
+                bel = ctx->get_package_pin_bel(ctx->id(loc));
+        }
         if (bel == BelId())
             log_error("Unable to constrain IO '%s', device does not have a pin named '%s'\n", ci.name.c_str(ctx),
                       loc.c_str());
