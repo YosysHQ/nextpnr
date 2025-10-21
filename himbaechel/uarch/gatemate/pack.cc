@@ -479,11 +479,11 @@ void GateMateImpl::pack()
 {
     const ArchArgs &args = ctx->args;
     if (args.options.count("ccf")) {
-        parse_ccf(args.options.at("ccf"));
+        parse_ccf(args.options["ccf"].as<std::string>());
     }
 
     if (args.options.count("strategy")) {
-        std::string val = args.options.at("strategy");
+        std::string val = args.options["strategy"].as<std::string>();
         if (val == "mirror") {
             strategy = MultiDieStrategy::CLOCK_MIRROR;
             log_info("Multidie mode: CLOCK MIRROR\n");

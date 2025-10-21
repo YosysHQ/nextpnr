@@ -20,6 +20,7 @@
 #ifndef HIMBAECHEL_API_H
 #define HIMBAECHEL_API_H
 
+#include <boost/program_options.hpp>
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
 
@@ -55,6 +56,8 @@ struct Context;
 
 struct PlacerHeapCfg;
 
+namespace po = boost::program_options;
+
 struct HimbaechelAPI
 {
     // Architecture specific context initialization
@@ -64,6 +67,8 @@ struct HimbaechelAPI
     // If constids are being used, this is used to set them up early
     // then it is responsible for loading the db blob with arch->load_chipdb()
     virtual void init_database(Arch *arch) = 0;
+    // Return uarch specific options description
+    virtual po::options_description getUArchOptions() = 0;
     Context *ctx;
     bool with_gui = false;
 
@@ -148,8 +153,7 @@ struct HimbaechelArch
     HimbaechelArch(const std::string &name);
     ~HimbaechelArch() {};
     virtual bool match_device(const std::string &device) = 0;
-    virtual std::unique_ptr<HimbaechelAPI> create(const std::string &device,
-                                                  const dict<std::string, std::string> &args) = 0;
+    virtual std::unique_ptr<HimbaechelAPI> create(const std::string &device) = 0;
 
     static std::string list();
     static HimbaechelArch *find_match(const std::string &device);

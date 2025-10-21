@@ -43,6 +43,18 @@ NEXTPNR_NAMESPACE_BEGIN
 
 NgUltraImpl::~NgUltraImpl() {};
 
+po::options_description NgUltraImpl::getUArchOptions()
+{
+    po::options_description specific("NG-Ultra specific options");
+    specific.add_options()("bit", po::value<std::string>(), "textual configuration bitstream output file");
+    specific.add_options()("csv", po::value<std::string>(), "name of constraints file");
+    specific.add_options()("no-xlut", "disable XLUT optimisations");
+    specific.add_options()("no-lut-chains", "disable LUT chains optimisations");
+    specific.add_options()("no-dff-chains", "disable DFF chains optimisations");
+    specific.add_options()("no-csc-insertion", "disable CSC insertion");
+    return specific;
+}
+
 void NgUltraImpl::init_database(Arch *arch)
 {
     init_uarch_constids(arch);
@@ -432,7 +444,7 @@ void NgUltraImpl::postRoute()
     print_utilisation(ctx);
     const ArchArgs &args = ctx->args;
     if (args.options.count("bit")) {
-        write_bitstream_json(args.options.at("bit"));
+        write_bitstream_json(args.options["bit"].as<std::string>());
     }
 }
 
@@ -1060,8 +1072,7 @@ struct NgUltraArch : HimbaechelArch
 {
     NgUltraArch() : HimbaechelArch("ng-ultra") {};
     bool match_device(const std::string &device) override { return device == "NG-ULTRA"; }
-    std::unique_ptr<HimbaechelAPI> create(const std::string &device,
-                                          const dict<std::string, std::string> &args) override
+    std::unique_ptr<HimbaechelAPI> create(const std::string &device) override
     {
         return std::make_unique<NgUltraImpl>();
     }
