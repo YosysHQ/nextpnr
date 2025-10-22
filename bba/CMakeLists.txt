@@ -4,12 +4,10 @@ project(bba CXX)
 set(CMAKE_CXX_STANDARD 17)
 
 find_package(Boost REQUIRED COMPONENTS
-    program_options
-    system)
+    program_options)
 
 add_executable(bbasm
     main.cc)
 target_link_libraries(bbasm LINK_PRIVATE
-    ${Boost_PROGRAM_OPTIONS_LIBRARY}
-    ${Boost_SYSTEM_LIBRARY})
+    ${Boost_PROGRAM_OPTIONS_LIBRARY})
 export(TARGETS bbasm FILE ${CMAKE_BINARY_DIR}/bba-export.cmake)

@@ -36,7 +36,7 @@
 #include "pack.h"
 #include "validity_check.h"
 
-#include <boost/filesystem.hpp>
+#include <filesystem>
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -62,7 +62,7 @@ struct FabulousImpl : ViaductAPI
         ViaductAPI::init(ctx);
         h.init(ctx);
         fab_root = get_env_var("FAB_ROOT", ", set it to the fabulous build output or project path");
-        if (boost::filesystem::exists(fab_root + "/.FABulous"))
+        if (std::filesystem::exists(fab_root + "/.FABulous"))
             is_new_fab = true;
         else
             is_new_fab = false;

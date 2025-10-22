@@ -18,7 +18,6 @@
  */
 
 #include "arch.h"
-#include <boost/filesystem/path.hpp>
 #include "archdefs.h"
 #include "chipdb.h"
 #include "log.h"
@@ -30,6 +29,8 @@
 #include "router1.h"
 #include "router2.h"
 #include "util.h"
+
+#include <filesystem>
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -124,7 +125,7 @@ void Arch::load_chipdb(const std::string &path)
         db_path = proc_share_dirname();
         db_path += "himbaechel/";
         db_path += path;
-        boost::filesystem::path p(db_path);
+        std::filesystem::path p(db_path);
         db_path = p.make_preferred().string();
     }
     try {
