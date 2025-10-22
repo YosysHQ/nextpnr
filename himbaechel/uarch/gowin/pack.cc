@@ -2696,7 +2696,7 @@ struct GowinPacker
                 divide_sdp(ci, new_cells);
             } else {
                 log_error("The fix for SDP when ports A and B have different bit widths has not yet been implemented. "
-                          "Cell'%s'\n",
+                          "Cell: '%s'\n",
                           ci->type.c_str(ctx));
             }
         }
@@ -3934,7 +3934,7 @@ struct GowinPacker
             pincfg_cell->connectPort(port, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
         }
 
-        const ArchArgs &args = ctx->getArchArgs();
+        const ArchArgs &args = ctx->args;
 
         pincfg_cell->addInput(id_SSPI);
         if (args.options.count("sspi_as_gpio")) {
