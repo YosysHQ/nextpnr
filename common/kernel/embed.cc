@@ -3,7 +3,7 @@
 #define NOMINMAX
 #include <windows.h>
 #endif
-#include <boost/filesystem.hpp>
+#include <filesystem>
 #include <boost/iostreams/device/mapped_file.hpp>
 #include "embed.h"
 #include "nextpnr.h"
@@ -17,7 +17,7 @@ const void *get_chipdb(const std::string &filename)
     static std::map<std::string, boost::iostreams::mapped_file> files;
     if (!files.count(filename)) {
         std::string full_filename = EXTERNAL_CHIPDB_ROOT "/" + filename;
-        if (boost::filesystem::exists(full_filename))
+        if (std::filesystem::exists(full_filename))
             files[filename].open(full_filename, boost::iostreams::mapped_file::priv);
     }
     if (files.count(filename))

@@ -169,7 +169,7 @@ else()
     endif()
 endif()
 
-set(boost_libs filesystem program_options iostreams system)
+set(boost_libs program_options iostreams)
 if (Threads_FOUND)
     list(APPEND boost_libs thread)
 endif()
