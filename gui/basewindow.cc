@@ -368,7 +368,7 @@ void BaseMainWindow::open_json()
     if (!fileName.isEmpty()) {
         disableActions();
         if (ctx->settings.find(ctx->id("synth")) == ctx->settings.end()) {
-            ArchArgs chipArgs = ctx->getArchArgs();
+            ArchArgs chipArgs = ctx->args;
             ctx = std::unique_ptr<Context>(new Context(chipArgs));
             Q_EMIT contextChanged(ctx.get());
         }
