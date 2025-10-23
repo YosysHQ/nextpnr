@@ -39,15 +39,7 @@ struct Context : Arch, DeterministicRNG
     // True when detailed per-net timing is to be stored / reported
     bool detailed_timing_report = false;
 
-    ArchArgs arch_args;
-
-    Context(ArchArgs args) : Arch(args)
-    {
-        BaseCtx::as_ctx = this;
-        arch_args = args;
-    }
-
-    ArchArgs getArchArgs() { return arch_args; }
+    Context(ArchArgs args) : Arch(args) { BaseCtx::as_ctx = this; }
 
     // --------------------------------------------------------------
 

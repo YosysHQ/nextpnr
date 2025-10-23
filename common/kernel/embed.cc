@@ -3,8 +3,8 @@
 #define NOMINMAX
 #include <windows.h>
 #endif
-#include <filesystem>
 #include <boost/iostreams/device/mapped_file.hpp>
+#include <filesystem>
 #include "embed.h"
 #include "nextpnr.h"
 
