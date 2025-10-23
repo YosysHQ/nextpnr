@@ -179,7 +179,7 @@ void GowinImpl::init(Context *ctx)
 
     gwu.init(ctx);
 
-    const ArchArgs &args = ctx->getArchArgs();
+    const ArchArgs &args = ctx->args;
 
     // package and speed class
     std::regex speedre = std::regex("(.*)(C[0-9]/I[0-9])$");
