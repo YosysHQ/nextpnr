@@ -20,7 +20,6 @@
 #include "mainwindow.h"
 
 #include <QMessageBox>
-#include <cstdlib>
 
 static void initMainResource() { Q_INIT_RESOURCE(nextpnr); }
 
@@ -46,7 +45,6 @@ void MainWindow::new_proj()
 {
     QMessageBox::critical(0, "Error",
                           "Creating a new project not supported in himbächel mode, please re-start from command line.");
-    std::exit(1);
 }
 
 NEXTPNR_NAMESPACE_END
