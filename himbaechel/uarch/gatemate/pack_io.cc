@@ -196,12 +196,12 @@ void GateMatePacker::pack_io()
             if (ci.type.in(id_CC_TOBUF) && p.first.in(id_PULLUP, id_PULLDOWN, id_KEEPER))
                 continue;
             if (ci.type.in(id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF)) {
-                if (p.first == id_DRIVE) {
+                if (p.first.in(id_DRIVE, id_SLEW)) {
                     if (p.second.is_string && p.second.as_string() == "UNDEFINED")
                         keys.push_back(p.first);
                     continue;
                 }
-                if (p.first.in(id_SLEW, id_DELAY_OBF, id_FF_OBF))
+                if (p.first.in(id_DELAY_OBF, id_FF_OBF))
                     continue;
             }
             if (ci.type.in(id_CC_LVDS_IBUF, id_CC_LVDS_IOBUF) && p.first.in(id_LVDS_RTERM, id_DELAY_IBF, id_FF_IBF))
