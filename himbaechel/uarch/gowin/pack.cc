@@ -2606,18 +2606,23 @@ struct GowinPacker
         NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
 
         IdString cell_type = bw == 32 ? id_SDPB : id_SDPX9B;
-        IdString name = ctx->idf("%s_AUX", ctx->nameOf(ci));
 
-        auto sdp_cell = gwu.create_cell(name, cell_type);
-        CellInfo *sdp = sdp_cell.get();
+        auto sdp_cell = gwu.create_cell(gwu.create_aux_name(ci->name), cell_type);
+        new_cells.push_back(std::move(sdp_cell));
+        CellInfo *sdp = new_cells.back().get();
         sdp->setAttr(id_AUX, 1);
 
         int new_bw = bw / 2;
+        int portb_bw = ci->params.at(id_BIT_WIDTH_1).as_int64();
+
+        bool narrow_port_b = portb_bw < 32;
+        int portb_new_bw = narrow_port_b ? portb_bw : new_bw;
+
         ci->setParam(id_BIT_WIDTH_0, new_bw);
-        ci->setParam(id_BIT_WIDTH_1, new_bw);
+        ci->setParam(id_BIT_WIDTH_1, portb_new_bw);
         sdp->params = ci->params;
         sdp->setParam(id_BIT_WIDTH_0, new_bw);
-        sdp->setParam(id_BIT_WIDTH_1, new_bw);
+        sdp->setParam(id_BIT_WIDTH_1, portb_new_bw);
 
         // copy control ports
         ci->copyPortBusTo(ctx->id("BLKSELA"), 0, true, sdp, ctx->id("BLKSELA"), 0, true, 3);
@@ -2649,26 +2654,149 @@ struct GowinPacker
         sdp->connectPort(ctx->id("ADA[4]"), vcc_net);
 
         ci->copyPortBusTo(id_ADA, 5, true, sdp, id_ADA, 5, true, 9);
+        ci->movePortBusTo(id_DI, new_bw, true, sdp, id_DI, 0, true, new_bw);
 
-        //  Separate port B
-        for (int i = 0; i < 4; ++i) {
-            IdString port = ctx->idf("ADB[%d]", i);
-            ci->disconnectPort(port);
+        for (int i = 0; i < new_bw; ++i) {
+            IdString port = ctx->idf("DI[%d]", i + new_bw);
             ci->connectPort(port, vss_net);
-            ci->copyPortTo(port, sdp, port);
+            sdp->addInput(port);
+            sdp->connectPort(port, vss_net);
         }
 
-        ci->disconnectPort(ctx->id("ADB[4]"));
-        ci->connectPort(ctx->id("ADB[4]"), vss_net);
-        sdp->addInput(ctx->id("ADB[4]"));
-        sdp->connectPort(ctx->id("ADB[4]"), vcc_net);
+        //  Separate port B
+        if (narrow_port_b) {
+            // With a narrow port B, all address lines and control signals are
+            // shared between the old and new cells without change. The old and
+            // new cells operate in parallel and simultaneously output two
+            // versions of port B data.
+            //
+            // However, the DOx outputs of the cells are connected to a MUX,
+            // which selects which cell's data will be the official output.
+            // The MUX is controlled by an address decoder for the ADB4 line -
+            // since port A writes half of the data to different cells in 16/18
+            // bits, it is the ADB4 bit that selects the correct cell for
+            // reading.
+            // The MUX responds too quickly, so we add one delay register, an
+            // additional output register if necessary, and BLKSELB signal
+            // decoding.
 
-        ci->copyPortBusTo(id_ADB, 5, true, sdp, id_ADB, 5, true, 9);
+            ci->copyPortBusTo(id_ADB, 0, true, sdp, id_ADB, 0, true, 14);
 
-        ci->movePortBusTo(id_DI, new_bw, true, sdp, id_DI, 0, true, new_bw);
-        ci->movePortBusTo(id_DO, new_bw, true, sdp, id_DO, 0, true, new_bw);
+            // It only makes sense to decode BLKSEL if they are not constant.
+            bool non_const_blkselb = false;
+            for (int i = 0; i < 3; ++i) {
+                NetInfo *ni = ci->getPort(ctx->idf("BLKSELB[%d]", i));
+                if (ni != vcc_net && ni != vss_net) {
+                    non_const_blkselb = true;
+                    break;
+                }
+            }
 
-        new_cells.push_back(std::move(sdp_cell));
+            NetInfo *delay_reg_ce = ci->getPort(id_CEB);
+            if (non_const_blkselb) {
+                // BLKSELB decoder
+                auto blkselb_cell = gwu.create_cell(gwu.create_aux_name(ci->name, 0, "_blkselb$"), id_LUT4);
+                new_cells.push_back(std::move(blkselb_cell));
+                CellInfo *blkselb = new_cells.back().get();
+                for (int i = 0; i < 3; ++i) {
+                    IdString port = ctx->idf("I%d", i);
+                    blkselb->addInput(port);
+                    blkselb->connectPort(port, ci->getPort(ctx->idf("BLKSELB[%d]", i)));
+                }
+                blkselb->addInput(id_I3);
+                blkselb->connectPort(id_I3, ci->getPort(id_CEB));
+                blkselb->setParam(id_INIT, 16 * (1 << ci->params.at(id_BLK_SEL_1).as_int64()));
+
+                blkselb->addOutput(id_F);
+                NetInfo *out = ctx->createNet(ctx->idf("%s_net", ctx->nameOf(blkselb)));
+                blkselb->connectPort(id_F, out);
+                delay_reg_ce = out;
+            }
+
+            // Delay reg
+            auto delay_reg_cell = gwu.create_cell(gwu.create_aux_name(ci->name, 0, "_delay_reg_aux$"), id_DFFRE);
+            new_cells.push_back(std::move(delay_reg_cell));
+            CellInfo *delay_reg = new_cells.back().get();
+            delay_reg->addInput(id_CLK);
+            delay_reg->connectPort(id_CLK, ci->getPort(id_CLKB));
+            delay_reg->addInput(id_CE);
+            delay_reg->connectPort(id_CE, delay_reg_ce);
+            delay_reg->addInput(id_RESET);
+            delay_reg->connectPort(id_RESET, vss_net);
+            delay_reg->addInput(id_D);
+            delay_reg->connectPort(id_D, ci->getPort(ctx->id("ADB[4]")));
+
+            NetInfo *delay_reg_q = ctx->createNet(ctx->idf("%s_net", ctx->nameOf(delay_reg)));
+            delay_reg->addOutput(id_Q);
+            delay_reg->connectPort(id_Q, delay_reg_q);
+            NetInfo *mux_ctl = delay_reg_q;
+
+            // Pipeline reg
+            if (ci->params.at(id_READ_MODE).as_int64()) {
+                auto pipeline_reg_cell =
+                        gwu.create_cell(gwu.create_aux_name(ci->name, 0, "_pipeline_reg_aux$"), id_DFFRE);
+                new_cells.push_back(std::move(pipeline_reg_cell));
+                CellInfo *pipeline_reg = new_cells.back().get();
+                pipeline_reg->addInput(id_CLK);
+                pipeline_reg->connectPort(id_CLK, ci->getPort(id_CLKB));
+                pipeline_reg->addInput(id_CE);
+                pipeline_reg->connectPort(id_CE, ci->getPort(id_OCE));
+                pipeline_reg->addInput(id_RESET);
+                pipeline_reg->connectPort(id_RESET, vss_net);
+                pipeline_reg->addInput(id_D);
+                pipeline_reg->connectPort(id_D, delay_reg_q);
+
+                NetInfo *pipeline_reg_q = ctx->createNet(ctx->idf("%s_net", ctx->nameOf(pipeline_reg)));
+                pipeline_reg->addOutput(id_Q);
+                pipeline_reg->connectPort(id_Q, pipeline_reg_q);
+                mux_ctl = pipeline_reg_q;
+            }
+
+            // output MUXes
+            for (int i = 0; i < portb_bw; ++i) {
+                auto mux_cell = gwu.create_cell(gwu.create_aux_name(ci->name, i, "_mux_aux$"), id_LUT4);
+                new_cells.push_back(std::move(mux_cell));
+                CellInfo *mux = new_cells.back().get();
+
+                IdString port = ctx->idf("DO[%d]", i);
+
+                mux->addOutput(id_F);
+                ci->movePortTo(port, mux, id_F);
+
+                NetInfo *mux_in_net = ctx->createNet(ctx->idf("%s_l_net", ctx->nameOf(mux)));
+                mux->addInput(id_I0);
+                mux->connectPort(id_I0, mux_in_net);
+                ci->connectPort(port, mux_in_net);
+
+                mux_in_net = ctx->createNet(ctx->idf("%s_u_net", ctx->nameOf(mux)));
+                mux->addInput(id_I1);
+                mux->connectPort(id_I1, mux_in_net);
+                sdp->addOutput(port);
+                sdp->connectPort(port, mux_in_net);
+
+                mux->addInput(id_I3);
+                mux->connectPort(id_I3, mux_ctl);
+                mux->setParam(id_INIT, 0xccaa);
+            }
+
+        } else {
+            // Port A 32 bit and Port B 32 bit. A simple case.
+            for (int i = 0; i < 4; ++i) {
+                IdString port = ctx->idf("ADB[%d]", i);
+                ci->disconnectPort(port);
+                ci->connectPort(port, vss_net);
+                ci->copyPortTo(port, sdp, port);
+            }
+
+            ci->disconnectPort(ctx->id("ADB[4]"));
+            ci->connectPort(ctx->id("ADB[4]"), vss_net);
+            sdp->addInput(ctx->id("ADB[4]"));
+            sdp->connectPort(ctx->id("ADB[4]"), vcc_net);
+
+            ci->copyPortBusTo(id_ADB, 5, true, sdp, id_ADB, 5, true, 9);
+
+            ci->movePortBusTo(id_DO, portb_new_bw, true, sdp, id_DO, 0, true, portb_new_bw);
+        }
     }
 
     void pack_SDPB(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &new_cells)
@@ -2689,13 +2817,14 @@ struct GowinPacker
         }
 
         int bit_width = ci->params.at(id_BIT_WIDTH_0).as_int64();
+        int bit_width_b = ci->params.at(id_BIT_WIDTH_1).as_int64();
 
-        if ((bit_width == 32 || bit_width == 36) && gwu.need_SDP_fix()) {
+        if ((bit_width == 32 || bit_width == 36 || bit_width_b == 32 || bit_width_b == 36) && gwu.need_SDP_fix()) {
             int bit_width_b = ci->params.at(id_BIT_WIDTH_1).as_int64();
-            if (bit_width == bit_width_b) {
+            if (bit_width == bit_width_b || bit_width == 32 || bit_width == 36) {
                 divide_sdp(ci, new_cells);
             } else {
-                log_error("The fix for SDP when ports A and B have different bit widths has not yet been implemented. "
+                log_error("The fix for SDP when ports A bit width != 32 or 36 has not yet been implemented. "
                           "Cell: '%s'\n",
                           ci->type.c_str(ctx));
             }
@@ -2724,19 +2853,20 @@ struct GowinPacker
         // Port A
         ci->addInput(id_WREA);
         ci->connectPort(id_WREA, vcc_net);
+        bit_width = ci->params.at(id_BIT_WIDTH_0).as_int64();
+        bsram_rename_ports(ci, bit_width, "DI[%d]", "DI%d");
 
         // Port B
         ci->addInput(id_WREB);
-        bit_width = ci->params.at(id_BIT_WIDTH_1).as_int64();
+        bit_width_b = ci->params.at(id_BIT_WIDTH_1).as_int64();
 
-        if (bit_width == 32 || bit_width == 36) {
+        if (bit_width_b == 32 || bit_width_b == 36) {
             ci->connectPort(id_WREB, vcc_net);
-            bsram_rename_ports(ci, bit_width, "DO[%d]", "DO%d");
+            bsram_rename_ports(ci, bit_width_b, "DO[%d]", "DO%d");
         } else {
             ci->connectPort(id_WREB, vss_net);
-            bsram_rename_ports(ci, bit_width, "DO[%d]", "DO%d", 18);
+            bsram_rename_ports(ci, bit_width_b, "DO[%d]", "DO%d", 18);
         }
-        bsram_rename_ports(ci, bit_width, "DI[%d]", "DI%d");
     }
 
     void pack_DPB(CellInfo *ci)
