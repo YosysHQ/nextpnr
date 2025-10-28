@@ -177,8 +177,9 @@ void GateMatePacker::pack_io()
         for (auto &p : ci.params) {
 
             if (p.first.in(id_PIN_NAME, id_PIN_NAME_P, id_PIN_NAME_N)) {
-                if (ctx->get_package_pin_bel(ctx->id(p.second.as_string())) == BelId())
-                    log_error("Unknown %s '%s' for cell '%s'.\n", p.first.c_str(ctx), p.second.as_string().c_str(),
+                std::string pname = p.second.as_string();
+                if (pname != "UNPLACED" && ctx->get_package_pin_bel(ctx->id(pname)) == BelId())
+                    log_error("Unknown %s '%s' for cell '%s'.\n", p.first.c_str(ctx), pname.c_str(),
                               ci.name.c_str(ctx));
                 keys.push_back(p.first);
                 continue;
@@ -194,9 +195,15 @@ void GateMatePacker::pack_io()
                 continue;
             if (ci.type.in(id_CC_TOBUF) && p.first.in(id_PULLUP, id_PULLDOWN, id_KEEPER))
                 continue;
-            if (ci.type.in(id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF) &&
-                p.first.in(id_DRIVE, id_SLEW, id_DELAY_OBF, id_FF_OBF))
-                continue;
+            if (ci.type.in(id_CC_OBUF, id_CC_TOBUF, id_CC_IOBUF)) {
+                if (p.first.in(id_DRIVE, id_SLEW)) {
+                    if (p.second.is_string && p.second.as_string() == "UNDEFINED")
+                        keys.push_back(p.first);
+                    continue;
+                }
+                if (p.first.in(id_DELAY_OBF, id_FF_OBF))
+                    continue;
+            }
             if (ci.type.in(id_CC_LVDS_IBUF, id_CC_LVDS_IOBUF) && p.first.in(id_LVDS_RTERM, id_DELAY_IBF, id_FF_IBF))
                 continue;
             if (ci.type.in(id_CC_LVDS_OBUF, id_CC_LVDS_TOBUF, id_CC_LVDS_IOBUF) &&
