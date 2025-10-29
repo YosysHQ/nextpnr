@@ -31,6 +31,7 @@ MUX_INVERT = 1
 MUX_VISIBLE = 2
 MUX_CONFIG = 4
 MUX_ROUTING = 8
+MUX_PERMUTATION = 16
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--lib", help="Project Peppercorn python database script path", type=str, required=True)
@@ -310,6 +311,8 @@ def main():
                     plane = int(mux.name[10:12])
                 if mux.name == "CPE.C_SN":
                     mux_flags |= MUX_ROUTING
+                if mux.name.startswith("CPE.PERM"):
+                    mux_flags |= MUX_PERMUTATION
                 pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(mux.name), mux.bits, mux.value, mux_flags, plane)
         if type_name in new_wires:
             for wire in sorted(new_wires[type_name]):

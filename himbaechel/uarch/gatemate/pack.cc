@@ -309,6 +309,16 @@ void GateMatePacker::repack_cpe()
                 if (!cell.second->params.count(id_INIT_L20))
                     cell.second->params[id_INIT_L20] = Property(LUT_D1, 4);
             }
+            if (cell.second->getPort(id_IN1) && cell.second->getPort(id_IN2)) {
+                if (cell.second->getPort(id_IN1) == cell.second->getPort(id_IN2)) {
+                    log_error("Used same signal for IN1 and IN2 in %s\n", cell.second->name.c_str(ctx));
+                }
+            }
+            if (cell.second->getPort(id_IN3) && cell.second->getPort(id_IN4)) {
+                if (cell.second->getPort(id_IN3) == cell.second->getPort(id_IN4)) {
+                    log_error("Used same signal for IN3 and IN4 in %s\n", cell.second->name.c_str(ctx));
+                }
+            }
             cell.second->params[id_L2T4_UPPER] = Property((l.z == CPE_LT_U_Z) ? 1 : 0, 1);
         } else if (cell.second->type.in(id_CPE_LT_L)) {
             BelId bel = cell.second->bel;
@@ -318,6 +328,16 @@ void GateMatePacker::repack_cpe()
             loc.z = CPE_LT_FULL_Z;
             ctx->unbindBel(bel);
             ctx->bindBel(ctx->getBelByLocation(loc), cell.second.get(), strength);
+            if (cell.second->getPort(id_IN1) && cell.second->getPort(id_IN2)) {
+                if (cell.second->getPort(id_IN1) == cell.second->getPort(id_IN2)) {
+                    log_error("Used same signal for IN1 and IN2 in %s\n", cell.second->name.c_str(ctx));
+                }
+            }
+            if (cell.second->getPort(id_IN3) && cell.second->getPort(id_IN4)) {
+                if (cell.second->getPort(id_IN3) == cell.second->getPort(id_IN4)) {
+                    log_error("Used same signal for IN3 and IN4 in %s\n", cell.second->name.c_str(ctx));
+                }
+            }
             cell.second->renamePort(id_IN1, id_IN5);
             cell.second->renamePort(id_IN2, id_IN6);
             cell.second->renamePort(id_IN3, id_IN7);
@@ -374,6 +394,17 @@ void GateMatePacker::repack_cpe()
             upper->movePortTo(id_IN4, cell.second.get(), id_IN4);
             upper->movePortTo(id_OUT, cell.second.get(), id_OUT2);
             upper->movePortTo(id_CPOUT, cell.second.get(), id_CPOUT2);
+            if (cell.second->getPort(id_IN1) && cell.second->getPort(id_IN2)) {
+                if (cell.second->getPort(id_IN1) == cell.second->getPort(id_IN2)) {
+                    log_error("Used same signal for IN1 and IN2 in %s\n", cell.second->name.c_str(ctx));
+                }
+            }
+            if (cell.second->getPort(id_IN3) && cell.second->getPort(id_IN4)) {
+                if (cell.second->getPort(id_IN3) == cell.second->getPort(id_IN4)) {
+                    log_error("Used same signal for IN3 and IN4 in %s\n", cell.second->name.c_str(ctx));
+                }
+            }
+
 
         }
         // Mark for deletion

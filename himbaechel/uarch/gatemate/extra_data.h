@@ -85,6 +85,7 @@ enum MuxFlags
     MUX_VISIBLE = 2,
     MUX_CONFIG = 4,
     MUX_ROUTING = 8,
+    MUX_PERMUTATION = 16,
 };
 
 enum PipExtra

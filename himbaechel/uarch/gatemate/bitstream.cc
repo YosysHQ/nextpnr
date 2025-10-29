@@ -87,6 +87,30 @@ struct BitstreamBackend
         return invert;
     }
 
+    bool need_switching(CellInfo *cell, IdString port)
+    {
+        PortRef sink;
+        sink.cell = cell;
+        sink.port = port;
+
+        NetInfo *net_info = cell->getPort(port);
+        if (!net_info)
+            return false;
+
+        WireId dst_wire = ctx->getNetinfoSinkWire(net_info, sink, 0);
+
+        WireId cursor = dst_wire;
+        auto it = net_info->wires.find(cursor);
+
+        PipId pip = it->second.pip;
+        const auto &extra_data = *uarch->pip_extra_data(pip);
+        if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_PERMUTATION)) {
+            if (extra_data.value)
+                return true;
+        }
+        return false;
+    }
+
     void update_cpe_lt(CellInfo *cell, IdString port, IdString init, dict<IdString, Property> &params, bool even)
     {
         unsigned init_val = int_or_default(params, init);
@@ -317,6 +341,14 @@ struct BitstreamBackend
             case id_CPE_RAMIO.index: {
                 // Update configuration bits based on signal inversion
                 dict<IdString, Property> params = cell.second->params;
+                auto update_param = [&](IdString name) {
+                    int x = int_or_default(params, name, 0);
+                    // when inputs exchange theier places in LUT2
+                    // function changes so bit 1 and bit 2 exchange values
+                    int y = x ^ (( ( (x >> 1) ^ (x >> 2) ) & 1 ) << 1)
+                            ^ (( ( (x >> 1) ^ (x >> 2) ) & 1 ) << 2);
+                    params[name] = Property(y ,4);
+                };
                 Loc l = ctx->getBelLocation(cell.second->bel);
                 params.erase(id_L2T4_UPPER);
                 params.erase(id_MULT_INVERT);
@@ -324,6 +356,13 @@ struct BitstreamBackend
                 int c_i2 = int_or_default(params, id_C_I2, 0);
                 int c_i3 = int_or_default(params, id_C_I3, 0);
                 int c_i4 = int_or_default(params, id_C_I4, 0);
+
+                if (cell.second->type.in(id_CPE_BRIDGE)) {
+                    int in = int_or_default(params, id_C_SN, 0);
+                    if (need_switching(cell.second.get(), ctx->idf("IN%d", in+1)))
+                        params[id_C_SN] = Property(in ^ 1,3);
+                }
+            
                 if (cell.second->type.in(id_CPE_L2T4, id_CPE_LT_L, id_CPE_LT_U)) {
                     if (l.z == CPE_LT_U_Z) {
                         update_cpe_lt(cell.second.get(), id_IN1, id_INIT_L00, params, true);
@@ -336,6 +375,12 @@ struct BitstreamBackend
                         update_cpe_lt(cell.second.get(), c_i3 ? id_PINY1 : id_IN2, id_INIT_L00, params, false);
                         update_cpe_lt(cell.second.get(), id_IN3, id_INIT_L01, params, true);
                         update_cpe_lt(cell.second.get(), c_i4 ? id_PINX : id_IN4, id_INIT_L01, params, false);
+                    }
+                    if (need_switching(cell.second.get(), id_IN1) || need_switching(cell.second.get(), id_IN2)) {
+                        update_param(id_INIT_L00);
+                    }
+                    if (need_switching(cell.second.get(), id_IN3) || need_switching(cell.second.get(), id_IN4)) {
+                        update_param(id_INIT_L01);
                     }
                 }
                 if (l.z == CPE_LT_FULL_Z) {
@@ -358,6 +403,18 @@ struct BitstreamBackend
                             update_cpe_lt(cell.second.get(), c_i3 ? id_PINY1 : id_IN6, id_INIT_L02, params, false);
                             update_cpe_lt(cell.second.get(), id_IN7, id_INIT_L03, params, true);
                             update_cpe_lt(cell.second.get(), c_i4 ? id_PINX : id_IN8, id_INIT_L03, params, false);
+                        }
+                        if (need_switching(cell.second.get(), id_IN1) || need_switching(cell.second.get(), id_IN2)) {
+                            update_param(id_INIT_L00);
+                        }
+                        if (need_switching(cell.second.get(), id_IN3) || need_switching(cell.second.get(), id_IN4)) {
+                            update_param(id_INIT_L01);
+                        }
+                        if (need_switching(cell.second.get(), id_IN5) || need_switching(cell.second.get(), id_IN6)) {
+                            update_param(id_INIT_L02);
+                        }
+                        if (need_switching(cell.second.get(), id_IN7) || need_switching(cell.second.get(), id_IN8)) {
+                            update_param(id_INIT_L03);
                         }
                     }
                 }
