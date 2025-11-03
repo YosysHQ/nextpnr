@@ -97,6 +97,7 @@ struct GateMateImpl : HimbaechelAPI
     pool<IdString> multiplier_zero_drivers;
     std::vector<CellInfo *> multipliers;
     std::vector<bool> used_cpes;
+    std::vector<bool> block_perm;
     int fpga_mode;
     int timing_mode;
     std::map<const NetInfo *, int> global_signals;
