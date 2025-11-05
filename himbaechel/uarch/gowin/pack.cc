@@ -4074,6 +4074,34 @@ struct GowinPacker
     }
 
     // ===================================
+    // ADC
+    // ===================================
+    void pack_adc(void)
+    {
+        log_info("Pack ADC...\n");
+
+        for (auto &cell : ctx->cells) {
+            auto &ci = *cell.second;
+
+            if (is_adc(&ci)) {
+                for (int i = 0; i < 14; ++i) {
+                    if (i < 2) {
+                        ci.renamePort(ctx->idf("MDRP_OPCODE[%d]", i), ctx->idf("MDRP_OPCODE%d", i));
+                    }
+                    if (i < 3) {
+                        ci.renamePort(ctx->idf("VSENCTL[%d]", i), ctx->idf("VSENCTL%d", i));
+                    }
+                    if (i < 8) {
+                        ci.renamePort(ctx->idf("MDRP_WDATA[%d]", i), ctx->idf("MDRP_WDATA%d", i));
+                        ci.renamePort(ctx->idf("MDRP_RDATA[%d]", i), ctx->idf("MDRP_RDATA%d", i));
+                    }
+                    ci.renamePort(ctx->idf("ADCVALUE[%d]", i), ctx->idf("ADCVALUE%d", i));
+                }
+            }
+        }
+    }
+
+    // ===================================
     // HCLK -- CLKDIV and CLKDIV2 for now
     // ===================================
     void pack_hclk(void)
@@ -4555,6 +4583,9 @@ struct GowinPacker
         ctx->check();
 
         pack_pll();
+        ctx->check();
+
+        pack_adc();
         ctx->check();
 
         pack_bsram();

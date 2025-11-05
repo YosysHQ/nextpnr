@@ -75,7 +75,8 @@ MIPIIBUF_Z  = 302
 
 DLLDLY_Z    = 303 # : 305 reserve for 2 DLLDLYs
 
-PINCFG_Z    = 400 #
+PINCFG_Z    = 400
+ADC_Z       = 401
 
 DSP_Z          = 509
 
@@ -463,7 +464,7 @@ def create_nodes(chip: Chip, db: chipdb):
                 for i in range(5):
                     nodes.append([NodeWire(x, y, f'COUT{i}'),
                                   NodeWire(x, y, f'CIN{i + 1}')]);
-                # gobal carry chain
+                # global carry chain
                 if x > 1 and chip.tile_type_at(x - 1, y).extra_data.tile_class == chip.strs.id('LOGIC'):
                     nodes.append([NodeWire(x, y, f'CIN0'),
                                   NodeWire(x - 1, y, f'COUT5')])
@@ -787,6 +788,17 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                     tt.add_bel_pin(pll, pin, wire, PinType.OUTPUT)
                 for pin, wire in desc['inputs'].items():
                     tt.create_wire(wire, "PLL_I")
+                    tt.add_bel_pin(pll, pin, wire, PinType.INPUT)
+        elif func == 'adc':
+                pll = tt.create_bel("ADC", "ADC", z = ADC_Z)
+                for pin, wire in desc['outputs'].items():
+                    tt.create_wire(wire, "ADC_O")
+                    tt.add_bel_pin(pll, pin, wire, PinType.OUTPUT)
+                for pin, wire in desc['inputs'].items():
+                    if pin == 'CLK' or pin == 'MDRP_CLK':
+                        tt.create_wire(wire, "TILE_CLK")
+                    else:
+                        tt.create_wire(wire, "ADC_I")
                     tt.add_bel_pin(pll, pin, wire, PinType.INPUT)
         elif func == 'gnd_source':
                 # GND is the logic low level generator

@@ -80,6 +80,7 @@ struct GowinCstReader
                 constrained_cells.insert(std::make_pair(cellId, belId));
             }
         };
+        pool<IdString> adc_ios; // bus#/X#Y#
 
         log_info("Reading constraints...\n");
         try {
@@ -95,6 +96,7 @@ struct GowinCstReader
             std::regex hclkre =
                     std::regex("INS_LOC +\"([^\"]+)\" +(TOP|RIGHT|BOTTOM|LEFT)SIDE\\[([0,1])\\] *;*[\\s\\S]*");
             std::regex clockre = std::regex("CLOCK_LOC +\"([^\"]+)\" +BUF([GS])(\\[([0-7])\\])?[^;]*;.*[\\s\\S]*");
+            std::regex adcre = std::regex("USE_ADC_SRC +bus([0-9]) +IO([TRBL])([0-9]+) *;.*[\\s\\S]*");
             std::smatch match, match_attr, match_pinloc;
             std::string line, pinlines[2];
             std::vector<IdStringList> constrained_clkdivs;
@@ -104,7 +106,8 @@ struct GowinCstReader
                 ioport,
                 insloc,
                 clock,
-                hclk
+                hclk,
+                adc
             } cst_type;
 
             while (!in.eof()) {
@@ -123,10 +126,14 @@ struct GowinCstReader
                                 if (std::regex_match(line, match, hclkre)) {
                                     cst_type = hclk;
                                 } else {
-                                    if ((!line.empty()) && (line.rfind("//", 0) == std::string::npos)) {
-                                        log_warning("Invalid constraint: %s\n", line.c_str());
+                                    if (std::regex_match(line, match, adcre)) {
+                                        cst_type = adc;
+                                    } else {
+                                        if ((!line.empty()) && (line.rfind("//", 0) == std::string::npos)) {
+                                            log_warning("Invalid constraint: %s\n", line.c_str());
+                                        }
+                                        continue;
                                     }
-                                    continue;
                                 }
                             }
                         }
@@ -135,11 +142,26 @@ struct GowinCstReader
 
                 IdString net = ctx->id(match[1]);
                 auto it = ctx->cells.find(net);
-                if (cst_type != clock && it == ctx->cells.end()) {
+                if (cst_type != clock && cst_type != adc && it == ctx->cells.end()) {
                     log_info("Cell %s not found\n", net.c_str(ctx));
                     continue;
                 }
                 switch (cst_type) {
+                case adc: { // USE_ADC_SRC bus# IOLOC
+                    int col = std::stoi(match[3]);
+                    int row = 1; // Top
+                    std::string side = match[2].str();
+                    if (side == "R") {
+                        row = col;
+                        col = ctx->getGridDimX();
+                    } else if (side == "B") {
+                        row = ctx->getGridDimY();
+                    } else if (side == "L") {
+                        row = col;
+                        col = 1;
+                    }
+                    adc_ios.insert(ctx->idf("%d/X%dY%d", std::stoi(match[1]), row - 1, col - 1));
+                } break;
                 case clock: { // CLOCK name BUFG|S=#
                     std::string which_clock = match[2];
                     std::string lw = match[4];
@@ -257,6 +279,25 @@ struct GowinCstReader
             if (ctx->debug) {
                 for (auto &cell : constrained_cells) {
                     log_info("Cell %s is constrained to %s\n", cell.first.c_str(ctx), cell.second.str(ctx).c_str());
+                }
+                if (!adc_ios.empty()) {
+                    log_info("ADC iobufs:\n");
+                    for (auto &bus_io : adc_ios) {
+                        log_info("  bus %s\n", bus_io.c_str(ctx));
+                    }
+                }
+            }
+            if (!adc_ios.empty()) {
+                for (auto &cell : ctx->cells) {
+                    auto &ci = *cell.second;
+
+                    if (is_adc(&ci)) {
+                        int idx = 0;
+                        for (auto &bus_io : adc_ios) {
+                            ci.setAttr(ctx->idf("ADC_IO_%d", idx), bus_io.str(ctx));
+                            ++idx;
+                        }
+                    }
                 }
             }
             return true;
