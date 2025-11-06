@@ -100,6 +100,10 @@ inline bool is_userflash(const CellInfo *cell) { return type_is_userflash(cell->
 inline bool type_is_pll(IdString cell_type) { return cell_type.in(id_rPLL, id_PLLVR); }
 inline bool is_pll(const CellInfo *cell) { return type_is_pll(cell->type); }
 
+// Return true if a cell is a ADC
+inline bool type_is_adc(IdString cell_type) { return cell_type.in(id_ADC); }
+inline bool is_adc(const CellInfo *cell) { return type_is_adc(cell->type); }
+
 // Return true if a cell is a EMCU
 inline bool type_is_emcu(IdString cell_type) { return cell_type == id_EMCU; }
 inline bool is_emcu(const CellInfo *cell) { return type_is_emcu(cell->type); }
@@ -253,6 +257,8 @@ enum
     DLLDLY_Z = 303, // : 305 reserve for 2 DLLDLYs
 
     PINCFG_Z = 400,
+
+    ADC_Z = 401,
 
     // The two least significant bits encode Z for 9-bit adders and
     // multipliers, if they are equal to 0, then we get Z of their common

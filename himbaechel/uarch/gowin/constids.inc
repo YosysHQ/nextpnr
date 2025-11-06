@@ -1038,6 +1038,9 @@ X(RPLLA)
 X(PLLVR)
 X(PLLA)
 
+// ADC
+X(ADC)
+
 // primitive attributes
 X(INIT)
 X(FF_USED)
