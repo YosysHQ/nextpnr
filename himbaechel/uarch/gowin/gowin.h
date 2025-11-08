@@ -28,7 +28,7 @@ inline bool is_io(const CellInfo *cell) { return type_is_io(cell->type); }
 inline bool type_is_diffio(IdString cell_type)
 {
     return cell_type.in(id_ELVDS_IOBUF, id_ELVDS_IBUF, id_ELVDS_TBUF, id_ELVDS_OBUF, id_TLVDS_IOBUF, id_TLVDS_IBUF,
-                        id_TLVDS_TBUF, id_TLVDS_OBUF);
+                        id_TLVDS_TBUF, id_TLVDS_OBUF, id_TLVDS_IBUF_ADC);
 }
 inline bool is_diffio(const CellInfo *cell) { return type_is_diffio(cell->type); }
 

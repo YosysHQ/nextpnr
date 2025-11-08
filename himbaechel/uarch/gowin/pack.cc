@@ -232,7 +232,8 @@ struct GowinPacker
             p = net_only_drives(ctx, ci.ports.at(id_O).net, is_iob, id_I, true);
             n = net_only_drives(ctx, ci.ports.at(id_OB).net, is_iob, id_I, true);
             break;
-        case ID_ELVDS_IBUF: /* fall-through */
+        case ID_TLVDS_IBUF_ADC: /* fall-through */
+        case ID_ELVDS_IBUF:     /* fall-through */
         case ID_TLVDS_IBUF:
             p = net_driven_by(ctx, ci.ports.at(id_I).net, is_iob, id_O);
             n = net_driven_by(ctx, ci.ports.at(id_IB).net, is_iob, id_O);
@@ -254,6 +255,10 @@ struct GowinPacker
         pn_cells.first->setParam(id_DIFF_TYPE, ci.type.str(ctx));
         pn_cells.second->setParam(id_DIFF, std::string("N"));
         pn_cells.second->setParam(id_DIFF_TYPE, ci.type.str(ctx));
+        if (ci.params.count(id_ADC_IO)) {
+            pn_cells.first->setParam(id_ADC_IO, ci.params.at(id_ADC_IO));
+            pn_cells.second->setParam(id_ADC_IO, ci.params.at(id_ADC_IO));
+        }
     }
 
     void switch_diff_ports(CellInfo &ci, std::pair<CellInfo *, CellInfo *> &pn_cells,
@@ -316,6 +321,17 @@ struct GowinPacker
             ci.movePortTo(id_I, iob_p, id_I);
             iob_p->disconnectPort(id_O);
             ci.movePortTo(id_O, iob_p, id_O);
+            return;
+        }
+        if (ci.type.in(id_TLVDS_IBUF_ADC)) {
+            nets_to_remove.push_back(ci.getPort(id_I)->name);
+            ci.disconnectPort(id_I);
+            nets_to_remove.push_back(ci.getPort(id_IB)->name);
+            ci.disconnectPort(id_IB);
+            iob_p->disconnectPort(id_O);
+            iob_n->disconnectPort(id_O);
+
+            ci.movePortTo(id_ADCEN, iob_p, id_ADCEN);
             return;
         }
     }
