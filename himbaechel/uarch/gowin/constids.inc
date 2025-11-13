@@ -997,6 +997,7 @@ X(IBUF)
 X(OBUF)
 X(IOBUF)
 X(TBUF)
+X(TLVDS_IBUF_ADC)
 X(TLVDS_OBUF)
 X(TLVDS_TBUF)
 X(TLVDS_IBUF)
@@ -1040,6 +1041,7 @@ X(PLLA)
 
 // ADC
 X(ADC)
+X(ADC_IO)
 
 // primitive attributes
 X(INIT)
@@ -1067,6 +1069,7 @@ X(I0)
 X(I1)
 X(I2)
 X(I3)
+X(ADCEN)
 X(OEN)
 X(S0)
 X(SEL)

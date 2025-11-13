@@ -925,6 +925,10 @@ def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc:
         tt.add_bel_pin(io, "I", portmap['I'], PinType.INPUT)
         tt.add_bel_pin(io, "OEN", portmap['OE'], PinType.INPUT)
         tt.add_bel_pin(io, "O", portmap['O'], PinType.OUTPUT)
+        if 'ADCEN' in portmap:
+            tt.create_wire(portmap['ADCEN'], "IO_ADCEN")
+            tt.add_bel_pin(io, "ADCEN", portmap['ADCEN'], PinType.INPUT)
+
         # bottom io
         if 'BOTTOM_IO_PORT_A' in portmap and portmap['BOTTOM_IO_PORT_A']:
             if not tt.has_wire(portmap['BOTTOM_IO_PORT_A']):
