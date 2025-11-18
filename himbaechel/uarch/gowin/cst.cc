@@ -160,7 +160,7 @@ struct GowinCstReader
                         row = col;
                         col = 1;
                     }
-                    adc_ios.insert(ctx->idf("%d/X%dY%d", std::stoi(match[1]), row - 1, col - 1));
+                    adc_ios.insert(ctx->idf("%d/X%dY%d", std::stoi(match[1]), col - 1, row - 1));
                 } break;
                 case clock: { // CLOCK name BUFG|S=#
                     std::string which_clock = match[2];
