@@ -240,8 +240,8 @@ CarryGenCell::CarryGenCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, Cel
 {
     lower->params[id_INIT_L00] = Property(LUT_D1, 4);   // PINY1
     lower->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (overriden by CIN)
-    lower->params[id_INIT_L10] = Property(is_odd_x ? LUT_OR : !enable_cinx ? LUT_ZERO : LUT_AND, 4);
-    lower->params[id_INIT_L20] = Property(is_odd_x ? LUT_OR : !enable_cinx ? LUT_ZERO : LUT_AND, 4);
+    lower->params[id_INIT_L10] = Property(is_odd_x ? LUT_OR : enable_cinx ? LUT_AND : LUT_ZERO, 4);
+    lower->params[id_INIT_L20] = Property(is_odd_x ? LUT_OR : enable_cinx ? LUT_AND : LUT_ZERO, 4);
     lower->params[id_C_FUNCTION] = Property(C_EN_CIN, 3);
     lower->params[id_C_I3] = Property(1, 1);    // PINY1 for L02
     lower->params[id_C_HORIZ] = Property(0, 1); // CINY1 for CIN_ for L03
