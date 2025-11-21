@@ -927,9 +927,9 @@ void GateMatePacker::pack_mult()
                     auto *p_passthru =
                             create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$p[%d]_passthru", cpe_half->name.c_str(ctx), p));
 
-                    p_passthru->params[id_INIT_L00] = Property(LUT_D0, 4);   // IN5
-                    p_passthru->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
-                    p_passthru->params[id_INIT_L10] = Property(LUT_D0, 4);   // L02
+                    p_passthru->params[id_INIT_L00] = Property(LUT_D0, 4);
+                    p_passthru->params[id_INIT_L01] = Property(LUT_ZERO, 4);
+                    p_passthru->params[id_INIT_L10] = Property(LUT_D0, 4);
 
                     // Reconfigure the flop.
                     dff->renamePort(id_D, id_DIN);
