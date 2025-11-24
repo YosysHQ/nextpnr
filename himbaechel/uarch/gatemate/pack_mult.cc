@@ -240,8 +240,8 @@ CarryGenCell::CarryGenCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, Cel
 {
     lower->params[id_INIT_L00] = Property(LUT_D1, 4);   // PINY1
     lower->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (overriden by CIN)
-    lower->params[id_INIT_L10] = Property(is_odd_x ? LUT_OR : !enable_cinx ? LUT_ZERO : LUT_AND, 4);
-    lower->params[id_INIT_L20] = Property(is_odd_x ? LUT_OR : !enable_cinx ? LUT_ZERO : LUT_AND, 4);
+    lower->params[id_INIT_L10] = Property(is_odd_x ? LUT_OR : enable_cinx ? LUT_AND : LUT_ZERO, 4);
+    lower->params[id_INIT_L20] = Property(is_odd_x ? LUT_OR : enable_cinx ? LUT_AND : LUT_ZERO, 4);
     lower->params[id_C_FUNCTION] = Property(C_EN_CIN, 3);
     lower->params[id_C_I3] = Property(1, 1);    // PINY1 for L02
     lower->params[id_C_HORIZ] = Property(0, 1); // CINY1 for CIN_ for L03
@@ -916,6 +916,43 @@ void GateMatePacker::pack_mult()
             auto *cpe_half = (p % 2 == 1) ? mult_cell.upper : mult_cell.lower;
 
             mult->movePortTo(ctx->idf("P[%d]", p), cpe_half, id_CPOUT);
+
+            auto *cpe_half_cpout = cpe_half->getPort(id_CPOUT);
+            if (cpe_half_cpout && cpe_half_cpout->users.entries() == 1) {
+                auto cpe_half_cpout_user = *cpe_half_cpout->users.begin();
+                auto *dff = cpe_half_cpout_user.cell;
+                NPNR_ASSERT(dff != nullptr);
+                if (dff->type == id_CC_DFF) {
+                    // Instantiate a P passthrough L2T4 for the flop.
+                    auto *p_passthru =
+                            create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$p[%d]_passthru", cpe_half->name.c_str(ctx), p));
+
+                    p_passthru->params[id_INIT_L00] = Property(LUT_D0, 4);
+                    p_passthru->params[id_INIT_L01] = Property(LUT_ZERO, 4);
+                    p_passthru->params[id_INIT_L10] = Property(LUT_D0, 4);
+
+                    // Reconfigure the flop.
+                    dff->renamePort(id_D, id_DIN);
+                    dff->renamePort(id_Q, id_DOUT);
+                    dff->type = id_CPE_FF;
+
+                    // Connect the passthrough.
+                    dff->movePortTo(id_DIN, p_passthru, id_IN1);
+
+                    auto *p_passthru_net = ctx->createNet(ctx->idf("%s$p", p_passthru->name.c_str(ctx)));
+                    p_passthru->connectPort(id_OUT, p_passthru_net);
+                    dff->connectPort(id_DIN, p_passthru_net);
+
+                    // Constrain the passthrough and flop.
+                    constrain_cell(p_passthru, b_width / 2, b_width / 2 + p / 2,
+                                   (p % 2 == 1) ? CPE_LT_U_Z : CPE_LT_L_Z);
+
+                    constrain_cell(dff, b_width / 2, b_width / 2 + p / 2, (p % 2 == 1) ? CPE_FF_U_Z : CPE_FF_L_Z);
+
+                    log_info("        Constrained '%s' as register for P[%d] at (%d, %d).\n", dff->name.c_str(ctx), p,
+                             b_width / 2, b_width / 2 + p / 2);
+                }
+            }
         }
 
         for (int p = 0; p < vertical_p_width; p++) {
