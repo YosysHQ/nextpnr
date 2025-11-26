@@ -167,6 +167,7 @@ struct GateMateCCFReader
         };
         lineno = 0;
         count = std::vector<int>(uarch->dies, 0);
+        bool floorplanning = false;
         while (std::getline(in, line)) {
             ++lineno;
             // Both // and # are considered start of comment
@@ -179,6 +180,102 @@ struct GateMateCCFReader
             if (isempty(line))
                 continue;
             linebuf += line;
+
+            boost::algorithm::to_lower(line);
+            if (line.find("start floorplanning") != std::string::npos) {
+                floorplanning = true;
+                linebuf = "";
+                continue;
+            } else if (line.find("end floorplanning") != std::string::npos) {
+                floorplanning = false;
+                linebuf = "";
+                continue;
+            }
+            if (floorplanning) {
+                int size = -1;
+                std::string src_location;
+
+                std::string s = linebuf;
+                boost::trim(s);
+
+                // split input into segments by ';'
+                std::vector<std::string> segments;
+                boost::split(segments, s, boost::is_any_of(";"));
+                for (auto &seg : segments)
+                    boost::trim(seg);
+
+                if (!segments.empty()) {
+                    std::vector<std::string> parts;
+                    boost::split(parts, segments[0], boost::is_any_of(":"));
+                    for (auto &p : parts)
+                        boost::trim(p);
+
+                    // index is numeric token
+                    // int index = -1;
+                    if (!parts.empty() && !parts[0].empty() &&
+                        std::all_of(parts[0].begin(), parts[0].end(), ::isdigit)) {
+                        // index = std::stoi(parts[0]);
+                        parts.erase(parts.begin());
+                    }
+
+                    // find size
+                    size = -1;
+                    for (size_t i = 0; i + 1 < parts.size(); ++i) {
+                        if (boost::iequals(parts[i], "size")) {
+                            if (!parts[i + 1].empty() &&
+                                std::all_of(parts[i + 1].begin(), parts[i + 1].end(), ::isdigit)) {
+                                size = std::stoi(parts[i + 1]);
+                            }
+                            break;
+                        }
+                    }
+
+                    // always the last piece of the main segment
+                    if (!parts.empty()) {
+                        src_location = parts.back();
+                        boost::trim(src_location);
+                    }
+                }
+
+                if (segments.size() > 1) {
+                    std::string &tmp = segments[1];
+                    boost::trim(tmp);
+
+                    if (!tmp.empty()) {
+                        std::vector<std::string> subparts;
+                        boost::split(subparts, tmp, boost::is_any_of(":"));
+                        for (auto &p : subparts)
+                            boost::trim(p);
+
+                        if (!subparts.empty() && boost::iequals(subparts[0], "pb")) {
+                            if (subparts.size() == 2) {
+                                std::string pb_position = subparts[1];
+
+                                std::regex pb_regex(R"(x(\d+)y(\d+)x(\d+)y(\d+))");
+                                std::smatch match;
+                                if (std::regex_match(pb_position, match, pb_regex)) {
+                                    int x1 = std::stoi(match[1]);
+                                    int y1 = std::stoi(match[2]);
+                                    int x2 = std::stoi(match[3]);
+                                    int y2 = std::stoi(match[4]);
+
+                                    log("size = %d src=%s pB=(%d,%d, %d,%d)\n", size, src_location.c_str(), x1, y1, x2,
+                                        y2);
+                                } else {
+                                    log_error("Placebox format invalid: %s in line %d\n", pb_position.c_str(), lineno);
+                                }
+                            } else {
+                                log_error("Missing data for pB (in line %d)\n", lineno);
+                            }
+                        } else {
+                            log_error("Unexpected content in last segment (in line %d)\n", lineno);
+                        }
+                    }
+                }
+
+                linebuf = "";
+                continue;
+            }
 
             size_t pos = linebuf.find(';');
             // Need to concatenate lines until there is closing ; sign
@@ -222,6 +319,14 @@ struct GateMateCCFReader
                         parse_params(params, false, &cell->params);
                     } else
                         log_warning("Pad with name '%s' not found in netlist.\n", pin_name.c_str());
+                } else if (type == "start" || type == "end") {
+                    std::string word2 = words.at(1);
+                    boost::algorithm::to_lower(word2);
+                    if (word2 == "floorplanning") {
+                        log("Found floor planning\n");
+                    } else
+                        log_error("unknown command '%s' in line %d.\n", word2.c_str(), lineno);
+
                 } else {
                     log_error("unknown type '%s' in line %d.\n", type.c_str(), lineno);
                 }
