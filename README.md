@@ -129,6 +129,19 @@ sudo make install
 
 Nexus support is currently experimental, and has only been tested with engineering sample silicon.
 
+### nextpnr-mistral
+
+For Cyclone V support, clone [Mistral](https://github.com/Ravenslofty/mistral/tree/nextpnr-latest) to `$HOME/mistral` or another location and pass this path as `-DMISTRAL_ROOT=$HOME/mistral` to CMake. Then build and install `nextpnr-mistral` using the following commands:
+
+```
+mkdir -p build && cd build
+cmake .. -DARCH=mistral -DMISTRAL_ROOT=$HOME/mistral
+make -j$(nproc)
+sudo make install
+```
+
+Cyclone V support is currently experimental and has limited testing. The backend is undergoing active API refactoring, and its structure, build requirements, and integration points may change between versions.
+
 ### nextpnr-generic
 
 The generic target allows running placement and routing for arbitrary custom architectures.
