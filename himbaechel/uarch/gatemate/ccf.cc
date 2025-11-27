@@ -261,6 +261,9 @@ struct GateMateCCFReader
 
                                     log("size = %d src=%s pB=(%d,%d, %d,%d)\n", size, src_location.c_str(), x1, y1, x2,
                                         y2);
+                                    IdString scopename(ctx, src_location.c_str());
+                                    ctx->createRectangularRegion(scopename, x1, y1, x2, y2);
+                                    uarch->scopenames.emplace(scopename);
                                 } else {
                                     log_error("Placebox format invalid: %s in line %d\n", pb_position.c_str(), lineno);
                                 }

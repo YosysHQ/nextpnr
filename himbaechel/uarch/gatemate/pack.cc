@@ -519,6 +519,17 @@ void GateMatePacker::assign_regions()
     log_info("Assign cell region based on attributes..\n");
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
+        std::string scope = "top";
+        if (ci.attrs.count(ctx->id("scopename"))) {
+            scope = str_or_default(ci.attrs, ctx->id("scopename"), "");
+            scope = "top " + scope;
+        } else if (ci.attrs.count(ctx->id("hdlname"))) {
+            scope = str_or_default(ci.attrs, ctx->id("hdlname"), "");
+            scope = "top " + scope;
+        }
+        IdString name = IdString(ctx,scope.c_str());
+        if (uarch->scopenames.count(name))
+            ctx->constrainCellToRegion(ci.name, name);
         if (ci.attrs.count(id_GATEMATE_DIE) != 0) {
             std::string die_name = str_or_default(ci.attrs, id_GATEMATE_DIE, "");
             IdString die = ctx->id(die_name);
