@@ -527,7 +527,7 @@ void GateMatePacker::assign_regions()
             scope = str_or_default(ci.attrs, ctx->id("hdlname"), "");
             scope = "top " + scope;
         }
-        IdString name = IdString(ctx,scope.c_str());
+        IdString name = IdString(ctx, scope.c_str());
         if (uarch->scopenames.count(name))
             ctx->constrainCellToRegion(ci.name, name);
         if (ci.attrs.count(id_GATEMATE_DIE) != 0) {

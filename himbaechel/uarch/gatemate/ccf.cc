@@ -192,7 +192,7 @@ struct GateMateCCFReader
                 continue;
             }
             if (floorplanning) {
-                int size = -1;
+                // int size = -1;
                 std::string src_location;
 
                 std::string s = linebuf;
@@ -219,12 +219,12 @@ struct GateMateCCFReader
                     }
 
                     // find size
-                    size = -1;
+                    // size = -1;
                     for (size_t i = 0; i + 1 < parts.size(); ++i) {
                         if (boost::iequals(parts[i], "size")) {
                             if (!parts[i + 1].empty() &&
                                 std::all_of(parts[i + 1].begin(), parts[i + 1].end(), ::isdigit)) {
-                                size = std::stoi(parts[i + 1]);
+                                // size = std::stoi(parts[i + 1]);
                             }
                             break;
                         }
@@ -259,8 +259,6 @@ struct GateMateCCFReader
                                     int x2 = std::stoi(match[3]);
                                     int y2 = std::stoi(match[4]);
 
-                                    log("size = %d src=%s pB=(%d,%d, %d,%d)\n", size, src_location.c_str(), x1, y1, x2,
-                                        y2);
                                     IdString scopename(ctx, src_location.c_str());
                                     ctx->createRectangularRegion(scopename, x1, y1, x2, y2);
                                     uarch->scopenames.emplace(scopename);
