@@ -308,9 +308,6 @@ void GateMatePacker::repack_cpe()
             if (l.z == CPE_LT_L_Z) {
                 if (!cell.second->params.count(id_INIT_L20))
                     cell.second->params[id_INIT_L20] = Property(LUT_D1, 4);
-                printf("L00 %04b\n",int_or_default(cell.second->params, id_INIT_L00, 0));
-                printf("L01 %04b\n",int_or_default(cell.second->params, id_INIT_L01, 0));
-                printf("L10 %04b\n",int_or_default(cell.second->params, id_INIT_L10, 0));
                 if (cell.second->getPort(id_D0_10)) {
                     
                 }

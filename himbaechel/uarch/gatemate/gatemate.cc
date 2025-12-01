@@ -446,7 +446,156 @@ void GateMateImpl::postRoute()
             }
         }
     }
+    log_info("Check CPEs..\n");
+    dict<IdString,int> cfg;
+    auto check_input = [&](CellInfo *cell, IdString port) {
+        if (cell->getPort(port)) {
+            NetInfo *net = cell->getPort(port);
+            WireId pin_wire = ctx->getBelPinWire(cell->bel, port);
+            if (net->wires.count(pin_wire)) {
+                printf("Found pin connection\n");
+                auto &p = net->wires.at(pin_wire);
+                printf("pip: %s -> %s \n",ctx->getPipName(p.pip)[1].c_str(ctx), ctx->getPipName(p.pip)[2].c_str(ctx));
+                WireId src = ctx->getPipSrcWire(p.pip);
 
+                const auto &extra_data = *pip_extra_data(p.pip);
+                if (extra_data.type == PipExtra::PIP_EXTRA_MUX) {
+                    printf("name:%s %d\n",IdString(extra_data.name).c_str(ctx),extra_data.value);
+                    cfg.emplace(IdString(extra_data.name),extra_data.value);
+                }
+
+                if (net->wires.count(src)) {
+                    printf("Found pin connection\n");
+                    auto &p = net->wires.at(src);
+                    printf("pip: %s -> %s \n",ctx->getPipName(p.pip)[1].c_str(ctx), ctx->getPipName(p.pip)[2].c_str(ctx));
+                    WireId src = ctx->getPipSrcWire(p.pip);
+                    printf("wire : %s\n",ctx->getWireName(src)[1].c_str(ctx));
+                    const auto &extra_data = *pip_extra_data(p.pip);
+                    if (extra_data.type == PipExtra::PIP_EXTRA_MUX) {
+                        printf("name:%s %d\n",IdString(extra_data.name).c_str(ctx),extra_data.value);
+                        cfg.emplace(IdString(extra_data.name),extra_data.value);
+                    }
+
+
+                    if (net->wires.count(src)) {
+                        printf("Found pin connection\n");
+                        auto &p = net->wires.at(src);
+                        printf("pip: %s -> %s \n",ctx->getPipName(p.pip)[1].c_str(ctx), ctx->getPipName(p.pip)[2].c_str(ctx));
+                        WireId src = ctx->getPipSrcWire(p.pip);
+                        printf("wire : %s\n",ctx->getWireName(src)[1].c_str(ctx));
+                        const auto &extra_data = *pip_extra_data(p.pip);
+                        if (extra_data.type == PipExtra::PIP_EXTRA_MUX) {
+                            printf("name:%s %d\n",IdString(extra_data.name).c_str(ctx),extra_data.value);
+                            cfg.emplace(IdString(extra_data.name),extra_data.value);
+                        }
+
+                    } else {
+                        printf("No pin connection\n");
+                    }
+                } else {
+                    printf("No pin connection\n");
+                }
+
+            } else {
+                printf("No pin connection\n");
+            }
+        }
+    };
+    auto swap_lut2_inputs = [&](int lut) -> int {
+        // bit permutation: [3,1,2,0]
+        return ((lut & 0b1000))       |     // b3 -> bit 3
+            ((lut & 0b0010) << 1)  |     // b1 -> bit 2
+            ((lut & 0b0100) >> 1)  |     // b2 -> bit 1
+            ((lut & 0b0001));            // b0 -> bit 0
+    };
+    for (auto &cell : ctx->cells) {
+        if (cell.second->type.in(id_CPE_L2T4,id_CPE_ADDF, id_CPE_ADDF2)) {
+            printf("\n");
+            cfg.clear();
+            printf("type:%s name:%s\n",cell.second->type.c_str(ctx),cell.second->name.c_str(ctx));
+            int l00 = int_or_default(cell.second->params, id_INIT_L00, 0);
+            int l01 = int_or_default(cell.second->params, id_INIT_L01, 0);
+            int l10 = int_or_default(cell.second->params, id_INIT_L10, 0);
+            printf("L00 %04b\n",l00);
+            printf("L01 %04b\n",l01);
+            printf("L10 %04b\n",l10);
+            check_input(cell.second.get(), id_D0_00);
+            check_input(cell.second.get(), id_D1_00);
+            check_input(cell.second.get(), id_D0_01);
+            check_input(cell.second.get(), id_D1_01);
+            check_input(cell.second.get(), id_D0_10);
+            check_input(cell.second.get(), id_D1_10);
+            if (cfg.count(ctx->id("CPE.D0_11")) || cfg.count(ctx->id("CPE.D0_10"))) {
+                printf("LUT2 like\n");
+
+                if (cfg.count(ctx->id("CPE.D0_11"))) { //lower
+                    printf("lower\n");
+                    if (cfg.at(ctx->id("CPE.D0_11"))==1)
+                        l10 = swap_lut2_inputs(l10);
+                    if (cfg.count(ctx->id("CPE.D0_02"))) { // 1st LUT2
+                        l00 = 0b1010; // LUT_D0 - we propagate only
+                        if (cfg.at(ctx->id("CPE.D0_02"))==1)
+                            l00 = swap_lut2_inputs(l00);
+                    } else { //second LUT2
+                        l01 = 0b1010; // LUT_D0 - we propagate only
+                        if (cfg.at(ctx->id("CPE.D0_03"))==1)
+                            l01 = swap_lut2_inputs(l01);
+                    }
+                } else { // upper part
+                    printf("upper\n");
+                    if (cfg.at(ctx->id("CPE.D0_10"))==1) {
+                        printf("SWAP L10");
+                        l10 = swap_lut2_inputs(l10);
+                    }
+                    if (cfg.count(ctx->id("CPE.D0_00"))) { // 1st LUT2
+                        l00 = 0b1010; // LUT_D0 - we propagate only
+                        if (cfg.at(ctx->id("CPE.D0_00"))==1)
+                            l00 = swap_lut2_inputs(l00);
+                    } else { //second LUT2
+                        l01 = 0b1010; // LUT_D0 - we propagate only
+                        if (cfg.at(ctx->id("CPE.D0_01"))==1)
+                            l01 = swap_lut2_inputs(l01);
+                    }
+                }
+                printf("updated\n=========\n");
+                printf("L00 %04b\n",l00);
+                printf("L01 %04b\n",l01);
+                printf("L10 %04b\n",l10);
+                cell.second->params[id_INIT_L00] = Property(l00,4);
+                cell.second->params[id_INIT_L01] = Property(l01,4);
+                cell.second->params[id_INIT_L10] = Property(l10,4);
+            } else {
+                if (cfg.count(ctx->id("CPE.D0_00")) && cfg.at(ctx->id("CPE.D0_00"))==1)
+                    l00 = swap_lut2_inputs(l00);
+                else if (cfg.count(ctx->id("CPE.D1_00")) && cfg.at(ctx->id("CPE.D1_00"))==1)
+                    l00 = swap_lut2_inputs(l00);
+
+                if (cfg.count(ctx->id("CPE.D0_01")) && cfg.at(ctx->id("CPE.D0_01"))==1)
+                    l01 = swap_lut2_inputs(l01);
+                else if (cfg.count(ctx->id("CPE.D1_01")) && cfg.at(ctx->id("CPE.D1_01"))==1)
+                    l01 = swap_lut2_inputs(l01);
+
+                if (cfg.count(ctx->id("CPE.D0_02")) && cfg.at(ctx->id("CPE.D0_02"))==1)
+                    l00 = swap_lut2_inputs(l00);
+                else if (cfg.count(ctx->id("CPE.D1_02")) && cfg.at(ctx->id("CPE.D1_02"))==1)
+                    l00 = swap_lut2_inputs(l00);
+
+                if (cfg.count(ctx->id("CPE.D0_03")) && cfg.at(ctx->id("CPE.D0_03"))==1)
+                    l01 = swap_lut2_inputs(l01);
+                else if (cfg.count(ctx->id("CPE.D1_03")) && cfg.at(ctx->id("CPE.D1_03"))==1)
+                    l01 = swap_lut2_inputs(l01);
+            }
+            if (cfg.count(ctx->id("CPE.C_I1"))) 
+                cell.second->params[id_C_I1] = Property(1,1);
+            if (cfg.count(ctx->id("CPE.C_I2"))) 
+                cell.second->params[id_C_I2] = Property(1,1);
+            if (cfg.count(ctx->id("CPE.C_I3"))) 
+                cell.second->params[id_C_I3] = Property(1,1);
+            if (cfg.count(ctx->id("CPE.C_I4"))) 
+                cell.second->params[id_C_I4] = Property(1,1);
+
+        }
+    }
     ctx->assignArchInfo();
 
     const ArchArgs &args = ctx->args;
