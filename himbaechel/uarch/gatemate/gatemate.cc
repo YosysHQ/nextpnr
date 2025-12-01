@@ -592,51 +592,22 @@ void GateMateImpl::postRoute()
                         l00 = 0b1010; // LUT_D0 - we propagate only
                         if (cfg.at(ctx->id("CPE.D0_00"))==1) {
                             l00 = swap_lut2_inputs(l00);
-                            if (cfg.count(ctx->id("CPE.C_I1"))) {
-                                printf("D0_10 -> PINY1\n");
-                                cell.second->renamePort(id_D0_10, id_PINY1);
-                            } else {
-                                printf("D0_10 -> IN2\n");
-                                cell.second->renamePort(id_D0_10, id_IN2);
-                            }
-                            printf("D1_10 -> IN1\n");
+                            cell.second->renamePort(id_D0_10, id_IN2);
                             cell.second->renamePort(id_D1_10, id_IN1);
                         } else {
-                            printf("D0_10 -> IN1\n");
                             cell.second->renamePort(id_D0_10, id_IN1);
-                            if (cfg.count(ctx->id("CPE.C_I1"))) {
-                                printf("D1_10 -> PINY1\n");
-                                cell.second->renamePort(id_D1_10, id_PINY1);
-                            } else {
-                                printf("D1_10 -> IN2\n");
-                                cell.second->renamePort(id_D1_10, id_IN2);
-                            }
+                            cell.second->renamePort(id_D1_10, id_IN2);
                         }
 
                     } else { //second LUT2
                         l01 = 0b1010; // LUT_D0 - we propagate only
                         if (cfg.at(ctx->id("CPE.D0_01"))==1) {
                             l01 = swap_lut2_inputs(l01);
-                            if (cfg.count(ctx->id("CPE.C_I2"))) {
-                                printf("D0_10 -> CINX\n");
-                                cell.second->renamePort(id_D0_10, id_CINX);
-                            } else {
-                                printf("D0_10 -> IN4\n");
-                                cell.second->renamePort(id_D0_10, id_IN4);
-                            }
-                            printf("D1_10 -> IN3\n");
+                            cell.second->renamePort(id_D0_10, id_IN4);
                             cell.second->renamePort(id_D1_10, id_IN3);
                         } else {
-                            printf("D0_10 -> IN3\n");
                             cell.second->renamePort(id_D0_10, id_IN3);
-                            if (cfg.count(ctx->id("CPE.C_I2"))) {
-                                printf("D1_10 -> CINX\n");
-                                cell.second->renamePort(id_D1_10, id_CINX);
-                            }
-                            else {
-                                printf("D1_10 -> IN4\n");
-                                cell.second->renamePort(id_D1_10, id_IN4);
-                            }
+                            cell.second->renamePort(id_D1_10, id_IN4);
                         }
                     }
                 }
@@ -647,26 +618,66 @@ void GateMateImpl::postRoute()
                 cell.second->params[id_INIT_L00] = Property(l00,4);
                 cell.second->params[id_INIT_L01] = Property(l01,4);
                 cell.second->params[id_INIT_L10] = Property(l10,4);
+                if (cfg.count(ctx->id("CPE.C_I1"))) 
+                    cell.second->renamePort(id_IN2, id_PINY1);
+                if (cfg.count(ctx->id("CPE.C_I2"))) 
+                    cell.second->renamePort(id_IN4, id_PINX);
+                if (cfg.count(ctx->id("CPE.C_I3"))) 
+                    cell.second->renamePort(id_IN2, id_PINY1);
+                if (cfg.count(ctx->id("CPE.C_I4"))) 
+                    cell.second->renamePort(id_IN4, id_CINX);
+
             } else {
-                if (cfg.count(ctx->id("CPE.D0_00")) && cfg.at(ctx->id("CPE.D0_00"))==1)
+                if ((cfg.count(ctx->id("CPE.D0_00")) && cfg.at(ctx->id("CPE.D0_00"))==1) ||
+                   (cfg.count(ctx->id("CPE.D1_00")) && cfg.at(ctx->id("CPE.D1_00"))==1)) {
                     l00 = swap_lut2_inputs(l00);
-                else if (cfg.count(ctx->id("CPE.D1_00")) && cfg.at(ctx->id("CPE.D1_00"))==1)
+                    cell.second->renamePort(id_D0_00, id_IN2);
+                    cell.second->renamePort(id_D1_00, id_IN1);
+                } else {
+                    cell.second->renamePort(id_D0_00, id_IN1);
+                    cell.second->renamePort(id_D1_00, id_IN2);
+                }
+    
+                    
+                if ((cfg.count(ctx->id("CPE.D0_01")) && cfg.at(ctx->id("CPE.D0_01"))==1) ||
+                   (cfg.count(ctx->id("CPE.D1_01")) && cfg.at(ctx->id("CPE.D1_01"))==1)) {
+                    l01 = swap_lut2_inputs(l01);
+                    cell.second->renamePort(id_D0_01, id_IN4);
+                    cell.second->renamePort(id_D1_01, id_IN3);
+                } else {
+                    cell.second->renamePort(id_D0_01, id_IN3);
+                    cell.second->renamePort(id_D1_01, id_IN4);
+                }
+
+                if ((cfg.count(ctx->id("CPE.D0_02")) && cfg.at(ctx->id("CPE.D0_02"))==1) ||
+                    (cfg.count(ctx->id("CPE.D1_02")) && cfg.at(ctx->id("CPE.D1_02"))==1)) {
                     l00 = swap_lut2_inputs(l00);
 
-                if (cfg.count(ctx->id("CPE.D0_01")) && cfg.at(ctx->id("CPE.D0_01"))==1)
-                    l01 = swap_lut2_inputs(l01);
-                else if (cfg.count(ctx->id("CPE.D1_01")) && cfg.at(ctx->id("CPE.D1_01"))==1)
-                    l01 = swap_lut2_inputs(l01);
+                    cell.second->renamePort(id_D0_00, id_IN2);
+                    cell.second->renamePort(id_D1_00, id_IN1);
+                } else {
+                    cell.second->renamePort(id_D0_00, id_IN1);
+                    cell.second->renamePort(id_D1_00, id_IN2);
+                }
 
-                if (cfg.count(ctx->id("CPE.D0_02")) && cfg.at(ctx->id("CPE.D0_02"))==1)
-                    l00 = swap_lut2_inputs(l00);
-                else if (cfg.count(ctx->id("CPE.D1_02")) && cfg.at(ctx->id("CPE.D1_02"))==1)
-                    l00 = swap_lut2_inputs(l00);
+                if ((cfg.count(ctx->id("CPE.D0_03")) && cfg.at(ctx->id("CPE.D0_03"))==1) ||
+                    (cfg.count(ctx->id("CPE.D1_03")) && cfg.at(ctx->id("CPE.D1_03"))==1)) {
+                    l01 = swap_lut2_inputs(l01);
+                    cell.second->renamePort(id_D0_01, id_IN4);
+                    cell.second->renamePort(id_D1_01, id_IN3);
+                } else {
+                    cell.second->renamePort(id_D0_01, id_IN3);
+                    cell.second->renamePort(id_D1_01, id_IN4);
+                }
+                if (cfg.count(ctx->id("CPE.C_I1"))) 
+                    cell.second->renamePort(id_IN2, id_PINY1);
+                if (cfg.count(ctx->id("CPE.C_I2"))) 
+                    cell.second->renamePort(id_IN4, id_PINX);
+                if (cfg.count(ctx->id("CPE.C_I3"))) 
+                    cell.second->renamePort(id_IN2, id_PINY1);
+                if (cfg.count(ctx->id("CPE.C_I4"))) 
+                    cell.second->renamePort(id_IN4, id_CINX);
 
-                if (cfg.count(ctx->id("CPE.D0_03")) && cfg.at(ctx->id("CPE.D0_03"))==1)
-                    l01 = swap_lut2_inputs(l01);
-                else if (cfg.count(ctx->id("CPE.D1_03")) && cfg.at(ctx->id("CPE.D1_03"))==1)
-                    l01 = swap_lut2_inputs(l01);
             }
             if (cfg.count(ctx->id("CPE.C_I1"))) 
                 cell.second->params[id_C_I1] = Property(1,1);
