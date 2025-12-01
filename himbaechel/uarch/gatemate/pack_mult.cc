@@ -911,6 +911,72 @@ void GateMatePacker::pack_mult()
         auto diagonal_p_width = std::min(b_width, p_width);
         auto vertical_p_width = std::max(p_width - b_width, 0);
 
+        // Do all the P output registers have the same control set?
+        bool should_pack_register = [&]() {
+            // We're using how P[0] is used as a rough heuristic for the other bits of P.
+            auto *p_zero_net = mult->getPort(ctx->idf("P[0]"));
+
+            // P[0] disconnected(???) -> don't pack
+            if (!p_zero_net)
+                return false;
+
+            // P[0] used by multiple signals -> don't pack (likely used in a combinational context)
+            if (p_zero_net->users.entries() != 1)
+                return false;
+
+            auto *p_zero_sink = (*p_zero_net->users.begin()).cell;
+            NPNR_ASSERT(p_zero_sink != nullptr);
+
+            if (p_zero_sink->type != id_CC_DFF)
+                // TODO: attempt to pack L2T4 + DFF combos.
+                return false;
+
+            for (int p = 1; p < p_width; p++) {
+                auto *p_net = mult->getPort(ctx->idf("P[%d]", p));
+                if (p_net && p_net->users.entries() == 1) {
+                    auto *p_net_sink = (*p_net->users.begin()).cell;
+                    NPNR_ASSERT(p_net_sink != nullptr);
+                    if (p_net_sink->type == id_CC_DFF && !are_ffs_compatible(p_zero_sink, p_net_sink)) {
+                        log_info("        Inconsistent control set; not packing output register.\n");
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }();
+
+        auto create_p_register = [&](CellInfo *cpe_half, CellInfo *sink, int x_offset, int y_offset, bool upper,
+                                     int p) {
+            // Instantiate a P passthrough L2T4 for the flop.
+            auto *p_passthru =
+                    create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$p[%d]_passthru", cpe_half->name.c_str(ctx), p));
+
+            p_passthru->params[id_INIT_L00] = Property(LUT_D0, 4);
+            p_passthru->params[id_INIT_L01] = Property(LUT_ZERO, 4);
+            p_passthru->params[id_INIT_L10] = Property(LUT_D0, 4);
+
+            // Reconfigure the flop.
+            sink->renamePort(id_D, id_DIN);
+            sink->renamePort(id_Q, id_DOUT);
+            sink->type = id_CPE_FF;
+
+            // Connect the passthrough.
+            sink->movePortTo(id_DIN, p_passthru, id_IN1);
+
+            auto *p_passthru_net = ctx->createNet(ctx->idf("%s$p", p_passthru->name.c_str(ctx)));
+            p_passthru->connectPort(id_OUT, p_passthru_net);
+            sink->connectPort(id_DIN, p_passthru_net);
+
+            // Constrain the passthrough and flop.
+            constrain_cell(p_passthru, x_offset, y_offset, upper ? CPE_LT_U_Z : CPE_LT_L_Z);
+
+            constrain_cell(sink, x_offset, y_offset, upper ? CPE_FF_U_Z : CPE_FF_L_Z);
+
+            log_info("        Constrained '%s' as register for P[%d] at (%d, %d).\n", sink->name.c_str(ctx), p,
+                     x_offset, y_offset);
+        };
+
         for (int p = 0; p < diagonal_p_width; p++) {
             auto &mult_cell = m.cols[p / 2].mults[0];
             auto *cpe_half = (p % 2 == 1) ? mult_cell.upper : mult_cell.lower;
@@ -920,37 +986,10 @@ void GateMatePacker::pack_mult()
             auto *cpe_half_cpout = cpe_half->getPort(id_CPOUT);
             if (cpe_half_cpout && cpe_half_cpout->users.entries() == 1) {
                 auto cpe_half_cpout_user = *cpe_half_cpout->users.begin();
-                auto *dff = cpe_half_cpout_user.cell;
-                NPNR_ASSERT(dff != nullptr);
-                if (dff->type == id_CC_DFF) {
-                    // Instantiate a P passthrough L2T4 for the flop.
-                    auto *p_passthru =
-                            create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$p[%d]_passthru", cpe_half->name.c_str(ctx), p));
-
-                    p_passthru->params[id_INIT_L00] = Property(LUT_D0, 4);
-                    p_passthru->params[id_INIT_L01] = Property(LUT_ZERO, 4);
-                    p_passthru->params[id_INIT_L10] = Property(LUT_D0, 4);
-
-                    // Reconfigure the flop.
-                    dff->renamePort(id_D, id_DIN);
-                    dff->renamePort(id_Q, id_DOUT);
-                    dff->type = id_CPE_FF;
-
-                    // Connect the passthrough.
-                    dff->movePortTo(id_DIN, p_passthru, id_IN1);
-
-                    auto *p_passthru_net = ctx->createNet(ctx->idf("%s$p", p_passthru->name.c_str(ctx)));
-                    p_passthru->connectPort(id_OUT, p_passthru_net);
-                    dff->connectPort(id_DIN, p_passthru_net);
-
-                    // Constrain the passthrough and flop.
-                    constrain_cell(p_passthru, b_width / 2, b_width / 2 + p / 2,
-                                   (p % 2 == 1) ? CPE_LT_U_Z : CPE_LT_L_Z);
-
-                    constrain_cell(dff, b_width / 2, b_width / 2 + p / 2, (p % 2 == 1) ? CPE_FF_U_Z : CPE_FF_L_Z);
-
-                    log_info("        Constrained '%s' as register for P[%d] at (%d, %d).\n", dff->name.c_str(ctx), p,
-                             b_width / 2, b_width / 2 + p / 2);
+                auto *sink = cpe_half_cpout_user.cell;
+                NPNR_ASSERT(sink != nullptr);
+                if (sink->type == id_CC_DFF && should_pack_register) {
+                    create_p_register(cpe_half, sink, b_width / 2, b_width / 2 + p / 2, p % 2 == 1, p);
                 }
             }
         }
@@ -960,6 +999,17 @@ void GateMatePacker::pack_mult()
             auto *cpe_half = (p % 2 == 1) ? mult_cell.upper : mult_cell.lower;
 
             mult->movePortTo(ctx->idf("P[%d]", p + diagonal_p_width), cpe_half, id_CPOUT);
+
+            auto *cpe_half_cpout = cpe_half->getPort(id_CPOUT);
+            if (cpe_half_cpout && cpe_half_cpout->users.entries() == 1) {
+                auto cpe_half_cpout_user = *cpe_half_cpout->users.begin();
+                auto *sink = cpe_half_cpout_user.cell;
+                NPNR_ASSERT(sink != nullptr);
+                if (sink->type == id_CC_DFF && should_pack_register) {
+                    create_p_register(cpe_half, sink, b_width / 2, b_width / 2 + diagonal_p_width / 2 + p / 2,
+                                      p % 2 == 1, p + diagonal_p_width);
+                }
+            }
         }
 
         // Clean up the multiplier.
