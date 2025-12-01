@@ -534,12 +534,53 @@ void GateMateImpl::postRoute()
                         l10 = swap_lut2_inputs(l10);
                     if (cfg.count(ctx->id("CPE.D0_02"))) { // 1st LUT2
                         l00 = 0b1010; // LUT_D0 - we propagate only
-                        if (cfg.at(ctx->id("CPE.D0_02"))==1)
+                        if (cfg.at(ctx->id("CPE.D0_02"))==1) {
                             l00 = swap_lut2_inputs(l00);
+                            if (cfg.count(ctx->id("CPE.C_I3"))) {
+                                printf("D0_10 -> PINY1\n");
+                                cell.second->renamePort(id_D0_10, id_PINY1);
+                            } else {
+                                printf("D0_10 -> IN2\n");
+                                cell.second->renamePort(id_D0_10, id_IN2);
+                            }
+                            printf("D1_10 -> IN1\n");
+                            cell.second->renamePort(id_D1_10, id_IN1);
+                        } else {
+                            printf("D0_10 -> IN1\n");
+                            cell.second->renamePort(id_D0_10, id_IN1);
+                            if (cfg.count(ctx->id("CPE.C_I3"))) {
+                                printf("D1_10 -> PINY1\n");
+                                cell.second->renamePort(id_D1_10, id_PINY1);
+                            } else {
+                                printf("D1_10 -> IN2\n");
+                                cell.second->renamePort(id_D1_10, id_IN2);
+                            }
+                        }
                     } else { //second LUT2
                         l01 = 0b1010; // LUT_D0 - we propagate only
-                        if (cfg.at(ctx->id("CPE.D0_03"))==1)
+                        if (cfg.at(ctx->id("CPE.D0_03"))==1) {
                             l01 = swap_lut2_inputs(l01);
+                            if (cfg.count(ctx->id("CPE.C_I4"))) {
+                                printf("D0_10 -> PINX\n");
+                                cell.second->renamePort(id_D0_10, id_PINX);
+                            } else {
+                                printf("D0_10 -> IN4\n");
+                                cell.second->renamePort(id_D0_10, id_IN4);
+                            }
+                            printf("D1_10 -> IN3\n");
+                            cell.second->renamePort(id_D1_10, id_IN3);
+                        } else {
+                            printf("D0_10 -> IN3\n");
+                            cell.second->renamePort(id_D0_10, id_IN3);
+                            if (cfg.count(ctx->id("CPE.C_I4"))) {
+                                printf("D1_10 -> PINX\n");
+                                cell.second->renamePort(id_D1_10, id_PINX);
+                            }
+                            else {
+                                printf("D1_10 -> IN4\n");
+                                cell.second->renamePort(id_D1_10, id_IN4);
+                            }
+                        }
                     }
                 } else { // upper part
                     printf("upper\n");
@@ -549,12 +590,54 @@ void GateMateImpl::postRoute()
                     }
                     if (cfg.count(ctx->id("CPE.D0_00"))) { // 1st LUT2
                         l00 = 0b1010; // LUT_D0 - we propagate only
-                        if (cfg.at(ctx->id("CPE.D0_00"))==1)
+                        if (cfg.at(ctx->id("CPE.D0_00"))==1) {
                             l00 = swap_lut2_inputs(l00);
+                            if (cfg.count(ctx->id("CPE.C_I1"))) {
+                                printf("D0_10 -> PINY1\n");
+                                cell.second->renamePort(id_D0_10, id_PINY1);
+                            } else {
+                                printf("D0_10 -> IN2\n");
+                                cell.second->renamePort(id_D0_10, id_IN2);
+                            }
+                            printf("D1_10 -> IN1\n");
+                            cell.second->renamePort(id_D1_10, id_IN1);
+                        } else {
+                            printf("D0_10 -> IN1\n");
+                            cell.second->renamePort(id_D0_10, id_IN1);
+                            if (cfg.count(ctx->id("CPE.C_I1"))) {
+                                printf("D1_10 -> PINY1\n");
+                                cell.second->renamePort(id_D1_10, id_PINY1);
+                            } else {
+                                printf("D1_10 -> IN2\n");
+                                cell.second->renamePort(id_D1_10, id_IN2);
+                            }
+                        }
+
                     } else { //second LUT2
                         l01 = 0b1010; // LUT_D0 - we propagate only
-                        if (cfg.at(ctx->id("CPE.D0_01"))==1)
+                        if (cfg.at(ctx->id("CPE.D0_01"))==1) {
                             l01 = swap_lut2_inputs(l01);
+                            if (cfg.count(ctx->id("CPE.C_I2"))) {
+                                printf("D0_10 -> CINX\n");
+                                cell.second->renamePort(id_D0_10, id_CINX);
+                            } else {
+                                printf("D0_10 -> IN4\n");
+                                cell.second->renamePort(id_D0_10, id_IN4);
+                            }
+                            printf("D1_10 -> IN3\n");
+                            cell.second->renamePort(id_D1_10, id_IN3);
+                        } else {
+                            printf("D0_10 -> IN3\n");
+                            cell.second->renamePort(id_D0_10, id_IN3);
+                            if (cfg.count(ctx->id("CPE.C_I2"))) {
+                                printf("D1_10 -> CINX\n");
+                                cell.second->renamePort(id_D1_10, id_CINX);
+                            }
+                            else {
+                                printf("D1_10 -> IN4\n");
+                                cell.second->renamePort(id_D1_10, id_IN4);
+                            }
+                        }
                     }
                 }
                 printf("updated\n=========\n");
