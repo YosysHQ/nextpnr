@@ -122,6 +122,8 @@ class ChainConstrainer
         o_r.cell = lc.get();
         cout_port.net->driver = o_r;
         cout_port.net = co_i3_net;
+        // CIN is connected to COUT in hardware, make the connection explicit in the netlist
+        lc->connectPort(id_CIN, co_i3_net);
 
         // If COUT also connects to a CIN; preserve the carry chain
         if (cin_cell) {
