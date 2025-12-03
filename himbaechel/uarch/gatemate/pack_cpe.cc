@@ -401,7 +401,7 @@ void GateMatePacker::pack_cpe()
             ci.disconnectPort(id_D);
         } else {
             lt->params[id_INIT_L10] = Property(LUT_D0, 4);
-            ci.movePortTo(id_D, lt, id_D0_00);
+            ci.movePortTo(id_D, lt, id_D0_10);
         }
         ci.type = (ci.type == id_CC_DLT) ? id_CPE_LATCH : id_CPE_FF;
         NetInfo *conn = ctx->createNet(ctx->idf("%s$di", ci.name.c_str(ctx)));
