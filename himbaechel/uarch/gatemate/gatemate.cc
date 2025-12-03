@@ -464,7 +464,7 @@ void GateMateImpl::postRoute()
              {ctx->id("CPE.PINX"),id_PINX}
             };
         if (convert_port.count(port)) {
-            printf("CONVERTED %s %s\n",orig_port.c_str(ctx), port.c_str(ctx));
+            //printf("CONVERTED %s %s\n",orig_port.c_str(ctx), port.c_str(ctx));
             port_mapping.emplace(orig_port, convert_port[port]);
         };
 
@@ -474,54 +474,54 @@ void GateMateImpl::postRoute()
             NetInfo *net = cell->getPort(port);
             WireId pin_wire = ctx->getBelPinWire(cell->bel, port);
             if (net->wires.count(pin_wire)) {
-                printf("Found pin connection\n");
+                //printf("Found pin connection\n");
                 auto &p = net->wires.at(pin_wire);
-                printf("pip: %s -> %s \n",ctx->getPipName(p.pip)[1].c_str(ctx), ctx->getPipName(p.pip)[2].c_str(ctx));
+                //printf("pip: %s -> %s \n",ctx->getPipName(p.pip)[1].c_str(ctx), ctx->getPipName(p.pip)[2].c_str(ctx));
                 WireId src = ctx->getPipSrcWire(p.pip);
 
                 const auto &extra_data = *pip_extra_data(p.pip);
                 if (extra_data.type == PipExtra::PIP_EXTRA_MUX) {
-                    printf("name:%s %d\n",IdString(extra_data.name).c_str(ctx),extra_data.value);
+                    //printf("name:%s %d\n",IdString(extra_data.name).c_str(ctx),extra_data.value);
                     cfg.emplace(IdString(extra_data.name),extra_data.value);
                     add_input(port, ctx->getWireName(src)[1]);
                 }
 
                 if (net->wires.count(src)) {
-                    printf("Found pin connection\n");
+                    //printf("Found pin connection\n");
                     auto &p = net->wires.at(src);
-                    printf("pip: %s -> %s \n",ctx->getPipName(p.pip)[1].c_str(ctx), ctx->getPipName(p.pip)[2].c_str(ctx));
+                    //printf("pip: %s -> %s \n",ctx->getPipName(p.pip)[1].c_str(ctx), ctx->getPipName(p.pip)[2].c_str(ctx));
                     WireId src = ctx->getPipSrcWire(p.pip);
-                    printf("wire : %s\n",ctx->getWireName(src)[1].c_str(ctx));
+                    //printf("wire : %s\n",ctx->getWireName(src)[1].c_str(ctx));
                     const auto &extra_data = *pip_extra_data(p.pip);
                     if (extra_data.type == PipExtra::PIP_EXTRA_MUX) {
-                        printf("name:%s %d\n",IdString(extra_data.name).c_str(ctx),extra_data.value);
+                        //printf("name:%s %d\n",IdString(extra_data.name).c_str(ctx),extra_data.value);
                         cfg.emplace(IdString(extra_data.name),extra_data.value);
                         add_input(port, ctx->getWireName(src)[1]);
                     }
 
 
                     if (net->wires.count(src)) {
-                        printf("Found pin connection\n");
+                        //printf("Found pin connection\n");
                         auto &p = net->wires.at(src);
-                        printf("pip: %s -> %s \n",ctx->getPipName(p.pip)[1].c_str(ctx), ctx->getPipName(p.pip)[2].c_str(ctx));
+                        //printf("pip: %s -> %s \n",ctx->getPipName(p.pip)[1].c_str(ctx), ctx->getPipName(p.pip)[2].c_str(ctx));
                         WireId src = ctx->getPipSrcWire(p.pip);
-                        printf("wire : %s\n",ctx->getWireName(src)[1].c_str(ctx));
+                        //printf("wire : %s\n",ctx->getWireName(src)[1].c_str(ctx));
                         const auto &extra_data = *pip_extra_data(p.pip);
                         if (extra_data.type == PipExtra::PIP_EXTRA_MUX) {
-                            printf("name:%s %d\n",IdString(extra_data.name).c_str(ctx),extra_data.value);
+                            //printf("name:%s %d\n",IdString(extra_data.name).c_str(ctx),extra_data.value);
                             cfg.emplace(IdString(extra_data.name),extra_data.value);
                             add_input(port, ctx->getWireName(src)[1]);
                         }
 
                     } else {
-                        printf("No pin connection\n");
+                        //printf("No pin connection\n");
                     }
                 } else {
-                    printf("No pin connection\n");
+                    //printf("No pin connection\n");
                 }
 
             } else {
-                printf("No pin connection\n");
+                //printf("No pin connection\n");
             }
         }
     };
@@ -535,16 +535,16 @@ void GateMateImpl::postRoute()
 
     for (auto &cell : ctx->cells) {
         if (cell.second->type.in(id_CPE_L2T4)) {
-            printf("\n");
+            //printf("\n");
             cfg.clear();
             port_mapping.clear();
-            printf("type:%s name:%s\n",cell.second->type.c_str(ctx),cell.second->name.c_str(ctx));
+            //printf("type:%s name:%s\n",cell.second->type.c_str(ctx),cell.second->name.c_str(ctx));
             int l00 = int_or_default(cell.second->params, id_INIT_L00, 0);
             int l01 = int_or_default(cell.second->params, id_INIT_L01, 0);
             int l10 = int_or_default(cell.second->params, id_INIT_L10, 0);
-            printf("L00 %04b\n",l00);
-            printf("L01 %04b\n",l01);
-            printf("L10 %04b\n",l10);
+            //printf("L00 %04b\n",l00);
+            //printf("L01 %04b\n",l01);
+            //printf("L10 %04b\n",l10);
             check_input(cell.second.get(), id_D0_00);
             check_input(cell.second.get(), id_D1_00);
             check_input(cell.second.get(), id_D0_01);
@@ -552,7 +552,7 @@ void GateMateImpl::postRoute()
             check_input(cell.second.get(), id_D0_10);
             check_input(cell.second.get(), id_D1_10);
             if (cfg.count(ctx->id("LUT2_11")) || cfg.count(ctx->id("LUT2_10"))) {
-                printf("LUT2 like\n");
+                //printf("LUT2 like\n");
                 if (cfg.count(ctx->id("LUT2_11"))) { //lower
                     if (cfg.count(ctx->id("LUT2_02")) && !cfg.count(ctx->id("LUT2_03"))) {
                         // both inputs on 02
@@ -605,10 +605,10 @@ void GateMateImpl::postRoute()
                         l01 = swap_lut2_inputs(l01);
 
                 }
-                printf("updated\n=========\n");
-                printf("L00 %04b\n",l00);
-                printf("L01 %04b\n",l01);
-                printf("L10 %04b\n",l10);
+                //printf("updated\n=========\n");
+                //printf("L00 %04b\n",l00);
+                //printf("L01 %04b\n",l01);
+                //printf("L10 %04b\n",l10);
                 cell.second->params[id_INIT_L00] = Property(l00,4);
                 cell.second->params[id_INIT_L01] = Property(l01,4);
                 cell.second->params[id_INIT_L10] = Property(l10,4);
