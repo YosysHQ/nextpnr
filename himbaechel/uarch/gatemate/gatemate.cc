@@ -661,7 +661,7 @@ void GateMateImpl::postRoute()
                 cell.second->params[id_C_I4] = Property(1,1);
 
         }
-        if (cell.second->type.in(id_CPE_MX4)) {
+        if (cell.second->type.in(id_CPE_MX4, id_CPE_ADDF, id_CPE_ADDF2)) {
             //printf("\n");
             cfg.clear();
             port_mapping.clear();

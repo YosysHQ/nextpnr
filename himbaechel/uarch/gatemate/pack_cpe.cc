@@ -614,8 +614,8 @@ void GateMatePacker::pack_addf()
 
             bool merged = cy->type != id_CC_ADDF;
             if (merged) {
-                merge_input(cy, cy, id_A2, id_INIT_L02, id_IN1, id_IN2); // IN5,IN6
-                merge_input(cy, cy, id_B2, id_INIT_L03, id_IN3, id_IN4); // IN7,IN8
+                merge_input(cy, cy, id_A2, id_INIT_L02, id_D0_02, id_D1_02); // IN5,IN6
+                merge_input(cy, cy, id_B2, id_INIT_L03, id_D0_03, id_D1_03); // IN7,IN8
                 cy->params[id_INIT_L11] = Property(LUT_XOR, 4);
             } else {
                 cy->params[id_INIT_L02] = Property(LUT_ZERO, 4);
@@ -642,8 +642,8 @@ void GateMatePacker::pack_addf()
                 cy->renamePort(id_S, id_OUT);
             }
             merge_dff(cy, id_OUT, other_dff);
-            merge_input(cy, upper, id_A, id_INIT_L00, id_IN1, id_IN2);
-            merge_input(cy, upper, id_B, id_INIT_L01, id_IN3, id_IN4);
+            merge_input(cy, upper, id_A, id_INIT_L00, id_D0_00, id_D1_00);
+            merge_input(cy, upper, id_B, id_INIT_L01, id_D0_01, id_D1_01);
             upper->params[id_INIT_L10] = Property(LUT_XOR, 4);
             upper->params[id_C_FUNCTION] = Property(merged ? C_ADDF2 : C_ADDF, 3);
 
