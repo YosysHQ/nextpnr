@@ -449,7 +449,7 @@ void GateMateImpl::postRoute()
     log_info("Check CPEs..\n");
     dict<IdString,int> cfg;
     dict<IdString,IdString> port_mapping;
-    auto add_input = [&](IdString orig_port, IdString port) {
+    auto add_input = [&](IdString orig_port, IdString port, bool merged) {
         static dict<IdString,IdString> convert_port = {
              {ctx->id("CPE.IN1"),id_IN1},
              {ctx->id("CPE.IN2"),id_IN2},
@@ -463,13 +463,26 @@ void GateMateImpl::postRoute()
              {ctx->id("CPE.CINX"),id_CINX},
              {ctx->id("CPE.PINX"),id_PINX}
             };
+        static dict<IdString,IdString> convert_port_merged = {
+             {ctx->id("CPE.IN1"),id_IN1},
+             {ctx->id("CPE.IN2"),id_IN2},
+             {ctx->id("CPE.IN3"),id_IN3},
+             {ctx->id("CPE.IN4"),id_IN4},
+             {ctx->id("CPE.IN5"),id_IN5},
+             {ctx->id("CPE.IN6"),id_IN6},
+             {ctx->id("CPE.IN7"),id_IN7},
+             {ctx->id("CPE.IN8"),id_IN8},
+             {ctx->id("CPE.PINY1"),id_PINY1},
+             {ctx->id("CPE.CINX"),id_CINX},
+             {ctx->id("CPE.PINX"),id_PINX}
+            };
         if (convert_port.count(port)) {
             //printf("CONVERTED %s %s\n",orig_port.c_str(ctx), port.c_str(ctx));
-            port_mapping.emplace(orig_port, convert_port[port]);
+            port_mapping.emplace(orig_port, merged ? convert_port_merged[port] : convert_port[port]);
         };
 
     };
-    auto check_input = [&](CellInfo *cell, IdString port) {
+    auto check_input = [&](CellInfo *cell, IdString port, bool merged) {
         if (cell->getPort(port)) {
             NetInfo *net = cell->getPort(port);
             WireId pin_wire = ctx->getBelPinWire(cell->bel, port);
@@ -483,7 +496,7 @@ void GateMateImpl::postRoute()
                 if (extra_data.type == PipExtra::PIP_EXTRA_MUX) {
                     //printf("name:%s %d\n",IdString(extra_data.name).c_str(ctx),extra_data.value);
                     cfg.emplace(IdString(extra_data.name),extra_data.value);
-                    add_input(port, ctx->getWireName(src)[1]);
+                    add_input(port, ctx->getWireName(src)[1], merged);
                 }
 
                 if (net->wires.count(src)) {
@@ -496,7 +509,7 @@ void GateMateImpl::postRoute()
                     if (extra_data.type == PipExtra::PIP_EXTRA_MUX) {
                         //printf("name:%s %d\n",IdString(extra_data.name).c_str(ctx),extra_data.value);
                         cfg.emplace(IdString(extra_data.name),extra_data.value);
-                        add_input(port, ctx->getWireName(src)[1]);
+                        add_input(port, ctx->getWireName(src)[1], merged);
                     }
 
 
@@ -510,7 +523,7 @@ void GateMateImpl::postRoute()
                         if (extra_data.type == PipExtra::PIP_EXTRA_MUX) {
                             //printf("name:%s %d\n",IdString(extra_data.name).c_str(ctx),extra_data.value);
                             cfg.emplace(IdString(extra_data.name),extra_data.value);
-                            add_input(port, ctx->getWireName(src)[1]);
+                            add_input(port, ctx->getWireName(src)[1], merged);
                         }
 
                     } else {
@@ -545,12 +558,12 @@ void GateMateImpl::postRoute()
             //printf("L00 %04b\n",l00);
             //printf("L01 %04b\n",l01);
             //printf("L10 %04b\n",l10);
-            check_input(cell.second.get(), id_D0_00);
-            check_input(cell.second.get(), id_D1_00);
-            check_input(cell.second.get(), id_D0_01);
-            check_input(cell.second.get(), id_D1_01);
-            check_input(cell.second.get(), id_D0_10);
-            check_input(cell.second.get(), id_D1_10);
+            check_input(cell.second.get(), id_D0_00, false);
+            check_input(cell.second.get(), id_D1_00, false);
+            check_input(cell.second.get(), id_D0_01, false);
+            check_input(cell.second.get(), id_D1_01, false);
+            check_input(cell.second.get(), id_D0_10, false);
+            check_input(cell.second.get(), id_D1_10, false);
             if (cfg.count(ctx->id("LUT2_11")) || cfg.count(ctx->id("LUT2_10"))) {
                 //printf("LUT2 like\n");
                 if (cfg.count(ctx->id("LUT2_11"))) { //lower
@@ -647,6 +660,64 @@ void GateMateImpl::postRoute()
             if (cfg.count(ctx->id("CPE.C_I4"))) 
                 cell.second->params[id_C_I4] = Property(1,1);
 
+        }
+        if (cell.second->type.in(id_CPE_MX4)) {
+            //printf("\n");
+            cfg.clear();
+            port_mapping.clear();
+            //printf("type:%s name:%s\n",cell.second->type.c_str(ctx),cell.second->name.c_str(ctx));
+            int l00 = int_or_default(cell.second->params, id_INIT_L00, 0);
+            int l01 = int_or_default(cell.second->params, id_INIT_L01, 0);
+            //int l10 = int_or_default(cell.second->params, id_INIT_L10, 0);
+            int l02 = int_or_default(cell.second->params, id_INIT_L02, 0);
+            int l03 = int_or_default(cell.second->params, id_INIT_L03, 0);
+            //int l11 = int_or_default(cell.second->params, id_INIT_L11, 0);
+            //printf("L00 %04b\n",l00);
+            //printf("L01 %04b\n",l01);
+            //printf("L10 %04b\n",l10);
+            check_input(cell.second.get(), id_D0_00, true);
+            check_input(cell.second.get(), id_D1_00, true);
+            check_input(cell.second.get(), id_D0_01, true);
+            check_input(cell.second.get(), id_D1_01, true);
+            check_input(cell.second.get(), id_D0_02, true);
+            check_input(cell.second.get(), id_D1_02, true);
+            check_input(cell.second.get(), id_D0_03, true);
+            check_input(cell.second.get(), id_D1_03, true);
+
+            //check_input(cell.second.get(), id_D0_10);
+            //check_input(cell.second.get(), id_D1_10);
+            //check_input(cell.second.get(), id_D0_11);
+            //check_input(cell.second.get(), id_D1_11);
+
+
+            if (cfg.count(ctx->id("LUT2_00")) && cfg.at(ctx->id("LUT2_00"))==1) {
+                l00 = swap_lut2_inputs(l00);
+            }    
+            if (cfg.count(ctx->id("LUT2_01")) && cfg.at(ctx->id("LUT2_01"))==1) {
+                l01 = swap_lut2_inputs(l01);
+            }
+            if (cfg.count(ctx->id("LUT2_02")) && cfg.at(ctx->id("LUT2_02"))==1) {
+                l02 = swap_lut2_inputs(l02);
+            }
+            if (cfg.count(ctx->id("LUT2_03")) && cfg.at(ctx->id("LUT2_03"))==1) {
+                l03 = swap_lut2_inputs(l03);
+            }
+
+            cell.second->params[id_INIT_L00] = Property(l00,4);
+            cell.second->params[id_INIT_L01] = Property(l01,4);
+            cell.second->params[id_INIT_L02] = Property(l02,4);
+            cell.second->params[id_INIT_L03] = Property(l03,4);
+            //cell.second->params[id_INIT_L10] = Property(l10,4);
+            //cell.second->params[id_INIT_L11] = Property(l11,4);
+
+            cell.second->renamePort(id_D0_00, port_mapping[id_D0_00]);
+            cell.second->renamePort(id_D1_00, port_mapping[id_D1_00]);
+            cell.second->renamePort(id_D0_01, port_mapping[id_D0_01]);
+            cell.second->renamePort(id_D1_01, port_mapping[id_D1_01]);
+            cell.second->renamePort(id_D0_02, port_mapping[id_D0_02]);
+            cell.second->renamePort(id_D1_02, port_mapping[id_D1_02]);
+            cell.second->renamePort(id_D0_03, port_mapping[id_D0_03]);
+            cell.second->renamePort(id_D1_03, port_mapping[id_D1_03]);
         }
     }
     ctx->assignArchInfo();

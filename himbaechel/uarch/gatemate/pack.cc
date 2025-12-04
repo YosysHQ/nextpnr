@@ -373,6 +373,14 @@ void GateMatePacker::repack_cpe()
             loc.z = CPE_LT_FULL_Z;
             ctx->unbindBel(bel);
             ctx->bindBel(ctx->getBelByLocation(loc), cell.second.get(), strength);
+            cell.second->renamePort(id_D0_00, id_D0_02);
+            cell.second->renamePort(id_D1_00, id_D1_02);
+            cell.second->renamePort(id_D0_01, id_D0_03);
+            cell.second->renamePort(id_D1_01, id_D1_03);
+            cell.second->renamePort(id_D0_10, id_D0_11);
+            cell.second->renamePort(id_D1_10, id_D1_11);
+
+
             cell.second->renamePort(id_IN1, id_IN5);
             cell.second->renamePort(id_IN2, id_IN6);
             cell.second->renamePort(id_IN3, id_IN7);
@@ -423,6 +431,14 @@ void GateMatePacker::repack_cpe()
                 cell.second->params[id_C_I1] = Property(int_or_default(upper->params, id_C_I1, 0), 1);
             if (upper->params.count(id_C_I2))
                 cell.second->params[id_C_I2] = Property(int_or_default(upper->params, id_C_I2, 0), 1);
+
+            upper->movePortTo(id_D0_00, cell.second.get(), id_D0_00);
+            upper->movePortTo(id_D1_00, cell.second.get(), id_D1_00);
+            upper->movePortTo(id_D0_01, cell.second.get(), id_D0_01);
+            upper->movePortTo(id_D1_01, cell.second.get(), id_D1_01);
+            upper->movePortTo(id_D0_10, cell.second.get(), id_D0_10);
+            upper->movePortTo(id_D1_10, cell.second.get(), id_D1_10);
+
             upper->movePortTo(id_IN1, cell.second.get(), id_IN1);
             upper->movePortTo(id_IN2, cell.second.get(), id_IN2);
             upper->movePortTo(id_IN3, cell.second.get(), id_IN3);

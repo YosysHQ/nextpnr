@@ -327,8 +327,8 @@ void GateMatePacker::pack_cpe()
         ci.cluster = ci.name;
         ci.renamePort(id_Y, id_OUT);
 
-        ci.renamePort(id_S0, id_D1_00); // IN6
-        ci.renamePort(id_S1, id_D1_01); // IN8
+        ci.renamePort(id_S0, id_D0_00); // IN5
+        ci.renamePort(id_S1, id_D0_01); // IN7
 
         uint8_t select = 0;
         uint8_t invert = 0;
@@ -346,8 +346,8 @@ void GateMatePacker::pack_cpe()
             }
         }
         ci.params[id_C_FUNCTION] = Property(C_MX4, 3);
-        ci.params[id_INIT_L02] = Property(LUT_D1, 4); // IN6
-        ci.params[id_INIT_L03] = Property(LUT_D1, 4); // IN8
+        ci.params[id_INIT_L02] = Property(LUT_D0, 4); // IN5
+        ci.params[id_INIT_L03] = Property(LUT_D0, 4); // IN7
         ci.params[id_INIT_L11] = Property(invert, 4); // Inversion bits
         ci.params[id_INIT_L20] = Property(LUT_D1, 4); // Always D1
         ci.type = id_CPE_LT_L;
@@ -360,10 +360,10 @@ void GateMatePacker::pack_cpe()
         upper->params[id_INIT_L10] = Property(select, 4); // Selection bits
         upper->params[id_C_FUNCTION] = Property(C_MX4, 3);
 
-        ci.movePortTo(id_D0, upper, id_M1);
-        ci.movePortTo(id_D1, upper, id_M2);
-        ci.movePortTo(id_D2, upper, id_M3);
-        ci.movePortTo(id_D3, upper, id_M4);
+        ci.movePortTo(id_D0, upper, id_IN1);
+        ci.movePortTo(id_D1, upper, id_IN2);
+        ci.movePortTo(id_D2, upper, id_IN3);
+        ci.movePortTo(id_D3, upper, id_IN4);
         ci.constr_children.push_back(upper);
 
         NetInfo *o = ci.getPort(id_OUT);
