@@ -719,6 +719,20 @@ void GateMateImpl::postRoute()
             cell.second->renamePort(id_D0_03, port_mapping[id_D0_03]);
             cell.second->renamePort(id_D1_03, port_mapping[id_D1_03]);
         }
+        if (cell.second->type.in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U)) {
+            cfg.clear();
+            port_mapping.clear();
+            check_input(cell.second.get(), id_CLK, false);
+            check_input(cell.second.get(), id_EN, false);
+            if (cfg.count(id_C_CLKSEL) && cfg.at(id_C_CLKSEL)==1) {
+                cell.second->params[id_C_CPE_CLK] = Property(0,2);
+                cell.second->params[id_C_CLKSEL] = Property(1,1);
+            }
+            if (cfg.count(id_C_ENSEL) && cfg.at(id_C_ENSEL)==1) {
+                cell.second->params[id_C_CPE_EN] = Property(0,2);
+                cell.second->params[id_C_ENSEL] = Property(1,1);
+            }
+        }
     }
     ctx->assignArchInfo();
 
