@@ -321,7 +321,17 @@ void GateMateImpl::postPlace()
 }
 bool GateMateImpl::checkPipAvail(PipId pip) const
 {
+    IdStringList names = ctx->getPipName(pip);
     const auto &extra_data = *pip_extra_data(pip);
+    if (extra_data.type == PipExtra::PIP_EXTRA_MUX 
+        && extra_data.value == 1
+        && IdString(extra_data.name).in(ctx->id("LUT2_00"),ctx->id("LUT2_01"),ctx->id("LUT2_02"),ctx->id("LUT2_03"))) {
+
+        //printf("%s %s %s\n", names[0].c_str(ctx), names[1].c_str(ctx), names[2].c_str(ctx));
+        if (names[1].in(ctx->id("CPE.D0_00_int"),ctx->id("CPE.D0_01_int"),ctx->id("CPE.D0_02_int"),ctx->id("CPE.D0_03_int")))
+            return false;
+    }
+
     if (extra_data.type != PipExtra::PIP_EXTRA_MUX || (extra_data.flags & MUX_ROUTING) == 0)
         return true;
     if (used_cpes[pip.tile])
@@ -719,7 +729,7 @@ void GateMateImpl::postRoute()
             cell.second->renamePort(id_D0_03, port_mapping[id_D0_03]);
             cell.second->renamePort(id_D1_03, port_mapping[id_D1_03]);
         }
-        if (cell.second->type.in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U)) {
+        if (cell.second->type.in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U, id_CPE_LATCH)) {
             cfg.clear();
             port_mapping.clear();
             check_input(cell.second.get(), id_CLK, false);
