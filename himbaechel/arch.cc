@@ -86,13 +86,9 @@ void Arch::parse_vopt()
     auto vopt_desc = uarch->getUArchOptions();
     vopt_desc.add_options()("help,h", "show help");
 
-    std::vector<const char *> argv;
-    for (auto &a : args.vopts)
-        argv.push_back(a.c_str());
-
     try {
         po::parsed_options parsed =
-                po::command_line_parser((int)argv.size(), argv.data())
+                po::command_line_parser(args.vopts)
                         .style(po::command_line_style::default_style ^ po::command_line_style::allow_guessing)
                         .options(vopt_desc)
                         .run();
