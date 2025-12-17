@@ -206,12 +206,12 @@ void GateMateImpl::notifyPipChange(PipId pip, NetInfo *net)
         return;
 
     if (net) { // bind
-        //printf("BIND [%s] %s -> %s\n",ctx->getPipName(pip)[0].c_str(ctx),ctx->getPipName(pip)[2].c_str(ctx),ctx->getPipName(pip)[1].c_str(ctx));
+        printf("BIND [%s] %s -> %s\n",ctx->getPipName(pip)[0].c_str(ctx),ctx->getPipName(pip)[2].c_str(ctx),ctx->getPipName(pip)[1].c_str(ctx));
 
         pip_data[pip.tile] |= extra_data.data;
         pip_mask[pip.tile] |= extra_data.mask;
     } else { //unbind 
-        //printf("UNBIND [%s] %s -> %s\n",ctx->getPipName(pip)[0].c_str(ctx),ctx->getPipName(pip)[2].c_str(ctx),ctx->getPipName(pip)[1].c_str(ctx));
+        log_error("UNBIND [%s] %s -> %s\n",ctx->getPipName(pip)[0].c_str(ctx),ctx->getPipName(pip)[2].c_str(ctx),ctx->getPipName(pip)[1].c_str(ctx));
         uint32_t data = 0;
         uint32_t mask = 0;
         for (auto &p : ctx->base_pip2net) {
@@ -365,9 +365,9 @@ bool GateMateImpl::checkPipAvail(PipId pip) const
 
     if (extra_data.type == PipExtra::PIP_EXTRA_MUX && extra_data.mask != 0) {
         if (pip_mask[pip.tile] & extra_data.mask) {
-            //printf("Checking [%s] %s -> %s  %08x %08x\n",ctx->getPipName(pip)[0].c_str(ctx),ctx->getPipName(pip)[2].c_str(ctx),ctx->getPipName(pip)[1].c_str(ctx), pip_mask[pip.tile], extra_data.mask);
+            printf("Checking [%s] %s -> %s  %08x %08x\n",ctx->getPipName(pip)[0].c_str(ctx),ctx->getPipName(pip)[2].c_str(ctx),ctx->getPipName(pip)[1].c_str(ctx), pip_mask[pip.tile], extra_data.mask);
             if ((pip_data[pip.tile] & extra_data.mask) != extra_data.data) {
-                //printf("Blocking [%s] %s -> %s\n",ctx->getPipName(pip)[0].c_str(ctx),ctx->getPipName(pip)[2].c_str(ctx),ctx->getPipName(pip)[1].c_str(ctx));
+                printf("Blocking [%s] %s -> %s\n",ctx->getPipName(pip)[0].c_str(ctx),ctx->getPipName(pip)[2].c_str(ctx),ctx->getPipName(pip)[1].c_str(ctx));
                 return false;
             }
         } else {
