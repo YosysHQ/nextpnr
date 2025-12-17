@@ -186,6 +186,45 @@ void GateMateImpl::init(Context *ctx)
     }
     if (!die_name.empty() && !found)
         log_error("Unable to select forced die '%s'.\n", die_name.c_str());
+
+
+    pip_data = std::vector<uint32_t>(ctx->getGridDimX() * ctx->getGridDimY());
+    pip_mask = std::vector<uint32_t>(ctx->getGridDimX() * ctx->getGridDimY());
+    for (int y = 0; y < ctx->getGridDimY(); y++) {
+        for (int x = 0; x < ctx->getGridDimX(); x++) {
+            int tile = y * ctx->getGridDimX() + x;
+            pip_data[tile] = 0;
+            pip_mask[tile] = 0;
+        }
+    }
+}
+
+void GateMateImpl::notifyPipChange(PipId pip, NetInfo *net)
+{
+    const auto &extra_data = *pip_extra_data(pip);
+    if (extra_data.type == PipExtra::PIP_EXTRA_MUX && extra_data.mask == 0)
+        return;
+
+    if (net) { // bind
+        //printf("BIND [%s] %s -> %s\n",ctx->getPipName(pip)[0].c_str(ctx),ctx->getPipName(pip)[2].c_str(ctx),ctx->getPipName(pip)[1].c_str(ctx));
+
+        pip_data[pip.tile] |= extra_data.data;
+        pip_mask[pip.tile] |= extra_data.mask;
+    } else { //unbind 
+        //printf("UNBIND [%s] %s -> %s\n",ctx->getPipName(pip)[0].c_str(ctx),ctx->getPipName(pip)[2].c_str(ctx),ctx->getPipName(pip)[1].c_str(ctx));
+        uint32_t data = 0;
+        uint32_t mask = 0;
+        for (auto &p : ctx->base_pip2net) {
+            if (p.first != pip && p.first.tile == pip.tile) {
+                data |= pip_data[pip.tile];
+                mask |= pip_mask[pip.tile];
+            }
+
+        }
+        pip_data[pip.tile] = data;
+        pip_mask[pip.tile] = mask;
+
+    }
 }
 
 bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
@@ -323,14 +362,27 @@ bool GateMateImpl::checkPipAvail(PipId pip) const
 {
     IdStringList names = ctx->getPipName(pip);
     const auto &extra_data = *pip_extra_data(pip);
-    if (extra_data.type == PipExtra::PIP_EXTRA_MUX 
+
+    if (extra_data.type == PipExtra::PIP_EXTRA_MUX && extra_data.mask != 0) {
+        if (pip_mask[pip.tile] & extra_data.mask) {
+            //printf("Checking [%s] %s -> %s  %08x %08x\n",ctx->getPipName(pip)[0].c_str(ctx),ctx->getPipName(pip)[2].c_str(ctx),ctx->getPipName(pip)[1].c_str(ctx), pip_mask[pip.tile], extra_data.mask);
+            if ((pip_data[pip.tile] & extra_data.mask) != extra_data.data) {
+                //printf("Blocking [%s] %s -> %s\n",ctx->getPipName(pip)[0].c_str(ctx),ctx->getPipName(pip)[2].c_str(ctx),ctx->getPipName(pip)[1].c_str(ctx));
+                return false;
+            }
+        } else {
+            //printf("Skipping [%s] %s -> %s\n",ctx->getPipName(pip)[0].c_str(ctx),ctx->getPipName(pip)[2].c_str(ctx),ctx->getPipName(pip)[1].c_str(ctx));
+        }
+    }
+
+    /*if (extra_data.type == PipExtra::PIP_EXTRA_MUX 
         && extra_data.value == 1
         && IdString(extra_data.name).in(ctx->id("LUT2_00"),ctx->id("LUT2_01"),ctx->id("LUT2_02"),ctx->id("LUT2_03"))) {
 
         //printf("%s %s %s\n", names[0].c_str(ctx), names[1].c_str(ctx), names[2].c_str(ctx));
         if (names[1].in(ctx->id("CPE.D0_00_int"),ctx->id("CPE.D0_01_int"),ctx->id("CPE.D0_02_int"),ctx->id("CPE.D0_03_int")))
             return false;
-    }
+    }*/
 
     if (extra_data.type != PipExtra::PIP_EXTRA_MUX || (extra_data.flags & MUX_ROUTING) == 0)
         return true;

@@ -56,6 +56,7 @@ struct GateMateImpl : HimbaechelAPI
     void expandBoundingBox(BoundingBox &bb) const override;
     bool checkPipAvail(PipId pip) const override;
     bool checkPipAvailForNet(PipId pip, const NetInfo *net) const override { return checkPipAvail(pip); };
+    void notifyPipChange(PipId pip, NetInfo *net) override;
 
     bool isBelLocationValid(BelId bel, bool explain_invalid = false) const override;
     delay_t estimateDelay(WireId src, WireId dst) const override;
@@ -109,7 +110,9 @@ struct GateMateImpl : HimbaechelAPI
     MultiDieStrategy strategy;
     dict<int, IdString> index_to_die;
     dict<IdString, int> die_to_index;
-
+    std::vector<uint32_t> pip_data;
+    std::vector<uint32_t> pip_mask;
+    
   private:
     bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
                            std::vector<std::pair<CellInfo *, BelId>> &placement) const;
