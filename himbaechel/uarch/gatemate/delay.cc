@@ -120,6 +120,10 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
     } else if (cell->type.in(id_CPE_MX4)) {
         return get_delay_from_tmg_db(ctx->idf("timing__MX4A_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
     } else if (cell->type.in(id_CPE_MULT)) {
+        if (toPort == id_CPOUT1)
+            return get_delay_from_tmg_db(ctx->id("timing_cpout_OUT1"), delay);
+        if (toPort == id_CPOUT2)
+            return get_delay_from_tmg_db(ctx->id("timing_cpout_OUT2"), delay);
         return get_delay_from_tmg_db(ctx->idf("timing__MULT_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
     } else if (cell->type.in(id_CPE_FF, id_CPE_LATCH, id_CPE_FF_L, id_CPE_FF_U)) {
         return false;
