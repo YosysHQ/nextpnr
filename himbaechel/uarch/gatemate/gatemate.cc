@@ -524,52 +524,52 @@ void GateMateImpl::postRoute()
             check_input(cell.second.get(), id_D1_01, false);
             check_input(cell.second.get(), id_D0_10, false);
             check_input(cell.second.get(), id_D1_10, false);
-            if (cfg.count(ctx->id("LUT2_11")) || cfg.count(ctx->id("LUT2_10"))) {
-                if (cfg.count(ctx->id("LUT2_11"))) { // lower
-                    if (cfg.count(ctx->id("LUT2_02")) && !cfg.count(ctx->id("LUT2_03"))) {
+            if (cfg.count(id_LUT2_11) || cfg.count(id_LUT2_10)) {
+                if (cfg.count(id_LUT2_11)) { // lower
+                    if (cfg.count(id_LUT2_02) && !cfg.count(id_LUT2_03)) {
                         // both inputs on 02
                         l00 = l10;    // config is now in 02
                         l10 = 0b1010; // LUT_D0 - we propagate only
-                    } else if (!cfg.count(ctx->id("LUT2_02")) && cfg.count(ctx->id("LUT2_03"))) {
+                    } else if (!cfg.count(id_LUT2_02) && cfg.count(id_LUT2_03)) {
                         // both inputs on 03
                         l01 = l10;    // config is now in 03
                         l10 = 0b1010; // LUT_D0 - we propagate only
                     } else {
                         // one input on 02, other on 03 (or LUT1)
-                        if (cfg.count(ctx->id("LUT2_02")))
+                        if (cfg.count(id_LUT2_02))
                             l00 = 0b1010; // LUT_D0 - we propagate only
-                        if (cfg.count(ctx->id("LUT2_03")))
+                        if (cfg.count(id_LUT2_03))
                             l01 = 0b1010; // LUT_D0 - we propagate only
                     }
 
-                    if (cfg.at(ctx->id("LUT2_11")) == 1)
+                    if (cfg.at(id_LUT2_11) == 1)
                         l10 = swap_lut2_inputs(l10);
-                    if (cfg.count(ctx->id("LUT2_02")) && (cfg.at(ctx->id("LUT2_02")) == 1))
+                    if (cfg.count(id_LUT2_02) && (cfg.at(id_LUT2_02) == 1))
                         l00 = swap_lut2_inputs(l00);
-                    if (cfg.count(ctx->id("LUT2_03")) && (cfg.at(ctx->id("LUT2_03")) == 1))
+                    if (cfg.count(id_LUT2_03) && (cfg.at(id_LUT2_03) == 1))
                         l01 = swap_lut2_inputs(l01);
                 } else { // upper part
-                    if (cfg.count(ctx->id("LUT2_00")) && !cfg.count(ctx->id("LUT2_01"))) {
+                    if (cfg.count(id_LUT2_00) && !cfg.count(id_LUT2_01)) {
                         // both inputs on 02
                         l00 = l10;    // config is now in 02
                         l10 = 0b1010; // LUT_D0 - we propagate only
-                    } else if (!cfg.count(ctx->id("LUT2_00")) && cfg.count(ctx->id("LUT2_01"))) {
+                    } else if (!cfg.count(id_LUT2_00) && cfg.count(id_LUT2_01)) {
                         // both inputs on 03
                         l01 = l10;    // config is now in 03
                         l10 = 0b1010; // LUT_D0 - we propagate only
                     } else {
                         // one input on 02, other on 03 (or LUT1)
-                        if (cfg.count(ctx->id("LUT2_00")))
+                        if (cfg.count(id_LUT2_00))
                             l00 = 0b1010; // LUT_D0 - we propagate only
-                        if (cfg.count(ctx->id("LUT2_01")))
+                        if (cfg.count(id_LUT2_01))
                             l01 = 0b1010; // LUT_D0 - we propagate only
                     }
 
-                    if (cfg.at(ctx->id("LUT2_10")) == 1)
+                    if (cfg.at(id_LUT2_10) == 1)
                         l10 = swap_lut2_inputs(l10);
-                    if (cfg.count(ctx->id("LUT2_00")) && (cfg.at(ctx->id("LUT2_00")) == 1))
+                    if (cfg.count(id_LUT2_00) && (cfg.at(id_LUT2_00) == 1))
                         l00 = swap_lut2_inputs(l00);
-                    if (cfg.count(ctx->id("LUT2_01")) && (cfg.at(ctx->id("LUT2_01")) == 1))
+                    if (cfg.count(id_LUT2_01) && (cfg.at(id_LUT2_01) == 1))
                         l01 = swap_lut2_inputs(l01);
                 }
                 cell.second->params[id_INIT_L00] = Property(l00, 4);
@@ -579,13 +579,13 @@ void GateMateImpl::postRoute()
                 cell.second->renamePort(id_D0_10, port_mapping[id_D0_10]);
                 cell.second->renamePort(id_D1_10, port_mapping[id_D1_10]);
             } else {
-                if (cfg.count(ctx->id("LUT2_00")) && cfg.at(ctx->id("LUT2_00")) == 1)
+                if (cfg.count(id_LUT2_00) && cfg.at(id_LUT2_00) == 1)
                     l00 = swap_lut2_inputs(l00);
-                if (cfg.count(ctx->id("LUT2_01")) && cfg.at(ctx->id("LUT2_01")) == 1)
+                if (cfg.count(id_LUT2_01) && cfg.at(id_LUT2_01) == 1)
                     l01 = swap_lut2_inputs(l01);
-                if (cfg.count(ctx->id("LUT2_02")) && cfg.at(ctx->id("LUT2_02")) == 1)
+                if (cfg.count(id_LUT2_02) && cfg.at(id_LUT2_02) == 1)
                     l00 = swap_lut2_inputs(l00);
-                if (cfg.count(ctx->id("LUT2_03")) && cfg.at(ctx->id("LUT2_03")) == 1)
+                if (cfg.count(id_LUT2_03) && cfg.at(id_LUT2_03) == 1)
                     l01 = swap_lut2_inputs(l01);
 
                 cell.second->params[id_INIT_L00] = Property(l00, 4);
@@ -616,13 +616,13 @@ void GateMateImpl::postRoute()
             check_input(cell.second.get(), id_D0_03, true);
             check_input(cell.second.get(), id_D1_03, true);
 
-            if (cfg.count(ctx->id("LUT2_00")) && cfg.at(ctx->id("LUT2_00")) == 1)
+            if (cfg.count(id_LUT2_00) && cfg.at(id_LUT2_00) == 1)
                 l00 = swap_lut2_inputs(l00);
-            if (cfg.count(ctx->id("LUT2_01")) && cfg.at(ctx->id("LUT2_01")) == 1)
+            if (cfg.count(id_LUT2_01) && cfg.at(id_LUT2_01) == 1)
                 l01 = swap_lut2_inputs(l01);
-            if (cfg.count(ctx->id("LUT2_02")) && cfg.at(ctx->id("LUT2_02")) == 1)
+            if (cfg.count(id_LUT2_02) && cfg.at(id_LUT2_02) == 1)
                 l02 = swap_lut2_inputs(l02);
-            if (cfg.count(ctx->id("LUT2_03")) && cfg.at(ctx->id("LUT2_03")) == 1)
+            if (cfg.count(id_LUT2_03) && cfg.at(id_LUT2_03) == 1)
                 l03 = swap_lut2_inputs(l03);
 
             cell.second->params[id_INIT_L00] = Property(l00, 4);

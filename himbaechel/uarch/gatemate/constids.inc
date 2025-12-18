@@ -2500,6 +2500,14 @@ X(2B)
 X(DIE)
 X(GATEMATE_DIE)
 
+// LUT permutation
+X(LUT2_00)
+X(LUT2_01)
+X(LUT2_02)
+X(LUT2_03)
+X(LUT2_10)
+X(LUT2_11)
+
 // Timing
 X(timing_ADDF2x_IN5_8_comb2)
 X(timing_CIN_C_CINI)
