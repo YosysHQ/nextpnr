@@ -449,7 +449,7 @@ void GateMateImpl::postRoute()
 
     dict<IdString, int> cfg;
     dict<IdString, IdString> port_mapping;
-    auto add_input = [&](IdString orig_port, IdString port, bool merged) {
+    auto add_input = [&](IdString orig_port, IdString port, bool merged) -> bool {
         static dict<IdString, IdString> convert_port = {
                 {ctx->id("CPE.IN1"), id_IN1},   {ctx->id("CPE.IN2"), id_IN2},  {ctx->id("CPE.IN3"), id_IN3},
                 {ctx->id("CPE.IN4"), id_IN4},   {ctx->id("CPE.IN5"), id_IN1},  {ctx->id("CPE.IN6"), id_IN2},
@@ -462,39 +462,23 @@ void GateMateImpl::postRoute()
                 {ctx->id("CPE.CINX"), id_CINX}, {ctx->id("CPE.PINX"), id_PINX}};
         if (convert_port.count(port)) {
             port_mapping.emplace(orig_port, merged ? convert_port_merged[port] : convert_port[port]);
+            return true;
         };
+        return false;
     };
     auto check_input = [&](CellInfo *cell, IdString port, bool merged) {
         if (cell->getPort(port)) {
             NetInfo *net = cell->getPort(port);
-            WireId pin_wire = ctx->getBelPinWire(cell->bel, port);
-            if (net->wires.count(pin_wire)) {
-                auto &p = net->wires.at(pin_wire);
-                WireId src = ctx->getPipSrcWire(p.pip);
-
-                const auto &extra_data = *pip_extra_data(p.pip);
-                if (extra_data.type == PipExtra::PIP_EXTRA_MUX) {
-                    cfg.emplace(IdString(extra_data.name), extra_data.value);
-                    add_input(port, ctx->getWireName(src)[1], merged);
-                }
-
+            WireId src = ctx->getBelPinWire(cell->bel, port);
+            for (int i = 0; i < 4; i++) {
                 if (net->wires.count(src)) {
                     auto &p = net->wires.at(src);
-                    WireId src = ctx->getPipSrcWire(p.pip);
+                    src = ctx->getPipSrcWire(p.pip);
                     const auto &extra_data = *pip_extra_data(p.pip);
                     if (extra_data.type == PipExtra::PIP_EXTRA_MUX) {
                         cfg.emplace(IdString(extra_data.name), extra_data.value);
-                        add_input(port, ctx->getWireName(src)[1], merged);
-                    }
-
-                    if (net->wires.count(src)) {
-                        auto &p = net->wires.at(src);
-                        WireId src = ctx->getPipSrcWire(p.pip);
-                        const auto &extra_data = *pip_extra_data(p.pip);
-                        if (extra_data.type == PipExtra::PIP_EXTRA_MUX) {
-                            cfg.emplace(IdString(extra_data.name), extra_data.value);
-                            add_input(port, ctx->getWireName(src)[1], merged);
-                        }
+                        if (add_input(port, ctx->getWireName(src)[1], merged))
+                            break;
                     }
                 }
             }
@@ -597,6 +581,14 @@ void GateMateImpl::postRoute()
                 cell.second->renamePort(id_D0_01, port_mapping[id_D0_01]);
                 cell.second->renamePort(id_D1_01, port_mapping[id_D1_01]);
             }
+            if (cfg.count(id_C_I1) && cfg.at(id_C_I1) == 1)
+                cell.second->params[id_C_I1] = Property(1, 1);
+            if (cfg.count(id_C_I2) && cfg.at(id_C_I2) == 1)
+                cell.second->params[id_C_I2] = Property(1, 1);
+            if (cfg.count(id_C_I3) && cfg.at(id_C_I3) == 1)
+                cell.second->params[id_C_I3] = Property(1, 1);
+            if (cfg.count(id_C_I4) && cfg.at(id_C_I4) == 1)
+                cell.second->params[id_C_I4] = Property(1, 1);
         }
         if (cell.second->type.in(id_CPE_MX4, id_CPE_ADDF, id_CPE_ADDF2)) {
             cfg.clear();
@@ -638,6 +630,15 @@ void GateMateImpl::postRoute()
             cell.second->renamePort(id_D1_02, port_mapping[id_D1_02]);
             cell.second->renamePort(id_D0_03, port_mapping[id_D0_03]);
             cell.second->renamePort(id_D1_03, port_mapping[id_D1_03]);
+
+            if (cfg.count(id_C_I1) && cfg.at(id_C_I1) == 1)
+                cell.second->params[id_C_I1] = Property(1, 1);
+            if (cfg.count(id_C_I2) && cfg.at(id_C_I2) == 1)
+                cell.second->params[id_C_I2] = Property(1, 1);
+            if (cfg.count(id_C_I3) && cfg.at(id_C_I3) == 1)
+                cell.second->params[id_C_I3] = Property(1, 1);
+            if (cfg.count(id_C_I4) && cfg.at(id_C_I4) == 1)
+                cell.second->params[id_C_I4] = Property(1, 1);
         }
     }
     ctx->assignArchInfo();
