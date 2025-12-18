@@ -446,7 +446,7 @@ void GateMateImpl::postRoute()
             }
         }
     }
-    log_info("Check CPEs..\n");
+
     dict<IdString, int> cfg;
     dict<IdString, IdString> port_mapping;
     auto add_input = [&](IdString orig_port, IdString port, bool merged) {
@@ -508,6 +508,7 @@ void GateMateImpl::postRoute()
                ((lut & 0b0001));       // b0 -> bit 0
     };
 
+    log_info("Update configuration based on routing..\n");
     for (auto &cell : ctx->cells) {
         if (cell.second->type.in(id_CPE_L2T4)) {
             cfg.clear();
@@ -596,14 +597,6 @@ void GateMateImpl::postRoute()
                 cell.second->renamePort(id_D0_01, port_mapping[id_D0_01]);
                 cell.second->renamePort(id_D1_01, port_mapping[id_D1_01]);
             }
-            if (cfg.count(ctx->id("CPE.C_I1")))
-                cell.second->params[id_C_I1] = Property(1, 1);
-            if (cfg.count(ctx->id("CPE.C_I2")))
-                cell.second->params[id_C_I2] = Property(1, 1);
-            if (cfg.count(ctx->id("CPE.C_I3")))
-                cell.second->params[id_C_I3] = Property(1, 1);
-            if (cfg.count(ctx->id("CPE.C_I4")))
-                cell.second->params[id_C_I4] = Property(1, 1);
         }
         if (cell.second->type.in(id_CPE_MX4, id_CPE_ADDF, id_CPE_ADDF2)) {
             cfg.clear();
