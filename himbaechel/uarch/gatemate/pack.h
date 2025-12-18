@@ -85,6 +85,7 @@ struct GateMatePacker
 
     void disconnect_not_used();
     void optimize_lut();
+    void optimize_lut2(CellInfo &ci, IdString i0, IdString i1, IdString init);
     void optimize_mx();
     void optimize_ff();
     void count_cell(CellInfo &ci);

@@ -238,15 +238,14 @@ void GateMatePacker::pack_cpe()
                 if (ci.type == id_CC_LUT1)
                     val = val << 2 | val;
                 ci.params[id_INIT_L10] = Property(val, 4);
-                //ci.params[id_INIT_L00] = Property(val, 4);
+                // ci.params[id_INIT_L00] = Property(val, 4);
                 ci.unsetParam(id_INIT);
-                //ci.params[id_INIT_L10] = Property(LUT_D0, 4);
+                // ci.params[id_INIT_L10] = Property(LUT_D0, 4);
             } else {
                 ci.renamePort(id_I0, id_D0_00);
                 ci.renamePort(id_I1, id_D1_00);
                 ci.renamePort(id_I2, id_D0_01);
                 ci.renamePort(id_I3, id_D1_01);
-
             }
             ci.type = id_CPE_L2T4;
         }
@@ -303,7 +302,7 @@ void GateMatePacker::pack_cpe()
         upper->constr_abs_z = true;
         upper->constr_z = CPE_LT_U_Z;
         ci->movePortTo(id_I4, upper, id_D0_10);
-        //upper->params[id_INIT_L00] = Property(LUT_D0, 4);
+        // upper->params[id_INIT_L00] = Property(LUT_D0, 4);
         upper->params[id_INIT_L10] = Property(LUT_D0, 4);
         ci->constr_children.push_back(upper);
 
@@ -817,7 +816,6 @@ std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_o(CellInfo *cell, IdS
             cpe_half->params[id_INIT_L10] = Property(LUT_D0, 4);
             cell->movePortTo(origPort, cpe_half, id_D0_10);
         }
-        
 
         cpe_ramio->params[id_C_RAM_O] = Property(1, 1);
         NetInfo *ram_o = ctx->createNet(ctx->idf("%s$ram_o", cpe_half->name.c_str(ctx)));

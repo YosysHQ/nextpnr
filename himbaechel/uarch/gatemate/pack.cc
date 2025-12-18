@@ -145,31 +145,69 @@ inline int lut2_apply_constant_inputs(int init, int d0_const, int d1_const)
         int D0 = (i >> 0) & 1;
 
         // Apply constants if present
-        if (d0_const != -1) D0 = d0_const;
-        if (d1_const != -1) D1 = d1_const;
+        if (d0_const != -1)
+            D0 = d0_const;
+        if (d1_const != -1)
+            D1 = d1_const;
 
         int src = (D1 << 1) | D0;
-        out[i] =
-            (src == 0) ? b0 :
-            (src == 1) ? b1 :
-            (src == 2) ? b2 :
-                         b3;
+        out[i] = (src == 0) ? b0 : (src == 1) ? b1 : (src == 2) ? b2 : b3;
     }
 
     return (out[3] << 3) | (out[2] << 2) | (out[1] << 1) | out[0];
 }
 
-void GateMatePacker::optimize_lut()
+void GateMatePacker::optimize_lut2(CellInfo &ci, IdString i0, IdString i1, IdString init)
 {
     auto lut2_same_inputs = [&](int lut) -> int {
-        int b0 =  lut        & 1;      // bit 0
-        int b3 = (lut >> 3) & 1;      // bit 3
+        int b0 = lut & 1;        // bit 0
+        int b3 = (lut >> 3) & 1; // bit 3
 
         return (b3 << 3) | (b3 << 2) | (b0 << 1) | b0;
     };
 
+    uint8_t val = int_or_default(ci.params, init, 0);
+    int d0_const = -1;
+    int d1_const = -1;
+    if (ci.getPort(i0) && ci.getPort(i0) == net_PACKER_GND) {
+        d0_const = 0;
+        ci.disconnectPort(i0);
+    }
+    if (ci.getPort(i0) && ci.getPort(i0) == net_PACKER_VCC) {
+        d0_const = 1;
+        ci.disconnectPort(i0);
+    }
+    if (ci.getPort(i1) && ci.getPort(i1) == net_PACKER_GND) {
+        d1_const = 0;
+        ci.disconnectPort(i1);
+    }
+    if (ci.getPort(i1) && ci.getPort(i1) == net_PACKER_VCC) {
+        d1_const = 1;
+        ci.disconnectPort(i1);
+    }
+
+    val = lut2_apply_constant_inputs(val, d0_const, d1_const);
+
+    if (ci.getPort(i0) == ci.getPort(i1)) {
+        val = lut2_same_inputs(val);
+        ci.params[init] = Property(val, 4);
+        ci.disconnectPort(i1);
+    }
+}
+
+void GateMatePacker::optimize_lut()
+{
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
+        if (ci.type == id_CC_LUT2) {
+            optimize_lut2(ci, id_I0, id_I1, id_INIT);
+        } else if (ci.type == id_CC_L2T4) {
+            optimize_lut2(ci, id_I0, id_I1, id_INIT_L00);
+            optimize_lut2(ci, id_I2, id_I3, id_INIT_L01);
+        } else if (ci.type == id_CC_L2T5) {
+            optimize_lut2(ci, id_I0, id_I1, id_INIT_L02);
+            optimize_lut2(ci, id_I2, id_I3, id_INIT_L03);
+        }
         if (!ci.type.in(id_CC_LUT1, id_CC_LUT2))
             continue;
         if (ci.attrs.count(ctx->id("keep")))
@@ -183,23 +221,6 @@ void GateMatePacker::optimize_lut()
         uint8_t val = int_or_default(ci.params, id_INIT, 0);
         if (ci.type == id_CC_LUT1)
             val = val << 2 | val;
-        else {
-            int d0_const = -1;
-            int d1_const = -1;
-            if (ci.getPort(id_I0) &&  ci.getPort(id_I0)==net_PACKER_GND) { d0_const = 0; ci.disconnectPort(id_I0); } 
-            if (ci.getPort(id_I0) &&  ci.getPort(id_I0)==net_PACKER_VCC) { d0_const = 1; ci.disconnectPort(id_I0); } 
-            if (ci.getPort(id_I1) &&  ci.getPort(id_I1)==net_PACKER_GND) { d1_const = 0; ci.disconnectPort(id_I1); } 
-            if (ci.getPort(id_I1) &&  ci.getPort(id_I1)==net_PACKER_VCC) { d1_const = 1; ci.disconnectPort(id_I1); } 
-
-            val = lut2_apply_constant_inputs(val, d0_const, d1_const);
-            
-            if (ci.getPort(id_I0)==ci.getPort(id_I1)) {
-                printf("LUT2 with same inputs %s\n",ci.name.c_str(ctx));
-                val = lut2_same_inputs(val);
-                ci.params[id_INIT] = Property(val,4);
-                ci.disconnectPort(id_I1);
-            }
-        }
         switch (val) {
         case LUT_ZERO: // constant 0
             move_connections(o_net, net_PACKER_GND);
@@ -361,7 +382,6 @@ void GateMatePacker::repack_cpe()
                 if (!cell.second->params.count(id_INIT_L20))
                     cell.second->params[id_INIT_L20] = Property(LUT_D1, 4);
                 if (cell.second->getPort(id_D0_10)) {
-                    
                 }
             }
             cell.second->params[id_L2T4_UPPER] = Property((l.z == CPE_LT_U_Z) ? 1 : 0, 1);
@@ -379,7 +399,6 @@ void GateMatePacker::repack_cpe()
             cell.second->renamePort(id_D1_01, id_D1_03);
             cell.second->renamePort(id_D0_10, id_D0_11);
             cell.second->renamePort(id_D1_10, id_D1_11);
-
 
             cell.second->renamePort(id_IN1, id_IN5);
             cell.second->renamePort(id_IN2, id_IN6);
