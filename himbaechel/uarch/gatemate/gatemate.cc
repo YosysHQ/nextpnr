@@ -470,6 +470,7 @@ void GateMateImpl::postRoute()
         if (cell->getPort(port)) {
             NetInfo *net = cell->getPort(port);
             WireId src = ctx->getBelPinWire(cell->bel, port);
+            // In current chip db real CPE input is max 4 pips away
             for (int i = 0; i < 4; i++) {
                 if (net->wires.count(src)) {
                     auto &p = net->wires.at(src);
