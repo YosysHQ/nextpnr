@@ -560,7 +560,7 @@ void GateMatePacker::pack_io_sel()
                     int die = uarch->tile_extra_data(ci.bel.tile)->die;
                     auto [cpe_half, cpe_ramio] = ddr[die][pad->pad_bank];
                     if (cpe_half) {
-                        if (cpe_half->getPort(id_IN1) != oddr->getPort(id_DDR))
+                        if (cpe_half->getPort(id_D0_10) != oddr->getPort(id_DDR))
                             log_error("DDR port use signal different than already occupied DDR source.\n");
                         ci.addInput(id_DDR);
                         ci.connectPort(id_DDR, cpe_ramio->getPort(id_RAM_O));
@@ -568,7 +568,7 @@ void GateMatePacker::pack_io_sel()
                         auto l = reinterpret_cast<const GateMatePadExtraDataPOD *>(pad->extra_data.get());
                         oddr->movePortTo(id_DDR, &ci, id_DDR);
                         ddr[die][pad->pad_bank] = move_ram_o(&ci, id_DDR, false, Loc(l->x, l->y, l->z));
-                        uarch->ddr_nets.insert(ddr[die][pad->pad_bank].first->getPort(id_IN1)->name);
+                        uarch->ddr_nets.insert(ddr[die][pad->pad_bank].first->getPort(id_D0_10)->name);
                     }
                     use_custom_clock = set_out_clk(oddr, &ci);
                     bool invert = bool_or_default(oddr->params, id_CLK_INV, 0);

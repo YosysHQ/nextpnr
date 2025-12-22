@@ -447,6 +447,201 @@ void GateMateImpl::postRoute()
         }
     }
 
+    dict<IdString, int> cfg;
+    dict<IdString, IdString> port_mapping;
+    auto add_input = [&](IdString orig_port, IdString port, bool merged) -> bool {
+        static dict<IdString, IdString> convert_port = {
+                {ctx->id("CPE.IN1"), id_IN1},   {ctx->id("CPE.IN2"), id_IN2},  {ctx->id("CPE.IN3"), id_IN3},
+                {ctx->id("CPE.IN4"), id_IN4},   {ctx->id("CPE.IN5"), id_IN1},  {ctx->id("CPE.IN6"), id_IN2},
+                {ctx->id("CPE.IN7"), id_IN3},   {ctx->id("CPE.IN8"), id_IN4},  {ctx->id("CPE.PINY1"), id_PINY1},
+                {ctx->id("CPE.CINX"), id_CINX}, {ctx->id("CPE.PINX"), id_PINX}};
+        static dict<IdString, IdString> convert_port_merged = {
+                {ctx->id("CPE.IN1"), id_IN1},   {ctx->id("CPE.IN2"), id_IN2},  {ctx->id("CPE.IN3"), id_IN3},
+                {ctx->id("CPE.IN4"), id_IN4},   {ctx->id("CPE.IN5"), id_IN5},  {ctx->id("CPE.IN6"), id_IN6},
+                {ctx->id("CPE.IN7"), id_IN7},   {ctx->id("CPE.IN8"), id_IN8},  {ctx->id("CPE.PINY1"), id_PINY1},
+                {ctx->id("CPE.CINX"), id_CINX}, {ctx->id("CPE.PINX"), id_PINX}};
+        if (convert_port.count(port)) {
+            port_mapping.emplace(orig_port, merged ? convert_port_merged[port] : convert_port[port]);
+            return true;
+        };
+        return false;
+    };
+    auto check_input = [&](CellInfo *cell, IdString port, bool merged) {
+        if (cell->getPort(port)) {
+            NetInfo *net = cell->getPort(port);
+            WireId src = ctx->getBelPinWire(cell->bel, port);
+            // In current chip db real CPE input is max 4 pips away
+            for (int i = 0; i < 4; i++) {
+                if (net->wires.count(src)) {
+                    auto &p = net->wires.at(src);
+                    src = ctx->getPipSrcWire(p.pip);
+                    const auto &extra_data = *pip_extra_data(p.pip);
+                    if (extra_data.type == PipExtra::PIP_EXTRA_MUX) {
+                        cfg.emplace(IdString(extra_data.name), extra_data.value);
+                        if (add_input(port, ctx->getWireName(src)[1], merged))
+                            break;
+                    }
+                }
+            }
+        }
+    };
+    auto swap_lut2_inputs = [&](int lut) -> int {
+        // bit permutation: [3,1,2,0]
+        return ((lut & 0b1000)) |      // b3 -> bit 3
+               ((lut & 0b0010) << 1) | // b1 -> bit 2
+               ((lut & 0b0100) >> 1) | // b2 -> bit 1
+               ((lut & 0b0001));       // b0 -> bit 0
+    };
+
+    log_info("Update configuration based on routing..\n");
+    for (auto &cell : ctx->cells) {
+        if (cell.second->type.in(id_CPE_L2T4)) {
+            cfg.clear();
+            port_mapping.clear();
+
+            int l00 = int_or_default(cell.second->params, id_INIT_L00, 0);
+            int l01 = int_or_default(cell.second->params, id_INIT_L01, 0);
+            int l10 = int_or_default(cell.second->params, id_INIT_L10, 0);
+
+            check_input(cell.second.get(), id_D0_00, false);
+            check_input(cell.second.get(), id_D1_00, false);
+            check_input(cell.second.get(), id_D0_01, false);
+            check_input(cell.second.get(), id_D1_01, false);
+            check_input(cell.second.get(), id_D0_10, false);
+            check_input(cell.second.get(), id_D1_10, false);
+            if (cfg.count(id_LUT2_11) || cfg.count(id_LUT2_10)) {
+                if (cfg.count(id_LUT2_11)) { // lower
+                    if (cfg.count(id_LUT2_02) && !cfg.count(id_LUT2_03)) {
+                        // both inputs on 02
+                        l00 = l10;    // config is now in 02
+                        l10 = 0b1010; // LUT_D0 - we propagate only
+                    } else if (!cfg.count(id_LUT2_02) && cfg.count(id_LUT2_03)) {
+                        // both inputs on 03
+                        l01 = l10;    // config is now in 03
+                        l10 = 0b1010; // LUT_D0 - we propagate only
+                    } else {
+                        // one input on 02, other on 03 (or LUT1)
+                        if (cfg.count(id_LUT2_02))
+                            l00 = 0b1010; // LUT_D0 - we propagate only
+                        if (cfg.count(id_LUT2_03))
+                            l01 = 0b1010; // LUT_D0 - we propagate only
+                    }
+
+                    if (cfg.at(id_LUT2_11) == 1)
+                        l10 = swap_lut2_inputs(l10);
+                    if (cfg.count(id_LUT2_02) && (cfg.at(id_LUT2_02) == 1))
+                        l00 = swap_lut2_inputs(l00);
+                    if (cfg.count(id_LUT2_03) && (cfg.at(id_LUT2_03) == 1))
+                        l01 = swap_lut2_inputs(l01);
+                } else { // upper part
+                    if (cfg.count(id_LUT2_00) && !cfg.count(id_LUT2_01)) {
+                        // both inputs on 02
+                        l00 = l10;    // config is now in 02
+                        l10 = 0b1010; // LUT_D0 - we propagate only
+                    } else if (!cfg.count(id_LUT2_00) && cfg.count(id_LUT2_01)) {
+                        // both inputs on 03
+                        l01 = l10;    // config is now in 03
+                        l10 = 0b1010; // LUT_D0 - we propagate only
+                    } else {
+                        // one input on 02, other on 03 (or LUT1)
+                        if (cfg.count(id_LUT2_00))
+                            l00 = 0b1010; // LUT_D0 - we propagate only
+                        if (cfg.count(id_LUT2_01))
+                            l01 = 0b1010; // LUT_D0 - we propagate only
+                    }
+
+                    if (cfg.at(id_LUT2_10) == 1)
+                        l10 = swap_lut2_inputs(l10);
+                    if (cfg.count(id_LUT2_00) && (cfg.at(id_LUT2_00) == 1))
+                        l00 = swap_lut2_inputs(l00);
+                    if (cfg.count(id_LUT2_01) && (cfg.at(id_LUT2_01) == 1))
+                        l01 = swap_lut2_inputs(l01);
+                }
+                cell.second->params[id_INIT_L00] = Property(l00, 4);
+                cell.second->params[id_INIT_L01] = Property(l01, 4);
+                cell.second->params[id_INIT_L10] = Property(l10, 4);
+
+                cell.second->renamePort(id_D0_10, port_mapping[id_D0_10]);
+                cell.second->renamePort(id_D1_10, port_mapping[id_D1_10]);
+            } else {
+                if (cfg.count(id_LUT2_00) && cfg.at(id_LUT2_00) == 1)
+                    l00 = swap_lut2_inputs(l00);
+                if (cfg.count(id_LUT2_01) && cfg.at(id_LUT2_01) == 1)
+                    l01 = swap_lut2_inputs(l01);
+                if (cfg.count(id_LUT2_02) && cfg.at(id_LUT2_02) == 1)
+                    l00 = swap_lut2_inputs(l00);
+                if (cfg.count(id_LUT2_03) && cfg.at(id_LUT2_03) == 1)
+                    l01 = swap_lut2_inputs(l01);
+
+                cell.second->params[id_INIT_L00] = Property(l00, 4);
+                cell.second->params[id_INIT_L01] = Property(l01, 4);
+                cell.second->params[id_INIT_L10] = Property(l10, 4);
+
+                cell.second->renamePort(id_D0_00, port_mapping[id_D0_00]);
+                cell.second->renamePort(id_D1_00, port_mapping[id_D1_00]);
+                cell.second->renamePort(id_D0_01, port_mapping[id_D0_01]);
+                cell.second->renamePort(id_D1_01, port_mapping[id_D1_01]);
+            }
+            if (cfg.count(id_C_I1) && cfg.at(id_C_I1) == 1)
+                cell.second->params[id_C_I1] = Property(1, 1);
+            if (cfg.count(id_C_I2) && cfg.at(id_C_I2) == 1)
+                cell.second->params[id_C_I2] = Property(1, 1);
+            if (cfg.count(id_C_I3) && cfg.at(id_C_I3) == 1)
+                cell.second->params[id_C_I3] = Property(1, 1);
+            if (cfg.count(id_C_I4) && cfg.at(id_C_I4) == 1)
+                cell.second->params[id_C_I4] = Property(1, 1);
+        }
+        if (cell.second->type.in(id_CPE_MX4, id_CPE_ADDF, id_CPE_ADDF2)) {
+            cfg.clear();
+            port_mapping.clear();
+
+            int l00 = int_or_default(cell.second->params, id_INIT_L00, 0);
+            int l01 = int_or_default(cell.second->params, id_INIT_L01, 0);
+            int l02 = int_or_default(cell.second->params, id_INIT_L02, 0);
+            int l03 = int_or_default(cell.second->params, id_INIT_L03, 0);
+
+            check_input(cell.second.get(), id_D0_00, true);
+            check_input(cell.second.get(), id_D1_00, true);
+            check_input(cell.second.get(), id_D0_01, true);
+            check_input(cell.second.get(), id_D1_01, true);
+            check_input(cell.second.get(), id_D0_02, true);
+            check_input(cell.second.get(), id_D1_02, true);
+            check_input(cell.second.get(), id_D0_03, true);
+            check_input(cell.second.get(), id_D1_03, true);
+
+            if (cfg.count(id_LUT2_00) && cfg.at(id_LUT2_00) == 1)
+                l00 = swap_lut2_inputs(l00);
+            if (cfg.count(id_LUT2_01) && cfg.at(id_LUT2_01) == 1)
+                l01 = swap_lut2_inputs(l01);
+            if (cfg.count(id_LUT2_02) && cfg.at(id_LUT2_02) == 1)
+                l02 = swap_lut2_inputs(l02);
+            if (cfg.count(id_LUT2_03) && cfg.at(id_LUT2_03) == 1)
+                l03 = swap_lut2_inputs(l03);
+
+            cell.second->params[id_INIT_L00] = Property(l00, 4);
+            cell.second->params[id_INIT_L01] = Property(l01, 4);
+            cell.second->params[id_INIT_L02] = Property(l02, 4);
+            cell.second->params[id_INIT_L03] = Property(l03, 4);
+
+            cell.second->renamePort(id_D0_00, port_mapping[id_D0_00]);
+            cell.second->renamePort(id_D1_00, port_mapping[id_D1_00]);
+            cell.second->renamePort(id_D0_01, port_mapping[id_D0_01]);
+            cell.second->renamePort(id_D1_01, port_mapping[id_D1_01]);
+            cell.second->renamePort(id_D0_02, port_mapping[id_D0_02]);
+            cell.second->renamePort(id_D1_02, port_mapping[id_D1_02]);
+            cell.second->renamePort(id_D0_03, port_mapping[id_D0_03]);
+            cell.second->renamePort(id_D1_03, port_mapping[id_D1_03]);
+
+            if (cfg.count(id_C_I1) && cfg.at(id_C_I1) == 1)
+                cell.second->params[id_C_I1] = Property(1, 1);
+            if (cfg.count(id_C_I2) && cfg.at(id_C_I2) == 1)
+                cell.second->params[id_C_I2] = Property(1, 1);
+            if (cfg.count(id_C_I3) && cfg.at(id_C_I3) == 1)
+                cell.second->params[id_C_I3] = Property(1, 1);
+            if (cfg.count(id_C_I4) && cfg.at(id_C_I4) == 1)
+                cell.second->params[id_C_I4] = Property(1, 1);
+        }
+    }
     ctx->assignArchInfo();
 
     const ArchArgs &args = ctx->args;

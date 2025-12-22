@@ -90,14 +90,20 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
 {
     delay = DelayQuad{0};
     static dict<IdString, IdString> map_upper = {
-            {id_OUT, id_OUT2},
-            {id_RAM_O, id_RAM_O2},
-            {id_RAM_I, id_RAM_I2},
-            {id_CPOUT, id_CPOUT2},
+            {id_D0_00, id_IN1}, {id_D1_00, id_IN2}, {id_D0_01, id_IN3},    {id_D1_01, id_IN4},    {id_D0_10, id_IN1},
+            {id_D1_10, id_IN3}, {id_OUT, id_OUT2},  {id_RAM_O, id_RAM_O2}, {id_RAM_I, id_RAM_I2}, {id_CPOUT, id_CPOUT2},
     };
     static dict<IdString, IdString> map_lower = {
-            {id_OUT, id_OUT1}, {id_RAM_O, id_RAM_O1}, {id_RAM_I, id_RAM_I1}, {id_CPOUT, id_CPOUT1},
-            {id_IN1, id_IN5},  {id_IN2, id_IN6},      {id_IN3, id_IN7},      {id_IN4, id_IN8},
+            {id_D0_00, id_IN5},    {id_D1_00, id_IN6}, {id_D0_01, id_IN7}, {id_D1_01, id_IN8},    {id_D0_10, id_IN5},
+            {id_D1_10, id_IN7},    {id_D0_02, id_IN5}, {id_D1_02, id_IN6}, {id_D0_03, id_IN7},    {id_D1_03, id_IN8},
+            {id_D0_11, id_IN5},    {id_D1_11, id_IN7}, {id_OUT, id_OUT1},  {id_RAM_O, id_RAM_O1}, {id_RAM_I, id_RAM_I1},
+            {id_CPOUT, id_CPOUT1}, {id_IN1, id_IN5},   {id_IN2, id_IN6},   {id_IN3, id_IN7},      {id_IN4, id_IN8},
+    };
+
+    static dict<IdString, IdString> map_both = {
+            {id_D0_00, id_IN1}, {id_D1_00, id_IN2}, {id_D0_01, id_IN3}, {id_D1_01, id_IN4},
+            {id_D0_10, id_IN1}, {id_D1_10, id_IN3}, {id_D0_02, id_IN5}, {id_D1_02, id_IN6},
+            {id_D0_03, id_IN7}, {id_D1_03, id_IN8}, {id_D0_11, id_IN5}, {id_D1_11, id_IN7},
     };
 
     int z = (cell->bel != BelId()) ? (ctx->getBelLocation(cell->bel).z % 2) : 0;
@@ -116,9 +122,19 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
         }
         return get_delay_from_tmg_db(ctx->idf("timing__ARBLUT_%s_%s", fp.c_str(ctx), tp.c_str(ctx)), delay);
     } else if (cell->type.in(id_CPE_ADDF, id_CPE_ADDF2)) {
-        return get_delay_from_tmg_db(ctx->idf("timing__ADDF2Y1_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
+        IdString fp = fromPort, tp = toPort;
+        if (map_both.count(fp))
+            fp = map_both[fp];
+        if (map_both.count(tp))
+            tp = map_both[tp];
+        return get_delay_from_tmg_db(ctx->idf("timing__ADDF2Y1_%s_%s", fp.c_str(ctx), tp.c_str(ctx)), delay);
     } else if (cell->type.in(id_CPE_MX4)) {
-        return get_delay_from_tmg_db(ctx->idf("timing__MX4A_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay);
+        IdString fp = fromPort, tp = toPort;
+        if (map_both.count(fp))
+            fp = map_both[fp];
+        if (map_both.count(tp))
+            tp = map_both[tp];
+        return get_delay_from_tmg_db(ctx->idf("timing__MX4A_%s_%s", fp.c_str(ctx), tp.c_str(ctx)), delay);
     } else if (cell->type.in(id_CPE_MULT)) {
         if (toPort == id_CPOUT1)
             return get_delay_from_tmg_db(ctx->id("timing_cpout_OUT1"), delay);
@@ -187,22 +203,29 @@ TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString 
     auto disconnected = [cell](IdString p) { return !cell->ports.count(p) || cell->ports.at(p).net == nullptr; };
     clockInfoCount = 0;
     if (cell->type.in(id_CPE_L2T4, id_CPE_LT_L, id_CPE_LT_U)) {
-        if (port.in(id_IN1, id_IN2, id_IN3, id_IN4, id_COMBIN, id_CINY1, id_CINY2, id_CINX, id_PINX))
+        if (port.in(id_IN1, id_IN2, id_IN3, id_IN4, id_COMBIN, id_CINY1, id_CINY2, id_CINX, id_PINX, id_D0_00, id_D1_00,
+                    id_D0_01, id_D1_01, id_D0_10, id_D1_10, id_D0_02, id_D1_02, id_D0_03, id_D1_03, id_D0_11, id_D1_11))
             return TMG_COMB_INPUT;
         if (port == id_OUT && disconnected(id_IN1) && disconnected(id_IN2) && disconnected(id_IN3) &&
-            disconnected(id_IN4))
+            disconnected(id_IN4) && disconnected(id_D0_00) && disconnected(id_D1_00) && disconnected(id_D0_01) &&
+            disconnected(id_D1_01) && disconnected(id_D0_10) && disconnected(id_D1_10) && disconnected(id_D0_02) &&
+            disconnected(id_D1_02) && disconnected(id_D0_03) && disconnected(id_D1_03) && disconnected(id_D0_11) &&
+            disconnected(id_D1_11))
             return TMG_IGNORE; // LUT with no inputs is a constant
         if (port.in(id_OUT))
             return TMG_COMB_OUTPUT;
         return TMG_IGNORE;
     } else if (cell->type.in(id_CPE_ADDF, id_CPE_ADDF2)) {
-        if (port.in(id_IN1, id_IN2, id_IN3, id_IN4, id_IN5, id_IN6, id_IN7, id_IN8, id_CINX, id_CINY1))
+        if (port.in(id_IN1, id_IN2, id_IN3, id_IN4, id_IN5, id_IN6, id_IN7, id_IN8, id_CINX, id_CINY1, id_D0_00,
+                    id_D1_00, id_D0_01, id_D1_01, id_D0_10, id_D1_10, id_D0_02, id_D1_02, id_D0_03, id_D1_03, id_D0_11,
+                    id_D1_11))
             return TMG_COMB_INPUT;
         if (port.in(id_OUT1, id_OUT2, id_COUTY1))
             return TMG_COMB_OUTPUT;
         return TMG_IGNORE;
     } else if (cell->type.in(id_CPE_MX4)) {
-        if (port.in(id_IN1, id_IN2, id_IN3, id_IN4, id_IN5, id_IN6, id_IN7, id_IN8))
+        if (port.in(id_IN1, id_IN2, id_IN3, id_IN4, id_IN5, id_IN6, id_IN7, id_IN8, id_D0_00, id_D1_00, id_D0_01,
+                    id_D1_01, id_D0_10, id_D1_10, id_D0_02, id_D1_02, id_D0_03, id_D1_03, id_D0_11, id_D1_11))
             return TMG_COMB_INPUT;
         if (port.in(id_OUT1))
             return TMG_COMB_OUTPUT;

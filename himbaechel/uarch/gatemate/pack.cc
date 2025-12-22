@@ -131,10 +131,83 @@ void GateMatePacker::count_cell(CellInfo &ci)
     count++;
 }
 
+inline int lut2_apply_constant_inputs(int init, int d0_const, int d1_const)
+{
+    int b0 = (init >> 0) & 1;
+    int b1 = (init >> 1) & 1;
+    int b2 = (init >> 2) & 1;
+    int b3 = (init >> 3) & 1;
+
+    int out[4];
+
+    for (int i = 0; i < 4; i++) {
+        int D1 = (i >> 1) & 1;
+        int D0 = (i >> 0) & 1;
+
+        // Apply constants if present
+        if (d0_const != -1)
+            D0 = d0_const;
+        if (d1_const != -1)
+            D1 = d1_const;
+
+        int src = (D1 << 1) | D0;
+        out[i] = (src == 0) ? b0 : (src == 1) ? b1 : (src == 2) ? b2 : b3;
+    }
+
+    return (out[3] << 3) | (out[2] << 2) | (out[1] << 1) | out[0];
+}
+
+void GateMatePacker::optimize_lut2(CellInfo &ci, IdString i0, IdString i1, IdString init)
+{
+    auto lut2_same_inputs = [&](int lut) -> int {
+        int b0 = lut & 1;        // bit 0
+        int b3 = (lut >> 3) & 1; // bit 3
+
+        return (b3 << 3) | (b3 << 2) | (b0 << 1) | b0;
+    };
+
+    uint8_t val = int_or_default(ci.params, init, 0);
+    int d0_const = -1;
+    int d1_const = -1;
+    if (ci.getPort(i0) && ci.getPort(i0) == net_PACKER_GND) {
+        d0_const = 0;
+        ci.disconnectPort(i0);
+    }
+    if (ci.getPort(i0) && ci.getPort(i0) == net_PACKER_VCC) {
+        d0_const = 1;
+        ci.disconnectPort(i0);
+    }
+    if (ci.getPort(i1) && ci.getPort(i1) == net_PACKER_GND) {
+        d1_const = 0;
+        ci.disconnectPort(i1);
+    }
+    if (ci.getPort(i1) && ci.getPort(i1) == net_PACKER_VCC) {
+        d1_const = 1;
+        ci.disconnectPort(i1);
+    }
+
+    val = lut2_apply_constant_inputs(val, d0_const, d1_const);
+
+    if (ci.getPort(i0) == ci.getPort(i1)) {
+        val = lut2_same_inputs(val);
+        ci.params[init] = Property(val, 4);
+        ci.disconnectPort(i1);
+    }
+}
+
 void GateMatePacker::optimize_lut()
 {
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
+        if (ci.type == id_CC_LUT2) {
+            optimize_lut2(ci, id_I0, id_I1, id_INIT);
+        } else if (ci.type == id_CC_L2T4) {
+            optimize_lut2(ci, id_I0, id_I1, id_INIT_L00);
+            optimize_lut2(ci, id_I2, id_I3, id_INIT_L01);
+        } else if (ci.type == id_CC_L2T5) {
+            optimize_lut2(ci, id_I0, id_I1, id_INIT_L02);
+            optimize_lut2(ci, id_I2, id_I3, id_INIT_L03);
+        }
         if (!ci.type.in(id_CC_LUT1, id_CC_LUT2))
             continue;
         if (ci.attrs.count(ctx->id("keep")))
@@ -308,6 +381,8 @@ void GateMatePacker::repack_cpe()
             if (l.z == CPE_LT_L_Z) {
                 if (!cell.second->params.count(id_INIT_L20))
                     cell.second->params[id_INIT_L20] = Property(LUT_D1, 4);
+                if (cell.second->getPort(id_D0_10)) {
+                }
             }
             cell.second->params[id_L2T4_UPPER] = Property((l.z == CPE_LT_U_Z) ? 1 : 0, 1);
         } else if (cell.second->type.in(id_CPE_LT_L)) {
@@ -318,6 +393,13 @@ void GateMatePacker::repack_cpe()
             loc.z = CPE_LT_FULL_Z;
             ctx->unbindBel(bel);
             ctx->bindBel(ctx->getBelByLocation(loc), cell.second.get(), strength);
+            cell.second->renamePort(id_D0_00, id_D0_02);
+            cell.second->renamePort(id_D1_00, id_D1_02);
+            cell.second->renamePort(id_D0_01, id_D0_03);
+            cell.second->renamePort(id_D1_01, id_D1_03);
+            cell.second->renamePort(id_D0_10, id_D0_11);
+            cell.second->renamePort(id_D1_10, id_D1_11);
+
             cell.second->renamePort(id_IN1, id_IN5);
             cell.second->renamePort(id_IN2, id_IN6);
             cell.second->renamePort(id_IN3, id_IN7);
@@ -368,6 +450,14 @@ void GateMatePacker::repack_cpe()
                 cell.second->params[id_C_I1] = Property(int_or_default(upper->params, id_C_I1, 0), 1);
             if (upper->params.count(id_C_I2))
                 cell.second->params[id_C_I2] = Property(int_or_default(upper->params, id_C_I2, 0), 1);
+
+            upper->movePortTo(id_D0_00, cell.second.get(), id_D0_00);
+            upper->movePortTo(id_D1_00, cell.second.get(), id_D1_00);
+            upper->movePortTo(id_D0_01, cell.second.get(), id_D0_01);
+            upper->movePortTo(id_D1_01, cell.second.get(), id_D1_01);
+            upper->movePortTo(id_D0_10, cell.second.get(), id_D0_10);
+            upper->movePortTo(id_D1_10, cell.second.get(), id_D1_10);
+
             upper->movePortTo(id_IN1, cell.second.get(), id_IN1);
             upper->movePortTo(id_IN2, cell.second.get(), id_IN2);
             upper->movePortTo(id_IN3, cell.second.get(), id_IN3);
