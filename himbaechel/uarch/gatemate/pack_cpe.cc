@@ -238,9 +238,7 @@ void GateMatePacker::pack_cpe()
                 if (ci.type == id_CC_LUT1)
                     val = val << 2 | val;
                 ci.params[id_INIT_L10] = Property(val, 4);
-                // ci.params[id_INIT_L00] = Property(val, 4);
                 ci.unsetParam(id_INIT);
-                // ci.params[id_INIT_L10] = Property(LUT_D0, 4);
             } else {
                 ci.renamePort(id_I0, id_D0_00);
                 ci.renamePort(id_I1, id_D1_00);
@@ -302,7 +300,6 @@ void GateMatePacker::pack_cpe()
         upper->constr_abs_z = true;
         upper->constr_z = CPE_LT_U_Z;
         ci->movePortTo(id_I4, upper, id_D0_10);
-        // upper->params[id_INIT_L00] = Property(LUT_D0, 4);
         upper->params[id_INIT_L10] = Property(LUT_D0, 4);
         ci->constr_children.push_back(upper);
 
