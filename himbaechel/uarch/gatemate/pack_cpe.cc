@@ -223,7 +223,6 @@ void GateMatePacker::pack_cpe()
             ci.addInput(id_D0_01);
             ci.connectPort(id_D0_01, sel);
             ci.renamePort(id_D0, id_D1_01);
-            ci.disconnectPort(id_D1);
             ci.params[id_INIT_L00] = Property(LUT_AND, 4);
             ci.params[id_INIT_L01] = Property(LUT_AND_INV_D0, 4);
             ci.params[id_INIT_L10] = Property(LUT_OR, 4);
@@ -735,103 +734,19 @@ void GateMatePacker::remove_constants()
     }
 }
 
-std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_i(CellInfo *cell, IdString origPort, bool place, Loc cpe_loc)
-{
-    CellInfo *cpe_half = nullptr;
-    CellInfo *cpe_ramio = nullptr;
-    NetInfo *net = cell->getPort(origPort);
-    if (net) {
-        cpe_ramio = create_cell_ptr(id_CPE_RAMI, ctx->idf("%s$%s_rami", cell->name.c_str(ctx), origPort.c_str(ctx)));
-        if (place) {
-            cell->constr_children.push_back(cpe_ramio);
-            cpe_ramio->cluster = cell->cluster;
-            cpe_ramio->region = cell->region;
-            cpe_ramio->constr_abs_z = false;
-            cpe_ramio->constr_z = PLACE_DB_CONSTR + origPort.index;
-        } else {
-            BelId b = ctx->getBelByLocation(cpe_loc);
-            ctx->bindBel(b, cpe_ramio, PlaceStrength::STRENGTH_FIXED);
-        }
-        CellInfo *cpe_half =
-                create_cell_ptr(id_CPE_DUMMY, ctx->idf("%s$%s_cpe", cell->name.c_str(ctx), origPort.c_str(ctx)));
-        if (place) {
-            cpe_ramio->constr_children.push_back(cpe_half);
-            cpe_half->cluster = cell->cluster;
-            cpe_half->region = cell->region;
-            cpe_half->constr_abs_z = false;
-            cpe_half->constr_z = -4;
-        } else {
-            BelId b = ctx->getBelByLocation(Loc(cpe_loc.x, cpe_loc.y, cpe_loc.z - 4));
-            ctx->bindBel(b, cpe_half, PlaceStrength::STRENGTH_FIXED);
-        }
-
-        cpe_ramio->params[id_C_RAM_I] = Property(1, 1);
-
-        NetInfo *ram_i = ctx->createNet(ctx->idf("%s$ram_i", cpe_ramio->name.c_str(ctx)));
-        cell->movePortTo(origPort, cpe_ramio, id_OUT);
-        cell->connectPort(origPort, ram_i);
-        cpe_ramio->connectPort(id_RAM_I, ram_i);
-    }
-    return std::make_pair(cpe_half, cpe_ramio);
-}
-
-std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, bool place, Loc cpe_loc)
-{
-    CellInfo *cpe_half = nullptr;
-    CellInfo *cpe_ramio = nullptr;
-    NetInfo *net = cell->getPort(origPort);
-    if (net) {
-        cpe_ramio = create_cell_ptr(id_CPE_RAMO, ctx->idf("%s$%s_ramo", cell->name.c_str(ctx), origPort.c_str(ctx)));
-        if (place) {
-            cell->constr_children.push_back(cpe_ramio);
-            cpe_ramio->cluster = cell->cluster;
-            cpe_ramio->region = cell->region;
-            cpe_ramio->constr_abs_z = false;
-            cpe_ramio->constr_z = PLACE_DB_CONSTR + origPort.index;
-        } else {
-            BelId b = ctx->getBelByLocation(cpe_loc);
-            ctx->bindBel(b, cpe_ramio, PlaceStrength::STRENGTH_FIXED);
-        }
-        cpe_half = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$%s_cpe", cell->name.c_str(ctx), origPort.c_str(ctx)));
-        if (place) {
-            cpe_ramio->constr_children.push_back(cpe_half);
-            cpe_half->cluster = cell->cluster;
-            cpe_half->region = cell->region;
-            cpe_half->constr_abs_z = false;
-            cpe_half->constr_z = -4;
-        } else {
-            BelId b = ctx->getBelByLocation(Loc(cpe_loc.x, cpe_loc.y, cpe_loc.z - 4));
-            ctx->bindBel(b, cpe_half, PlaceStrength::STRENGTH_FIXED);
-        }
-        if (net == net_PACKER_GND) {
-            cpe_half->params[id_INIT_L10] = Property(LUT_ZERO, 4);
-            cell->disconnectPort(origPort);
-        } else if (net == net_PACKER_VCC) {
-            cpe_half->params[id_INIT_L10] = Property(LUT_ONE, 4);
-            cell->disconnectPort(origPort);
-        } else {
-            cpe_half->params[id_INIT_L10] = Property(LUT_D0, 4);
-            cell->movePortTo(origPort, cpe_half, id_D0_10);
-        }
-
-        cpe_ramio->params[id_C_RAM_O] = Property(1, 1);
-        NetInfo *ram_o = ctx->createNet(ctx->idf("%s$ram_o", cpe_half->name.c_str(ctx)));
-        cell->connectPort(origPort, ram_o);
-        cpe_ramio->connectPort(id_RAM_O, ram_o);
-
-        NetInfo *out = ctx->createNet(ctx->idf("%s$out", cpe_half->name.c_str(ctx)));
-        cpe_half->connectPort(id_OUT, out);
-        cpe_ramio->connectPort(id_I, out);
-    }
-    return std::make_pair(cpe_half, cpe_ramio);
-}
-
 std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_io(CellInfo *cell, IdString iPort, IdString oPort,
                                                               bool place, Loc cpe_loc)
 {
+    CellInfo *cpe_half = nullptr;
+    CellInfo *cpe_ff = nullptr;
+    CellInfo *cpe_ramio = nullptr;
     NetInfo *i_net = cell->getPort(iPort);
     NetInfo *o_net = cell->getPort(oPort);
     if (!i_net && !o_net)
+        return std::make_pair(nullptr, nullptr);
+    if (!i_net && iPort != IdString() && oPort == IdString())
+        return std::make_pair(nullptr, nullptr);
+    if (!o_net && oPort != IdString() && iPort == IdString())
         return std::make_pair(nullptr, nullptr);
 
     IdString ram_io_type = id_CPE_RAMIO;
@@ -839,20 +754,124 @@ std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_io(CellInfo *cell, Id
         ram_io_type = id_CPE_RAMI;
     if (!i_net)
         ram_io_type = id_CPE_RAMO;
-    CellInfo *cpe_ramio =
-            create_cell_ptr(ram_io_type, ctx->idf("%s$%s_ramio", cell->name.c_str(ctx), oPort.c_str(ctx)));
+
+    if (o_net) {
+        if (o_net != net_PACKER_GND && o_net != net_PACKER_VCC &&
+            o_net->driver.cell->getPort(o_net->driver.port)->users.entries() == 1 &&
+            o_net->driver.cell->type.in(id_CC_LUT1, id_CC_LUT2, id_CC_L2T4, id_CC_MX2, id_CC_DFF, id_CC_DLT)) {
+            CellInfo &ci = *o_net->driver.cell;
+            if (ci.type.in(id_CC_DFF, id_CC_DLT)) {
+                cpe_half = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$%s_cpe", cell->name.c_str(ctx), oPort.c_str(ctx)));
+                ci.renamePort(id_Q, id_DOUT);
+                NetInfo *d_net = ci.getPort(id_D);
+                if (d_net == net_PACKER_GND) {
+                    cpe_half->params[id_INIT_L10] = Property(LUT_ZERO, 4);
+                    ci.disconnectPort(id_D);
+                } else if (d_net == net_PACKER_VCC) {
+                    cpe_half->params[id_INIT_L10] = Property(LUT_ONE, 4);
+                    ci.disconnectPort(id_D);
+                } else {
+                    cpe_half->params[id_INIT_L10] = Property(LUT_D0, 4);
+                }
+                ci.movePortTo(id_D, cpe_half, id_D0_10);
+                ci.type = (ci.type == id_CC_DLT) ? id_CPE_LATCH : id_CPE_FF;
+                NetInfo *conn = ctx->createNet(ctx->idf("%s$di", ci.name.c_str(ctx)));
+                cpe_half->connectPort(id_OUT, conn);
+                ci.addInput(id_DIN);
+                ci.connectPort(id_DIN, conn);
+                cpe_ff = &ci;
+            } else if (ci.type == id_CC_MX2) {
+                ci.renamePort(id_D1, id_D0_00);
+                NetInfo *sel = ci.getPort(id_S0);
+                ci.renamePort(id_S0, id_D1_00);
+                ci.addInput(id_D0_01);
+                ci.connectPort(id_D0_01, sel);
+                ci.renamePort(id_D0, id_D1_01);
+                ci.params[id_INIT_L00] = Property(LUT_AND, 4);
+                ci.params[id_INIT_L01] = Property(LUT_AND_INV_D0, 4);
+                ci.params[id_INIT_L10] = Property(LUT_OR, 4);
+                ci.renamePort(id_Y, id_OUT);
+                ci.type = id_CPE_L2T4;
+                cpe_half = &ci;
+            } else {
+                ci.renamePort(id_O, id_OUT);
+                if (ci.type.in(id_CC_LUT1, id_CC_LUT2)) {
+                    ci.renamePort(id_I0, id_D0_10);
+                    ci.renamePort(id_I1, id_D1_10);
+                    uint8_t val = int_or_default(ci.params, id_INIT, 0);
+                    if (ci.type == id_CC_LUT1)
+                        val = val << 2 | val;
+                    ci.params[id_INIT_L10] = Property(val, 4);
+                    ci.unsetParam(id_INIT);
+                } else {
+                    ci.renamePort(id_I0, id_D0_00);
+                    ci.renamePort(id_I1, id_D1_00);
+                    ci.renamePort(id_I2, id_D0_01);
+                    ci.renamePort(id_I3, id_D1_01);
+                }
+                ci.type = id_CPE_L2T4;
+                cpe_half = &ci;
+            }
+
+            cpe_ramio = create_cell_ptr(ram_io_type, ctx->idf("%s_ramo", ci.name.c_str(ctx)));
+            // lut tree part is already connected to RAMIO part
+            cell->movePortTo(oPort, cpe_ramio, id_I);
+        } else {
+            cpe_half = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$%s_cpe", cell->name.c_str(ctx), oPort.c_str(ctx)));
+            if (o_net == net_PACKER_GND) {
+                cpe_half->params[id_INIT_L10] = Property(LUT_ZERO, 4);
+                cell->disconnectPort(oPort);
+            } else if (o_net == net_PACKER_VCC) {
+                cpe_half->params[id_INIT_L10] = Property(LUT_ONE, 4);
+                cell->disconnectPort(oPort);
+            } else {
+                cpe_half->params[id_INIT_L10] = Property(LUT_D0, 4);
+                cell->movePortTo(oPort, cpe_half, id_D0_10);
+            }
+
+            cpe_ramio = create_cell_ptr(ram_io_type, ctx->idf("%s$%s_ramo", cell->name.c_str(ctx), oPort.c_str(ctx)));
+            // Connect lut tree part and RAMIO part
+            NetInfo *out = ctx->createNet(ctx->idf("%s$out", cpe_half->name.c_str(ctx)));
+            cpe_half->connectPort(id_OUT, out);
+            cpe_ramio->connectPort(id_I, out);
+        }
+
+        // Route output to RAM_O output
+        cpe_ramio->params[id_C_RAM_O] = Property(1, 1);
+
+        NetInfo *ram_o = ctx->createNet(ctx->idf("%s$ram_o", cpe_half->name.c_str(ctx)));
+        // Reconnect original cell input port to RAM_O
+        cell->connectPort(oPort, ram_o);
+        cpe_ramio->connectPort(id_RAM_O, ram_o);
+    }
+
+    if (i_net) {
+        if (!cpe_half)
+            cpe_half = create_cell_ptr(id_CPE_DUMMY, ctx->idf("%s$%s_cpe", cell->name.c_str(ctx), iPort.c_str(ctx)));
+
+        if (!cpe_ramio)
+            cpe_ramio = create_cell_ptr(ram_io_type, ctx->idf("%s$%s_rami", cell->name.c_str(ctx), iPort.c_str(ctx)));
+
+        cpe_ramio->params[id_C_RAM_I] = Property(1, 1);
+
+        NetInfo *ram_i = ctx->createNet(ctx->idf("%s$ram_i", cpe_half->name.c_str(ctx)));
+        cell->movePortTo(iPort, cpe_ramio, id_OUT);
+        cell->connectPort(iPort, ram_i);
+        cpe_ramio->connectPort(id_RAM_I, ram_i);
+    }
+
+    // Constrain RAMIO
     if (place) {
         cell->constr_children.push_back(cpe_ramio);
         cpe_ramio->cluster = cell->cluster;
         cpe_ramio->region = cell->region;
         cpe_ramio->constr_abs_z = false;
-        cpe_ramio->constr_z = PLACE_DB_CONSTR + oPort.index;
+        cpe_ramio->constr_z = PLACE_DB_CONSTR + (oPort != IdString() ? oPort.index : iPort.index);
     } else {
         BelId b = ctx->getBelByLocation(cpe_loc);
         ctx->bindBel(b, cpe_ramio, PlaceStrength::STRENGTH_FIXED);
     }
-    CellInfo *cpe_half = create_cell_ptr(o_net ? id_CPE_L2T4 : id_CPE_DUMMY,
-                                         ctx->idf("%s$%s_cpe", cell->name.c_str(ctx), oPort.c_str(ctx)));
+    // Constrain CPE LUT tree
     if (place) {
         cpe_ramio->constr_children.push_back(cpe_half);
         cpe_half->cluster = cell->cluster;
@@ -863,47 +882,41 @@ std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_io(CellInfo *cell, Id
         BelId b = ctx->getBelByLocation(Loc(cpe_loc.x, cpe_loc.y, cpe_loc.z - 4));
         ctx->bindBel(b, cpe_half, PlaceStrength::STRENGTH_FIXED);
     }
-
-    if (o_net) {
-        if (o_net == net_PACKER_GND) {
-            cpe_half->params[id_INIT_L10] = Property(LUT_ZERO, 4);
-            cell->disconnectPort(oPort);
-        } else if (o_net == net_PACKER_VCC) {
-            cpe_half->params[id_INIT_L10] = Property(LUT_ONE, 4);
-            cell->disconnectPort(oPort);
+    // Constrain CPE FF
+    if (cpe_ff) {
+        if (place) {
+            cpe_ramio->constr_children.push_back(cpe_ff);
+            cpe_ff->cluster = cell->cluster;
+            cpe_ff->region = cell->region;
+            cpe_ff->constr_abs_z = false;
+            cpe_ff->constr_z = -2;
         } else {
-            cpe_half->params[id_INIT_L10] = Property(LUT_D0, 4);
-            cell->movePortTo(oPort, cpe_half, id_D0_10);
+            BelId b = ctx->getBelByLocation(Loc(cpe_loc.x, cpe_loc.y, cpe_loc.z - 2));
+            ctx->bindBel(b, cpe_ff, PlaceStrength::STRENGTH_FIXED);
         }
-        cpe_ramio->params[id_C_RAM_O] = Property(1, 1);
-
-        NetInfo *ram_o = ctx->createNet(ctx->idf("%s$ram_o", cpe_half->name.c_str(ctx)));
-        cell->connectPort(oPort, ram_o);
-        cpe_ramio->connectPort(id_RAM_O, ram_o);
-
-        NetInfo *out = ctx->createNet(ctx->idf("%s$out", cpe_half->name.c_str(ctx)));
-        cpe_half->connectPort(id_OUT, out);
-        cpe_ramio->connectPort(id_I, out);
     }
-    if (i_net) {
-        cpe_ramio->params[id_C_RAM_I] = Property(1, 1);
 
-        NetInfo *ram_i = ctx->createNet(ctx->idf("%s$ram_i", cpe_half->name.c_str(ctx)));
-        cell->movePortTo(iPort, cpe_ramio, id_OUT);
-        cell->connectPort(iPort, ram_i);
-        cpe_ramio->connectPort(id_RAM_I, ram_i);
-    }
     return std::make_pair(cpe_half, cpe_ramio);
+}
+
+std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_i(CellInfo *cell, IdString origPort, bool place, Loc cpe_loc)
+{
+    return move_ram_io(cell, origPort, IdString(), place, cpe_loc);
+}
+
+std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_o(CellInfo *cell, IdString origPort, bool place, Loc cpe_loc)
+{
+    return move_ram_io(cell, IdString(), origPort, place, cpe_loc);
 }
 
 std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_i_fixed(CellInfo *cell, IdString origPort, Loc fixed)
 {
-    return move_ram_i(cell, origPort, false, uarch->getRelativeConstraint(fixed, origPort));
+    return move_ram_io(cell, origPort, IdString(), false, uarch->getRelativeConstraint(fixed, origPort));
 }
 
 std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_o_fixed(CellInfo *cell, IdString origPort, Loc fixed)
 {
-    return move_ram_o(cell, origPort, false, uarch->getRelativeConstraint(fixed, origPort));
+    return move_ram_io(cell, IdString(), origPort, false, uarch->getRelativeConstraint(fixed, origPort));
 }
 
 std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_io_fixed(CellInfo *cell, IdString iPort, IdString oPort,
