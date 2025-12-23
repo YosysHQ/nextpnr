@@ -379,6 +379,7 @@ void GateMatePacker::pack_serdes()
             ci.params[ctx->idf("RX_EN_EQA_EXT_VALUE_%d", i)] = Property((rx_en_eqa_ext_value >> i) & 1, 1);
         ci.unsetParam(id_RX_EN_EQA_EXT_VALUE);
     }
+    flush_cells();
 }
 
 NEXTPNR_NAMESPACE_END

@@ -1013,6 +1013,7 @@ void GateMatePacker::reassign_clocks()
         if (count)
             log_info("    reassign %d net '%s' users\n", count, net->name.c_str(ctx));
     }
+    flush_cells();
 }
 
 NEXTPNR_NAMESPACE_END
