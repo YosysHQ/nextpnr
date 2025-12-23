@@ -738,7 +738,7 @@ std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_io(CellInfo *cell, Id
                                                               bool place, Loc cpe_loc)
 {
     CellInfo *cpe_half = nullptr;
-    CellInfo *cpe_ff = nullptr;
+    // CellInfo *cpe_ff = nullptr;
     CellInfo *cpe_ramio = nullptr;
     NetInfo *i_net = cell->getPort(iPort);
     NetInfo *o_net = cell->getPort(oPort);
@@ -758,9 +758,9 @@ std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_io(CellInfo *cell, Id
     if (o_net) {
         if (o_net != net_PACKER_GND && o_net != net_PACKER_VCC &&
             o_net->driver.cell->getPort(o_net->driver.port)->users.entries() == 1 &&
-            o_net->driver.cell->type.in(id_CC_LUT1, id_CC_LUT2, id_CC_L2T4, id_CC_MX2, id_CC_DFF, id_CC_DLT)) {
+            o_net->driver.cell->type.in(id_CC_LUT1, id_CC_LUT2, id_CC_L2T4, id_CC_MX2 /*, id_CC_DFF, id_CC_DLT*/)) {
             CellInfo &ci = *o_net->driver.cell;
-            if (ci.type.in(id_CC_DFF, id_CC_DLT)) {
+            /* if (ci.type.in(id_CC_DFF, id_CC_DLT)) {
                 cpe_half = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$%s_cpe", cell->name.c_str(ctx), oPort.c_str(ctx)));
                 ci.renamePort(id_Q, id_DOUT);
                 NetInfo *d_net = ci.getPort(id_D);
@@ -780,7 +780,8 @@ std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_io(CellInfo *cell, Id
                 ci.addInput(id_DIN);
                 ci.connectPort(id_DIN, conn);
                 cpe_ff = &ci;
-            } else if (ci.type == id_CC_MX2) {
+            } else */
+            if (ci.type == id_CC_MX2) {
                 ci.renamePort(id_D1, id_D0_00);
                 NetInfo *sel = ci.getPort(id_S0);
                 ci.renamePort(id_S0, id_D1_00);
@@ -883,6 +884,7 @@ std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_io(CellInfo *cell, Id
         ctx->bindBel(b, cpe_half, PlaceStrength::STRENGTH_FIXED);
     }
     // Constrain CPE FF
+    /*
     if (cpe_ff) {
         if (place) {
             cpe_ramio->constr_children.push_back(cpe_ff);
@@ -895,6 +897,7 @@ std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_io(CellInfo *cell, Id
             ctx->bindBel(b, cpe_ff, PlaceStrength::STRENGTH_FIXED);
         }
     }
+    */
 
     return std::make_pair(cpe_half, cpe_ramio);
 }
