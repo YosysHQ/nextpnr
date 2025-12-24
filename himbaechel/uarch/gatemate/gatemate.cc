@@ -454,11 +454,15 @@ void GateMateImpl::postRoute()
                 {ctx->id("CPE.IN1"), id_IN1},   {ctx->id("CPE.IN2"), id_IN2},  {ctx->id("CPE.IN3"), id_IN3},
                 {ctx->id("CPE.IN4"), id_IN4},   {ctx->id("CPE.IN5"), id_IN1},  {ctx->id("CPE.IN6"), id_IN2},
                 {ctx->id("CPE.IN7"), id_IN3},   {ctx->id("CPE.IN8"), id_IN4},  {ctx->id("CPE.PINY1"), id_PINY1},
+                {ctx->id("CPE.PINY2"), id_PINY2}, {ctx->id("CPE.CINY2"), id_CINY2},
+                {ctx->id("CPE.CLK"), id_CLK}, {ctx->id("CPE.EN"), id_EN},
                 {ctx->id("CPE.CINX"), id_CINX}, {ctx->id("CPE.PINX"), id_PINX}};
         static dict<IdString, IdString> convert_port_merged = {
                 {ctx->id("CPE.IN1"), id_IN1},   {ctx->id("CPE.IN2"), id_IN2},  {ctx->id("CPE.IN3"), id_IN3},
                 {ctx->id("CPE.IN4"), id_IN4},   {ctx->id("CPE.IN5"), id_IN5},  {ctx->id("CPE.IN6"), id_IN6},
                 {ctx->id("CPE.IN7"), id_IN7},   {ctx->id("CPE.IN8"), id_IN8},  {ctx->id("CPE.PINY1"), id_PINY1},
+                {ctx->id("CPE.PINY2"), id_PINY2}, {ctx->id("CPE.CINY2"), id_CINY2},
+                {ctx->id("CPE.CLK"), id_CLK}, {ctx->id("CPE.EN"), id_EN},
                 {ctx->id("CPE.CINX"), id_CINX}, {ctx->id("CPE.PINX"), id_PINX}};
         if (convert_port.count(port)) {
             port_mapping.emplace(orig_port, merged ? convert_port_merged[port] : convert_port[port]);
@@ -644,18 +648,20 @@ void GateMateImpl::postRoute()
         if (cell.second->type.in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U, id_CPE_LATCH)) {
             cfg.clear();
             port_mapping.clear();
-            check_input(cell.second.get(), id_CLK, false);
-            check_input(cell.second.get(), id_EN, false);
+            check_input(cell.second.get(), id_CLK_INT, false);
+            check_input(cell.second.get(), id_EN_INT, false);
             if (cfg.count(id_C_CLKSEL) && cfg.at(id_C_CLKSEL) == 1) {
                 uint8_t val = int_or_default(cell.second->params, id_C_CPE_CLK, 0) & 1;
-                cell.second->params[id_C_CPE_CLK] = Property(val, 2);
+                cell.second->params[id_C_CPE_CLK] = Property(val ? 3 : 0, 2);
                 cell.second->params[id_C_CLKSEL] = Property(1, 1);
             }
             if (cfg.count(id_C_ENSEL) && cfg.at(id_C_ENSEL) == 1) {
                 uint8_t val = int_or_default(cell.second->params, id_C_CPE_EN, 0) & 1;
-                cell.second->params[id_C_CPE_EN] = Property(val, 2);
+                cell.second->params[id_C_CPE_EN] = Property(val ? 3 : 0, 2);
                 cell.second->params[id_C_ENSEL] = Property(1, 1);
             }
+            cell.second->renamePort(id_CLK_INT, port_mapping[id_CLK_INT]);
+            cell.second->renamePort(id_EN_INT, port_mapping[id_EN_INT]);
         }
     }
     ctx->assignArchInfo();
@@ -734,8 +740,8 @@ void GateMateImpl::assign_cell_info()
         CellInfo *ci = cell.second.get();
         auto &fc = fast_cell_info.at(ci->flat_index);
         if (getBelBucketForCellType(ci->type) == id_CPE_FF) {
-            fc.ff_en = ci->getPort(id_EN);
-            fc.ff_clk = ci->getPort(id_CLK);
+            fc.ff_en = ci->getPort(id_EN_INT);
+            fc.ff_clk = ci->getPort(id_CLK_INT);
             fc.ff_sr = ci->getPort(id_SR);
             fc.config = get_dff_config(ci);
             fc.used = true;
