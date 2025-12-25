@@ -308,6 +308,7 @@ void GateMateImpl::postPlace()
     repack();
     ctx->assignArchInfo();
     used_cpes.resize(ctx->getGridDimX() * ctx->getGridDimY());
+    passtrough.resize(ctx->getGridDimX() * ctx->getGridDimY());
     for (auto &cell : ctx->cells) {
         // We need to skip CPE_MULT since using CP outputs is mandatory
         // even if output is actually not connected
@@ -317,11 +318,19 @@ void GateMateImpl::postPlace()
             marked_used = true;
         if (marked_used)
             used_cpes[cell.second.get()->bel.tile] = true;
+        int cy2_i = int_or_default(cell.second->params, id_C_CY2_I, 0);
+        if (cell.second.get()->type == id_CPE_MULT || cy2_i == 1)
+            passtrough[cell.second.get()->bel.tile] = true;
     }
 }
 bool GateMateImpl::checkPipAvail(PipId pip) const
 {
     const auto &extra_data = *pip_extra_data(pip);
+    if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_PASSTROUGH)) {
+        //printf("pip: %s\n",ctx->getPipName(pip)[1].c_str(ctx));
+        if (passtrough[pip.tile])
+            return false;
+    }
     if (extra_data.type != PipExtra::PIP_EXTRA_MUX || (extra_data.flags & MUX_ROUTING) == 0)
         return true;
     if (used_cpes[pip.tile])
