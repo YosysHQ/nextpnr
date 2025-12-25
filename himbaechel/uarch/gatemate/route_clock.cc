@@ -56,7 +56,7 @@ void GateMateImpl::route_clock()
     };
 
     auto feeds_ddr_port = [&](NetInfo *net, PortRef &port) {
-        return this->ddr_nets.find(net->name) != this->ddr_nets.end() && port.port == id_IN1;
+        return this->ddr_nets.find(net->name) != this->ddr_nets.end() && port.port == id_D0_10;
     };
 
     auto pip_plane = [&](PipId pip) {
