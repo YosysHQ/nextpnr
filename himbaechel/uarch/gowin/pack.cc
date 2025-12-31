@@ -2800,7 +2800,7 @@ struct GowinPacker
         NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
         NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
 
-        IdString cell_type = id_SP;
+        IdString cell_type = bw == 32 ? id_SP : id_SPX9;
         IdString name = ctx->idf("%s_AUX", ctx->nameOf(ci));
 
         auto sp_cell = gwu.create_cell(name, cell_type);
