@@ -2889,6 +2889,7 @@ struct GowinPacker
         }
 
         NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
+        NetInfo *gnd_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
         for (int i = 0; i < 3; ++i) {
             ci->renamePort(ctx->idf("BLKSEL[%d]", i), ctx->idf("BLKSEL%d", i));
             if (bit_width == 32 || bit_width == 36) {
@@ -2899,7 +2900,19 @@ struct GowinPacker
         for (int i = 0; i < 14; ++i) {
             ci->renamePort(ctx->idf("AD[%d]", i), ctx->idf("AD%d", i));
             if (bit_width == 32 || bit_width == 36) {
-                ci->copyPortTo(ctx->idf("AD%d", i), ci, ctx->idf("ADB%d", i));
+                // Since we are dividing 32/36 bits into two parts between
+                // ports A and B, the ‘Byte Enables’ require special
+                // separation.
+                if (i < 4) {
+                    if (i > 1) {
+                        ci->movePortTo(ctx->idf("AD%d", i), ci, ctx->idf("ADB%d", i - 2));
+                        ci->connectPort(ctx->idf("AD%d", i), gnd_net);
+                        ci->addInput(ctx->idf("ADB%d", i));
+                        ci->connectPort(ctx->idf("ADB%d", i), gnd_net);
+                    }
+                } else {
+                    ci->copyPortTo(ctx->idf("AD%d", i), ci, ctx->idf("ADB%d", i));
+                }
             }
         }
         if (bit_width == 32 || bit_width == 36) {
@@ -2908,6 +2921,8 @@ struct GowinPacker
             ci->copyPortTo(id_CE, ci, id_CEB);
             ci->copyPortTo(id_RESET, ci, id_RESETB);
             ci->copyPortTo(id_WRE, ci, id_WREB);
+            ci->disconnectPort(ctx->id("AD4"));
+            ci->connectPort(ctx->id("AD4"), gnd_net);
             ci->disconnectPort(ctx->id("ADB4"));
             ci->connectPort(ctx->id("ADB4"), vcc_net);
         }
