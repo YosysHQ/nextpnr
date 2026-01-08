@@ -74,6 +74,8 @@ class PipExtraData(BBAStruct):
     value: int = 0
     invert: int = 0
     plane: int = 0
+    data: int = 0
+    mask: int = 0
 
     def serialise_lists(self, context: str, bba: BBAWriter):
         pass
@@ -86,6 +88,8 @@ class PipExtraData(BBAStruct):
         bba.u8(self.plane)
         bba.u8(0)
         bba.u16(0)
+        bba.u32(self.data)
+        bba.u32(self.mask)
 
 @dataclass
 class BelPinConstraint(BBAStruct):
@@ -313,7 +317,7 @@ def main():
                     mux_flags |= MUX_ROUTING
                 if mux.name == "PASS":
                     mux_flags |= MUX_PASSTROUGH
-                pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(mux.name), mux.bits, mux.value, mux_flags, plane)
+                pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(mux.name), mux.bits, mux.value, mux_flags, plane, mux.data, mux.mask)
         if type_name in new_wires:
             for wire in sorted(new_wires[type_name]):
                 delay = wire_delay[wire]
