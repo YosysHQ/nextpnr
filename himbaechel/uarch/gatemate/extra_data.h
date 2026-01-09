@@ -127,6 +127,25 @@ enum ClusterPlacement
     PLACE_DB_CONSTR = 32,
 };
 
+enum PipMask
+{
+    IS_MULT = 1 << 0,
+    IS_ADDF = 1 << 1,
+    IS_COMP = 1 << 2,
+    C_SELX  = 1 << 3,
+    C_SELY1 = 1 << 4,
+    C_SELY2 = 1 << 5,
+    C_SEL_C = 1 << 6,
+    C_SEL_P = 1 << 7,
+    C_Y12   = 1 << 8,
+    C_CX_I  = 1 << 9,
+    C_CY1_I = 1 << 10,
+    C_CY2_I = 1 << 11,
+    C_PX_I  = 1 << 12,
+    C_PY1_I = 1 << 13,
+    C_PY2_I = 1 << 14,
+};
+
 struct PllCfgRecord
 {
     double weight;

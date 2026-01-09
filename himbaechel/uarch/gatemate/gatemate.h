@@ -96,7 +96,8 @@ struct GateMateImpl : HimbaechelAPI
     pool<IdString> multiplier_a_passthru_uppers;
     pool<IdString> multiplier_zero_drivers;
     std::vector<bool> used_cpes;
-    std::vector<bool> passtrough;
+    std::vector<uint32_t> pip_data;
+    std::vector<uint32_t> pip_mask;
     int fpga_mode;
     int timing_mode;
     std::map<const NetInfo *, int> global_signals;

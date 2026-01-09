@@ -308,7 +308,8 @@ void GateMateImpl::postPlace()
     repack();
     ctx->assignArchInfo();
     used_cpes.resize(ctx->getGridDimX() * ctx->getGridDimY());
-    passtrough.resize(ctx->getGridDimX() * ctx->getGridDimY());
+    pip_data = std::vector<uint32_t>(ctx->getGridDimX() * ctx->getGridDimY());
+    //pip_mask = std::vector<uint32_t>(ctx->getGridDimX() * ctx->getGridDimY());
     for (auto &cell : ctx->cells) {
         // We need to skip CPE_MULT since using CP outputs is mandatory
         // even if output is actually not connected
@@ -318,17 +319,32 @@ void GateMateImpl::postPlace()
             marked_used = true;
         if (marked_used)
             used_cpes[cell.second.get()->bel.tile] = true;
-        int cy2_i = int_or_default(cell.second->params, id_C_CY2_I, 0);
-        if (cell.second.get()->type == id_CPE_MULT || cy2_i == 1)
-            passtrough[cell.second.get()->bel.tile] = true;
+        
+        uint32_t mask = 0;
+        if (cell.second.get()->type == id_CPE_MULT) mask |= PipMask::IS_MULT;
+        if (cell.second.get()->type == id_CPE_ADDF) mask |= PipMask::IS_ADDF;
+        if (cell.second.get()->type == id_CPE_ADDF2) mask |= PipMask::IS_ADDF;
+        if (cell.second.get()->type == id_CPE_COMP) mask |= PipMask::IS_COMP;
+        if (int_or_default(cell.second->params, id_C_SELX, 0)) mask |= PipMask::C_SELX;
+        if (int_or_default(cell.second->params, id_C_SELY1, 0)) mask |= PipMask::C_SELY1;
+        if (int_or_default(cell.second->params, id_C_SELY2, 0)) mask |= PipMask::C_SELY2;
+        if (int_or_default(cell.second->params, id_C_SEL_C, 0)) mask |= PipMask::C_SEL_C;
+        if (int_or_default(cell.second->params, id_C_SEL_P, 0)) mask |= PipMask::C_SEL_P;
+        if (int_or_default(cell.second->params, id_C_Y12, 0)) mask |= PipMask::C_Y12;
+        if (int_or_default(cell.second->params, id_C_CX_I, 0)) mask |= PipMask::C_CX_I;
+        if (int_or_default(cell.second->params, id_C_CY1_I, 0)) mask |= PipMask::C_CY1_I;
+        if (int_or_default(cell.second->params, id_C_CY2_I, 0)) mask |= PipMask::C_CY2_I;
+        if (int_or_default(cell.second->params, id_C_PX_I, 0)) mask |= PipMask::C_PX_I;
+        if (int_or_default(cell.second->params, id_C_PY1_I, 0)) mask |= PipMask::C_PY1_I;
+        if (int_or_default(cell.second->params, id_C_PY2_I, 0)) mask |= PipMask::C_PY2_I;
+        pip_data[cell.second.get()->bel.tile] = mask;
     }
 }
 bool GateMateImpl::checkPipAvail(PipId pip) const
 {
     const auto &extra_data = *pip_extra_data(pip);
-    if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_PASSTROUGH)) {
-        //printf("pip: %s\n",ctx->getPipName(pip)[1].c_str(ctx));
-        if (passtrough[pip.tile])
+    if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.mask != 0)) {
+        if ((pip_data[pip.tile] & extra_data.mask) != extra_data.data)
             return false;
     }
     if (extra_data.type != PipExtra::PIP_EXTRA_MUX || (extra_data.flags & MUX_ROUTING) == 0)
