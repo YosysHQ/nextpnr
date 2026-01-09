@@ -21,6 +21,7 @@
 
 #include "gatemate.h"
 #include "log.h"
+#include "nextpnr_assertions.h"
 #include "placer_heap.h"
 
 #define GEN_INIT_CONSTIDS
@@ -433,11 +434,105 @@ void GateMateImpl::reassign_bridges(NetInfo *ni, const dict<WireId, PipMap> &net
     }
 }
 
+void GateMateImpl::reassign_cplines(NetInfo *ni, const dict<WireId, PipMap> &net_wires, WireId wire,
+                                    dict<WireId, IdString> &wire_to_net, int &num)
+{
+    wire_to_net.insert({wire, ni->name});
+
+    for (auto pip : ctx->getPipsDownhill(wire)) {
+        auto dst = ctx->getPipDstWire(pip);
+
+        // Ignore wires not part of the net
+        auto it = net_wires.find(dst);
+        if (it == net_wires.end())
+            continue;
+        // Ignore pips if the wire is driven by another pip.
+        if (pip != it->second.pip)
+            continue;
+        // Ignore wires already visited.
+        if (wire_to_net.count(dst))
+            continue;
+
+        const auto &extra_data = *pip_extra_data(pip);
+        // If not a CP line pip, just recurse.
+        if (extra_data.type != PipExtra::PIP_EXTRA_MUX || extra_data.mask == 0) {
+            reassign_cplines(ni, net_wires, dst, wire_to_net, num);
+            continue;
+        }
+
+        // We have a bridge that needs to be translated to a bel.
+        IdStringList id = ctx->getPipName(pip);
+        Loc loc = ctx->getPipLocation(pip);
+        BelId bel = ctx->getBelByLocation({loc.x, loc.y, CPE_CPLINES_Z});
+        CellInfo *cell = ctx->getBoundBelCell(bel);
+        if (!cell) {
+            IdString name = ctx->idf("cplines$%s", id[0].c_str(ctx));
+            cell = ctx->createCell(name, id_CPE_CPLINES);
+            ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
+        }
+        if (extra_data.mask & PipMask::C_SELX)
+            cell->setParam(id_C_SELX, Property(extra_data.data & PipMask::C_SELX ? 1 : 0, 1));
+        if (extra_data.mask & PipMask::C_SELY1)
+            cell->setParam(id_C_SELY1, Property(extra_data.data & PipMask::C_SELY1 ? 1 : 0, 1));
+        if (extra_data.mask & PipMask::C_SELY2)
+            cell->setParam(id_C_SELY2, Property(extra_data.data & PipMask::C_SELY2 ? 1 : 0, 1));
+        if (extra_data.mask & PipMask::C_SEL_C)
+            cell->setParam(id_C_SEL_C, Property(extra_data.data & PipMask::C_SEL_C ? 1 : 0, 1));
+        if (extra_data.mask & PipMask::C_SEL_P)
+            cell->setParam(id_C_SEL_P, Property(extra_data.data & PipMask::C_SEL_P ? 1 : 0, 1));
+        if (extra_data.mask & PipMask::C_Y12)
+            cell->setParam(id_C_Y12, Property(extra_data.data & PipMask::C_Y12 ? 1 : 0, 1));
+        if (extra_data.mask & PipMask::C_CX_I)
+            cell->setParam(id_C_CX_I, Property(extra_data.data & PipMask::C_CX_I ? 1 : 0, 1));
+        if (extra_data.mask & PipMask::C_CY1_I)
+            cell->setParam(id_C_CY1_I, Property(extra_data.data & PipMask::C_CY1_I ? 1 : 0, 1));
+        if (extra_data.mask & PipMask::C_CY2_I)
+            cell->setParam(id_C_CY2_I, Property(extra_data.data & PipMask::C_CY2_I ? 1 : 0, 1));
+        if (extra_data.mask & PipMask::C_PX_I)
+            cell->setParam(id_C_PX_I, Property(extra_data.data & PipMask::C_PX_I ? 1 : 0, 1));
+        if (extra_data.mask & PipMask::C_PY1_I)
+            cell->setParam(id_C_PY1_I, Property(extra_data.data & PipMask::C_PY1_I ? 1 : 0, 1));
+        if (extra_data.mask & PipMask::C_PY2_I)
+            cell->setParam(id_C_PY2_I, Property(extra_data.data & PipMask::C_PY2_I ? 1 : 0, 1));
+
+        // We have to discover the ports needed by this config.
+        auto input_port_map = dict<IdString, IdString>{
+                {ctx->id("CPE.CINX"), id_CINX}, {ctx->id("CPE.CINY1"), id_CINY1}, {ctx->id("CPE.CINY2"), id_CINY2},
+                {ctx->id("CPE.PINX"), id_PINX}, {ctx->id("CPE.PINY1"), id_PINY1}, {ctx->id("CPE.PINY2"), id_PINY2}};
+
+        auto input_port_name = input_port_map.find(ctx->getWireName(ctx->getPipSrcWire(pip))[1]);
+        NPNR_ASSERT(input_port_name != input_port_map.end());
+        NPNR_ASSERT(cell->ports.find(input_port_name->second) == cell->ports.end());
+        cell->addInput(input_port_name->second);
+        cell->connectPort(input_port_name->second, ni);
+
+        auto output_port_map =
+                dict<IdString, IdString>{{ctx->id("CPE.COUTX"), id_COUTX},   {ctx->id("CPE.COUTY1"), id_COUTY1},
+                                         {ctx->id("CPE.COUTY2"), id_COUTY2}, {ctx->id("CPE.POUTX"), id_POUTX},
+                                         {ctx->id("CPE.POUTY1"), id_POUTY1}, {ctx->id("CPE.POUTY2"), id_POUTY2}};
+
+        auto output_port_name = output_port_map.find(ctx->getWireName(ctx->getPipDstWire(pip))[1]);
+        NPNR_ASSERT(output_port_name != output_port_map.end());
+        NPNR_ASSERT(cell->ports.find(output_port_name->second) == cell->ports.end());
+
+        NetInfo *new_net =
+                ctx->createNet(ctx->idf("%s$%s", cell->name.c_str(ctx), output_port_name->second.c_str(ctx)));
+
+        cell->addOutput(output_port_name->second);
+        cell->connectPort(output_port_name->second, new_net);
+
+        num++;
+
+        reassign_cplines(new_net, net_wires, dst, wire_to_net, num);
+    }
+}
+
 void GateMateImpl::postRoute()
 {
     int num = 0;
 
     pool<IdString> nets_with_bridges;
+    pool<IdString> nets_with_cplines;
 
     for (auto &net : ctx->nets) {
         NetInfo *ni = net.second.get();
@@ -448,40 +543,7 @@ void GateMateImpl::postRoute()
                     nets_with_bridges.insert(ni->name);
                 }
                 if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.mask != 0)) {
-                    PipId pip = w.second.pip;
-                    IdStringList id = ctx->getPipName(pip);
-                    Loc loc = ctx->getPipLocation(pip);
-                    BelId bel = ctx->getBelByLocation({loc.x, loc.y, CPE_CPLINES_Z});
-                    CellInfo *cell = ctx->getBoundBelCell(bel);
-                    if (!cell) {
-                        IdString name = ctx->idf("cplines$%s", id[0].c_str(ctx));
-                        cell = ctx->createCell(name, id_CPE_CPLINES);
-                        ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
-                    }
-                    if (extra_data.mask & PipMask::C_SELX)
-                        cell->setParam(id_C_SELX, Property(extra_data.data & PipMask::C_SELX ? 1 : 0, 1));
-                    if (extra_data.mask & PipMask::C_SELY1)
-                        cell->setParam(id_C_SELY1, Property(extra_data.data & PipMask::C_SELY1 ? 1 : 0, 1));
-                    if (extra_data.mask & PipMask::C_SELY2)
-                        cell->setParam(id_C_SELY2, Property(extra_data.data & PipMask::C_SELY2 ? 1 : 0, 1));
-                    if (extra_data.mask & PipMask::C_SEL_C)
-                        cell->setParam(id_C_SEL_C, Property(extra_data.data & PipMask::C_SEL_C ? 1 : 0, 1));
-                    if (extra_data.mask & PipMask::C_SEL_P)
-                        cell->setParam(id_C_SEL_P, Property(extra_data.data & PipMask::C_SEL_P ? 1 : 0, 1));
-                    if (extra_data.mask & PipMask::C_Y12)
-                        cell->setParam(id_C_Y12, Property(extra_data.data & PipMask::C_Y12 ? 1 : 0, 1));
-                    if (extra_data.mask & PipMask::C_CX_I)
-                        cell->setParam(id_C_CX_I, Property(extra_data.data & PipMask::C_CX_I ? 1 : 0, 1));
-                    if (extra_data.mask & PipMask::C_CY1_I)
-                        cell->setParam(id_C_CY1_I, Property(extra_data.data & PipMask::C_CY1_I ? 1 : 0, 1));
-                    if (extra_data.mask & PipMask::C_CY2_I)
-                        cell->setParam(id_C_CY2_I, Property(extra_data.data & PipMask::C_CY2_I ? 1 : 0, 1));
-                    if (extra_data.mask & PipMask::C_PX_I)
-                        cell->setParam(id_C_PX_I, Property(extra_data.data & PipMask::C_PX_I ? 1 : 0, 1));
-                    if (extra_data.mask & PipMask::C_PY1_I)
-                        cell->setParam(id_C_PY1_I, Property(extra_data.data & PipMask::C_PY1_I ? 1 : 0, 1));
-                    if (extra_data.mask & PipMask::C_PY2_I)
-                        cell->setParam(id_C_PY2_I, Property(extra_data.data & PipMask::C_PY2_I ? 1 : 0, 1));
+                    nets_with_cplines.insert(ni->name);
                 }
             }
         }
@@ -504,6 +566,49 @@ void GateMateImpl::postRoute()
 
         // traverse the routing tree to assign bridge nets to wires.
         reassign_bridges(ni, net_wires, ctx->getNetinfoSourceWire(ni), wire_to_net, num);
+
+        for (auto &pair : net_wires)
+            ctx->unbindWire(pair.first);
+
+        for (auto &pair : net_wires) {
+            auto wire = pair.first;
+            auto pip = pair.second.pip;
+            auto strength = pair.second.strength;
+            auto *net = ctx->nets.at(wire_to_net.at(wire)).get();
+            if (pip == PipId())
+                ctx->bindWire(wire, net, strength);
+            else
+                ctx->bindPip(pip, net, strength);
+
+            if (wire_to_port.count(wire)) {
+                for (auto sink : wire_to_port.at(wire)) {
+                    NPNR_ASSERT(sink.cell != nullptr && sink.port != IdString());
+                    sink.cell->disconnectPort(sink.port);
+                    sink.cell->connectPort(sink.port, net);
+                }
+            }
+        }
+    }
+
+    num = 0;
+
+    for (auto net_name : nets_with_cplines) {
+        auto *ni = ctx->nets.at(net_name).get();
+        auto net_wires = ni->wires; // copy wires to preserve across unbind/rebind.
+        auto wire_to_net = dict<WireId, IdString>{};
+        auto wire_to_port = dict<WireId, std::vector<PortRef>>{};
+
+        for (auto &usr : ni->users)
+            for (auto sink_wire : ctx->getNetinfoSinkWires(ni, usr)) {
+                auto result = wire_to_port.find(sink_wire);
+                if (result == wire_to_port.end())
+                    wire_to_port.insert({sink_wire, std::vector<PortRef>{usr}});
+                else
+                    result->second.push_back(usr);
+            }
+
+        // traverse the routing tree to assign bridge nets to wires.
+        reassign_cplines(ni, net_wires, ctx->getNetinfoSourceWire(ni), wire_to_net, num);
 
         for (auto &pair : net_wires)
             ctx->unbindWire(pair.first);

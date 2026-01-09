@@ -124,6 +124,8 @@ struct GateMateImpl : HimbaechelAPI
     void route_mult();
     void reassign_bridges(NetInfo *net, const dict<WireId, PipMap> &net_wires, WireId wire,
                           dict<WireId, IdString> &wire_to_net, int &num);
+    void reassign_cplines(NetInfo *net, const dict<WireId, PipMap> &net_wires, WireId wire,
+                          dict<WireId, IdString> &wire_to_net, int &num);
     void repack();
 
     bool get_delay_from_tmg_db(IdString id, DelayQuad &delay) const;
