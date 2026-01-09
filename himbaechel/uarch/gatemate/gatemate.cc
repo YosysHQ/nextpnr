@@ -422,10 +422,16 @@ void GateMateImpl::reassign_bridges(NetInfo *ni, const dict<WireId, PipMap> &net
         NetInfo *new_net = ctx->createNet(ctx->idf("%s$muxout", name.c_str(ctx)));
         IdString in_port = ctx->idf("IN%d", extra_data.value + 1);
 
-        cell->addInput(in_port);
-        cell->connectPort(in_port, ni);
+        auto add_port = [&](const IdString id, PortType dir) {
+            cell->ports[id].name = id;
+            cell->ports[id].type = dir;
+            cell->cell_bel_pins[id] = std::vector{id};
+        };
 
-        cell->addOutput(id_MUXOUT);
+        add_port(in_port, PORT_IN);
+        add_port(id_MUXOUT, PORT_OUT);
+
+        cell->connectPort(in_port, ni);
         cell->connectPort(id_MUXOUT, new_net);
 
         num++;
@@ -471,6 +477,7 @@ void GateMateImpl::reassign_cplines(NetInfo *ni, const dict<WireId, PipMap> &net
             auto add_port = [&](const IdString id, PortType dir) {
                 cell->ports[id].name = id;
                 cell->ports[id].type = dir;
+                cell->cell_bel_pins[id] = std::vector{id};
             };
 
             add_port(id_OUT1, PORT_IN);
@@ -525,8 +532,6 @@ void GateMateImpl::reassign_cplines(NetInfo *ni, const dict<WireId, PipMap> &net
 
         auto input_port_name = input_port_map.find(ctx->getWireName(ctx->getPipSrcWire(pip))[1]);
         NPNR_ASSERT(input_port_name != input_port_map.end());
-        NPNR_ASSERT(cell->ports.find(input_port_name->second) == cell->ports.end());
-        cell->addInput(input_port_name->second);
         cell->connectPort(input_port_name->second, ni);
 
         auto output_port_map =
@@ -536,7 +541,6 @@ void GateMateImpl::reassign_cplines(NetInfo *ni, const dict<WireId, PipMap> &net
 
         auto output_port_name = output_port_map.find(ctx->getWireName(ctx->getPipDstWire(pip))[1]);
         NPNR_ASSERT(output_port_name != output_port_map.end());
-        NPNR_ASSERT(cell->ports.find(output_port_name->second) == cell->ports.end());
 
         NetInfo *new_net =
                 ctx->createNet(ctx->idf("%s$%s", cell->name.c_str(ctx), output_port_name->second.c_str(ctx)));
@@ -564,9 +568,6 @@ void GateMateImpl::postRoute()
                 const auto &extra_data = *pip_extra_data(w.second.pip);
                 if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_ROUTING)) {
                     nets_with_bridges.insert(ni->name);
-                }
-                if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.mask != 0)) {
-                    nets_with_cplines.insert(ni->name);
                 }
             }
         }
@@ -614,6 +615,18 @@ void GateMateImpl::postRoute()
     }
 
     num = 0;
+
+    for (auto &net : ctx->nets) {
+        NetInfo *ni = net.second.get();
+        for (auto &w : ni->wires) {
+            if (w.second.pip != PipId()) {
+                const auto &extra_data = *pip_extra_data(w.second.pip);
+                if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.mask != 0)) {
+                    nets_with_cplines.insert(ni->name);
+                }
+            }
+        }
+    }
 
     for (auto net_name : nets_with_cplines) {
         auto *ni = ctx->nets.at(net_name).get();
