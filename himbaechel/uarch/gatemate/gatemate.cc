@@ -309,7 +309,7 @@ void GateMateImpl::postPlace()
     ctx->assignArchInfo();
     used_cpes.resize(ctx->getGridDimX() * ctx->getGridDimY());
     pip_data = std::vector<uint32_t>(ctx->getGridDimX() * ctx->getGridDimY());
-    //pip_mask = std::vector<uint32_t>(ctx->getGridDimX() * ctx->getGridDimY());
+    // pip_mask = std::vector<uint32_t>(ctx->getGridDimX() * ctx->getGridDimY());
     for (auto &cell : ctx->cells) {
         // We need to skip CPE_MULT since using CP outputs is mandatory
         // even if output is actually not connected
@@ -319,24 +319,40 @@ void GateMateImpl::postPlace()
             marked_used = true;
         if (marked_used)
             used_cpes[cell.second.get()->bel.tile] = true;
-        
+
         uint32_t mask = 0;
-        if (cell.second.get()->type == id_CPE_MULT) mask |= PipMask::IS_MULT;
-        if (cell.second.get()->type == id_CPE_ADDF) mask |= PipMask::IS_ADDF;
-        if (cell.second.get()->type == id_CPE_ADDF2) mask |= PipMask::IS_ADDF;
-        if (cell.second.get()->type == id_CPE_COMP) mask |= PipMask::IS_COMP;
-        if (int_or_default(cell.second->params, id_C_SELX, 0)) mask |= PipMask::C_SELX;
-        if (int_or_default(cell.second->params, id_C_SELY1, 0)) mask |= PipMask::C_SELY1;
-        if (int_or_default(cell.second->params, id_C_SELY2, 0)) mask |= PipMask::C_SELY2;
-        if (int_or_default(cell.second->params, id_C_SEL_C, 0)) mask |= PipMask::C_SEL_C;
-        if (int_or_default(cell.second->params, id_C_SEL_P, 0)) mask |= PipMask::C_SEL_P;
-        if (int_or_default(cell.second->params, id_C_Y12, 0)) mask |= PipMask::C_Y12;
-        if (int_or_default(cell.second->params, id_C_CX_I, 0)) mask |= PipMask::C_CX_I;
-        if (int_or_default(cell.second->params, id_C_CY1_I, 0)) mask |= PipMask::C_CY1_I;
-        if (int_or_default(cell.second->params, id_C_CY2_I, 0)) mask |= PipMask::C_CY2_I;
-        if (int_or_default(cell.second->params, id_C_PX_I, 0)) mask |= PipMask::C_PX_I;
-        if (int_or_default(cell.second->params, id_C_PY1_I, 0)) mask |= PipMask::C_PY1_I;
-        if (int_or_default(cell.second->params, id_C_PY2_I, 0)) mask |= PipMask::C_PY2_I;
+        if (cell.second.get()->type == id_CPE_MULT)
+            mask |= PipMask::IS_MULT;
+        if (cell.second.get()->type == id_CPE_ADDF)
+            mask |= PipMask::IS_ADDF;
+        if (cell.second.get()->type == id_CPE_ADDF2)
+            mask |= PipMask::IS_ADDF;
+        if (cell.second.get()->type == id_CPE_COMP)
+            mask |= PipMask::IS_COMP;
+        if (int_or_default(cell.second->params, id_C_SELX, 0))
+            mask |= PipMask::C_SELX;
+        if (int_or_default(cell.second->params, id_C_SELY1, 0))
+            mask |= PipMask::C_SELY1;
+        if (int_or_default(cell.second->params, id_C_SELY2, 0))
+            mask |= PipMask::C_SELY2;
+        if (int_or_default(cell.second->params, id_C_SEL_C, 0))
+            mask |= PipMask::C_SEL_C;
+        if (int_or_default(cell.second->params, id_C_SEL_P, 0))
+            mask |= PipMask::C_SEL_P;
+        if (int_or_default(cell.second->params, id_C_Y12, 0))
+            mask |= PipMask::C_Y12;
+        if (int_or_default(cell.second->params, id_C_CX_I, 0))
+            mask |= PipMask::C_CX_I;
+        if (int_or_default(cell.second->params, id_C_CY1_I, 0))
+            mask |= PipMask::C_CY1_I;
+        if (int_or_default(cell.second->params, id_C_CY2_I, 0))
+            mask |= PipMask::C_CY2_I;
+        if (int_or_default(cell.second->params, id_C_PX_I, 0))
+            mask |= PipMask::C_PX_I;
+        if (int_or_default(cell.second->params, id_C_PY1_I, 0))
+            mask |= PipMask::C_PY1_I;
+        if (int_or_default(cell.second->params, id_C_PY2_I, 0))
+            mask |= PipMask::C_PY2_I;
         pip_data[cell.second.get()->bel.tile] = mask;
     }
 }
@@ -476,19 +492,17 @@ void GateMateImpl::postRoute()
     dict<IdString, IdString> port_mapping;
     auto add_input = [&](IdString orig_port, IdString port, bool merged) -> bool {
         static dict<IdString, IdString> convert_port = {
-                {ctx->id("CPE.IN1"), id_IN1},   {ctx->id("CPE.IN2"), id_IN2},  {ctx->id("CPE.IN3"), id_IN3},
-                {ctx->id("CPE.IN4"), id_IN4},   {ctx->id("CPE.IN5"), id_IN1},  {ctx->id("CPE.IN6"), id_IN2},
-                {ctx->id("CPE.IN7"), id_IN3},   {ctx->id("CPE.IN8"), id_IN4},  {ctx->id("CPE.PINY1"), id_PINY1},
-                {ctx->id("CPE.PINY2"), id_PINY2}, {ctx->id("CPE.CINY2"), id_CINY2},
-                {ctx->id("CPE.CLK"), id_CLK}, {ctx->id("CPE.EN"), id_EN},
-                {ctx->id("CPE.CINX"), id_CINX}, {ctx->id("CPE.PINX"), id_PINX}};
+                {ctx->id("CPE.IN1"), id_IN1},     {ctx->id("CPE.IN2"), id_IN2},     {ctx->id("CPE.IN3"), id_IN3},
+                {ctx->id("CPE.IN4"), id_IN4},     {ctx->id("CPE.IN5"), id_IN1},     {ctx->id("CPE.IN6"), id_IN2},
+                {ctx->id("CPE.IN7"), id_IN3},     {ctx->id("CPE.IN8"), id_IN4},     {ctx->id("CPE.PINY1"), id_PINY1},
+                {ctx->id("CPE.PINY2"), id_PINY2}, {ctx->id("CPE.CINY2"), id_CINY2}, {ctx->id("CPE.CLK"), id_CLK},
+                {ctx->id("CPE.EN"), id_EN},       {ctx->id("CPE.CINX"), id_CINX},   {ctx->id("CPE.PINX"), id_PINX}};
         static dict<IdString, IdString> convert_port_merged = {
-                {ctx->id("CPE.IN1"), id_IN1},   {ctx->id("CPE.IN2"), id_IN2},  {ctx->id("CPE.IN3"), id_IN3},
-                {ctx->id("CPE.IN4"), id_IN4},   {ctx->id("CPE.IN5"), id_IN5},  {ctx->id("CPE.IN6"), id_IN6},
-                {ctx->id("CPE.IN7"), id_IN7},   {ctx->id("CPE.IN8"), id_IN8},  {ctx->id("CPE.PINY1"), id_PINY1},
-                {ctx->id("CPE.PINY2"), id_PINY2}, {ctx->id("CPE.CINY2"), id_CINY2},
-                {ctx->id("CPE.CLK"), id_CLK}, {ctx->id("CPE.EN"), id_EN},
-                {ctx->id("CPE.CINX"), id_CINX}, {ctx->id("CPE.PINX"), id_PINX}};
+                {ctx->id("CPE.IN1"), id_IN1},     {ctx->id("CPE.IN2"), id_IN2},     {ctx->id("CPE.IN3"), id_IN3},
+                {ctx->id("CPE.IN4"), id_IN4},     {ctx->id("CPE.IN5"), id_IN5},     {ctx->id("CPE.IN6"), id_IN6},
+                {ctx->id("CPE.IN7"), id_IN7},     {ctx->id("CPE.IN8"), id_IN8},     {ctx->id("CPE.PINY1"), id_PINY1},
+                {ctx->id("CPE.PINY2"), id_PINY2}, {ctx->id("CPE.CINY2"), id_CINY2}, {ctx->id("CPE.CLK"), id_CLK},
+                {ctx->id("CPE.EN"), id_EN},       {ctx->id("CPE.CINX"), id_CINX},   {ctx->id("CPE.PINX"), id_PINX}};
         if (convert_port.count(port)) {
             port_mapping.emplace(orig_port, merged ? convert_port_merged[port] : convert_port[port]);
             return true;
