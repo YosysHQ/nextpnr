@@ -468,6 +468,29 @@ void GateMateImpl::reassign_cplines(NetInfo *ni, const dict<WireId, PipMap> &net
         if (!cell) {
             IdString name = ctx->idf("cplines$%s", id[0].c_str(ctx));
             cell = ctx->createCell(name, id_CPE_CPLINES);
+            auto add_port = [&](const IdString id, PortType dir) {
+                cell->ports[id].name = id;
+                cell->ports[id].type = dir;
+            };
+
+            add_port(id_OUT1, PORT_IN);
+            add_port(id_OUT2, PORT_IN);
+            add_port(id_COMPOUT, PORT_IN);
+
+            add_port(id_CINX, PORT_IN);
+            add_port(id_PINX, PORT_IN);
+            add_port(id_CINY1, PORT_IN);
+            add_port(id_PINY1, PORT_IN);
+            add_port(id_CINY2, PORT_IN);
+            add_port(id_PINY2, PORT_IN);
+
+            add_port(id_COUTX, PORT_OUT);
+            add_port(id_POUTX, PORT_OUT);
+            add_port(id_COUTY1, PORT_OUT);
+            add_port(id_POUTY1, PORT_OUT);
+            add_port(id_COUTY2, PORT_OUT);
+            add_port(id_POUTY2, PORT_OUT);
+
             ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
         }
         if (extra_data.mask & PipMask::C_SELX)
