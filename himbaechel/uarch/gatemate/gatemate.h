@@ -95,8 +95,9 @@ struct GateMateImpl : HimbaechelAPI
     pool<IdString> multiplier_a_passthru_lowers;
     pool<IdString> multiplier_a_passthru_uppers;
     pool<IdString> multiplier_zero_drivers;
-    std::vector<CellInfo *> multipliers;
     std::vector<bool> used_cpes;
+    std::vector<uint32_t> pip_data;
+    std::vector<uint32_t> pip_mask;
     int fpga_mode;
     int timing_mode;
     std::map<const NetInfo *, int> global_signals;
@@ -122,6 +123,8 @@ struct GateMateImpl : HimbaechelAPI
     void route_clock();
     void route_mult();
     void reassign_bridges(NetInfo *net, const dict<WireId, PipMap> &net_wires, WireId wire,
+                          dict<WireId, IdString> &wire_to_net, int &num);
+    void reassign_cplines(NetInfo *net, const dict<WireId, PipMap> &net_wires, WireId wire,
                           dict<WireId, IdString> &wire_to_net, int &num);
     void repack();
 
