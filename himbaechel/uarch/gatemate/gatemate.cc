@@ -44,6 +44,7 @@ po::options_description GateMateImpl::getUArchOptions()
     specific.add_options()("strategy", po::value<std::string>(),
                            "multi-die clock placement strategy (mirror, full or clk1)");
     specific.add_options()("force_die", po::value<std::string>(), "force specific die (example 1A,1B...)");
+    specific.add_options()("no-clk-cp", "do not use CP lines for CLK and EN");
     return specific;
 }
 
@@ -113,6 +114,7 @@ void GateMateImpl::init_database(Arch *arch)
                                             : fpga_mode == 3 ? "SPEED"
                                                              : "");
     arch->set_speed_grade(speed_grade);
+    use_cp_for_clk = args.options.count("no-clk-cp") == 0;
 }
 
 void GateMateImpl::init(Context *ctx)
@@ -362,6 +364,10 @@ void GateMateImpl::postPlace()
 bool GateMateImpl::checkPipAvail(PipId pip) const
 {
     const auto &extra_data = *pip_extra_data(pip);
+    if (!use_cp_for_clk && extra_data.type == PipExtra::PIP_EXTRA_MUX) {
+        if (extra_data.value ==1 && IdString(extra_data.name).in(id_C_CLKSEL, id_C_ENSEL))
+            return false;
+    }
     if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.mask != 0)) {
         if (pip_mask[pip.tile] & extra_data.mask) {
             if ((pip_data[pip.tile] & extra_data.mask) != extra_data.data)

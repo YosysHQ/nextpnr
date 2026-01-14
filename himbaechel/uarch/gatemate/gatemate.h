@@ -145,6 +145,7 @@ struct GateMateImpl : HimbaechelAPI
     std::map<IdString, const GateMateTimingExtraDataPOD *> timing;
     dict<IdString, int> ram_signal_clk;
     IdString forced_die;
+    bool use_cp_for_clk;
 };
 
 NEXTPNR_NAMESPACE_END
