@@ -319,7 +319,7 @@ Links and references
 
 - [Project IceStorm (Lattice iCE40)](https://github.com/YosysHQ/icestorm)
 - [Project Trellis (Lattice ECP5)](https://yosyshq.github.io/prjtrellis-db/)
-- [Project X-Ray (Xilinx 7-Series)](https://symbiflow.github.io/prjxray-db/)
+- [Project X-Ray (Xilinx 7-Series)](https://github.com/F4PGA/prjxray)
 - [Project Chibi (Intel MAX-V)](https://github.com/rqou/project-chibi)
 
 ### Other FOSS FPGA place and route projects
