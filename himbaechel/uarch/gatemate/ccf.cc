@@ -261,7 +261,13 @@ struct GateMateCCFReader
 
                                     IdString scopename(ctx, src_location.c_str());
                                     ctx->createRectangularRegion(scopename, x1, y1, x2, y2);
-                                    uarch->scopenames.emplace(scopename);
+                                    if (!uarch->scopenames.count(scopename))
+                                        log_error("Unknown scope name: %s in line %d\n", scopename.c_str(ctx), lineno);
+                                    else
+                                        log_info("    Constraining region '%s' to '%s'\n", scopename.c_str(ctx),
+                                                 pb_position.c_str());
+
+                                    uarch->scopenames_used.emplace(scopename);
                                 } else {
                                     log_error("Placebox format invalid: %s in line %d\n", pb_position.c_str(), lineno);
                                 }

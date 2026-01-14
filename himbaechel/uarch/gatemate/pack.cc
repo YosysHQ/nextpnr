@@ -514,21 +514,41 @@ void GateMatePacker::assign_clocks()
     }
 }
 
+static IdString get_scopename(Context *ctx, CellInfo &ci)
+{
+    std::string scope = "top";
+    if (ci.attrs.count(ctx->id("scopename"))) {
+        scope = str_or_default(ci.attrs, ctx->id("scopename"), "");
+        scope = "top " + scope;
+    } else if (ci.attrs.count(ctx->id("hdlname"))) {
+        scope = str_or_default(ci.attrs, ctx->id("hdlname"), "");
+        scope = "top " + scope;
+    }
+    return IdString(ctx, scope.c_str());
+}
+
+void GateMatePacker::find_regions()
+{
+    for (auto &cell : ctx->cells) {
+        CellInfo &ci = *cell.second;
+        IdString name = get_scopename(ctx, ci);
+        uarch->scopenames.emplace(name);
+    }
+    if (uarch->scopenames.size() > 1) {
+        log_info("Detected regions..\n");
+        for (auto &scope : uarch->scopenames) {
+            log_info("    %s\n", scope.c_str(ctx));
+        }
+    }
+}
+
 void GateMatePacker::assign_regions()
 {
     log_info("Assign cell region based on attributes..\n");
     for (auto &cell : ctx->cells) {
         CellInfo &ci = *cell.second;
-        std::string scope = "top";
-        if (ci.attrs.count(ctx->id("scopename"))) {
-            scope = str_or_default(ci.attrs, ctx->id("scopename"), "");
-            scope = "top " + scope;
-        } else if (ci.attrs.count(ctx->id("hdlname"))) {
-            scope = str_or_default(ci.attrs, ctx->id("hdlname"), "");
-            scope = "top " + scope;
-        }
-        IdString name = IdString(ctx, scope.c_str());
-        if (uarch->scopenames.count(name))
+        IdString name = get_scopename(ctx, ci);
+        if (uarch->scopenames_used.count(name))
             ctx->constrainCellToRegion(ci.name, name);
         if (ci.attrs.count(id_GATEMATE_DIE) != 0) {
             std::string die_name = str_or_default(ci.attrs, id_GATEMATE_DIE, "");
@@ -579,6 +599,8 @@ void GateMatePacker::fix_regions()
 void GateMateImpl::pack()
 {
     const ArchArgs &args = ctx->args;
+    GateMatePacker packer(ctx, this);
+    packer.find_regions();
     if (args.options.count("ccf")) {
         parse_ccf(args.options["ccf"].as<std::string>());
     }
@@ -612,7 +634,6 @@ void GateMateImpl::pack()
     if (strategy == MultiDieStrategy::REUSE_CLK1 || strategy == MultiDieStrategy::FULL_USE)
         preferred_die = 0;
 
-    GateMatePacker packer(ctx, this);
     if (forced_die == IdString())
         packer.assign_regions();
     packer.pack_constants();
