@@ -116,6 +116,7 @@ struct GateMateImpl : HimbaechelAPI
     dict<IdString, int> die_to_index;
     dict<IdString, dict<IdString, IdString>> pass_backtrace;
     pool<IdString> scopenames;
+    pool<IdString> scopenames_used;
 
   private:
     bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
