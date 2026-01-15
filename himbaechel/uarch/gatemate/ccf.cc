@@ -289,13 +289,18 @@ struct GateMateCCFReader
                             if (subparts.size() == 2) {
                                 std::string pb_position = subparts[1];
 
-                                std::regex pb_regex(R"(x(\d+)y(\d+)x(\d+)y(\d+))");
+                                std::regex pb_regex(R"(x(-?\d+)y(-?\d+)x(-?\d+)y(-?\d+))");
                                 std::smatch match;
                                 if (std::regex_match(pb_position, match, pb_regex)) {
-                                    int x1 = std::stoi(match[1]);
-                                    int y1 = std::stoi(match[2]);
-                                    int x2 = std::stoi(match[3]);
-                                    int y2 = std::stoi(match[4]);
+                                    int x1 = std::stoi(match[1]) + 2;
+                                    int y1 = std::stoi(match[2]) + 2;
+                                    int x2 = std::stoi(match[3]) + 2;
+                                    int y2 = std::stoi(match[4]) + 2;
+
+                                    if (x1 < 0 || x1 >= ctx->getGridDimX() || x2 < 0 || x2 >= ctx->getGridDimX() ||
+                                        y1 < 0 || y1 >= ctx->getGridDimY() || y2 < 0 || y2 >= ctx->getGridDimY())
+                                        log_error("Placebox coordinates out of range '%s' in line %d\n",
+                                                  pb_position.c_str(), lineno);
 
                                     IdString scopename(ctx, src_location.c_str());
                                     std::regex expr = pattern_to_regex(src_location);
