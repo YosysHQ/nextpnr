@@ -154,6 +154,44 @@ struct GateMateCCFReader
         }
     }
 
+    std::regex pattern_to_regex(const std::string &pat)
+    {
+        std::string expr;
+        expr.reserve(pat.size() * 2);
+        expr += '^';
+        for (char c : pat) {
+            switch (c) {
+            case '*':
+                expr += ".*";
+                break;
+            case '?':
+                expr += ".";
+                break;
+            // Escape regex metacharacters
+            case '.':
+            case '+':
+            case '(':
+            case ')':
+            case '{':
+            case '}':
+            case '^':
+            case '$':
+            case '|':
+            case '\\':
+            case '[':
+            case ']':
+                expr += '\\';
+                expr += c;
+                break;
+
+            default:
+                expr += c;
+            }
+        }
+        expr += '$';
+        return std::regex(expr);
+    }
+
     void run()
     {
         log_info("Parsing CCF file..\n");
@@ -260,14 +298,25 @@ struct GateMateCCFReader
                                     int y2 = std::stoi(match[4]);
 
                                     IdString scopename(ctx, src_location.c_str());
-                                    ctx->createRectangularRegion(scopename, x1, y1, x2, y2);
-                                    if (!uarch->scopenames.count(scopename))
-                                        log_error("Unknown scope name: %s in line %d\n", scopename.c_str(ctx), lineno);
-                                    else
-                                        log_info("    Constraining region '%s' to '%s'\n", scopename.c_str(ctx),
-                                                 pb_position.c_str());
+                                    std::regex expr = pattern_to_regex(src_location);
+                                    bool matched_any = false;
 
-                                    uarch->scopenames_used.emplace(scopename);
+                                    for (const IdString &name : uarch->scopenames) {
+                                        if (std::regex_match(name.str(ctx), expr)) {
+                                            matched_any = true;
+
+                                            ctx->createRectangularRegion(name, x1, y1, x2, y2);
+                                            uarch->scopenames_used.emplace(name);
+
+                                            log_info("    Constraining region '%s' to '%s'\n", name.c_str(ctx),
+                                                     pb_position.c_str());
+                                        }
+                                    }
+
+                                    if (!matched_any) {
+                                        log_error("Unknown scope name or pattern: '%s' in line %d\n",
+                                                  src_location.c_str(), lineno);
+                                    }
                                 } else {
                                     log_error("Placebox format invalid: %s in line %d\n", pb_position.c_str(), lineno);
                                 }
