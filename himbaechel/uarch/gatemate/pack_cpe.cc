@@ -322,9 +322,6 @@ void GateMatePacker::pack_cpe()
         ci.cluster = ci.name;
         ci.renamePort(id_Y, id_OUT);
 
-        ci.renamePort(id_S0, id_D0_00); // IN5
-        ci.renamePort(id_S1, id_D0_01); // IN7
-
         uint8_t select = 0;
         uint8_t invert = 0;
         for (int i = 0; i < 4; i++) {
@@ -340,26 +337,52 @@ void GateMatePacker::pack_cpe()
                 }
             }
         }
-        ci.params[id_C_FUNCTION] = Property(C_MX4, 3);
-        ci.params[id_INIT_L02] = Property(LUT_D0, 4); // IN5
-        ci.params[id_INIT_L03] = Property(LUT_D0, 4); // IN7
-        ci.params[id_INIT_L11] = Property(invert, 4); // Inversion bits
-        ci.params[id_INIT_L20] = Property(LUT_D1, 4); // Always D1
-        ci.type = id_CPE_LT_L;
+        if (0) {
+            ci.params[id_C_FUNCTION] = Property(C_MX4, 3);
+            ci.params[id_INIT_L02] = Property(LUT_D0, 4); // IN5
+            ci.params[id_INIT_L03] = Property(LUT_D0, 4); // IN7
+            ci.params[id_INIT_L11] = Property(invert, 4); // Inversion bits
+            ci.params[id_INIT_L20] = Property(LUT_D1, 4); // Always D1
+            ci.type = id_CPE_LT_L;
+            ci.renamePort(id_S0, id_D0_00); // IN5
+            ci.renamePort(id_S1, id_D0_01); // IN7
 
-        CellInfo *upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$upper", ci.name.c_str(ctx)));
-        upper->cluster = ci.name;
-        upper->region = ci.region;
-        upper->constr_abs_z = false;
-        upper->constr_z = -1;
-        upper->params[id_INIT_L10] = Property(select, 4); // Selection bits
-        upper->params[id_C_FUNCTION] = Property(C_MX4, 3);
+            CellInfo *upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$upper", ci.name.c_str(ctx)));
+            upper->cluster = ci.name;
+            upper->region = ci.region;
+            upper->constr_abs_z = false;
+            upper->constr_z = -1;
+            upper->params[id_INIT_L10] = Property(select, 4); // Selection bits
+            upper->params[id_C_FUNCTION] = Property(C_MX4, 3);
 
-        ci.movePortTo(id_D0, upper, id_IN1);
-        ci.movePortTo(id_D1, upper, id_IN2);
-        ci.movePortTo(id_D2, upper, id_IN3);
-        ci.movePortTo(id_D3, upper, id_IN4);
-        ci.constr_children.push_back(upper);
+            ci.movePortTo(id_D0, upper, id_IN1);
+            ci.movePortTo(id_D1, upper, id_IN2);
+            ci.movePortTo(id_D2, upper, id_IN3);
+            ci.movePortTo(id_D3, upper, id_IN4);
+            ci.constr_children.push_back(upper);
+        } else {
+            ci.params[id_C_FUNCTION] = Property(C_MX4, 3);
+            ci.params[id_INIT_L11] = Property(select, 4); // Selection bits
+            ci.params[id_INIT_L20] = Property(LUT_D0, 4); // Always D0
+            ci.type = id_CPE_LT_L;
+            ci.renamePort(id_D0, id_IN1);
+            ci.renamePort(id_D1, id_IN2);
+            ci.renamePort(id_D2, id_IN3);
+            ci.renamePort(id_D3, id_IN4);
+
+            CellInfo *upper = create_cell_ptr(id_CPE_LT_U, ctx->idf("%s$upper", ci.name.c_str(ctx)));
+            upper->cluster = ci.name;
+            upper->region = ci.region;
+            upper->constr_abs_z = false;
+            upper->constr_z = -1;
+            upper->params[id_INIT_L00] = Property(LUT_D0, 4); // IN1
+            upper->params[id_INIT_L01] = Property(LUT_D0, 4); // IN3
+            upper->params[id_INIT_L10] = Property(invert, 4); // Inversion bits
+            upper->params[id_C_FUNCTION] = Property(C_MX4, 3);
+            ci.movePortTo(id_S0, upper, id_D0_00); // IN1
+            ci.movePortTo(id_S1, upper, id_D0_01); // IN3
+            ci.constr_children.push_back(upper);
+        }
 
         NetInfo *o = ci.getPort(id_OUT);
         if (o) {
