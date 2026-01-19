@@ -153,6 +153,13 @@ struct BitstreamBackend
     void export_connection(ChipConfig &cc, PipId pip)
     {
         const auto &extra_data = *uarch->pip_extra_data(pip);
+        if (extra_data.type == PipExtra::PIP_EXTRA_MUX) {
+            IdString resource = IdString(extra_data.resource);
+            if (resource != IdString()) {
+                auto n = ctx->getPipName(pip);
+                printf("PASS %s %s -> %s\n", n[0].c_str(ctx), n[2].c_str(ctx), n[1].c_str(ctx));
+            }
+        }
         if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_VISIBLE)) {
             IdString name = IdString(extra_data.name);
             CfgLoc loc = get_config_loc(pip.tile);
