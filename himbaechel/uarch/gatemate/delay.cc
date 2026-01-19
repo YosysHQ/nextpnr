@@ -243,7 +243,7 @@ TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString 
             return TMG_COMB_OUTPUT;
         return TMG_COMB_INPUT;
     } else if (cell->type.in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U, id_CPE_LATCH)) {
-        if (port == id_CLK)
+        if (port.in(id_CLK_INT))
             return TMG_CLOCK_INPUT;
         clockInfoCount = 1;
         if (port == id_DOUT)
@@ -364,7 +364,7 @@ TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdStr
     if (cell->type.in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U, id_CPE_LATCH)) {
         bool inverted = int_or_default(cell->params, id_C_CPE_CLK, 0) == 0b01;
         info.edge = inverted ? FALLING_EDGE : RISING_EDGE;
-        info.clock_port = id_CLK;
+        info.clock_port = id_CLK_INT;
         if (port.in(id_DIN, id_EN, id_SR))
             get_setuphold_from_tmg_db(id_timing_del_Setup_D_L, id_timing_del_Hold_D_L, info.setup, info.hold);
         if (port.in(id_DOUT)) {
