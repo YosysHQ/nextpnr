@@ -112,6 +112,11 @@ struct GowinCstReader
 
             while (!in.eof()) {
                 std::getline(in, line);
+                boost::trim_right(line);
+                if (line.empty()) {
+                    continue;
+                }
+
                 cst_type = ioloc;
                 if (!std::regex_match(line, match, iobre)) {
                     if (std::regex_match(line, match, portre)) {
