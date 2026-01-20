@@ -874,7 +874,9 @@ struct NexusPacker
     void promote_globals()
     {
         std::vector<std::pair<int, IdString>> clk_fanout;
-        int available_globals = 16;
+        std::vector<std::pair<int, IdString>> ce_lsr_fanout;
+        // TODO: if we are more cunning about placement, the real limits are 16 per device half and 8 per row segment
+        int available_globals = 8;
         for (auto &net : ctx->nets) {
             NetInfo *ni = net.second.get();
             // Skip undriven nets; and nets that are already global
@@ -888,19 +890,25 @@ struct NexusPacker
                 continue;
             }
             // Count the number of clock ports
-            int clk_count = 0;
+            int clk_count = 0, ce_lsr_count = 0;
             for (const auto &usr : ni->users) {
                 auto port_style = ctx->get_cell_pin_style(usr.cell, usr.port);
                 if (port_style & PINGLB_CLK)
                     ++clk_count;
+                if (port_style & PINGLB_CE_LSR)
+                    ++ce_lsr_count;
             }
             if (clk_count > 0)
                 clk_fanout.emplace_back(clk_count, ni->name);
+            if (ce_lsr_count > 150)
+                ce_lsr_fanout.emplace_back(ce_lsr_count, ni->name);
         }
         if (available_globals <= 0)
             return;
         // Sort clocks by max fanout
         std::sort(clk_fanout.begin(), clk_fanout.end(), std::greater<std::pair<int, IdString>>());
+        std::sort(ce_lsr_fanout.begin(), ce_lsr_fanout.end(), std::greater<std::pair<int, IdString>>());
+
         log_info("Promoting globals...\n");
         // Promote the N highest fanout clocks
         for (size_t i = 0; i < std::min<size_t>(clk_fanout.size(), available_globals); i++) {
@@ -908,6 +916,15 @@ struct NexusPacker
             log_info("     promoting clock net '%s'\n", ctx->nameOf(net));
             insert_buffer(net, id_DCC, "glb_clk", id_CLKI, id_CLKO,
                           [&](const PortRef &port) { return port.cell->type != id_DCC; });
+        }
+        // Limit to 1 LSR/CE to avoid routeability issues
+        int available_ce_lsr_globals = std::min<int>(available_globals, 1);
+        for (size_t i = 0; i < std::min<size_t>(ce_lsr_fanout.size(), available_ce_lsr_globals); i++) {
+            NetInfo *net = ctx->nets.at(ce_lsr_fanout.at(i).second).get();
+            log_info("     promoting CE/LSR net '%s'\n", ctx->nameOf(net));
+            insert_buffer(net, id_DCC, "glb_ce_lsr", id_CLKI, id_CLKO, [this](const PortRef &port) {
+                return ctx->get_cell_pin_style(port.cell, port.port) & PINGLB_CE_LSR;
+            });
         }
     }
 

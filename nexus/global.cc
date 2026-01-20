@@ -107,6 +107,10 @@ struct NexusGlobalRouter
         while (!visit.empty() && (iter++ < iter_limit)) {
             WireId cursor = visit.front();
             visit.pop();
+            if (ctx->getBoundWireNet(cursor) == net) {
+                src = cursor;
+                break;
+            }
             // Search uphill pips
             for (PipId pip : ctx->getPipsUphill(cursor)) {
                 // Skip pip if unavailable, and not because it's already used for this net
