@@ -365,7 +365,7 @@ bool GateMateImpl::checkPipAvail(PipId pip) const
 {
     const auto &extra_data = *pip_extra_data(pip);
     if (!use_cp_for_clk && extra_data.type == PipExtra::PIP_EXTRA_MUX) {
-        if (extra_data.value ==1 && IdString(extra_data.name).in(id_C_CLKSEL, id_C_ENSEL))
+        if (extra_data.value == 1 && IdString(extra_data.name).in(id_C_CLKSEL, id_C_ENSEL))
             return false;
     }
     if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.mask != 0)) {
@@ -627,7 +627,7 @@ void GateMateImpl::postRoute()
         for (auto &w : ni->wires) {
             if (w.second.pip != PipId()) {
                 const auto &extra_data = *pip_extra_data(w.second.pip);
-                if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.mask != 0)) {
+                if (extra_data.type == PipExtra::PIP_EXTRA_MUX && extra_data.resource != 0) {
                     nets_with_cplines.insert(ni->name);
                 }
             }
