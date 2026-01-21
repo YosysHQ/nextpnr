@@ -510,14 +510,24 @@ void GateMateImpl::reassign_cplines(NetInfo *ni, const dict<WireId, PipMap> &net
 
         // We have to discover the ports needed by this config.
         auto input_port_map = dict<IdString, IdString>{
-                {ctx->id("CPE.CINX"), id_CINX}, {ctx->id("CPE.CINY1"), id_CINY1}, {ctx->id("CPE.CINY2"), id_CINY2},
-                {ctx->id("CPE.PINX"), id_PINX}, {ctx->id("CPE.PINY1"), id_PINY1}, {ctx->id("CPE.PINY2"), id_PINY2},
-                {ctx->id("CPE.OUT1_IN_int"), id_OUT1}, {ctx->id("CPE.OUT2_IN_int"), id_OUT2}, {ctx->id("CPE.COMPOUT_IN_int"), id_COMPOUT},
-            };
+                {ctx->id("CPE.CINX"), id_CINX},
+                {ctx->id("CPE.CINY1"), id_CINY1},
+                {ctx->id("CPE.CINY2"), id_CINY2},
+                {ctx->id("CPE.PINX"), id_PINX},
+                {ctx->id("CPE.PINY1"), id_PINY1},
+                {ctx->id("CPE.PINY2"), id_PINY2},
+                {ctx->id("CPE.OUT1_IN_int"), id_OUT1},
+                {ctx->id("CPE.OUT2_IN_int"), id_OUT2},
+                {ctx->id("CPE.COMPOUT_IN_int"), id_COMPOUT},
+        };
 
         auto input_port_name = input_port_map.find(ctx->getWireName(ctx->getPipSrcWire(pip))[1]);
-        NPNR_ASSERT(input_port_name != input_port_map.end());
-        cell->connectPort(input_port_name->second, ni);
+        if (input_port_name != input_port_map.end()) {
+            if (cell->getPort(input_port_name->second) == nullptr)
+                cell->connectPort(input_port_name->second, ni);
+            else
+                NPNR_ASSERT(cell->getPort(input_port_name->second) == ni);
+        }
 
         auto output_port_map =
                 dict<IdString, IdString>{{ctx->id("CPE.COUTX"), id_COUTX},   {ctx->id("CPE.COUTY1"), id_COUTY1},
@@ -525,17 +535,20 @@ void GateMateImpl::reassign_cplines(NetInfo *ni, const dict<WireId, PipMap> &net
                                          {ctx->id("CPE.POUTY1"), id_POUTY1}, {ctx->id("CPE.POUTY2"), id_POUTY2}};
 
         auto output_port_name = output_port_map.find(ctx->getWireName(ctx->getPipDstWire(pip))[1]);
-        NPNR_ASSERT(output_port_name != output_port_map.end());
+        if (output_port_name != output_port_map.end()) {
+            NetInfo *new_net =
+                    ctx->createNet(ctx->idf("%s$%s", cell->name.c_str(ctx), output_port_name->second.c_str(ctx)));
 
-        NetInfo *new_net =
-                ctx->createNet(ctx->idf("%s$%s", cell->name.c_str(ctx), output_port_name->second.c_str(ctx)));
+            cell->addOutput(output_port_name->second);
+            cell->connectPort(output_port_name->second, new_net);
 
-        cell->addOutput(output_port_name->second);
-        cell->connectPort(output_port_name->second, new_net);
+            num++;
 
-        num++;
-
-        reassign_cplines(new_net, net_wires, dst, wire_to_net, num);
+            reassign_cplines(new_net, net_wires, dst, wire_to_net, num);
+        } else {
+            // this is an internal resource pip; recurse anyway.
+            reassign_cplines(ni, net_wires, dst, wire_to_net, num);
+        }
     }
 }
 
