@@ -452,7 +452,7 @@ TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdStr
                 break;
             }
         } else {
-            log_error("Uknown clock signal for %s\n", name.c_str());
+            log_error("Unknown clock signal for %s\n", name.c_str());
         }
     }
 

@@ -232,7 +232,7 @@ void GateMatePacker::pack_bufg()
                     else if (pll->getPort(id_CLK270) == in_net)
                         pll_out = 3;
                     else
-                        log_error("Uknown connecton on BUFG to PLL.\n");
+                        log_error("Unknown connecton on BUFG to PLL.\n");
                     glb_mux = glb_mux_mapping[i * 16 + pll_index * 4 + pll_out];
                     ci.movePortTo(id_I, uarch->glbout[die],
                                   ctx->idf("%s_%d", in_net->driver.port.c_str(ctx), pll_index));
@@ -418,7 +418,7 @@ void GateMatePacker::pack_pll()
             } else {
                 // SER_CLK
                 if (clk != net_SER_CLK)
-                    log_error("CLK_REF connected to uknown pin for cell '%s'.\n", ci.name.c_str(ctx));
+                    log_error("CLK_REF connected to unknown pin for cell '%s'.\n", ci.name.c_str(ctx));
             }
             if (clk->clkconstr)
                 period = clk->clkconstr->period.minDelay();
