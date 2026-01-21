@@ -467,7 +467,7 @@ void GateMateImpl::reassign_cplines(NetInfo *ni, const dict<WireId, PipMap> &net
 
         const auto &extra_data = *pip_extra_data(pip);
         // If not a CP line pip, just recurse.
-        if (extra_data.type != PipExtra::PIP_EXTRA_MUX || extra_data.mask == 0) {
+        if (extra_data.type != PipExtra::PIP_EXTRA_MUX || extra_data.resource == 0) {
             reassign_cplines(ni, net_wires, dst, wire_to_net, num);
             continue;
         }
@@ -506,35 +506,14 @@ void GateMateImpl::reassign_cplines(NetInfo *ni, const dict<WireId, PipMap> &net
 
             ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
         }
-        if (extra_data.mask & PipMask::C_SELX)
-            cell->setParam(id_C_SELX, Property(extra_data.data & PipMask::C_SELX ? 1 : 0, 1));
-        if (extra_data.mask & PipMask::C_SELY1)
-            cell->setParam(id_C_SELY1, Property(extra_data.data & PipMask::C_SELY1 ? 1 : 0, 1));
-        if (extra_data.mask & PipMask::C_SELY2)
-            cell->setParam(id_C_SELY2, Property(extra_data.data & PipMask::C_SELY2 ? 1 : 0, 1));
-        if (extra_data.mask & PipMask::C_SEL_C)
-            cell->setParam(id_C_SEL_C, Property(extra_data.data & PipMask::C_SEL_C ? 1 : 0, 1));
-        if (extra_data.mask & PipMask::C_SEL_P)
-            cell->setParam(id_C_SEL_P, Property(extra_data.data & PipMask::C_SEL_P ? 1 : 0, 1));
-        if (extra_data.mask & PipMask::C_Y12)
-            cell->setParam(id_C_Y12, Property(extra_data.data & PipMask::C_Y12 ? 1 : 0, 1));
-        if (extra_data.mask & PipMask::C_CX_I)
-            cell->setParam(id_C_CX_I, Property(extra_data.data & PipMask::C_CX_I ? 1 : 0, 1));
-        if (extra_data.mask & PipMask::C_CY1_I)
-            cell->setParam(id_C_CY1_I, Property(extra_data.data & PipMask::C_CY1_I ? 1 : 0, 1));
-        if (extra_data.mask & PipMask::C_CY2_I)
-            cell->setParam(id_C_CY2_I, Property(extra_data.data & PipMask::C_CY2_I ? 1 : 0, 1));
-        if (extra_data.mask & PipMask::C_PX_I)
-            cell->setParam(id_C_PX_I, Property(extra_data.data & PipMask::C_PX_I ? 1 : 0, 1));
-        if (extra_data.mask & PipMask::C_PY1_I)
-            cell->setParam(id_C_PY1_I, Property(extra_data.data & PipMask::C_PY1_I ? 1 : 0, 1));
-        if (extra_data.mask & PipMask::C_PY2_I)
-            cell->setParam(id_C_PY2_I, Property(extra_data.data & PipMask::C_PY2_I ? 1 : 0, 1));
+        cell->setParam(IdString(extra_data.resource), Property(extra_data.value, extra_data.bits));
 
         // We have to discover the ports needed by this config.
         auto input_port_map = dict<IdString, IdString>{
                 {ctx->id("CPE.CINX"), id_CINX}, {ctx->id("CPE.CINY1"), id_CINY1}, {ctx->id("CPE.CINY2"), id_CINY2},
-                {ctx->id("CPE.PINX"), id_PINX}, {ctx->id("CPE.PINY1"), id_PINY1}, {ctx->id("CPE.PINY2"), id_PINY2}};
+                {ctx->id("CPE.PINX"), id_PINX}, {ctx->id("CPE.PINY1"), id_PINY1}, {ctx->id("CPE.PINY2"), id_PINY2},
+                {ctx->id("CPE.OUT1_IN_int"), id_OUT1}, {ctx->id("CPE.OUT2_IN_int"), id_OUT2}, {ctx->id("CPE.COMPOUT_IN_int"), id_COMPOUT},
+            };
 
         auto input_port_name = input_port_map.find(ctx->getWireName(ctx->getPipSrcWire(pip))[1]);
         NPNR_ASSERT(input_port_name != input_port_map.end());
