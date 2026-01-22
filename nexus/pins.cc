@@ -240,7 +240,12 @@ static const dict<IdString, Arch::CellPinsData> base_cell_pin_data = {
                  {id_TXDATA0, PINSTYLE_CIB},
                  {id_TXDATA1, PINSTYLE_CIB},
                  {id_TSDATA0, PINSTYLE_CIB},
-         }}};
+         }},
+        {id_CONFIG_MULTIBOOT_CORE,
+         {
+                 {{}, PINSTYLE_CIB},
+        }},
+};
 } // namespace
 
 void Arch::init_cell_pin_data() { cell_pins_db = base_cell_pin_data; }

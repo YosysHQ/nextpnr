@@ -1081,7 +1081,22 @@ struct NexusPacker
                 {id_PDPSC16K, id_PDPSC16K_MODE}, {id_SP16K, id_SP16K_MODE},       {id_FIFO16K, id_FIFO16K_MODE},
                 {id_SP512K, id_SP512K_MODE},     {id_DPSC512K, id_DPSC512K_MODE}, {id_PDPSC512K, id_PDPSC512K_MODE},
                 {id_PLL, id_PLL_CORE},           {id_DPHY, id_DPHY_CORE},
+                {id_MULTIBOOT, id_CONFIG_MULTIBOOT_CORE},
         };
+
+        // extra prefix needed for this primitive for some reason
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->type != id_MULTIBOOT)
+                continue;
+            std::vector<IdString> pin_names;
+            for (const auto &port : ci->ports) {
+                pin_names.push_back(port.first);
+            }
+            for (auto pin_name : pin_names) {
+                ci->renamePort(pin_name, ctx->idf("CIB%s", pin_name.c_str(ctx)));
+            }
+        }
 
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
@@ -1089,6 +1104,7 @@ struct NexusPacker
                 continue;
             prim_to_core(ci, prim_map.at(ci->type));
         }
+
     }
 
     void add_bus_xform(XFormRule &rule, const std::string &o, const std::string &n, int width, int old_offset = 0,

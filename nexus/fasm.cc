@@ -530,6 +530,16 @@ struct NexusFasmWriter
         write_cell_muxes(cell);
         pop(2);
     }
+    // Write config for an CONFIG_MULTIBOOT_CORE cell
+    void write_multiboot(const CellInfo *cell)
+    {
+        BelId bel = cell->bel;
+        push_bel(bel);
+        write_enum(cell, "SOURCESEL", "DIS");
+        write_int_vector(stringf("MSPIADDR[31:0]"),
+                         ctx->parse_lattice_param_from_cell(cell, id_MSPIADDR, 32, 0).intval, 32);
+        pop();
+    }
     // Write config for DCC
     void write_dcc(const CellInfo *cell)
     {
@@ -1095,6 +1105,8 @@ struct NexusFasmWriter
                 write_dcc(ci);
             else if (ci->type == id_DCS)
                 write_dcs(ci);
+            else if (ci->type == id_CONFIG_MULTIBOOT_CORE)
+                write_multiboot(ci);
             blank();
         }
         // Handle DCC route-throughs
