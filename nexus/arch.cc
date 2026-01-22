@@ -197,6 +197,13 @@ Arch::Arch(ArchArgs args) : args(args)
             disabled_pips.insert(dcs_pip);
         NPNR_ASSERT(disabled_pips.size() == 6);
     }
+    if (device == "LIFCL-40") {
+        WireId dcs_out =
+                getWireByName(IdStringList(std::array<IdString, 3>{x_ids.at(49), y_ids.at(28), id_JDCSOUT_DCS_DCSIP}));
+        for (auto dcs_pip : getPipsUphill(dcs_out))
+            disabled_pips.insert(dcs_pip);
+        NPNR_ASSERT(disabled_pips.size() == 2);
+    }
 }
 
 void Arch::list_devices()
