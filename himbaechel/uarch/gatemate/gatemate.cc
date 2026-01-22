@@ -331,8 +331,8 @@ void GateMateImpl::postPlace()
         if (marked_used)
             used_cpes[cell.second.get()->bel.tile] = true;
 
-        uint32_t mask = 0;
-        uint32_t data = 0;
+        uint32_t mask = pip_mask[cell.second.get()->bel.tile];
+        uint32_t data = pip_data[cell.second.get()->bel.tile];
         if (cell.second.get()->type == id_CPE_MULT) {
             mask |= PipMask::IS_MULT;
             data |= PipMask::IS_MULT;
@@ -368,10 +368,18 @@ bool GateMateImpl::checkPipAvail(PipId pip) const
         if (extra_data.value == 1 && IdString(extra_data.name).in(id_C_CLKSEL, id_C_ENSEL))
             return false;
     }
-    if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.mask != 0)) {
-        if (pip_mask[pip.tile] & extra_data.mask) {
-            if ((pip_data[pip.tile] & extra_data.mask) != extra_data.data)
+    if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.block != 0)) {
+        if (pip_mask[pip.tile] & extra_data.block) {
+            //printf("blocking %s - > %s at %s\n",ctx->getPipName(pip)[2].c_str(ctx),ctx->getPipName(pip)[1].c_str(ctx),ctx->getPipName(pip)[0].c_str(ctx));
+            return false;
+        }
+    }
+    if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.resource != 0)) {
+        if (pip_mask[pip.tile] & extra_data.resource) {
+            if ((pip_data[pip.tile] & extra_data.resource) != (extra_data.value ? extra_data.resource : 0)) {
+                //printf("blocking %s - > %s at %s\n",ctx->getPipName(pip)[2].c_str(ctx),ctx->getPipName(pip)[1].c_str(ctx),ctx->getPipName(pip)[0].c_str(ctx));
                 return false;
+            }
         }
     }
     if (extra_data.type != PipExtra::PIP_EXTRA_MUX || (extra_data.flags & MUX_ROUTING) == 0)
@@ -506,7 +514,23 @@ void GateMateImpl::reassign_cplines(NetInfo *ni, const dict<WireId, PipMap> &net
 
             ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
         }
-        cell->setParam(IdString(extra_data.resource), Property(extra_data.value, extra_data.bits));
+        auto resource_map = dict<uint32_t, IdString>{
+                { PipMask::C_SELX,  id_C_SELX },
+                { PipMask::C_SELY1, id_C_SELY1 },
+                { PipMask::C_SELY2, id_C_SELY2 },
+                { PipMask::C_SEL_C, id_C_SEL_C },
+                { PipMask::C_SEL_P, id_C_SEL_P },
+                { PipMask::C_Y12,   id_C_Y12 },
+                { PipMask::C_CX_I,  id_C_CX_I },
+                { PipMask::C_CY1_I, id_C_CY1_I },
+                { PipMask::C_CY2_I, id_C_CY2_I },
+                { PipMask::C_PX_I,  id_C_PX_I },
+                { PipMask::C_PY1_I, id_C_PY1_I },
+                { PipMask::C_PY2_I, id_C_PY2_I, },
+        };
+
+        NPNR_ASSERT(resource_map.count(extra_data.resource));
+        cell->setParam(resource_map.at(extra_data.resource), Property(extra_data.value, extra_data.bits));
 
         // We have to discover the ports needed by this config.
         auto input_port_map = dict<IdString, IdString>{
