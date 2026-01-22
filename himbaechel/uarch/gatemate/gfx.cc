@@ -47,7 +47,7 @@ void GateMateImpl::drawBel(std::vector<GraphicElement> &g, GraphicElement::style
         el.y1 = loc.y + 0.25;
         el.y2 = el.y1 + 0.50;
         g.push_back(el);
-        break;        
+        break;
     case id_CPE_LT_L.index:
         el.x1 = loc.x + 0.20;
         el.x2 = el.x1 + 0.20;
