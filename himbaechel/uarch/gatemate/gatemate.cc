@@ -147,6 +147,10 @@ void GateMateImpl::init(Context *ctx)
         ram_signal_clk.emplace(ctx->idf("ENB[%d]", index), num + 2);
         ram_signal_clk.emplace(ctx->idf("GLWEA[%d]", index), num);
         ram_signal_clk.emplace(ctx->idf("GLWEB[%d]", index), num + 2);
+        ram_signal_clk.emplace(ctx->idf("ECC1B_ERRA[%d]", index), num);
+        ram_signal_clk.emplace(ctx->idf("ECC1B_ERRB[%d]", index), num + 2);
+        ram_signal_clk.emplace(ctx->idf("ECC2B_ERRA[%d]", index), num);
+        ram_signal_clk.emplace(ctx->idf("ECC2B_ERRB[%d]", index), num + 2);
         for (int i = 0; i < 20; i++) {
             ram_signal_clk.emplace(ctx->idf("WEA[%d]", i + num * 20), num);
             ram_signal_clk.emplace(ctx->idf("WEB[%d]", i + num * 20), num + 2);

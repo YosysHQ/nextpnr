@@ -378,34 +378,98 @@ TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdStr
         }
     } else if (cell->type.in(id_RAM, id_RAM_HALF)) {
         std::string name = port.str(ctx);
-        if (boost::starts_with(name, "CLOCK"))
-            get_delay_from_tmg_db(id_timing_RAM_NOECC_IOPATH_1, info.clockToQ);
-        if (boost::starts_with(name, "DOA"))
-            get_delay_from_tmg_db(id_timing_RAM_NOECC_IOPATH_2, info.clockToQ);
-        if (boost::starts_with(name, "DOB"))
-            get_delay_from_tmg_db(id_timing_RAM_NOECC_IOPATH_3, info.clockToQ);
-        if (boost::starts_with(name, "ECC"))
-            get_delay_from_tmg_db(id_timing_RAM_NOECC_IOPATH_4, info.clockToQ);
-        if (boost::starts_with(name, "ADDR"))
-            get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_1, info.setup, info.hold);
-        if (boost::starts_with(name, "CLOCK1"))
-            get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_2, info.setup, info.hold);
-        if (boost::starts_with(name, "DIA"))
-            get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_3, info.setup, info.hold);
-        if (boost::starts_with(name, "DIB"))
-            get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_4, info.setup, info.hold);
-        if (boost::starts_with(name, "ENA"))
-            get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_5, info.setup, info.hold);
-        if (boost::starts_with(name, "ENB"))
-            get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_6, info.setup, info.hold);
-        if (boost::starts_with(name, "GLWEA"))
-            get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_7, info.setup, info.hold);
-        if (boost::starts_with(name, "GLWEB"))
-            get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_8, info.setup, info.hold);
-        if (boost::starts_with(name, "WEA"))
-            get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_9, info.setup, info.hold);
-        if (boost::starts_with(name, "WEB"))
-            get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_10, info.setup, info.hold);
+        int is_ecc_a = int_or_default(cell->params, id_A_ECC_EN, 0);
+        int is_ecc_b = int_or_default(cell->params, id_B_ECC_EN, 0);
+        if (boost::starts_with(name, "CLOCK")) {
+            if (is_ecc_a || is_ecc_b)
+                get_delay_from_tmg_db(id_timing_RAM_ECC_IOPATH_1, info.clockToQ);
+            else
+                get_delay_from_tmg_db(id_timing_RAM_NOECC_IOPATH_1, info.clockToQ);
+        }
+        if (boost::starts_with(name, "DOA")) {
+            if (is_ecc_a)
+                get_delay_from_tmg_db(id_timing_RAM_ECC_IOPATH_2, info.clockToQ);
+            else
+                get_delay_from_tmg_db(id_timing_RAM_NOECC_IOPATH_2, info.clockToQ);
+        }
+        if (boost::starts_with(name, "DOB")) {
+            if (is_ecc_b)
+                get_delay_from_tmg_db(id_timing_RAM_ECC_IOPATH_3, info.clockToQ);
+            else
+                get_delay_from_tmg_db(id_timing_RAM_NOECC_IOPATH_3, info.clockToQ);
+        }
+        if (boost::starts_with(name, "ECC")) {
+            if (is_ecc_a || is_ecc_b)
+                get_delay_from_tmg_db(id_timing_RAM_ECC_IOPATH_4, info.clockToQ);
+            else
+                get_delay_from_tmg_db(id_timing_RAM_NOECC_IOPATH_4, info.clockToQ);
+        }
+        if (boost::starts_with(name, "ADDRA")) {
+            if (is_ecc_a)
+                get_setuphold_from_tmg_db(id_timing_RAM_ECC_SETUPHOLD_1, info.setup, info.hold);
+            else
+                get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_1, info.setup, info.hold);
+        }
+        if (boost::starts_with(name, "ADDRB")) {
+            if (is_ecc_b)
+                get_setuphold_from_tmg_db(id_timing_RAM_ECC_SETUPHOLD_1, info.setup, info.hold);
+            else
+                get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_1, info.setup, info.hold);
+        }
+        if (boost::starts_with(name, "CLOCK1")) { // TODO CLOCK1 || CLOCK2 || CLOCK3 || CLOCK4?
+            if (is_ecc_a || is_ecc_b)
+                get_setuphold_from_tmg_db(id_timing_RAM_ECC_SETUPHOLD_2, info.setup, info.hold);
+            else
+                get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_2, info.setup, info.hold);
+        }
+        if (boost::starts_with(name, "DIA")) {
+            if (is_ecc_a)
+                get_setuphold_from_tmg_db(id_timing_RAM_ECC_SETUPHOLD_3, info.setup, info.hold);
+            else
+                get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_3, info.setup, info.hold);
+        }
+        if (boost::starts_with(name, "DIB")) {
+            if (is_ecc_b)
+                get_setuphold_from_tmg_db(id_timing_RAM_ECC_SETUPHOLD_4, info.setup, info.hold);
+            else
+                get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_4, info.setup, info.hold);
+        }
+        if (boost::starts_with(name, "ENA")) {
+            if (is_ecc_a)
+                get_setuphold_from_tmg_db(id_timing_RAM_ECC_SETUPHOLD_5, info.setup, info.hold);
+            else
+                get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_5, info.setup, info.hold);
+        }
+        if (boost::starts_with(name, "ENB")) {
+            if (is_ecc_b)
+                get_setuphold_from_tmg_db(id_timing_RAM_ECC_SETUPHOLD_6, info.setup, info.hold);
+            else
+                get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_6, info.setup, info.hold);
+        }
+        if (boost::starts_with(name, "GLWEA")) {
+            if (is_ecc_a)
+                get_setuphold_from_tmg_db(id_timing_RAM_ECC_SETUPHOLD_7, info.setup, info.hold);
+            else
+                get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_7, info.setup, info.hold);
+        }
+        if (boost::starts_with(name, "GLWEB")) {
+            if (is_ecc_b)
+                get_setuphold_from_tmg_db(id_timing_RAM_ECC_SETUPHOLD_8, info.setup, info.hold);
+            else
+                get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_8, info.setup, info.hold);
+        }
+        if (boost::starts_with(name, "WEA")) {
+            if (is_ecc_a)
+                get_setuphold_from_tmg_db(id_timing_RAM_ECC_SETUPHOLD_9, info.setup, info.hold);
+            else
+                get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_9, info.setup, info.hold);
+        }
+        if (boost::starts_with(name, "WEB")) {
+            if (is_ecc_b)
+                get_setuphold_from_tmg_db(id_timing_RAM_ECC_SETUPHOLD_10, info.setup, info.hold);
+            else
+                get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_10, info.setup, info.hold);
+        }
         bool is_clk_b = false;
         for (auto c : boost::adaptors::reverse(name)) {
             if (std::isdigit(c) || c == 'X' || c == '[' || c == ']')
@@ -452,7 +516,7 @@ TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdStr
                 break;
             }
         } else {
-            log_error("Uknown clock signal for %s\n", name.c_str());
+            log_error("Unknown clock signal for %s\n", name.c_str());
         }
     }
 

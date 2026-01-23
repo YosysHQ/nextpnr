@@ -103,7 +103,7 @@ struct GateMateCCFReader
                 if (uarch->die_to_index.count(ctx->id(value))) {
                     props->emplace(ctx->id(name), Property(value));
                 } else
-                    log_error("Uknown value '%s' for parameter '%s' in line %d.\n", value.c_str(), name.c_str(),
+                    log_error("Unknown value '%s' for parameter '%s' in line %d.\n", value.c_str(), name.c_str(),
                               lineno);
             } else if (name == "SCHMITT_TRIGGER" || name == "PULLUP" || name == "PULLDOWN" || name == "KEEPER" ||
                        name == "FF_IBF" || name == "FF_OBF" || name == "LVDS_BOOST" || name == "LVDS_RTERM") {
@@ -116,7 +116,7 @@ struct GateMateCCFReader
                 } else if (value == "FALSE") {
                     props->emplace(ctx->id(name), Property(Property::State::S0));
                 } else
-                    log_error("Uknown value '%s' for parameter '%s' in line %d, must be TRUE or FALSE.\n",
+                    log_error("Unknown value '%s' for parameter '%s' in line %d, must be TRUE or FALSE.\n",
                               value.c_str(), name.c_str(), lineno);
             } else if (name == "SLEW") {
                 if (value == "1" || value == "TRUE")
@@ -126,7 +126,7 @@ struct GateMateCCFReader
                 if (value == "FAST" || value == "SLOW") {
                     props->emplace(ctx->id(name), Property(value));
                 } else
-                    log_error("Uknown value '%s' for parameter '%s' in line %d, must be SLOW or FAST.\n", value.c_str(),
+                    log_error("Unknown value '%s' for parameter '%s' in line %d, must be SLOW or FAST.\n", value.c_str(),
                               name.c_str(), lineno);
             } else if (name == "DRIVE") {
                 try {
@@ -149,7 +149,7 @@ struct GateMateCCFReader
                     log_error("Parameter '%s' must be number in line %d.\n", name.c_str(), lineno);
                 }
             } else {
-                log_error("Uknown parameter name '%s' in line %d.\n", name.c_str(), lineno);
+                log_error("Unknown parameter name '%s' in line %d.\n", name.c_str(), lineno);
             }
         }
     }

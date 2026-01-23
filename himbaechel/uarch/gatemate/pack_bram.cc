@@ -424,10 +424,10 @@ void GateMatePacker::pack_ram()
             move_ram_o(&ci, ctx->idf("ENB[%d]", i));
             move_ram_o(&ci, ctx->idf("GLWEA[%d]", i));
             move_ram_o(&ci, ctx->idf("GLWEB[%d]", i));
-            move_ram_o(&ci, ctx->idf("ECC1B_ERRA[%d]", i));
-            move_ram_o(&ci, ctx->idf("ECC1B_ERRB[%d]", i));
-            move_ram_o(&ci, ctx->idf("ECC2B_ERRA[%d]", i));
-            move_ram_o(&ci, ctx->idf("ECC2B_ERRB[%d]", i));
+            move_ram_i(&ci, ctx->idf("ECC1B_ERRA[%d]", i));
+            move_ram_i(&ci, ctx->idf("ECC1B_ERRB[%d]", i));
+            move_ram_i(&ci, ctx->idf("ECC2B_ERRA[%d]", i));
+            move_ram_i(&ci, ctx->idf("ECC2B_ERRB[%d]", i));
         }
 
         if (is_fifo) {
