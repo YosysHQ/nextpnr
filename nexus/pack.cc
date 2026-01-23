@@ -1081,7 +1081,7 @@ struct NexusPacker
                 {id_PDPSC16K, id_PDPSC16K_MODE}, {id_SP16K, id_SP16K_MODE},       {id_FIFO16K, id_FIFO16K_MODE},
                 {id_SP512K, id_SP512K_MODE},     {id_DPSC512K, id_DPSC512K_MODE}, {id_PDPSC512K, id_PDPSC512K_MODE},
                 {id_PLL, id_PLL_CORE},           {id_DPHY, id_DPHY_CORE},
-                {id_MULTIBOOT, id_CONFIG_MULTIBOOT_CORE},
+                {id_MULTIBOOT, id_CONFIG_MULTIBOOT_CORE}, {id_CONFIG_LMMI, id_CONFIG_LMMI_CORE},
         };
 
         // extra prefix needed for this primitive for some reason

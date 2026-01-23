@@ -245,6 +245,19 @@ static const dict<IdString, Arch::CellPinsData> base_cell_pin_data = {
          {
                  {{}, PINSTYLE_CIB},
         }},
+        {id_CONFIG_LMMI_CORE,
+         {
+                 {id_LMMICLK, PINSTYLE_DEDI},
+                 {id_LMMIRESETN, PINSTYLE_DEDI},
+                 {id_RSTSMCLK, PINSTYLE_DEDI},
+                 {id_SMCLK, PINSTYLE_DEDI},
+                 {{}, PINSTYLE_CIB},
+        }},
+        {id_CONFIG_CLKRST_CORE,
+         {
+                {{}, PINSTYLE_DEDI},
+        }},
+
 };
 } // namespace
 

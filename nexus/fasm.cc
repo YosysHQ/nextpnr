@@ -540,6 +540,25 @@ struct NexusFasmWriter
                          ctx->parse_lattice_param_from_cell(cell, id_MSPIADDR, 32, 0).intval, 32);
         pop();
     }
+    // Write config for an CONFIG_LMMI_CORE cell
+    void write_lmmi(const CellInfo *cell)
+    {
+        BelId bel = cell->bel;
+        push_bel(bel);
+        write_enum(cell, "LMMI_EN", "DIS");
+        pop();
+    }
+    // Write config for an CONFIG_CLKRST_CORE cell
+    void write_cfg_clkrst(const CellInfo *cell)
+    {
+        BelId bel = cell->bel;
+        push_bel(bel);
+        write_enum(cell, "MCJTAGGSRNDIS", "EN");
+        write_enum(cell, "MCLMMIGSRNDIS", "EN");
+        write_enum(cell, "MCSEDCGSRNDIS", "EN");
+        write_enum(cell, "MCWDTGSRNDIS", "EN");
+        pop();
+    }
     // Write config for DCC
     void write_dcc(const CellInfo *cell)
     {
@@ -1107,6 +1126,10 @@ struct NexusFasmWriter
                 write_dcs(ci);
             else if (ci->type == id_CONFIG_MULTIBOOT_CORE)
                 write_multiboot(ci);
+            else if (ci->type == id_CONFIG_LMMI_CORE)
+                write_lmmi(ci);
+            else if (ci->type == id_CONFIG_CLKRST_CORE)
+                write_cfg_clkrst(ci);
             blank();
         }
         // Handle DCC route-throughs
