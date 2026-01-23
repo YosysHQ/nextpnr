@@ -126,8 +126,8 @@ struct GateMateCCFReader
                 if (value == "FAST" || value == "SLOW") {
                     props->emplace(ctx->id(name), Property(value));
                 } else
-                    log_error("Unknown value '%s' for parameter '%s' in line %d, must be SLOW or FAST.\n", value.c_str(),
-                              name.c_str(), lineno);
+                    log_error("Unknown value '%s' for parameter '%s' in line %d, must be SLOW or FAST.\n",
+                              value.c_str(), name.c_str(), lineno);
             } else if (name == "DRIVE") {
                 try {
                     int drive = boost::lexical_cast<int>(value.c_str());
