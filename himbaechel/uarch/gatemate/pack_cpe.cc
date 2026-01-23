@@ -573,6 +573,7 @@ void GateMatePacker::pack_addf()
 
         CellInfo *ci_cplines = create_cell_ptr(id_CPE_CPLINES, ctx->idf("%s$ci_cplines", root->name.c_str(ctx)));
         ci_cplines->params[id_C_SELY1] = Property(1, 1);
+        ci_cplines->params[id_C_SEL_C] = Property(0, 1);
         ci_cplines->params[id_C_CY1_I] = Property(1, 1);
         root->constr_children.push_back(ci_cplines);
         ci_cplines->cluster = root->name;
