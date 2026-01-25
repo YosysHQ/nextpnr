@@ -660,6 +660,17 @@ struct NexusFasmWriter
         write_enum(cell, "IDDRX1_ODDRX1.TRISTATE");
         write_enum(cell, "GSR", "DISABLED");
         write_enum(cell, "TSREG.REGSET", "RESET");
+        if (cell->params.count(ctx->id("DELAY.DEL_VALUE"))) {
+            write_int_vector(stringf("DELAY.DEL_VALUE[6:0]"),
+                         int_or_default(cell->params, ctx->id("DELAY.DEL_VALUE"), 0), 7);
+        }
+        write_enum(cell, "DELAY.COARSE_DELAY");
+        write_enum(cell, "DELAY.EDGE_MONITOR");
+        write_enum(cell, "DELAY.WAIT_FOR_EDGE");
+        write_enum(cell, "DELAYMUX");
+        write_enum(cell, "INMUX");
+        write_enum(cell, "OUTMUX");
+
         write_cell_muxes(cell);
         pop();
     }

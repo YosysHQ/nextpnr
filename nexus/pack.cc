@@ -1220,6 +1220,58 @@ struct NexusPacker
         }
     }
 
+    void pack_iodelay()
+    {
+        dict<IdString, XFormRule> base_iodelay_rules;
+        base_iodelay_rules[id_DELAYB].new_type = id_IOLOGIC;
+
+        base_iodelay_rules[id_DELAYB].param_xform[id_DEL_VALUE] = ctx->id("DELAY.DEL_VALUE");
+        base_iodelay_rules[id_DELAYB].param_xform[id_COARSE_DELAY] = ctx->id("DELAY.COARSE_DELAY");
+
+        base_iodelay_rules[id_DELAYA] = base_iodelay_rules[id_DELAYB];
+
+        base_iodelay_rules[id_DELAYA].param_xform[id_COARSE_DELAY_MODE] = ctx->id("DELAY.COARSE_DELAY_MODE");
+        base_iodelay_rules[id_DELAYA].param_xform[id_EDGE_MONITOR] = ctx->id("DELAY.EDGE_MONITOR");
+        base_iodelay_rules[id_DELAYA].param_xform[id_WAIT_FOR_EDGE] = ctx->id("DELAY.WAIT_FOR_EDGE");
+
+        base_iodelay_rules[id_DELAYA].port_xform[id_COARSE0] = id_CIBCRS0;
+        base_iodelay_rules[id_DELAYA].port_xform[id_COARSE1] = id_CIBCRS1;
+        base_iodelay_rules[id_DELAYA].port_xform[id_CFLAG] = id_COUT;
+
+        // Find IO delays, and convert them to IOLOGIC
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (!ci->type.in(id_DELAYA, id_DELAYB))
+                continue;
+            if (str_or_default(ci->params, id_DEL_MODE, "USER_DEFINED") != "USER_DEFINED") {
+                // TODO: DEL_MODE (we need to work out how to convert these to a DEL_VALUE)
+                log_error("DEL_MODE other than \"USER_DEFINED\" is not supported on DELAY '%s'\n", ci->name.c_str(ctx));
+            }
+            xform_cell(base_iodelay_rules, ci);
+
+            NetInfo *a = ci->getPort(id_A);
+            if (a != nullptr && a->driver.cell != nullptr && a->driver.cell->type.in(id_SEIO18_CORE, id_SEIO33_CORE, id_DIFFIO18_CORE)) {
+                // It's an input delay
+                log_info("   processing input delay cell '%s'\n", ci->name.c_str(ctx));
+                ci->params[id_INMUX] = std::string("DELAY");
+                ci->renamePort(id_A, id_DI);
+                ci->renamePort(id_Z, id_INDD);
+                continue;
+            }
+            NetInfo *z = ci->getPort(id_Z);
+            if (z != nullptr && z->users.entries() == 1 && (*z->users.begin()).cell->type.in(id_SEIO18_CORE, id_SEIO33_CORE, id_DIFFIO18_CORE)) {
+                // It's an output delay
+                log_info("   processing output delay cell '%s'\n", ci->name.c_str(ctx));
+                ci->params[id_OUTMUX] = std::string("DELAY");
+                ci->renamePort(id_A, id_TXDATA0);
+                ci->renamePort(id_Z, id_DOUT);
+                continue;
+            }
+            log_error("Failed to determine if delay cell '%s' was an input or output delay.\n", ci->name.c_str(ctx));
+        }
+    }
+
+
     void transform_iologic()
     {
         dict<IdString, XFormRule> iol_rules;
@@ -1303,6 +1355,7 @@ struct NexusPacker
     void pack_iologic()
     {
         log_info("Packing IOLOGIC...\n");
+        pack_iodelay();
         transform_iologic();
         constrain_merge_iol();
     }
