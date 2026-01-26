@@ -22,6 +22,7 @@
 
 #include "extra_data.h"
 #include "himbaechel_api.h"
+#include "idstringlist.h"
 #include "log.h"
 #include "nextpnr.h"
 #include "util.h"
@@ -78,6 +79,9 @@ struct GateMateImpl : HimbaechelAPI
     void configurePlacerHeap(PlacerHeapCfg &cfg) override;
 
     bool isPipInverting(PipId pip) const override;
+
+    IdStringList getResourceKeyForPip(PipId pip) const override;
+    int getResourceValueForPip(PipId pip) const override;
 
     const GateMateTileExtraDataPOD *tile_extra_data(int tile) const;
     const GateMateBelExtraDataPOD *bel_extra_data(BelId bel) const;
