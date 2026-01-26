@@ -1308,6 +1308,72 @@ struct NexusPacker
         ctx->cells.erase(mergee->name);
     }
 
+    void merge_delay_iol()
+    {
+        // Find pairs of delay IOLOGIC and logic IOLOGIC
+        // <delay iol, logic iol, ouput>
+        std::vector<std::tuple<CellInfo*, CellInfo *, bool>> delay_iol;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (!ci->type.in(id_SIOLOGIC, id_IOLOGIC))
+                continue;
+            NetInfo *indd = ci->getPort(id_INDD);
+            if (indd && indd->users.entries() == 1) {
+                auto usr = *(indd->users.begin());
+                if (usr.cell->type.in(id_IOLOGIC, id_SIOLOGIC) && usr.port == id_DI) {
+                    delay_iol.emplace_back(ci, usr.cell, false);
+                    continue;
+                }
+            }
+            NetInfo *txdata0 = ci->getPort(id_TXDATA0);
+            if (txdata0 && txdata0->driver.cell != nullptr) {
+                auto drv = txdata0->driver;
+                if (drv.cell->type.in(id_IOLOGIC, id_SIOLOGIC) && drv.port == id_DOUT) {
+                    delay_iol.emplace_back(ci, drv.cell, true);
+                    continue;
+                }
+            }
+        }
+        // Combine the pairs together
+        for (const auto &iol_pair : delay_iol) {
+            CellInfo *delay_iol, *logic_iol;
+            bool is_output;
+            std::tie(delay_iol, logic_iol, is_output) = iol_pair;
+            // Copy delay parameters across (except MODE)
+            for (auto &param : delay_iol->params) {
+                if (param.first == id_MODE)
+                    continue;
+                logic_iol->params[param.first] = param.second;
+            }
+            // Deal with interconnectivity
+            if (is_output) {
+                // Configure delay for use with DDR
+                logic_iol->params[id_DELAYMUX] = std::string("OUT_REG");
+
+                NetInfo *out_net = delay_iol->getPort(id_DOUT);
+                delay_iol->disconnectPort(id_DOUT);
+                delay_iol->disconnectPort(id_TXDATA0);
+                logic_iol->disconnectPort(id_DOUT);
+                logic_iol->connectPort(id_DOUT, out_net);
+            } else {
+                NetInfo *in_net = delay_iol->getPort(id_DI);
+                delay_iol->disconnectPort(id_DI);
+                delay_iol->disconnectPort(id_INDD);
+                logic_iol->disconnectPort(id_DI);
+                logic_iol->connectPort(id_DI, in_net);
+            }
+            // Move the rest of the ports
+            for (auto &port : delay_iol->ports) {
+                if (!port.second.net)
+                    continue;
+                delay_iol->movePortTo(port.first, logic_iol, port.first);
+            }
+            log_info("   merged delay IOLOGIC '%s' into logic IOLOGIC '%s'\n",
+                delay_iol->name.c_str(ctx), logic_iol->name.c_str(ctx));
+            ctx->cells.erase(delay_iol->name);
+        }
+    }
+
     void constrain_merge_iol()
     {
         dict<IdString, std::vector<CellInfo *>> io_to_iol;
@@ -1337,8 +1403,11 @@ struct NexusPacker
                 merge_iol_cell(iol, io_iol.second.at(i));
             // Constrain, and update type if appropriate
             CellInfo *iob = ctx->cells.at(io_iol.first).get();
-            if (iob->type == id_SEIO33_CORE)
+            if (iob->type == id_SEIO33_CORE) {
                 iol->type = id_SIOLOGIC;
+                // DELAYMUX does not exist in SIOLOGIC, implicit from OUTMUX in this case
+                iol->params.erase(id_DELAYMUX);
+            }
             Loc iol_loc = ctx->getBelLocation(get_bel_attr(iob));
             if (iob->type == id_DIFFIO18_CORE)
                 iol_loc.z = 3;
@@ -1357,6 +1426,7 @@ struct NexusPacker
         log_info("Packing IOLOGIC...\n");
         pack_iodelay();
         transform_iologic();
+        merge_delay_iol();
         constrain_merge_iol();
     }
 

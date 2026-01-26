@@ -665,6 +665,7 @@ struct NexusFasmWriter
                          int_or_default(cell->params, ctx->id("DELAY.DEL_VALUE"), 0), 7);
         }
         write_enum(cell, "DELAY.COARSE_DELAY");
+        write_enum(cell, "DELAY.COARSE_DELAY_MODE");
         write_enum(cell, "DELAY.EDGE_MONITOR");
         write_enum(cell, "DELAY.WAIT_FOR_EDGE");
         write_enum(cell, "DELAYMUX");
