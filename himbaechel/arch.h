@@ -27,6 +27,7 @@
 #include "base_arch.h"
 #include "chipdb.h"
 #include "himbaechel_api.h"
+#include "idstringlist.h"
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
 
@@ -787,6 +788,11 @@ struct Arch : BaseArch<ArchRanges>
     // ------------------------------------------------
     // Routing methods
     void expandBoundingBox(BoundingBox &bb) const override { uarch->expandBoundingBox(bb); };
+
+    // ------------------------------------------------
+    // Resource methods
+    IdStringList getResourceKeyForPip(PipId pip) const override { return uarch->getResourceKeyForPip(pip); };
+    int getResourceValueForPip(PipId pip) const override { return uarch->getResourceValueForPip(pip); };
 
     // ------------------------------------------------
 

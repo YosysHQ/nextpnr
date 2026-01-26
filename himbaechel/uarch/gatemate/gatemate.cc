@@ -517,21 +517,10 @@ void GateMateImpl::reassign_cplines(NetInfo *ni, const dict<WireId, PipMap> &net
             ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
         }
         auto resource_map = dict<uint32_t, IdString>{
-                {PipMask::C_SELX, id_C_SELX},
-                {PipMask::C_SELY1, id_C_SELY1},
-                {PipMask::C_SELY2, id_C_SELY2},
-                {PipMask::C_SEL_C, id_C_SEL_C},
-                {PipMask::C_SEL_P, id_C_SEL_P},
-                {PipMask::C_Y12, id_C_Y12},
-                {PipMask::C_CX_I, id_C_CX_I},
-                {PipMask::C_CY1_I, id_C_CY1_I},
-                {PipMask::C_CY2_I, id_C_CY2_I},
-                {PipMask::C_PX_I, id_C_PX_I},
-                {PipMask::C_PY1_I, id_C_PY1_I},
-                {
-                        PipMask::C_PY2_I,
-                        id_C_PY2_I,
-                },
+                {PipMask::C_SELX, id_C_SELX},   {PipMask::C_SELY1, id_C_SELY1}, {PipMask::C_SELY2, id_C_SELY2},
+                {PipMask::C_SEL_C, id_C_SEL_C}, {PipMask::C_SEL_P, id_C_SEL_P}, {PipMask::C_Y12, id_C_Y12},
+                {PipMask::C_CX_I, id_C_CX_I},   {PipMask::C_CY1_I, id_C_CY1_I}, {PipMask::C_CY2_I, id_C_CY2_I},
+                {PipMask::C_PX_I, id_C_PX_I},   {PipMask::C_PY1_I, id_C_PY1_I}, {PipMask::C_PY2_I, id_C_PY2_I},
         };
 
         NPNR_ASSERT(resource_map.count(extra_data.resource));

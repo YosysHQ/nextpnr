@@ -21,6 +21,7 @@
 #define HIMBAECHEL_API_H
 
 #include <boost/program_options.hpp>
+#include "idstringlist.h"
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
 
@@ -130,6 +131,11 @@ struct HimbaechelAPI
 
     // Routing methods
     virtual void expandBoundingBox(BoundingBox &bb) const;
+
+    // Resource methods
+    virtual IdStringList getResourceKeyForPip(PipId pip) const { return IdStringList(); };
+    virtual int getResourceValueForPip(PipId pip) const { return 0; };
+
     // --- Flow hooks ---
     virtual void pack() {}; // replaces the pack function
     // Called before and after main placement and routing
