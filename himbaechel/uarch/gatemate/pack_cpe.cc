@@ -33,9 +33,9 @@ bool GateMatePacker::are_ffs_compatible(CellInfo *dff, CellInfo *other)
 {
     if (!other)
         return true;
-    if (dff->getPort(id_CLK) != other->getPort(id_CLK))
+    if (dff->getPort(id_CLK_INT) != other->getPort(id_CLK))
         return false;
-    if (dff->getPort(id_EN) != other->getPort(id_EN))
+    if (dff->getPort(id_EN_INT) != other->getPort(id_EN))
         return false;
     if (dff->getPort(id_SR) != other->getPort(id_SR))
         return false;
@@ -192,6 +192,8 @@ void GateMatePacker::pack_cpe()
         ci.constr_children.push_back(dff);
         dff->renamePort(id_D, id_DIN);
         dff->renamePort(id_Q, id_DOUT);
+        dff->renamePort(id_CLK, id_CLK_INT);
+        dff->renamePort(id_EN, id_EN_INT);
         dff->type = (dff->type == id_CC_DLT) ? id_CPE_LATCH : id_CPE_FF;
     };
 
@@ -387,6 +389,8 @@ void GateMatePacker::pack_cpe()
         ci.cluster = ci.name;
         ci.constr_children.push_back(lt);
         ci.renamePort(id_Q, id_DOUT);
+        ci.renamePort(id_CLK, id_CLK_INT);
+        ci.renamePort(id_EN, id_EN_INT);
         NetInfo *d_net = ci.getPort(id_D);
         if (d_net == net_PACKER_GND) {
             lt->params[id_INIT_L10] = Property(LUT_ZERO, 4);
@@ -537,6 +541,8 @@ void GateMatePacker::pack_addf()
                 cell->constr_children.push_back(dff);
                 dff->renamePort(id_D, id_DIN);
                 dff->renamePort(id_Q, id_DOUT);
+                dff->renamePort(id_CLK, id_CLK_INT);
+                dff->renamePort(id_EN, id_EN_INT);
                 dff->type = (dff->type == id_CC_DLT) ? id_CPE_LATCH : id_CPE_FF;
                 return dff;
             }
@@ -763,6 +769,8 @@ std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_io(CellInfo *cell, Id
             /* if (ci.type.in(id_CC_DFF, id_CC_DLT)) {
                 cpe_half = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$%s_cpe", cell->name.c_str(ctx), oPort.c_str(ctx)));
                 ci.renamePort(id_Q, id_DOUT);
+                ci.renamePort(id_CLK, id_CLK_INT);
+                ci.renamePort(id_EN, id_EN_INT);
                 NetInfo *d_net = ci.getPort(id_D);
                 if (d_net == net_PACKER_GND) {
                     cpe_half->params[id_INIT_L10] = Property(LUT_ZERO, 4);
