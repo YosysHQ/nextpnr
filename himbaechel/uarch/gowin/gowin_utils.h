@@ -14,7 +14,8 @@ static constexpr uint32_t FLAG_SIMPLE_IO = 0x100;
 
 namespace WireFlags {
 static constexpr uint32_t FLAG_CLOCK_GATE = 0x1;
-}
+static constexpr uint32_t FLAG_BOTTOM_HALF = 0x2;
+} // namespace WireFlags
 
 struct GowinUtils
 {
@@ -96,6 +97,12 @@ struct GowinUtils
         return chip_wire_info(ctx->chip_info, wire).flags & WireFlags::FLAG_CLOCK_GATE;
     }
 
+    bool wire_in_bottom_half(WireId wire) const
+    {
+        return chip_wire_info(ctx->chip_info, wire).flags & WireFlags::FLAG_BOTTOM_HALF;
+    }
+    bool get_spine_select_wire(WireId spine, std::vector<std::pair<WireId, int>> &);
+
     // BSRAM
     bool has_SP32(void);
     bool need_SP_fix(void);
@@ -110,13 +117,18 @@ struct GowinUtils
     bool has_BANDGAP(void);
 
     // Pin function configuration via wires
-    bool has_PINCFG(void);
+    bool has_PINCFG(void) const;
+    bool need_CFGPINS_INVERSION(void) const;
+    bool has_I2CCFG(void) const;
 
     // Logic cell structure
     bool has_DFF67(void) const;
 
     // ALU
     bool has_CIN_MUX(void) const;
+
+    // Clock MUX
+    bool has_spine_enable_nets(void) const;
 
     // DSP
     inline int get_dsp_18_z(int z) const { return z & (~3); }

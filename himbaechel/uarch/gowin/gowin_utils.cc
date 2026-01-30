@@ -350,16 +350,49 @@ bool GowinUtils::has_BANDGAP(void)
     return extra->chip_flags & Extra_chip_data_POD::HAS_BANDGAP;
 }
 
-bool GowinUtils::has_PINCFG(void)
+bool GowinUtils::has_PINCFG(void) const
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
     return extra->chip_flags & Extra_chip_data_POD::HAS_PINCFG;
+}
+
+bool GowinUtils::need_CFGPINS_INVERSION(void) const
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->chip_flags & Extra_chip_data_POD::NEED_CFGPINS_INVERSION;
+}
+
+bool GowinUtils::has_I2CCFG(void) const
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->chip_flags & Extra_chip_data_POD::HAS_I2CCFG;
 }
 
 bool GowinUtils::has_DFF67(void) const
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
     return extra->chip_flags & Extra_chip_data_POD::HAS_DFF67;
+}
+
+bool GowinUtils::has_spine_enable_nets(void) const
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->spine_select_wires_top.ssize() || extra->spine_select_wires_bottom.ssize();
+}
+
+bool GowinUtils::get_spine_select_wire(WireId spine, std::vector<std::pair<WireId, int>> &wires)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+
+    wires.clear();
+    for (auto &rec : wire_in_bottom_half(spine) ? extra->spine_select_wires_bottom : extra->spine_select_wires_top) {
+        if (IdString(rec.spine) == ctx->getWireName(spine)[1]) {
+            IdString tile = ctx->idf("X%dY%d", rec.x, rec.y);
+            IdStringList name = IdStringList::concat(tile, IdString(rec.wire));
+            wires.push_back(std::make_pair(ctx->getWireByName(name), rec.vcc_gnd));
+        }
+    }
+    return !wires.empty();
 }
 
 bool GowinUtils::has_CIN_MUX(void) const

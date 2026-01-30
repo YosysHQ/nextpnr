@@ -1187,6 +1187,76 @@ struct GowinGlobalRouter
         }
     }
 
+    // Enable clocked spines by connecting magic wires to VCC/GND if necessary.
+    void enable_spines(void)
+    {
+        if (ctx->verbose) {
+            log_info("Check for spine select wires.\n");
+        }
+
+        NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
+        NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
+
+        std::unique_ptr<CellInfo> top_ci = gwu.create_cell(ctx->id("spine_select$top"), id_SPINE_SELECT);
+        top_ci->pseudo_cell = std::make_unique<RegionPlug>(Loc(0, 0, 0));
+        std::unique_ptr<CellInfo> bottom_ci = gwu.create_cell(ctx->id("spine_select$bottom"), id_SPINE_SELECT);
+        bottom_ci->pseudo_cell = std::make_unique<RegionPlug>(Loc(0, 0, 0));
+
+        pool<WireId> seen_spines;
+        dict<IdString, int> top_connections;
+        dict<IdString, int> bottom_connections;
+
+        for (auto &net : ctx->nets) {
+            const NetInfo *ni = net.second.get();
+            for (auto &wire : ni->wires) {
+                WireId spine = wire.first;
+                IdString spine_name = ctx->getWireName(spine)[1];
+                if (spine_name.str(ctx).rfind("SPINE", 0) == 0 && seen_spines.count(spine) == 0) {
+                    seen_spines.insert(spine);
+                    std::vector<std::pair<WireId, int>> wires;
+                    if (gwu.get_spine_select_wire(spine, wires)) {
+                        int sfx = 0; // To activate a single spine, it may be necessary to connect an unknown number of
+                                     // wires.
+                        CellInfo *select_cell = top_ci.get();
+                        auto connections = &top_connections;
+                        if (gwu.wire_in_bottom_half(spine)) {
+                            select_cell = bottom_ci.get();
+                            connections = &bottom_connections;
+                        }
+
+                        for (auto gate : wires) {
+                            IdString port_name = ctx->idf("%s.%d", spine_name.c_str(ctx), sfx);
+
+                            select_cell->addInput(port_name);
+
+                            RegionPlug *rp = (RegionPlug *)select_cell->pseudo_cell.get();
+                            rp->port_wires[port_name] = gate.first;
+                            (*connections)[port_name] = gate.second;
+                            ++sfx;
+                            if (ctx->verbose) {
+                                log_info("  %s->%s\n", port_name.c_str(ctx), ctx->nameOfWire(gate.first));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // realy connect nets
+        if (!top_connections.empty()) {
+            for (auto conn : top_connections) {
+                top_ci->connectPort(conn.first, conn.second ? vcc_net : vss_net);
+            }
+            ctx->cells[top_ci->name] = std::move(top_ci);
+        }
+        if (!bottom_connections.empty()) {
+            for (auto conn : bottom_connections) {
+                bottom_ci->connectPort(conn.first, conn.second ? vcc_net : vss_net);
+            }
+            ctx->cells[bottom_ci->name] = std::move(bottom_ci);
+        }
+    }
+
     // Route all
     void run(void)
     {
@@ -1294,6 +1364,14 @@ struct GowinGlobalRouter
         // segmented nets
         if (gwu.get_segments_count() != 0) {
             route_segmented(seg_nets);
+        }
+
+        // In some GW5 series chips, in addition to the mechanism for
+        // enabling/disabling individual clock spines using fuses, which is
+        // invisible to nextpnr, it is necessary to enable them by connecting
+        // some ports of the mysterious MUX to VSS/GND.
+        if (gwu.has_spine_enable_nets()) {
+            enable_spines();
         }
     }
 };
