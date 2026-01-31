@@ -1229,7 +1229,7 @@ struct GowinGlobalRouter
 
                             select_cell->addInput(port_name);
 
-                            RegionPlug *rp = (RegionPlug *)select_cell->pseudo_cell.get();
+                            RegionPlug *rp = dynamic_cast<RegionPlug *>(select_cell->pseudo_cell.get());
                             rp->port_wires[port_name] = gate.first;
                             (*connections)[port_name] = gate.second;
                             ++sfx;
