@@ -3959,10 +3959,15 @@ struct GowinPacker
 
         auto pincfg_cell = std::make_unique<CellInfo>(ctx, id_PINCFG, id_PINCFG);
 
-        for (int i = 0; i < 5; ++i) {
+        const int pin_cnt = gwu.has_I2CCFG() ? 5 : 4;
+        for (int i = 0; i < pin_cnt; ++i) {
             IdString port = ctx->idf("UNK%d_VCC", i);
             pincfg_cell->addInput(port);
-            pincfg_cell->connectPort(port, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
+            if (i && gwu.need_CFGPINS_INVERSION()) {
+                pincfg_cell->connectPort(port, ctx->nets.at(ctx->id("$PACKER_GND")).get());
+            } else {
+                pincfg_cell->connectPort(port, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
+            }
         }
 
         const ArchArgs &args = ctx->args;
@@ -3975,12 +3980,14 @@ struct GowinPacker
             pincfg_cell->connectPort(id_SSPI, ctx->nets.at(ctx->id("$PACKER_GND")).get());
         }
 
-        pincfg_cell->addInput(id_I2C);
-        if (args.options.count("i2c_as_gpio")) {
-            pincfg_cell->connectPort(id_I2C, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
-            pincfg_cell->setParam(id_I2C, 1);
-        } else {
-            pincfg_cell->connectPort(id_I2C, ctx->nets.at(ctx->id("$PACKER_GND")).get());
+        if (gwu.has_I2CCFG()) {
+            pincfg_cell->addInput(id_I2C);
+            if (args.options.count("i2c_as_gpio")) {
+                pincfg_cell->connectPort(id_I2C, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
+                pincfg_cell->setParam(id_I2C, 1);
+            } else {
+                pincfg_cell->connectPort(id_I2C, ctx->nets.at(ctx->id("$PACKER_GND")).get());
+            }
         }
         ctx->cells[pincfg_cell->name] = std::move(pincfg_cell);
     }

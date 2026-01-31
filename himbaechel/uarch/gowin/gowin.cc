@@ -143,7 +143,8 @@ void GowinImpl::init_database(Arch *arch)
             std::regex devicere = std::regex("GW5A(T|ST)?-LV(25|60|138)[A-Z]*.*");
             std::smatch match;
             if (std::regex_match(args.device, match, devicere)) {
-                family = stringf("GW5A%s-%sA", match[1].str().c_str(), match[2].str().c_str());
+                family = stringf("GW5A%s-%s%s", match[1].str().c_str(), match[2].str().c_str(),
+                                 match[2].str() == "25" ? "A" : "C");
             } else {
                 std::regex devicere = std::regex("GW1N([SZ]?)[A-Z]*-(LV|UV|UX)([0-9])(C?).*");
                 std::smatch match;
@@ -1011,6 +1012,12 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
             ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 4 * 2 + 1))) ||
             ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 5 * 2 + 1)))) {
             return false;
+        }
+        if (gwu.has_DFF67()) {
+            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 6 * 2 + 1))) ||
+                ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 7 * 2 + 1)))) {
+                return false;
+            }
         }
         // ALU/LUTs in slices 4, 5, 6, 7 are not allowed
         for (int i = 4; i < 8; ++i) {

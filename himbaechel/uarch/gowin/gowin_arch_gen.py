@@ -15,21 +15,24 @@ from apycula import chipdb
 BEL_FLAG_SIMPLE_IO = 0x100
 
 # Wire flags
-WIRE_FLAG_CLOCK_GATE = 0x1
+WIRE_FLAG_CLOCK_GATE    = 0x1
+WIRE_FLAG_BOTTOM_HALF   = 0x2 # the wire is located in the bottom half of the chip
 
 # Chip flags
-CHIP_HAS_SP32              = 0x1
-CHIP_NEED_SP_FIX           = 0x2
-CHIP_NEED_BSRAM_OUTREG_FIX = 0x4
-CHIP_NEED_BLKSEL_FIX       = 0x8
-CHIP_HAS_BANDGAP           = 0x10
-CHIP_HAS_PLL_HCLK          = 0x20
-CHIP_HAS_CLKDIV_HCLK       = 0x40
-CHIP_HAS_PINCFG            = 0x80
-CHIP_HAS_DFF67             = 0x100
-CHIP_HAS_CIN_MUX           = 0x200
-CHIP_NEED_BSRAM_RESET_FIX  = 0x400
-CHIP_NEED_SDP_FIX          = 0x800
+CHIP_HAS_SP32               = 0x1
+CHIP_NEED_SP_FIX            = 0x2
+CHIP_NEED_BSRAM_OUTREG_FIX  = 0x4
+CHIP_NEED_BLKSEL_FIX        = 0x8
+CHIP_HAS_BANDGAP            = 0x10
+CHIP_HAS_PLL_HCLK           = 0x20
+CHIP_HAS_CLKDIV_HCLK        = 0x40
+CHIP_HAS_PINCFG             = 0x80
+CHIP_HAS_DFF67              = 0x100
+CHIP_HAS_CIN_MUX            = 0x200
+CHIP_NEED_BSRAM_RESET_FIX   = 0x400
+CHIP_NEED_SDP_FIX           = 0x800
+CHIP_NEED_CFGPINS_INVERSION = 0x1000
+CHIP_HAS_I2CCFG             = 0x2000
 
 # Tile flags
 TILE_I3C_CAPABLE_IO        = 0x1
@@ -266,6 +269,23 @@ class Segment(BBAStruct):
         bba.slice(f"{context}_bottom_gate_wire", len(self.bottom_gate_wire))
 
 @dataclass
+class SpineSelectWire(BBAStruct):
+    spine: IdString
+    x: int
+    y: int
+    wire: IdString
+    vcc_gnd: int
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.u32(self.spine.index)
+        bba.u16(self.x)
+        bba.u16(self.y)
+        bba.u32(self.wire.index)
+        bba.u32(self.vcc_gnd)
+
+@dataclass
 class ChipExtraData(BBAStruct):
     strs: StringPool
     flags: int
@@ -277,6 +297,8 @@ class ChipExtraData(BBAStruct):
     dhcen_bels: list[WireBel] = field(default_factory = list)
     io_dlldly_bels: list[IoBel] = field(default_factory = list)
     segments: list[Segment] = field(default_factory = list)
+    spine_select_wires_top: list[SpineSelectWire] = field(default_factory = list)
+    spine_select_wires_bottom: list[SpineSelectWire] = field(default_factory = list)
 
     def set_dcs_prefix(self, prefix: str):
         self.dcs_prefix = self.strs.id(prefix)
@@ -301,6 +323,7 @@ class ChipExtraData(BBAStruct):
 
     def add_io_dlldly_bel(self, io: str, dlldly: str):
         self.io_dlldly_bels.append(IoBel(self.strs.id(io), self.strs.id(dlldly)))
+
     def add_segment(self, x: int, seg_idx: int, min_x: int, min_y: int, max_x: int, max_y: int,
             top_row: int, bottom_row: int, top_wire: str, bottom_wire: str, top_gate_wire: list, bottom_gate_wire: list):
         new_seg = Segment(x, seg_idx, min_x, min_y, max_x, max_y, top_row, bottom_row,
@@ -315,6 +338,12 @@ class ChipExtraData(BBAStruct):
         else:
             new_seg.bottom_gate_wire.append(self.strs.id(''))
         self.segments.append(new_seg)
+
+    def add_spine_select_wire_top(self, spine: str, x: int, y: int, wire: str, vcc_gnd: int):
+        self.spine_select_wires_top.append(SpineSelectWire(self.strs.id(spine), x, y, self.strs.id(wire), vcc_gnd))
+
+    def add_spine_select_wire_bottom(self, spine: str, x: int, y: int, wire: str, vcc_gnd: int):
+        self.spine_select_wires_bottom.append(SpineSelectWire(self.strs.id(spine), x, y, self.strs.id(wire), vcc_gnd))
 
     def serialise_lists(self, context: str, bba: BBAWriter):
         self.bottom_io.serialise_lists(f"{context}_bottom_io", bba)
@@ -338,6 +367,12 @@ class ChipExtraData(BBAStruct):
         bba.label(f"{context}_segments")
         for i, t in enumerate(self.segments):
             t.serialise(f"{context}_segment{i}", bba)
+        bba.label(f"{context}_spine_select_wires_top")
+        for i, t in enumerate(self.spine_select_wires_top):
+            t.serialise(f"{context}_spine_select_wire_top{i}", bba)
+        bba.label(f"{context}_spine_select_wires_bottom")
+        for i, t in enumerate(self.spine_select_wires_bottom):
+            t.serialise(f"{context}_spine_select_wire_bottom{i}", bba)
 
     def serialise(self, context: str, bba: BBAWriter):
         bba.u32(self.flags)
@@ -349,6 +384,8 @@ class ChipExtraData(BBAStruct):
         bba.slice(f"{context}_dhcen_bels", len(self.dhcen_bels))
         bba.slice(f"{context}_io_dlldly_bels", len(self.io_dlldly_bels))
         bba.slice(f"{context}_segments", len(self.segments))
+        bba.slice(f"{context}_spine_select_wires_top", len(self.spine_select_wires_top))
+        bba.slice(f"{context}_spine_select_wires_bottom", len(self.spine_select_wires_bottom))
 
 @dataclass
 class PackageExtraData(BBAStruct):
@@ -527,12 +564,17 @@ def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
             tt.create_pip(src, dst, get_tm_class(db, src))
 
     # clock wires
+    # always mark clock wires with location flag
     for dst, srcs in db.grid[y][x].clock_pips.items():
         if not tt.has_wire(dst):
-            tt.create_wire(dst, "GLOBAL_CLK")
+            wire = tt.create_wire(dst, "GLOBAL_CLK")
+            if hasattr(db, "last_top_row") and y > db.last_top_row:
+                wire.flags |= WIRE_FLAG_BOTTOM_HALF
         for src in srcs.keys():
             if not tt.has_wire(src):
-                tt.create_wire(src, "GLOBAL_CLK")
+                wire = tt.create_wire(src, "GLOBAL_CLK")
+                if hasattr(db, "last_top_row") and y > db.last_top_row:
+                    wire.flags |= WIRE_FLAG_BOTTOM_HALF
             src_tm_class = get_tm_class(db, src)
             tt.create_pip(src, dst, src_tm_class)
 
@@ -1466,6 +1508,17 @@ def create_extra_data(chip: Chip, db: chipdb, chip_flags: int):
                     node.append(NodeWire(col, row, f'LB{idx}1'))
                 chip.add_node(node)
             chip.add_node(lt_node)
+    # create spine select wires
+    if hasattr(db, "spine_select_wires"):
+        if 'top' in db.spine_select_wires:
+            for spine, wire_desc in db.spine_select_wires['top'].items():
+                for y, x, wire, vcc_gnd in wire_desc:
+                    chip.extra_data.add_spine_select_wire_top(spine, x, y, wire, vcc_gnd)
+
+        if 'bottom' in db.spine_select_wires:
+            for spine, wire_desc in db.spine_select_wires['bottom'].items():
+                for y, x, wire, vcc_gnd in wire_desc:
+                    chip.extra_data.add_spine_select_wire_bottom(spine, x, y, wire, vcc_gnd)
 
 def create_timing_info(chip: Chip, db: chipdb.Device):
     def group_to_timingvalue(group):
@@ -1636,6 +1689,10 @@ def main():
             chip_flags |= CHIP_NEED_BSRAM_RESET_FIX;
         if "NEED_SDP_FIX" in db.chip_flags:
             chip_flags |= CHIP_NEED_SDP_FIX;
+        if "NEED_CFGPINS_INVERSION" in db.chip_flags:
+            chip_flags |= CHIP_NEED_CFGPINS_INVERSION;
+        if "CHIP_HAS_I2CCFG" in db.chip_flags:
+            chip_flags |= CHIP_HAS_I2CCFG;
 
     X = db.cols;
     Y = db.rows;

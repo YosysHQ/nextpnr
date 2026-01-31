@@ -176,6 +176,14 @@ NPNR_PACKED_STRUCT(struct Segment_POD {
     RelSlice<uint32_t> bottom_gate_wire;
 });
 
+NPNR_PACKED_STRUCT(struct SpineSelectWire_POD {
+    uint32_t spine;
+    int16_t x;
+    int16_t y;
+    uint32_t wire;
+    uint32_t vcc_gnd;
+});
+
 NPNR_PACKED_STRUCT(struct Constraint_POD {
     int32_t net;
     int32_t row;
@@ -196,6 +204,9 @@ NPNR_PACKED_STRUCT(struct Extra_chip_data_POD {
     RelSlice<Wire_bel_POD> dhcen_bels;
     RelSlice<Io_dlldly_bel_POD> io_dlldly_bels;
     RelSlice<Segment_POD> segments;
+    RelSlice<SpineSelectWire_POD> spine_select_wires_top;
+    RelSlice<SpineSelectWire_POD> spine_select_wires_bottom;
+
     // chip flags
     static constexpr int32_t HAS_SP32 = 1;
     static constexpr int32_t NEED_SP_FIX = 2;
@@ -209,6 +220,8 @@ NPNR_PACKED_STRUCT(struct Extra_chip_data_POD {
     static constexpr int32_t HAS_CIN_MUX = 512;
     static constexpr int32_t NEED_BSRAM_RESET_FIX = 1024;
     static constexpr int32_t NEED_SDP_FIX = 2048;
+    static constexpr int32_t NEED_CFGPINS_INVERSION = 4096;
+    static constexpr int32_t HAS_I2CCFG = 8192;
 });
 
 } // namespace
