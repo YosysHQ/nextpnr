@@ -936,9 +936,44 @@ void GateMatePacker::pack_mult()
                 if (p_net && p_net->users.entries() == 1) {
                     auto *p_net_sink = (*p_net->users.begin()).cell;
                     NPNR_ASSERT(p_net_sink != nullptr);
-                    if (p_net_sink->type == id_CC_DFF && !are_ffs_compatible(p_zero_sink, p_net_sink)) {
-                        log_info("        Inconsistent control set; not packing output register.\n");
-                        return false;
+                    if (p_net_sink->type == id_CC_DFF) {
+                        bool incompatible = false;
+                        if (p_zero_sink->getPort(id_CLK) != p_net_sink->getPort(id_CLK)) {
+                            const char *p_zero_clk = "(none)";
+                            const char *p_net_clk = "(none)";
+                            if (p_zero_sink->getPort(id_CLK) != nullptr)
+                                p_zero_clk = p_zero_sink->getPort(id_CLK)->name.c_str(ctx);
+                            if (p_net_sink->getPort(id_CLK) != nullptr)
+                                p_net_clk = p_net_sink->getPort(id_CLK)->name.c_str(ctx);
+                            log_info("        registers have inconsistent clocks: %s vs %s\n", p_zero_clk, p_net_clk);
+                            incompatible = true;
+                        }
+                        if (p_zero_sink->getPort(id_EN) != p_net_sink->getPort(id_EN)) {
+                            const char *p_zero_en = "(none)";
+                            const char *p_net_en = "(none)";
+                            if (p_zero_sink->getPort(id_EN) != nullptr)
+                                p_zero_en = p_zero_sink->getPort(id_EN)->name.c_str(ctx);
+                            if (p_net_sink->getPort(id_EN) != nullptr)
+                                p_net_en = p_net_sink->getPort(id_EN)->name.c_str(ctx);
+                            log_info("        registers have inconsistent enables: %s vs %s\n", p_zero_en, p_net_en);
+                            incompatible = true;
+                        }
+                        if (p_zero_sink->getPort(id_SR) != p_net_sink->getPort(id_SR)) {
+                            const char *p_zero_sr = "(none)";
+                            const char *p_net_sr = "(none)";
+                            if (p_zero_sink->getPort(id_SR) != nullptr)
+                                p_zero_sr = p_zero_sink->getPort(id_SR)->name.c_str(ctx);
+                            if (p_net_sink->getPort(id_SR) != nullptr)
+                                p_net_sr = p_net_sink->getPort(id_EN)->name.c_str(ctx);
+                            log_info("        registers have inconsistent resets: %s vs %s\n", p_zero_sr, p_net_sr);
+                            incompatible = true;
+                        }
+                        if (uarch->get_dff_config(p_zero_sink) != uarch->get_dff_config(p_net_sink))
+                            log_info("        registers have different configurations\n");
+                        if (incompatible) {
+                            log_info("        ...not packing output register\n");
+                            return false;
+                        }
                     }
                 }
             }
