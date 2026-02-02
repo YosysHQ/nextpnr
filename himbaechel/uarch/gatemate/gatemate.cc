@@ -46,6 +46,7 @@ po::options_description GateMateImpl::getUArchOptions()
                            "multi-die clock placement strategy (mirror, full or clk1)");
     specific.add_options()("force_die", po::value<std::string>(), "force specific die (example 1A,1B...)");
     specific.add_options()("no-clk-cp", "do not use CP lines for CLK and EN");
+    specific.add_options()("no-cpe-cp", "do not use CP lines pass through CPE");
     specific.add_options()("no-bridges", "do not use CPE in bridge mode");
     return specific;
 }
@@ -117,6 +118,7 @@ void GateMateImpl::init_database(Arch *arch)
                                                              : "");
     arch->set_speed_grade(speed_grade);
     use_cp_for_clk = args.options.count("no-clk-cp") == 0;
+    use_cp_for_cpe = args.options.count("no-cpe-cp") == 0;
     use_bridges = args.options.count("no-bridges") == 0;
 }
 
@@ -371,23 +373,21 @@ bool GateMateImpl::checkPipAvail(PipId pip) const
         if (extra_data.value == 1 && IdString(extra_data.name).in(id_C_CLKSEL, id_C_ENSEL))
             return false;
     }
+    if (!use_cp_for_cpe && extra_data.type == PipExtra::PIP_EXTRA_MUX && extra_data.resource !=0 && extra_data.resource <= PipMask::C_PY2_I) {
+        return false;
+    }
     if (!use_bridges && extra_data.type == PipExtra::PIP_EXTRA_MUX &&
         IdString(extra_data.name) == ctx->id("CPE.C_SN")) {
         return false;
     }
     if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.block != 0)) {
         if (pip_mask[pip.tile] & extra_data.block) {
-            // printf("blocking %s - > %s at %s\n", ctx->getPipName(pip)[2].c_str(ctx),
-            // ctx->getPipName(pip)[1].c_str(ctx),
-            //        ctx->getPipName(pip)[0].c_str(ctx));
             return false;
         }
     }
     if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.resource != 0)) {
         if (pip_mask[pip.tile] & extra_data.resource) {
             if ((pip_data[pip.tile] & extra_data.resource) != (extra_data.value ? extra_data.resource : 0)) {
-                // printf("blocking %s - > %s at %s\n", ctx->getPipName(pip)[2].c_str(ctx),
-                //        ctx->getPipName(pip)[1].c_str(ctx), ctx->getPipName(pip)[0].c_str(ctx));
                 return false;
             }
         }

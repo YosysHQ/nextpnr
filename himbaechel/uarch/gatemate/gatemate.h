@@ -150,6 +150,7 @@ struct GateMateImpl : HimbaechelAPI
     dict<IdString, int> ram_signal_clk;
     IdString forced_die;
     bool use_cp_for_clk;
+    bool use_cp_for_cpe;
     bool use_bridges;
 };
 
