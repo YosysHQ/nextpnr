@@ -255,6 +255,7 @@ struct Router2
     }
 
     dict<IdStringList, int> resource_to_idx;
+    dict<WireId, int> wire_to_resource;
     std::vector<PerResourceData> flat_resources;
 
     PerResourceData &resource_data(IdStringList r) { return flat_resources[resource_to_idx.at(r)]; }
@@ -269,6 +270,11 @@ struct Router2
             auto data = PerResourceData{};
             data.key = resource_key;
             resource_to_idx.insert({resource_key, flat_resources.size()});
+
+            auto dest_wire = ctx->getPipDstWire(pip);
+            if (wire_to_resource.count(dest_wire) == 0)
+                wire_to_resource.insert({dest_wire, flat_resources.size()});
+
             flat_resources.push_back(data);
         }
     }
@@ -455,8 +461,8 @@ struct Router2
         int overuse = wd.curr_cong;
         float hist_cost = 1.0f + crit_weight * (wd.hist_cong_cost - 1.0f);
         float bias_cost = 0;
-        float resource_hist_cost = 1.0f;
-        float resource_present_cost = 1.0f;
+        float resource_hist_cost = 0.0f;
+        float resource_present_cost = 0.0f;
         int source_uses = 0;
         if (nd.wires.count(wire)) {
             overuse -= 1;
@@ -467,12 +473,13 @@ struct Router2
             Loc pl = ctx->getPipLocation(pip);
             bias_cost = cfg.bias_cost_factor * (base_cost / int(net->users.entries())) *
                         ((std::abs(pl.x - nd.cx) + std::abs(pl.y - nd.cy)) / float(nd.hpwl));
-            auto resource_key = ctx->getResourceKeyForPip(pip);
-            if (resource_key != IdStringList()) {
-                auto &rd = resource_data(resource_key);
-                resource_hist_cost = 1.0f + crit_weight * (rd.hist_cong_cost - 1.0f);
-                resource_present_cost = 1.0f + rd.value_count.size() * curr_cong_weight * crit_weight;
-            }
+        }
+
+        auto resource_key = wire_to_resource.find(wire);
+        if (resource_key != wire_to_resource.end()) {
+            auto &rd = flat_resources.at(resource_key->second);
+            resource_hist_cost = 1.0f + crit_weight * (rd.hist_cong_cost - 1.0f);
+            resource_present_cost = 1.0f + rd.value_count.size() * curr_cong_weight * crit_weight;
         }
         return base_cost * hist_cost * present_cost / (1 + (source_uses * crit_weight)) + bias_cost +
                resource_hist_cost * resource_present_cost;
@@ -880,12 +887,12 @@ struct Router2
                     auto curr = t.fwd_queue.top();
                     t.fwd_queue.pop();
                     ++explored;
+                    auto &curr_data = flat_wires.at(curr.wire);
                     if (was_visited_bwd(curr.wire, std::numeric_limits<float>::max())) {
                         // Meet in the middle; done
                         midpoint_wire = curr.wire;
                         break;
                     }
-                    auto &curr_data = flat_wires.at(curr.wire);
                     for (PipId dh : ctx->getPipsDownhill(curr_data.w)) {
                         // Skip pips outside of box in bounding-box mode
                         if (is_bb && !hit_test_pip(nd.bb, ctx->getPipLocation(dh)))
@@ -1211,8 +1218,6 @@ struct Router2
                 ++total_resource_use;
                 auto &rd = resource_data(r.first);
                 if (rd.value_count.size() > 1) {
-                    printf("overused resource %s by %s\n", r.first.str(ctx).c_str(),
-                           nets_by_udata.at(i)->name.c_str(ctx));
                     if (already_updated_resources.count(r.first)) {
                         ++total_resource_overuse;
                     } else {
@@ -1221,11 +1226,6 @@ struct Router2
                                     std::min(1e9, rd.hist_cong_cost + (rd.value_count.size() - 1) * hist_cong_weight);
                         already_updated_resources.insert(r.first);
                         ++overused_resources;
-                        printf("overused resource %s in {", r.first.str(ctx).c_str());
-                        for (const auto &pair : rd.value_count) {
-                            printf("%d, ", pair.first);
-                        }
-                        printf("}\n");
                     }
                     failed_nets.insert(i);
                 }
@@ -1297,6 +1297,7 @@ struct Router2
                           ctx->nameOf(net));
             }
             PipId p = nd.wires.at(cursor).first;
+
             if (ctx->checkPipAvailForNet(p, net)) {
                 NetInfo *bound_net = ctx->getBoundPipNet(p);
                 if (bound_net == nullptr) {

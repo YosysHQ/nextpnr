@@ -371,21 +371,23 @@ bool GateMateImpl::checkPipAvail(PipId pip) const
         if (extra_data.value == 1 && IdString(extra_data.name).in(id_C_CLKSEL, id_C_ENSEL))
             return false;
     }
-    if (!use_bridges && extra_data.type == PipExtra::PIP_EXTRA_MUX && IdString(extra_data.name)==ctx->id("CPE.C_SN")) {
+    if (!use_bridges && extra_data.type == PipExtra::PIP_EXTRA_MUX &&
+        IdString(extra_data.name) == ctx->id("CPE.C_SN")) {
         return false;
     }
     if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.block != 0)) {
         if (pip_mask[pip.tile] & extra_data.block) {
-            // printf("blocking %s - > %s at
-            // %s\n",ctx->getPipName(pip)[2].c_str(ctx),ctx->getPipName(pip)[1].c_str(ctx),ctx->getPipName(pip)[0].c_str(ctx));
+            // printf("blocking %s - > %s at %s\n", ctx->getPipName(pip)[2].c_str(ctx),
+            // ctx->getPipName(pip)[1].c_str(ctx),
+            //        ctx->getPipName(pip)[0].c_str(ctx));
             return false;
         }
     }
     if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.resource != 0)) {
         if (pip_mask[pip.tile] & extra_data.resource) {
             if ((pip_data[pip.tile] & extra_data.resource) != (extra_data.value ? extra_data.resource : 0)) {
-                // printf("blocking %s - > %s at
-                // %s\n",ctx->getPipName(pip)[2].c_str(ctx),ctx->getPipName(pip)[1].c_str(ctx),ctx->getPipName(pip)[0].c_str(ctx));
+                // printf("blocking %s - > %s at %s\n", ctx->getPipName(pip)[2].c_str(ctx),
+                //        ctx->getPipName(pip)[1].c_str(ctx), ctx->getPipName(pip)[0].c_str(ctx));
                 return false;
             }
         }
