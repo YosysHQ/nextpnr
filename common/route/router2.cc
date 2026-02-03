@@ -265,17 +265,27 @@ struct Router2
         // should we have a getResources()???
         for (auto pip : ctx->getPips()) {
             auto resource_key = ctx->getResourceKeyForPip(pip);
-            if (resource_key == IdStringList() || resource_to_idx.count(resource_key) != 0)
+            if (resource_key == IdStringList())
                 continue;
-            auto data = PerResourceData{};
-            data.key = resource_key;
-            resource_to_idx.insert({resource_key, flat_resources.size()});
+
+            auto entry = resource_to_idx.find(resource_key);
+
+            if (entry == resource_to_idx.end()) {
+                auto data = PerResourceData{};
+                data.key = resource_key;
+                resource_to_idx.insert({resource_key, flat_resources.size()});
+                flat_resources.push_back(data);
+
+                entry = resource_to_idx.find(resource_key);
+            }
 
             auto dest_wire = ctx->getPipDstWire(pip);
             if (wire_to_resource.count(dest_wire) == 0)
-                wire_to_resource.insert({dest_wire, flat_resources.size()});
+                wire_to_resource.insert({dest_wire, entry->second});
 
-            flat_resources.push_back(data);
+            /*auto src_wire = ctx->getPipSrcWire(pip);
+            if (wire_to_resource.count(src_wire) == 0)
+                wire_to_resource.insert({src_wire, entry->second});*/
         }
     }
 
@@ -481,8 +491,9 @@ struct Router2
             resource_hist_cost = 1.0f + crit_weight * (rd.hist_cong_cost - 1.0f);
             resource_present_cost = 1.0f + rd.value_count.size() * curr_cong_weight * crit_weight;
         }
+
         return base_cost * hist_cost * present_cost / (1 + (source_uses * crit_weight)) + bias_cost +
-               resource_hist_cost * resource_present_cost;
+               base_cost * resource_hist_cost * resource_present_cost / (1 + crit_weight);
     }
 
     float get_togo_cost(NetInfo *net, store_index<PortRef> user, int wire, WireId src_sink, bool bwd, float crit_weight)
