@@ -84,13 +84,15 @@ struct GowinImpl : HimbaechelAPI
     // allocated to internal primitives as needed. It is assumed that most
     // primitives use the same signals for CE, CLK and especially RESET, so
     // these wires are few and need to be controlled.
-    struct dsp_net_counters
+    struct dsp_info
     {
-        dict<IdString, int> ce;
-        dict<IdString, int> clk;
-        dict<IdString, int> reset;
+        dict<IdString, int> ce;    // CE nets counter
+        dict<IdString, int> clk;   // CLK nets counter
+        dict<IdString, int> reset; // RESET nets counter
+        int mode9bit;              // 9 bit elements counter
+        int mode18bit;             // 18 bit elements counter
     };
-    dict<BelId, dsp_net_counters> dsp_net_cnt;
+    dict<BelId, dsp_info> dsp_info;
     dict<BelId, CellInfo *> dsp_bel2cell; // Remember the connection with cells
                                           // since this information is already lost during unbinding
     void adjust_dsp_pin_mapping(void);
@@ -294,17 +296,17 @@ void GowinImpl::adjust_dsp_pin_mapping(void)
 
         if (dsp_data.dsp_reset != nullptr) {
             BelId dsp = ctx->getBelByLocation(Loc(loc.x, loc.y, BelZ::DSP_Z));
-            set_cell_bel_pin(dsp_net_cnt.at(dsp).reset, id_RESET, dsp_data.dsp_reset->name, "RESET%d",
+            set_cell_bel_pin(dsp_info.at(dsp).reset, id_RESET, dsp_data.dsp_reset->name, "RESET%d",
                              ci->type == id_MULT36X36 ? "RESET%d%d" : nullptr);
         }
         if (dsp_data.dsp_ce != nullptr) {
             BelId dsp = ctx->getBelByLocation(Loc(loc.x, loc.y, gwu.get_dsp_macro(loc.z)));
-            set_cell_bel_pin(dsp_net_cnt.at(dsp).ce, id_CE, dsp_data.dsp_ce->name, "CE%d",
+            set_cell_bel_pin(dsp_info.at(dsp).ce, id_CE, dsp_data.dsp_ce->name, "CE%d",
                              ci->type == id_MULT36X36 ? "CE%d%d" : nullptr);
         }
         if (dsp_data.dsp_clk != nullptr) {
             BelId dsp = ctx->getBelByLocation(Loc(loc.x, loc.y, gwu.get_dsp_macro(loc.z)));
-            set_cell_bel_pin(dsp_net_cnt.at(dsp).clk, id_CLK, dsp_data.dsp_clk->name, "CLK%d",
+            set_cell_bel_pin(dsp_info.at(dsp).clk, id_CLK, dsp_data.dsp_clk->name, "CLK%d",
                              ci->type == id_MULT36X36 ? "CLK%d%d" : nullptr);
         }
     }
@@ -941,6 +943,17 @@ bool GowinImpl::dsp_valid(Loc l, IdString bel_type, bool explain_invalid) const
 {
     const CellInfo *dsp = ctx->getBoundBelCell(ctx->getBelByLocation(l));
     const auto &dsp_data = fast_cell_info.at(dsp->flat_index);
+
+    BelId dsp_macro_bel = ctx->getBelByLocation(Loc(l.x, l.y, gwu.get_dsp_macro(l.z)));
+    if (dsp_info.count(dsp_macro_bel)) {
+        if (dsp_info.at(dsp_macro_bel).mode9bit && dsp_info.at(dsp_macro_bel).mode18bit) {
+            if (explain_invalid) {
+                log_nonfatal_error("Different operand lengths (9 and 18) are not permitted in one DSP macro.\n");
+            }
+            return false;
+        }
+    }
+
     // check for shift out register - there is only one for macro
     if (dsp_data.dsp_soa_reg) {
         if (l.z == BelZ::MULT18X18_0_1_Z || l.z == BelZ::MULT18X18_1_1_Z || l.z == BelZ::MULT9X9_0_0_Z ||
@@ -971,15 +984,14 @@ bool GowinImpl::dsp_valid(Loc l, IdString bel_type, bool explain_invalid) const
     }
     // check for control nets "overflow"
     BelId dsp_bel = ctx->getBelByLocation(Loc(l.x, l.y, BelZ::DSP_Z));
-    if (dsp_net_cnt.at(dsp_bel).reset.size() > 4) {
+    if (dsp_info.at(dsp_bel).reset.size() > 4) {
         if (explain_invalid) {
             log_nonfatal_error("More than 4 different networks for RESET signals in one DSP are not allowed.\n");
         }
         return false;
     }
-    BelId dsp_macro_bel = ctx->getBelByLocation(Loc(l.x, l.y, gwu.get_dsp_macro(l.z)));
-    if (dsp_net_cnt.count(dsp_macro_bel)) {
-        if (dsp_net_cnt.at(dsp_macro_bel).ce.size() > 4 || dsp_net_cnt.at(dsp_macro_bel).clk.size() > 4) {
+    if (dsp_info.count(dsp_macro_bel)) {
+        if (dsp_info.at(dsp_macro_bel).ce.size() > 4 || dsp_info.at(dsp_macro_bel).clk.size() > 4) {
             if (explain_invalid) {
                 log_nonfatal_error(
                         "More than 4 different networks for CE or CLK signals in one DSP macro are not allowed.\n");
@@ -1216,27 +1228,41 @@ void GowinImpl::notifyBelChange(BelId bel, CellInfo *cell)
     BelId dsp_macro = ctx->getBelByLocation(l);
 
     if (cell) {
+        bool mode9 = cell_type.in(id_PADD9, id_MULT9X9);
+        if (mode9) {
+            dsp_info[dsp_macro].mode9bit++;
+        } else {
+            dsp_info[dsp_macro].mode18bit++;
+        }
+
         const auto &dsp_cell_data = fast_cell_info.at(cell->flat_index);
         if (dsp_cell_data.dsp_reset != nullptr) {
-            dsp_net_cnt[dsp].reset[dsp_cell_data.dsp_reset->name]++;
+            dsp_info[dsp].reset[dsp_cell_data.dsp_reset->name]++;
         }
         if (dsp_cell_data.dsp_ce != nullptr) {
-            dsp_net_cnt[dsp_macro].ce[dsp_cell_data.dsp_ce->name]++;
+            dsp_info[dsp_macro].ce[dsp_cell_data.dsp_ce->name]++;
         }
         if (dsp_cell_data.dsp_clk != nullptr) {
-            dsp_net_cnt[dsp_macro].clk[dsp_cell_data.dsp_clk->name]++;
+            dsp_info.at(dsp_macro).clk[dsp_cell_data.dsp_clk->name]++;
         }
         dsp_bel2cell[bel] = cell;
     } else {
+        bool mode9 = dsp_bel2cell.at(bel)->type.in(id_PADD9, id_MULT9X9);
+        if (mode9) {
+            dsp_info.at(dsp_macro).mode9bit--;
+        } else {
+            dsp_info.at(dsp_macro).mode18bit--;
+        }
+
         const auto &dsp_cell_data = fast_cell_info.at(dsp_bel2cell.at(bel)->flat_index);
         if (dsp_cell_data.dsp_reset != nullptr) {
-            dsp_net_cnt.at(dsp).reset.at(dsp_cell_data.dsp_reset->name)--;
+            dsp_info.at(dsp).reset.at(dsp_cell_data.dsp_reset->name)--;
         }
         if (dsp_cell_data.dsp_ce != nullptr) {
-            dsp_net_cnt.at(dsp_macro).ce.at(dsp_cell_data.dsp_ce->name)--;
+            dsp_info.at(dsp_macro).ce.at(dsp_cell_data.dsp_ce->name)--;
         }
         if (dsp_cell_data.dsp_clk != nullptr) {
-            dsp_net_cnt.at(dsp_macro).clk.at(dsp_cell_data.dsp_clk->name)--;
+            dsp_info.at(dsp_macro).clk.at(dsp_cell_data.dsp_clk->name)--;
         }
         dsp_bel2cell.erase(bel);
     }
