@@ -404,6 +404,21 @@ void GateMateImpl::preRoute()
     route_mult();
     route_clock();
     ctx->assignArchInfo();
+
+    for (auto &net : ctx->nets) {
+        NetInfo *ni = net.second.get();
+        if (ni->wires.empty())
+            continue;
+        for (auto &w : ni->wires) {
+            if (w.second.pip != PipId()) {
+                const auto &extra_data = *pip_extra_data(w.second.pip);
+                if (extra_data.type == PipExtra::PIP_EXTRA_MUX && extra_data.resource != 0) {
+                    pip_mask[w.second.pip.tile] |= extra_data.resource;
+                    pip_data[w.second.pip.tile] |= extra_data.value ? extra_data.resource : 0;
+                }
+            }
+        }
+    }
 }
 
 void GateMateImpl::reassign_bridges(NetInfo *ni, const dict<WireId, PipMap> &net_wires, WireId wire,
