@@ -984,11 +984,13 @@ bool GowinImpl::dsp_valid(Loc l, IdString bel_type, bool explain_invalid) const
     }
     // check for control nets "overflow"
     BelId dsp_bel = ctx->getBelByLocation(Loc(l.x, l.y, BelZ::DSP_Z));
-    if (dsp_info.at(dsp_bel).reset.size() > 4) {
-        if (explain_invalid) {
-            log_nonfatal_error("More than 4 different networks for RESET signals in one DSP are not allowed.\n");
+    if (dsp_info.count(dsp_bel)) {
+        if (dsp_info.at(dsp_bel).reset.size() > 4) {
+            if (explain_invalid) {
+                log_nonfatal_error("More than 4 different networks for RESET signals in one DSP are not allowed.\n");
+            }
+            return false;
         }
-        return false;
     }
     if (dsp_info.count(dsp_macro_bel)) {
         if (dsp_info.at(dsp_macro_bel).ce.size() > 4 || dsp_info.at(dsp_macro_bel).clk.size() > 4) {
@@ -1240,7 +1242,7 @@ void GowinImpl::notifyBelChange(BelId bel, CellInfo *cell)
             dsp_info[dsp].reset[dsp_cell_data.dsp_reset->name]++;
         }
         if (dsp_cell_data.dsp_ce != nullptr) {
-            dsp_info[dsp_macro].ce[dsp_cell_data.dsp_ce->name]++;
+            dsp_info.at(dsp_macro).ce[dsp_cell_data.dsp_ce->name]++;
         }
         if (dsp_cell_data.dsp_clk != nullptr) {
             dsp_info.at(dsp_macro).clk[dsp_cell_data.dsp_clk->name]++;
