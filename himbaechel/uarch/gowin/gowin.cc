@@ -16,6 +16,8 @@
 #include "gowin_utils.h"
 #include "pack.h"
 
+#include "placer_heap.h"
+
 NEXTPNR_NAMESPACE_BEGIN
 
 namespace {
@@ -48,6 +50,9 @@ struct GowinImpl : HimbaechelAPI
     bool isClusterStrict(const CellInfo *cell) const override { return true; }
     bool getClusterPlacement(ClusterId cluster, BelId root_bel,
                              std::vector<std::pair<CellInfo *, BelId>> &placement) const override;
+
+
+    void configurePlacerHeap(PlacerHeapCfg &cfg) override;
 
   private:
     HimbaechelHelpers h;
@@ -1269,6 +1274,27 @@ void GowinImpl::notifyBelChange(BelId bel, CellInfo *cell)
         dsp_bel2cell.erase(bel);
     }
 }
+
+void GowinImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
+{
+    // SLICE types are closely associated with each other
+    cfg.cellGroups.emplace_back();
+    cfg.cellGroups.back().insert(id_LUT4);
+    cfg.cellGroups.back().insert(id_DFF);
+    cfg.cellGroups.back().insert(id_ALU);
+    cfg.cellGroups.back().insert(id_MUX2_LUT5);
+    cfg.cellGroups.back().insert(id_MUX2_LUT6);
+    cfg.cellGroups.back().insert(id_MUX2_LUT7);
+    cfg.cellGroups.back().insert(id_MUX2_LUT8);
+    cfg.cellGroups.back().insert(id_RAM16SDP4);
+
+    // Treat control and constants like IO buffers, because they have only one possible location
+    cfg.ioBufTypes.insert(id_GOWIN_VCC);
+    cfg.ioBufTypes.insert(id_GOWIN_GND);
+    cfg.ioBufTypes.insert(id_PINCFG);
+    cfg.ioBufTypes.insert(id_GSR);
+}
+
 
 } // namespace
 

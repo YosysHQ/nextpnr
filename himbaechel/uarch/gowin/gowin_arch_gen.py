@@ -509,10 +509,6 @@ def create_nodes(chip: Chip, db: chipdb):
             for node in nodes:
                 chip.add_node(node)
 
-            # VCC and VSS sources in the all tiles
-            global_nodes.setdefault('GND', []).append(NodeWire(x, y, 'VSS'))
-            global_nodes.setdefault('VCC', []).append(NodeWire(x, y, 'VCC'))
-
     # add nodes from the apicula db
     for node_name, node_hdr in db.nodes.items():
         wire_type, node = node_hdr

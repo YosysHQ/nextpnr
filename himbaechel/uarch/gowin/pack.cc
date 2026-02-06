@@ -1740,6 +1740,7 @@ struct GowinPacker
                 continue;
             }
             NetInfo *constnet = net->second.get();
+            constnet->constant_value = (constnet->name == ctx->id("$PACKER_GND")) ? id_VSS : id_VCC;
             for (auto user : constnet->users) {
                 CellInfo *uc = user.cell;
                 if (is_lut(uc) && (user.port.str(ctx).at(0) == 'I')) {
