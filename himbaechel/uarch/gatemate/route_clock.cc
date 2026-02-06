@@ -151,6 +151,12 @@ void GateMateImpl::route_clock()
             }
 
             for (auto dh : ctx->getPipsDownhill(curr.wire)) {
+                const auto &extra_data = *pip_extra_data(dh);
+                // Allow only CINY2->COUTY2 pass through for clock router
+                if (extra_data.type == PipExtra::PIP_EXTRA_MUX && extra_data.resource != 0) {
+                    if (!(extra_data.resource == PipMask::C_CY2_I && extra_data.value ==0))
+                        continue;
+                }
                 if (!ctx->checkPipAvailForNet(dh, clk_net))
                     continue;
                 WireId dst = ctx->getPipDstWire(dh);
