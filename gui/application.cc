@@ -28,7 +28,11 @@
 #include "log.h"
 
 #ifdef __linux__
+#if defined(__GLIBC__)
 #include <execinfo.h>
+#else
+#include <libunwind.h>
+#endif
 #endif
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -48,17 +52,41 @@ namespace {
 #ifdef __linux__
 std::string get_backtrace_str()
 {
+    std::ostringstream ss;
+    ss << "Backtrace: " << std::endl;
+    #if defined(__GLIBC__)
     static const size_t MAX_BT_SIZE = 1024;
     std::array<void *, MAX_BT_SIZE> bt_data;
     int bt_len = backtrace(bt_data.data(), MAX_BT_SIZE);
     char **bt_symbols = backtrace_symbols(bt_data.data(), bt_len);
     if (bt_symbols == nullptr)
         return "";
-    std::ostringstream ss;
-    ss << "Backtrace: " << std::endl;
     for (int i = 0; i < bt_len; i++)
         ss << "  " << bt_symbols[i] << std::endl;
     free(bt_symbols);
+    #else
+    unw_cursor_t cursor;
+    unw_context_t context;
+    unw_getcontext(&context);
+    unw_init_local(&cursor, &context);
+
+    int frame_num = 0;
+    while (unw_step(&cursor) > 0) {
+        unw_word_t ip;
+        char func_name[256];
+        unw_word_t offset;
+
+        unw_get_reg(&cursor, UNW_REG_IP, &ip);
+        if (unw_get_proc_name(&cursor, func_name, sizeof(func_name), &offset) == 0) {
+            ss << "  #" << frame_num << ": " << func_name << " + 0x"
+               << std::hex << offset << " [0x" << ip << "]\n";
+        } else {
+            ss << "  #" << frame_num << ": -- unknown -- [0x"
+               << std::hex << ip << "]\n";
+        }
+        frame_num++;
+    }
+    #endif
     return ss.str();
 }
 #else
