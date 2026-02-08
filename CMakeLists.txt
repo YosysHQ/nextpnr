@@ -71,6 +71,36 @@ else()
     set(BBASM_MODE "string")
 endif()
 
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    include(CheckCXXSourceCompiles)
+
+    check_cxx_source_compiles("
+        #include <gnu/libc-version.h>
+        int main() { return 0; }
+    " HAVE_GLIBC)
+
+    if (HAVE_GLIBC)
+        set(USE_LIBUNWIND OFF)
+    else()
+        set(USE_LIBUNWIND ON)
+        find_library(LIBUNWIND_LIBRARY NAMES unwind)
+        find_path(LIBUNWIND_INCLUDE_DIR NAMES libunwind.h)
+
+        if(LIBUNWIND_LIBRARY)
+            find_library(LIBUNWIND_LIBRARY_ARCH NAMES "unwind-${CMAKE_SYSTEM_PROCESSOR}")
+            if(LIBUNWIND_LIBRARY_ARCH)
+                set(LIBUNWIND_LIBRARY "${LIBUNWIND_LIBRARY};${LIBUNWIND_LIBRARY_ARCH}")
+            endif()
+        endif()
+
+        if(NOT LIBUNWIND_LIBRARY OR NOT LIBUNWIND_INCLUDE_DIR)
+            message(FATAL_ERROR "libunwind not found. Install libunwind-dev")
+        endif()
+    endif()
+else()
+    set(USE_LIBUNWIND OFF)
+endif()
+
 find_package(Threads)
 if (NOT Threads_FOUND)
     add_definitions(-DNPNR_DISABLE_THREADS)
@@ -364,6 +394,10 @@ function(add_nextpnr_architecture target)
     target_link_libraries(nextpnr-${target} PRIVATE nextpnr-${target}-core)
     if (BUILD_GUI)
         target_link_libraries(nextpnr-${target} PRIVATE nextpnr-${target}-gui)
+        if (USE_LIBUNWIND)
+            target_include_directories(nextpnr-${target} PRIVATE ${LIBUNWIND_INCLUDE_DIR})
+            target_link_libraries(nextpnr-${target} PRIVATE ${LIBUNWIND_LIBRARY})
+        endif()
     endif()
 
     install(TARGETS nextpnr-${target} RUNTIME DESTINATION bin)
@@ -382,6 +416,10 @@ function(add_nextpnr_architecture target)
         if (BUILD_GUI)
             target_link_libraries(nextpnr-${target}-test PRIVATE nextpnr-${target}-gui)
             target_link_libraries(nextpnr-${target}-test PRIVATE nextpnr_test_gui)
+            if (USE_LIBUNWIND)
+                target_include_directories(nextpnr-${target}-test PRIVATE ${LIBUNWIND_INCLUDE_DIR})
+                target_link_libraries(nextpnr-${target}-test PRIVATE ${LIBUNWIND_LIBRARY})
+            endif()
         endif()
     endif()
 
