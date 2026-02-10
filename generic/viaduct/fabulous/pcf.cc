@@ -67,8 +67,8 @@ struct FABulousDesignConstraints
             std::string cellW = cell;
             std::string pinW = pin;
             if (width > 1) {
-                cellW = cell + "[" + std::to_string(i) + "]";
-                pinW = pin + "[" + std::to_string(i) + "]";
+                cellW = stringf("%s[%d]", cell.c_str(), i);
+                pinW = stringf("%s[%d]", pin.c_str(), i);
             }
 
             auto fnd_cell = ctx->cells.find(ctx->id(cellW));
