@@ -523,4 +523,11 @@ void GateMateImpl::write_bitstream(const std::string &device, const std::string 
     be.write_bitstream();
 }
 
+bool GateMateImpl::need_inversion_remove_me_later(CellInfo *cell, IdString port)
+{
+    std::ofstream out("/dev/null");
+    BitstreamBackend be(ctx, this, "", out);
+    return be.need_inversion(cell, port);
+}
+
 NEXTPNR_NAMESPACE_END

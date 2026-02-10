@@ -23,6 +23,7 @@
 #include "idstringlist.h"
 #include "log.h"
 #include "nextpnr_assertions.h"
+#include "nextpnr_types.h"
 #include "placer_heap.h"
 
 #define GEN_INIT_CONSTIDS
@@ -373,7 +374,8 @@ bool GateMateImpl::checkPipAvail(PipId pip) const
         if (extra_data.value == 1 && IdString(extra_data.name).in(id_C_CLKSEL, id_C_ENSEL))
             return false;
     }
-    if (!use_cp_for_cpe && extra_data.type == PipExtra::PIP_EXTRA_MUX && extra_data.resource !=0 && extra_data.resource <= PipMask::C_PY2_I) {
+    if (!use_cp_for_cpe && extra_data.type == PipExtra::PIP_EXTRA_MUX && extra_data.resource != 0 &&
+        extra_data.resource <= PipMask::C_PY2_I) {
         return false;
     }
     if (!use_bridges && extra_data.type == PipExtra::PIP_EXTRA_MUX &&
@@ -593,6 +595,18 @@ void GateMateImpl::postRoute()
 {
     int num = 0;
 
+    dict<std::pair<IdString, IdString>, bool> inversion_before_bridges;
+
+    for (auto &pair : ctx->cells) {
+        auto *cell = pair.second.get();
+        for (auto &port : cell->ports) {
+            if (port.second.type != PORT_IN)
+                continue;
+            inversion_before_bridges.insert(
+                    {std::make_pair(cell->name, port.first), need_inversion_remove_me_later(cell, port.first)});
+        }
+    }
+
     pool<IdString> nets_with_bridges;
     pool<IdString> nets_with_cplines;
 
@@ -701,6 +715,19 @@ void GateMateImpl::postRoute()
                     sink.cell->connectPort(sink.port, net);
                 }
             }
+        }
+    }
+
+    for (auto &pair : inversion_before_bridges) {
+        auto cell_name = pair.first.first;
+        auto port = pair.first.second;
+        auto inversion_before = pair.second;
+        auto *cell = ctx->cells.at(cell_name).get();
+        auto inversion_after = need_inversion_remove_me_later(cell, port);
+
+        if (inversion_before != inversion_after) {
+            log_error("cell '%s.%s' of type '%s' differs in inversion!\n", cell_name.c_str(ctx), port.c_str(ctx),
+                      cell->type.c_str(ctx));
         }
     }
 

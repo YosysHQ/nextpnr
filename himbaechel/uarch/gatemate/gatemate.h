@@ -114,13 +114,14 @@ struct GateMateImpl : HimbaechelAPI
     MultiDieStrategy strategy;
     dict<int, IdString> index_to_die;
     dict<IdString, int> die_to_index;
-    dict<IdString,dict<IdString, IdString>> pass_backtrace;
+    dict<IdString, dict<IdString, IdString>> pass_backtrace;
 
   private:
     bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
                            std::vector<std::pair<CellInfo *, BelId>> &placement) const;
 
     void write_bitstream(const std::string &device, const std::string &filename);
+    bool need_inversion_remove_me_later(CellInfo *cell, IdString port);
 
     void parse_ccf(const std::string &filename);
 
