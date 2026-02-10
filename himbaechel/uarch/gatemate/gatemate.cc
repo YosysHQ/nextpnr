@@ -472,6 +472,7 @@ void GateMateImpl::reassign_bridges(NetInfo *ni, const dict<WireId, PipMap> &net
 
         cell->connectPort(in_port, ni);
         cell->connectPort(id_MUXOUT, new_net);
+        pass_backtrace[cell->name][id_MUXOUT] = in_port;
 
         num++;
 
@@ -480,7 +481,7 @@ void GateMateImpl::reassign_bridges(NetInfo *ni, const dict<WireId, PipMap> &net
 }
 
 void GateMateImpl::reassign_cplines(NetInfo *ni, const dict<WireId, PipMap> &net_wires, WireId wire,
-                                    dict<WireId, IdString> &wire_to_net, int &num)
+                                    dict<WireId, IdString> &wire_to_net, int &num, IdString in_port)
 {
     wire_to_net.insert({wire, ni->name});
 
@@ -501,7 +502,7 @@ void GateMateImpl::reassign_cplines(NetInfo *ni, const dict<WireId, PipMap> &net
         const auto &extra_data = *pip_extra_data(pip);
         // If not a CP line pip, just recurse.
         if (extra_data.type != PipExtra::PIP_EXTRA_MUX || extra_data.resource == 0) {
-            reassign_cplines(ni, net_wires, dst, wire_to_net, num);
+            reassign_cplines(ni, net_wires, dst, wire_to_net, num, in_port);
             continue;
         }
 
@@ -557,9 +558,10 @@ void GateMateImpl::reassign_cplines(NetInfo *ni, const dict<WireId, PipMap> &net
 
         auto input_port_name = input_port_map.find(ctx->getWireName(ctx->getPipSrcWire(pip))[1]);
         if (input_port_name != input_port_map.end()) {
-            if (cell->getPort(input_port_name->second) == nullptr)
+            if (cell->getPort(input_port_name->second) == nullptr) {
                 cell->connectPort(input_port_name->second, ni);
-            else
+                in_port = input_port_name->second;
+            } else
                 NPNR_ASSERT(cell->getPort(input_port_name->second) == ni);
         }
 
@@ -575,13 +577,14 @@ void GateMateImpl::reassign_cplines(NetInfo *ni, const dict<WireId, PipMap> &net
 
             cell->addOutput(output_port_name->second);
             cell->connectPort(output_port_name->second, new_net);
+            pass_backtrace[cell->name][output_port_name->second] = in_port;
 
             num++;
 
-            reassign_cplines(new_net, net_wires, dst, wire_to_net, num);
+            reassign_cplines(new_net, net_wires, dst, wire_to_net, num, in_port);
         } else {
             // this is an internal resource pip; recurse anyway.
-            reassign_cplines(ni, net_wires, dst, wire_to_net, num);
+            reassign_cplines(ni, net_wires, dst, wire_to_net, num, in_port);
         }
     }
 }
@@ -676,7 +679,7 @@ void GateMateImpl::postRoute()
             }
 
         // traverse the routing tree to assign bridge nets to wires.
-        reassign_cplines(ni, net_wires, ctx->getNetinfoSourceWire(ni), wire_to_net, num);
+        reassign_cplines(ni, net_wires, ctx->getNetinfoSourceWire(ni), wire_to_net, num, IdString());
 
         for (auto &pair : net_wires)
             ctx->unbindWire(pair.first);

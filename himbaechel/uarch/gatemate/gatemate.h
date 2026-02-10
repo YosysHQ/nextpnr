@@ -114,6 +114,7 @@ struct GateMateImpl : HimbaechelAPI
     MultiDieStrategy strategy;
     dict<int, IdString> index_to_die;
     dict<IdString, int> die_to_index;
+    dict<IdString,dict<IdString, IdString>> pass_backtrace;
 
   private:
     bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
@@ -129,7 +130,7 @@ struct GateMateImpl : HimbaechelAPI
     void reassign_bridges(NetInfo *net, const dict<WireId, PipMap> &net_wires, WireId wire,
                           dict<WireId, IdString> &wire_to_net, int &num);
     void reassign_cplines(NetInfo *net, const dict<WireId, PipMap> &net_wires, WireId wire,
-                          dict<WireId, IdString> &wire_to_net, int &num);
+                          dict<WireId, IdString> &wire_to_net, int &num, IdString in_port);
     void repack();
 
     bool get_delay_from_tmg_db(IdString id, DelayQuad &delay) const;
