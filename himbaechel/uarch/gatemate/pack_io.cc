@@ -540,11 +540,11 @@ void GateMatePacker::pack_io_sel()
                 if (do_net->driver.cell && do_net->driver.cell->type == id_CC_LUT1 && do_net->users.entries() == 1) {
                     NetInfo *net = do_net->driver.cell->getPort(id_I0);
                     if (net->driver.cell && net->driver.cell->type == id_CC_ODDR && net->users.entries() == 1) {
-                        do_net = net;
-                        packed_cells.insert(net->driver.cell->name);
+                        packed_cells.insert(do_net->driver.cell->name);
                         // Inverting both input is equal to inverter at output
                         is_inverted[0] = true;
                         is_inverted[1] = true;
+                        do_net = net;
                     }
                 }
                 if (do_net->driver.cell && do_net->driver.cell->type == id_CC_ODDR && do_net->users.entries() == 1) {

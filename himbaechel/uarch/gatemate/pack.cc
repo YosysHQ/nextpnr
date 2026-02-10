@@ -381,8 +381,6 @@ void GateMatePacker::repack_cpe()
             if (l.z == CPE_LT_L_Z) {
                 if (!cell.second->params.count(id_INIT_L20))
                     cell.second->params[id_INIT_L20] = Property(LUT_D1, 4);
-                if (cell.second->getPort(id_D0_10)) {
-                }
             }
             cell.second->params[id_L2T4_UPPER] = Property((l.z == CPE_LT_U_Z) ? 1 : 0, 1);
         } else if (cell.second->type.in(id_CPE_LT_L)) {
