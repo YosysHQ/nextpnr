@@ -602,6 +602,8 @@ void GateMateImpl::postRoute()
         for (auto &port : cell->ports) {
             if (port.second.type != PORT_IN)
                 continue;
+            if (!cell->getPort(port.second.name))
+                continue;
             inversion_before_bridges.insert(
                     {std::make_pair(cell->name, port.first), need_inversion_remove_me_later(cell, port.first)});
         }
