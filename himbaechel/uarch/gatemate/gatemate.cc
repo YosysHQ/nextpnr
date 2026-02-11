@@ -373,7 +373,8 @@ bool GateMateImpl::checkPipAvail(PipId pip) const
         if (extra_data.value == 1 && IdString(extra_data.name).in(id_C_CLKSEL, id_C_ENSEL))
             return false;
     }
-    if (!use_cp_for_cpe && extra_data.type == PipExtra::PIP_EXTRA_MUX && extra_data.resource !=0 && extra_data.resource <= PipMask::C_PY2_I) {
+    if (!use_cp_for_cpe && extra_data.type == PipExtra::PIP_EXTRA_MUX && extra_data.resource != 0 &&
+        extra_data.resource <= PipMask::C_PY2_I) {
         return false;
     }
     if (!use_bridges && extra_data.type == PipExtra::PIP_EXTRA_MUX &&
