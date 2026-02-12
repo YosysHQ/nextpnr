@@ -282,10 +282,6 @@ struct Router2
             auto dest_wire = ctx->getPipDstWire(pip);
             if (wire_to_resource.count(dest_wire) == 0)
                 wire_to_resource.insert({dest_wire, entry->second});
-
-            /*auto src_wire = ctx->getPipSrcWire(pip);
-            if (wire_to_resource.count(src_wire) == 0)
-                wire_to_resource.insert({src_wire, entry->second});*/
         }
     }
 
@@ -898,12 +894,12 @@ struct Router2
                     auto curr = t.fwd_queue.top();
                     t.fwd_queue.pop();
                     ++explored;
-                    auto &curr_data = flat_wires.at(curr.wire);
                     if (was_visited_bwd(curr.wire, std::numeric_limits<float>::max())) {
                         // Meet in the middle; done
                         midpoint_wire = curr.wire;
                         break;
                     }
+                    auto &curr_data = flat_wires.at(curr.wire);
                     for (PipId dh : ctx->getPipsDownhill(curr_data.w)) {
                         // Skip pips outside of box in bounding-box mode
                         if (is_bb && !hit_test_pip(nd.bb, ctx->getPipLocation(dh)))
@@ -962,6 +958,7 @@ struct Router2
                     auto fnd_wire = nd.wires.find(curr_data.w);
                     if (fnd_wire != nd.wires.end())
                         bound_pip = fnd_wire->second.first;
+
                     for (PipId uh : ctx->getPipsUphill(curr_data.w)) {
                         if (bound_pip != PipId() && bound_pip != uh)
                             continue;
@@ -1308,7 +1305,6 @@ struct Router2
                           ctx->nameOf(net));
             }
             PipId p = nd.wires.at(cursor).first;
-
             if (ctx->checkPipAvailForNet(p, net)) {
                 NetInfo *bound_net = ctx->getBoundPipNet(p);
                 if (bound_net == nullptr) {
@@ -1748,8 +1744,10 @@ struct Router2
             for (auto cn : failed_nets)
                 route_queue.push_back(cn);
             if (timing_driven_ripup)
-                log_info("    iter=%d wires=%d overused=%d overuse=%d tmgfail=%d archfail=%s\n", iter, total_wire_use,
-                         overused_wires, total_wire_overuse, tmgfail,
+                log_info("    iter=%d wires=%d overused=%d overuse=%d resources=%d overused=%d overuse=%d tmgfail=%d "
+                         "archfail=%s\n",
+                         iter, total_wire_use, overused_wires, total_wire_overuse, total_resource_use,
+                         overused_resources, total_resource_overuse, tmgfail,
                          (overused_wires > 0 || tmgfail > 0) ? "NA" : std::to_string(arch_fail).c_str());
             else
                 log_info(
