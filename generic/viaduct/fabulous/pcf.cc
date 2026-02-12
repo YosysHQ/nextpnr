@@ -34,6 +34,16 @@ struct FABulousDesignConstraints
     int lineno = 0;
     std::map<std::string, PCFCommand> commands;
 
+    bool parse_loc_from_string(const std::string &s, Loc &loc) const
+    {
+        static const std::regex loc_re(R"(X(\d+)Y(\d+)/\w+)");
+        std::smatch match;
+        if (!std::regex_search(s, match, loc_re))
+            return false;
+        loc = Loc(std::stoi(match[1].str()), std::stoi(match[2].str()), 0);
+        return true;
+    }
+
     FABulousDesignConstraints(Context *ctx, const std::string &filename) : ctx(ctx), filename(filename)
     {
         setup_commands();
@@ -197,8 +207,19 @@ struct FABulousDesignConstraints
                 std::string port_name = mapping.substr(0, colon_pos);
                 std::string wire_name = mapping.substr(colon_pos + 1);
 
+                Loc wire_loc;
+                if (!parse_loc_from_string(wire_name, wire_loc))
+                    log_error("Cannot parse location from '%s' (expected X<num>Y<num>/...) (on line %d)\n",
+                              wire_name.c_str(), line_number);
+
+                RegionPlug *rplug = dynamic_cast<RegionPlug *>(plug->pseudo_cell.get());
+                rplug->loc = wire_loc;
+
                 IdString port_name_id = ctx->id(port_name);
                 WireId wire = ctx->getWireByNameStr(wire_name);
+
+                if (wire == WireId())
+                    log_error("Cannot find wire '%s' (on line %d)\n", wire_name.c_str(), line_number);
 
                 auto bel_pins = ctx->getBelPinsForCellPin(plug, port_name_id);
                 if (bel_pins.empty())
