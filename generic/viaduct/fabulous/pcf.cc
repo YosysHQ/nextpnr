@@ -34,6 +34,11 @@ struct FABulousDesignConstraints
     int lineno = 0;
     std::map<std::string, PCFCommand> commands;
 
+    FABulousDesignConstraints(Context *ctx, const std::string &filename) : ctx(ctx), filename(filename)
+    {
+        setup_commands();
+    }
+
     bool parse_loc_from_string(const std::string &s, Loc &loc) const
     {
         static const std::regex loc_re(R"(X(\d+)Y(\d+)/\w+)");
@@ -44,22 +49,28 @@ struct FABulousDesignConstraints
         return true;
     }
 
-    FABulousDesignConstraints(Context *ctx, const std::string &filename) : ctx(ctx), filename(filename)
+    // Find the iopadmap-created IO cell whose PAD port is connected to `net`.
+    // Errors if multiple distinct IO cells share the same net.
+    CellInfo *find_pad_peer(NetInfo *net, int line_number) const
     {
-        setup_commands();
-    }
+        if (!net)
+            return nullptr;
 
-    NetInfo *get_or_create_vcc()
-    {
-        auto c = ctx->cells.count(id__CONST1_DRV) == 0 ? ctx->createCell(id__CONST1_DRV, id__CONST1_DRV)
-                                                       : ctx->cells.at(id__CONST1_DRV).get();
-        return c->getPort(id_O);
-    }
-    NetInfo *get_or_create_gnd()
-    {
-        auto c = ctx->cells.count(id__CONST0_DRV) == 0 ? ctx->createCell(id__CONST0_DRV, id__CONST0_DRV)
-                                                       : ctx->cells.at(id__CONST0_DRV).get();
-        return c->getPort(id_O);
+        // input case
+        if (net->driver.cell && net->driver.port == id_PAD)
+            return net->driver.cell;
+
+        // output case
+        CellInfo *found = nullptr;
+        for (auto &usr : net->users) {
+            if (usr.port != id_PAD)
+                continue;
+            if (found && usr.cell != found)
+                log_error("Multiple IO cells connected via PAD on net '%s' (on line %d)\n", net->name.c_str(ctx),
+                          line_number);
+            found = usr.cell;
+        }
+        return found;
     }
 
     void execute_set_io_command(const po::variables_map &vm, int line_number)
@@ -67,11 +78,9 @@ struct FABulousDesignConstraints
         std::string cell = vm["cell"].as<std::string>();
         std::string pin = vm["pin"].as<std::string>();
         int width = vm["width"].as<int>();
-        bool reg = vm.count("reg") > 0;
 
-        if (width <= 0) {
+        if (width <= 0)
             log_error("width must be positive (on line %d)\n", line_number);
-        }
 
         for (int i = 0; i < width; i++) {
             std::string cellW = cell;
@@ -81,10 +90,9 @@ struct FABulousDesignConstraints
                 pinW = stringf("%s[%d]", pin.c_str(), i);
             }
 
-            auto fnd_cell = ctx->cells.find(ctx->id(cellW));
-            if (fnd_cell == ctx->cells.end()) {
+            auto buf_it = ctx->cells.find(ctx->id(cellW));
+            if (buf_it == ctx->cells.end()) {
                 log_warning("Only the following ports can be constrained:\n");
-                std::vector<std::string> ports;
                 std::set<std::string> printedPorts;
                 for (auto &p : ctx->ports) {
                     std::string portName = p.first.c_str(ctx);
@@ -103,39 +111,35 @@ struct FABulousDesignConstraints
                 log_error("unmatched constraint '%s' (on line %d). Have you missed the --width parameter for multibit "
                           "input?\n",
                           cell.c_str(), line_number);
-            } else {
-                CellInfo *ci = fnd_cell->second.get();
-                if (!ci->type.in(ctx->id("$nextpnr_ibuf"), ctx->id("$nextpnr_obuf"))) {
-                    log_error("Can only constrain IO cells (on line %d)\n", line_number);
-                }
-                BelId pinBel = ctx->getBelByNameStr(pinW);
-                if (pinBel == BelId())
-                    log_error("Cannot find a pin named '%s' (on line %d). Have you missed the --width "
-                              "parameter for multibit pin?\n",
-                              pin.c_str(), line_number);
-
-                if (ctx->getBelType(pinBel) != id_IO_1_bidirectional_frame_config_pass)
-                    log_error("Can only constrain to IO pins (on line %d)\n", line_number);
-
-                if (ci->attrs.count(id_BEL))
-                    log_error("duplicate pin constraint on '%s' (on line %d)\n", cell.c_str(), line_number);
-
-                auto io_cell = ctx->createCell(ctx->idf("%s_wrapped", ci->name.c_str(ctx)), ctx->getBelType(pinBel));
-                io_cell->attrs = ci->attrs;
-                if (ci->type == ctx->id("$nextpnr_ibuf")) {
-                    if (reg)
-                        ci->movePortTo(id_O, io_cell, id_Q);
-                    else
-                        ci->movePortTo(id_O, io_cell, id_O);
-                    io_cell->connectPort(id_T, get_or_create_vcc());
-                } else if (ci->type == ctx->id("$nextpnr_obuf")) {
-                    ci->movePortTo(id_I, io_cell, id_I);
-                    io_cell->connectPort(id_T, get_or_create_gnd());
-                }
-                io_cell->attrs[id_BEL] = ctx->getBelName(pinBel).str(ctx);
-                log_info("constrained '%s' to bel '%s'\n", ctx->nameOf(ci), io_cell->attrs[id_BEL].as_string().c_str());
-                ctx->cells.erase(fnd_cell);
             }
+
+            CellInfo *buf_ci = buf_it->second.get();
+            if (!buf_ci->type.in(ctx->id("$nextpnr_ibuf"), ctx->id("$nextpnr_obuf"), ctx->id("$nextpnr_iobuf")))
+                log_error("Can only constrain IO cells (on line %d)\n", line_number);
+
+            CellInfo *io_cell = find_pad_peer(buf_ci->getPort(id_O), line_number);
+            if (!io_cell)
+                io_cell = find_pad_peer(buf_ci->getPort(id_I), line_number);
+            if (!io_cell)
+                log_error("No IO cell found connected to '%s' via PAD port (on line %d). "
+                          "Was iopadmap run in Yosys?\n",
+                          cellW.c_str(), line_number);
+
+            BelId pinBel = ctx->getBelByNameStr(pinW);
+            if (pinBel == BelId())
+                log_error("Cannot find a pin named '%s' (on line %d). Have you missed the --width "
+                          "parameter for multibit pin?\n",
+                          pin.c_str(), line_number);
+
+            if (ctx->getBelType(pinBel) != io_cell->type)
+                log_error("Pin '%s' bel type '%s' does not match IO cell type '%s' (on line %d)\n", pinW.c_str(),
+                          ctx->getBelType(pinBel).c_str(ctx), io_cell->type.c_str(ctx), line_number);
+
+            if (io_cell->attrs.count(id_BEL))
+                log_error("duplicate pin constraint on '%s' (on line %d)\n", cell.c_str(), line_number);
+
+            io_cell->attrs[id_BEL] = ctx->getBelName(pinBel).str(ctx);
+            log_info("constrained '%s' to bel '%s'\n", cellW.c_str(), io_cell->attrs[id_BEL].as_string().c_str());
         }
     }
 
@@ -435,12 +439,12 @@ struct FABulousDesignConstraints
     void setup_commands()
     {
         // Setup set_io command
-        // Syntax: set_io cell pin [--width N] [--reg]
+        // Syntax: set_io cell pin [--width N]
         commands.emplace("set_io", PCFCommand("set_io", "Constrain IO cell to pin"));
         auto &set_io = commands.at("set_io");
-        set_io.desc.add_options()("cell", po::value<std::string>()->required(), "Cell name")(
-                "pin", po::value<std::string>()->required(), "Pin name")("width,w", po::value<int>()->default_value(1),
-                                                                         "Bus width")("reg,r", "Enable register mode");
+        set_io.desc.add_options()("cell", po::value<std::string>()->required(),
+                                  "Cell name")("pin", po::value<std::string>()->required(),
+                                               "Pin name")("width,w", po::value<int>()->default_value(1), "Bus width");
         set_io.pos.add("cell", 1);
         set_io.pos.add("pin", 1);
         set_io.handler = [this](const po::variables_map &vm, int line_number) {
@@ -616,7 +620,7 @@ struct FABulousDesignConstraints
                 while (ss >> tmp)
                     words.push_back(tmp);
 
-                if (words.size() > 0) {
+                if (!words.empty()) {
                     // Set line number to the start of the command for error reporting
                     int saved_lineno = lineno;
                     lineno = command_start_line;
@@ -639,16 +643,10 @@ struct FABulousDesignConstraints
 };
 } // namespace
 
-// Wrapper matching the declaration used by fabulous.cc
 void fabulous_pcf(Context *ctx, const std::string &filename)
 {
     FABulousDesignConstraints PCF(ctx, filename);
     PCF.apply_constraints();
-    for (auto &fnd_cell : ctx->cells) {
-        if (fnd_cell.second->type.in(ctx->id("$nextpnr_ibuf"), ctx->id("$nextpnr_obuf"))) {
-            log_error("Unconstrained IO cell '%s'\n", fnd_cell.first.c_str(ctx));
-        }
-    }
 }
 
 NEXTPNR_NAMESPACE_END
