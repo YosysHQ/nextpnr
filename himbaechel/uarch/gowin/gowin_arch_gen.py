@@ -1656,7 +1656,7 @@ def main():
     args = parser.parse_args()
 
     device = args.device
-    with importlib.resources.as_file(importlib.resources.files("apycula").joinpath(f"{device}.msgpack.gz")) as chipdb_path:
+    with importlib.resources.as_file(importlib.resources.files("apycula").joinpath(f"{device}.msgpack.xz")) as chipdb_path:
         db = load_chipdb(chipdb_path)
 
     chip_flags = 0;
