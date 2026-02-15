@@ -462,6 +462,12 @@ std::unique_ptr<CellInfo> GowinUtils::create_cell(IdString name, IdString type)
 }
 
 // DSP
+bool GowinUtils::has_5A_DSP(void) const
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->chip_flags & Extra_chip_data_POD::HAS_5A_DSP;
+}
+
 Loc GowinUtils::get_dsp_next_9_in_chain(Loc from) const
 {
     Loc res;

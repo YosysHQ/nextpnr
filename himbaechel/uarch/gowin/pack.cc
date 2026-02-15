@@ -3190,6 +3190,20 @@ struct GowinPacker
                         }
                     }
                 } break;
+                case ID_MULT12X12: {
+                    for (int i = 0; i < 2; ++i) {
+                        ci->renamePort(ctx->idf("CLK[%d]", i), ctx->idf("CLK%d", i));
+                        ci->renamePort(ctx->idf("CE[%d]", i), ctx->idf("CE%d", i));
+                        ci->renamePort(ctx->idf("RESET[%d]", i), ctx->idf("RESET%d", i));
+                    }
+                    for (int i = 0; i < 12; ++i) {
+                        ci->renamePort(ctx->idf("A[%d]", i), ctx->idf("A%d", i));
+                        ci->renamePort(ctx->idf("B[%d]", i), ctx->idf("B%d", i));
+                    }
+                    for (int i = 0; i < 24; ++i) {
+                        ci->renamePort(ctx->idf("DOUT[%d]", i), ctx->idf("DOUT%d", i));
+                    }
+                } break;
                 case ID_MULT18X18: {
                     pass_net_type(ci, id_ASEL);
                     pass_net_type(ci, id_BSEL);

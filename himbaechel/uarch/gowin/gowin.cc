@@ -51,7 +51,6 @@ struct GowinImpl : HimbaechelAPI
     bool getClusterPlacement(ClusterId cluster, BelId root_bel,
                              std::vector<std::pair<CellInfo *, BelId>> &placement) const override;
 
-
     void configurePlacerHeap(PlacerHeapCfg &cfg) override;
 
   private:
@@ -73,6 +72,8 @@ struct GowinImpl : HimbaechelAPI
         // dsp info
         const NetInfo *dsp_asign = nullptr, *dsp_bsign = nullptr, *dsp_asel = nullptr, *dsp_bsel = nullptr,
                       *dsp_ce = nullptr, *dsp_clk = nullptr, *dsp_reset = nullptr;
+        const NetInfo *dsp_5a_clk0 = nullptr, *dsp_5a_clk1 = nullptr, *dsp_5a_ce0 = nullptr, *dsp_5a_ce1 = nullptr,
+                      *dsp_5a_reset0 = nullptr, *dsp_5a_reset1 = nullptr;
         bool dsp_soa_reg;
     };
     std::vector<GowinCellInfo> fast_cell_info;
@@ -274,6 +275,9 @@ void GowinImpl::pack()
 // We also indicate to the router which Bel's pin to use.
 void GowinImpl::adjust_dsp_pin_mapping(void)
 {
+    if (gwu.has_5A_DSP()) {
+        return;
+    }
     for (auto b2c : dsp_bel2cell) {
         BelId bel = b2c.first;
         Loc loc = ctx->getBelLocation(bel);
@@ -728,6 +732,7 @@ bool GowinImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
     case ID_PADD9:           /* fall-through */
     case ID_PADD18:          /* fall-through */
     case ID_MULT9X9:         /* fall-through */
+    case ID_MULT12X12:       /* fall-through */
     case ID_MULT18X18:       /* fall-through */
     case ID_MULTADDALU18X18: /* fall-through */
     case ID_MULTALU18X18:    /* fall-through */
@@ -860,6 +865,12 @@ void GowinImpl::assign_cell_info()
             fc.dsp_asel = get_net(id_ASEL);
             fc.dsp_bsel = get_net(id_BSEL);
             fc.dsp_soa_reg = ci->params.count(id_SOA_REG) && ci->params.at(id_SOA_REG).as_int64() == 1;
+            fc.dsp_5a_clk0 = get_net(id_CLK0);
+            fc.dsp_5a_clk1 = get_net(id_CLK1);
+            fc.dsp_5a_ce0 = get_net(id_CE0);
+            fc.dsp_5a_ce1 = get_net(id_CE1);
+            fc.dsp_5a_reset0 = get_net(id_RESET0);
+            fc.dsp_5a_reset1 = get_net(id_RESET1);
         }
     }
 }
@@ -987,6 +998,26 @@ bool GowinImpl::dsp_valid(Loc l, IdString bel_type, bool explain_invalid) const
             }
         }
     }
+
+    if (bel_type == id_MULT12X12) {
+        int pair_z = gwu.get_dsp_paired_12(l.z);
+        const CellInfo *adj_dsp12 = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(l.x, l.y, pair_z)));
+        if (adj_dsp12 != nullptr) {
+            const auto &adj_dsp12_data = fast_cell_info.at(adj_dsp12->flat_index);
+            if ((dsp_data.dsp_5a_clk0 != adj_dsp12_data.dsp_5a_clk0) ||
+                (dsp_data.dsp_5a_clk1 != adj_dsp12_data.dsp_5a_clk1) ||
+                (dsp_data.dsp_5a_ce0 != adj_dsp12_data.dsp_5a_ce0) ||
+                (dsp_data.dsp_5a_ce1 != adj_dsp12_data.dsp_5a_ce1) ||
+                (dsp_data.dsp_5a_reset0 != adj_dsp12_data.dsp_5a_reset0) ||
+                (dsp_data.dsp_5a_reset1 != adj_dsp12_data.dsp_5a_reset1)) {
+                if (explain_invalid) {
+                    log_nonfatal_error("For MULT12X12 primitives the control signals must be same.\n");
+                }
+                return false;
+            }
+        }
+    }
+
     // check for control nets "overflow"
     BelId dsp_bel = ctx->getBelByLocation(Loc(l.x, l.y, BelZ::DSP_Z));
     if (dsp_info.count(dsp_bel)) {
@@ -1294,7 +1325,6 @@ void GowinImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
     cfg.ioBufTypes.insert(id_PINCFG);
     cfg.ioBufTypes.insert(id_GSR);
 }
-
 
 } // namespace
 
