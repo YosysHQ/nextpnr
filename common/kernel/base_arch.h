@@ -27,6 +27,7 @@
 #include "arch_api.h"
 #include "base_clusterinfo.h"
 #include "idstring.h"
+#include "idstringlist.h"
 #include "nextpnr_types.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -451,6 +452,10 @@ template <typename R> struct BaseArch : ArchAPI<R>
         bb.x1 = std::min(bb.x1 + 1, this->getGridDimX());
         bb.y1 = std::min(bb.y1 + 1, this->getGridDimY());
     }
+
+    // Resource methods
+    virtual IdStringList getResourceKeyForPip(PipId /*pip*/) const override { return IdStringList(); }
+    virtual int getResourceValueForPip(PipId /*pip*/) const override { return 0; }
 
     // Flow methods
     virtual void assignArchInfo() override {};

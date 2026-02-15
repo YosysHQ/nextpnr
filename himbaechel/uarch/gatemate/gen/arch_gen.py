@@ -73,6 +73,8 @@ class PipExtraData(BBAStruct):
     value: int = 0
     invert: int = 0
     plane: int = 0
+    block: int = 0
+    resource: int = 0
 
     def serialise_lists(self, context: str, bba: BBAWriter):
         pass
@@ -85,6 +87,8 @@ class PipExtraData(BBAStruct):
         bba.u8(self.plane)
         bba.u8(0)
         bba.u16(0)
+        bba.u32(self.block)
+        bba.u32(self.resource)
 
 @dataclass
 class BelPinConstraint(BBAStruct):
@@ -224,7 +228,7 @@ def set_timings(ch):
             assert k in timing, f"pip class {k} not found in timing data"
             tmg.set_pip_class(grade=speed, name=k, delay=convert_timing(timing[k]))
 
-EXPECTED_VERSION = 1.11
+EXPECTED_VERSION = 1.12
 
 def main():
     # Range needs to be +1, but we are adding +2 more to coordinates, since 
@@ -310,7 +314,7 @@ def main():
                     plane = int(mux.name[10:12])
                 if mux.name == "CPE.C_SN":
                     mux_flags |= MUX_ROUTING
-                pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(mux.name), mux.bits, mux.value, mux_flags, plane)
+                pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(mux.name), mux.bits, mux.value, mux_flags, plane, mux.block, mux.resource)
         if type_name in new_wires:
             for wire in sorted(new_wires[type_name]):
                 delay = wire_delay[wire]
