@@ -32,32 +32,64 @@ NEXTPNR_NAMESPACE_BEGIN
 
 GateMateImpl::~GateMateImpl() {};
 
+static const std::vector<std::pair<int, std::string>> timing_mode_array = {{{1, "best"}, {2, "typical"}, {3, "worst"}}};
+static const std::vector<std::pair<int, std::string>> fpga_mode_array = {
+        {{1, "lowpower"}, {2, "economy"}, {3, "speed"}}};
+
+static std::string mode_array_to_values_str(const std::vector<std::pair<int, std::string>> &array,
+                                            std::string separator)
+{
+    std::ostringstream s;
+    bool first = true;
+    for (const auto &pair : array) {
+        s << (first ? "" : separator) << pair.first << separator << pair.second;
+        first = false;
+    }
+    return s.str();
+}
+
 po::options_description GateMateImpl::getUArchOptions()
 {
+    std::string fpga_mode_description = "operation mode (" + mode_array_to_values_str(fpga_mode_array, ", ") + ")";
+    std::string time_mode_description = "timing mode (" + mode_array_to_values_str(timing_mode_array, ", ") + ")";
+
     po::options_description specific("GateMate specific options");
     specific.add_options()("out", po::value<std::string>(), "textual configuration bitstream output file");
     specific.add_options()("ccf", po::value<std::string>(), "name of constraints file");
     specific.add_options()("allow-unconstrained", "allow unconstrained IOs");
-    specific.add_options()("fpga_mode", po::value<std::string>(), "operation mode (1:lowpower, 2:economy, 3:speed)");
-    specific.add_options()("time_mode", po::value<std::string>(), "timing mode (1:best, 2:typical, 3:worst)");
+    specific.add_options()("fpga_mode", po::value<std::string>(), fpga_mode_description.c_str());
+    specific.add_options()("time_mode", po::value<std::string>(), time_mode_description.c_str());
     specific.add_options()("strategy", po::value<std::string>(),
                            "multi-die clock placement strategy (mirror, full or clk1)");
     specific.add_options()("force_die", po::value<std::string>(), "force specific die (example 1A,1B...)");
     return specific;
 }
 
-static int parse_mode(const std::string &val, const std::map<std::string, int> &map, const char *error_msg)
+static int parse_mode(const std::string &val, const std::vector<std::pair<int, std::string>> &array,
+                      const char *error_msg)
 {
     try {
         int i = std::stoi(val);
         if (i >= 1 && i <= 3)
             return i;
     } catch (...) {
-        auto it = map.find(val);
-        if (it != map.end())
-            return it->second;
+
+        for (const auto &pair : array) {
+            if (pair.second == val) {
+                return pair.first;
+            }
+        }
     }
-    log_error("%s\n", error_msg);
+    std::ostringstream full_error_msg;
+    full_error_msg << error_msg << ": '" << val << "' is not valid. Valid values are: ";
+    bool first = true;
+    for (const auto &pair : array) {
+        full_error_msg << (first ? "'" : ", '") << pair.first << "', '" << pair.second << "'";
+        first = false;
+    }
+    std::string modes = mode_array_to_values_str(array, "', '");
+
+    log_error("%s: '%s' is not valid. Valid values are: '%s'\n", error_msg, val.c_str(), modes.c_str());
 }
 
 void GateMateImpl::init_database(Arch *arch)
@@ -70,15 +102,10 @@ void GateMateImpl::init_database(Arch *arch)
     fpga_mode = 3;
     timing_mode = 3;
 
-    static const std::map<std::string, int> fpga_map = {{"lowpower", 1}, {"economy", 2}, {"speed", 3}};
-    static const std::map<std::string, int> timing_map = {{"best", 1}, {"typical", 2}, {"worst", 3}};
-
     if (args.options.count("fpga_mode"))
-        fpga_mode = parse_mode(args.options["fpga_mode"].as<std::string>(), fpga_map,
-                               "operation mode valid values are {1:lowpower, 2:economy, 3:speed}");
+        fpga_mode = parse_mode(args.options["fpga_mode"].as<std::string>(), fpga_mode_array, "invalid fpga_mode");
     if (args.options.count("time_mode"))
-        timing_mode = parse_mode(args.options["time_mode"].as<std::string>(), timing_map,
-                                 "timing mode valid values are {1:best, 2:typical, 3:worst}");
+        timing_mode = parse_mode(args.options["time_mode"].as<std::string>(), timing_mode_array, "invalid time_mode");
 
     std::string speed_grade = "";
     switch (timing_mode) {
