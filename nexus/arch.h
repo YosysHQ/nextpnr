@@ -788,9 +788,10 @@ enum CellPinStyle
 
     PINDEF_MASK = 0x30,
 
-    PINGLB_CLK = 0x100, // pin is a 'clock' for global purposes
+    PINGLB_CLK = 0x100,    // pin is a 'clock' for global purposes
+    PINGLB_CE_LSR = 0x200, // pin is CE/LSR for global purposes
 
-    PINGLB_MASK = 0x100,
+    PINGLB_MASK = 0x300,
 
     PINBIT_GATED = 0x1000,  // pin must be enabled in bitstream if used
     PINBIT_1 = 0x2000,      // pin has an explicit bit that must be set if tied to 1
@@ -799,8 +800,8 @@ enum CellPinStyle
     PINSTYLE_NONE = 0x0000,      // default
     PINSTYLE_CIB = 0x4012,       // 'CIB' signal, floats high but explicitly zeroed if not used
     PINSTYLE_CLK = 0x0107,       // CLK type signal, invertible and defaults to disconnected
-    PINSTYLE_CE = 0x0027,        // CE type signal, invertible and defaults to enabled
-    PINSTYLE_LSR = 0x0017,       // LSR type signal, invertible and defaults to not reset
+    PINSTYLE_CE = 0x0227,        // CE type signal, invertible and defaults to enabled
+    PINSTYLE_LSR = 0x0217,       // LSR type signal, invertible and defaults to not reset
     PINSTYLE_DEDI = 0x0000,      // dedicated signals, leave alone
     PINSTYLE_PU = 0x4022,        // signals that float high and default high
     PINSTYLE_PU_NONCIB = 0x0022, // signals that float high and default high
@@ -924,6 +925,7 @@ struct Arch : BaseArch<ArchRanges>
     dict<IdString, int> id_to_x, id_to_y;
 
     pool<PipId> disabled_pips;
+    pool<BelId> disabled_bels;
 
     // -------------------------------------------------
 
