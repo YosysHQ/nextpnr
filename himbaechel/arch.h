@@ -791,7 +791,7 @@ struct Arch : BaseArch<ArchRanges>
 
     // ------------------------------------------------
     // Resource methods
-    IdStringList getResourceKeyForPip(PipId pip) const override { return uarch->getResourceKeyForPip(pip); };
+    GroupId getResourceKeyForPip(PipId pip) const override { return uarch->getResourceKeyForPip(pip); };
     int getResourceValueForPip(PipId pip) const override { return uarch->getResourceValueForPip(pip); };
 
     // ------------------------------------------------

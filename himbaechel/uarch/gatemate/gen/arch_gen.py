@@ -282,6 +282,19 @@ def main():
         tt = ch.create_tile_type(type_name)
         for group in sorted(die.get_groups_for_type(type_name)):
             tt.create_group(group.name, group.type)
+        if ("CPE" in type_name):
+            tt.create_group("C_SELX", "RESOURCE")
+            tt.create_group("C_SELY1", "RESOURCE")
+            tt.create_group("C_SELY2", "RESOURCE")
+            tt.create_group("C_SEL_C", "RESOURCE")
+            tt.create_group("C_SEL_P", "RESOURCE")
+            tt.create_group("C_Y12", "RESOURCE")
+            tt.create_group("C_CX_I", "RESOURCE")
+            tt.create_group("C_CY1_I", "RESOURCE")
+            tt.create_group("C_CY2_I", "RESOURCE")
+            tt.create_group("C_PX_I", "RESOURCE")
+            tt.create_group("C_PY1_I", "RESOURCE")
+            tt.create_group("C_PY2_I", "RESOURCE")
         for wire in sorted(die.get_endpoints_for_type(type_name)):
             tt.create_wire(wire.name, wire.type)
         if type_name in new_wires:

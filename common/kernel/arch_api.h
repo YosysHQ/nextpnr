@@ -151,7 +151,7 @@ template <typename R> struct ArchAPI : BaseCtx
     // Routing methods
     virtual void expandBoundingBox(BoundingBox &bb) const = 0;
     // Resource methods
-    virtual IdStringList getResourceKeyForPip(PipId pip) const = 0;
+    virtual GroupId getResourceKeyForPip(PipId pip) const = 0;
     virtual int getResourceValueForPip(PipId pip) const = 0;
 
     // Flow methods

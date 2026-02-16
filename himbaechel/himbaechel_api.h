@@ -133,7 +133,7 @@ struct HimbaechelAPI
     virtual void expandBoundingBox(BoundingBox &bb) const;
 
     // Resource methods
-    virtual IdStringList getResourceKeyForPip(PipId pip) const { return IdStringList(); };
+    virtual GroupId getResourceKeyForPip(PipId pip) const { return GroupId(); };
     virtual int getResourceValueForPip(PipId pip) const { return 0; };
 
     // --- Flow hooks ---

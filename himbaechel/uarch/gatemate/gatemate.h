@@ -80,7 +80,7 @@ struct GateMateImpl : HimbaechelAPI
 
     bool isPipInverting(PipId pip) const override;
 
-    IdStringList getResourceKeyForPip(PipId pip) const override;
+    GroupId getResourceKeyForPip(PipId pip) const override;
     int getResourceValueForPip(PipId pip) const override;
 
     const GateMateTileExtraDataPOD *tile_extra_data(int tile) const;

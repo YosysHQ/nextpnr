@@ -542,7 +542,8 @@ void GateMateImpl::reassign_cplines(NetInfo *ni, const dict<WireId, PipMap> &net
             ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
         }
 
-        cell->setParam(ctx->getResourceKeyForPip(pip)[1], Property(extra_data.value, extra_data.bits));
+        cell->setParam(ctx->getGroupName(ctx->getResourceKeyForPip(pip))[1],
+                       Property(extra_data.value, extra_data.bits));
 
         // We have to discover the ports needed by this config.
         auto input_port_map = dict<IdString, IdString>{
@@ -955,11 +956,11 @@ void GateMateImpl::expandBoundingBox(BoundingBox &bb) const
     bb.y1 = std::min((bb.y1 & 0xfffe) + 5, ctx->getGridDimY());
 }
 
-IdStringList GateMateImpl::getResourceKeyForPip(PipId pip) const
+GroupId GateMateImpl::getResourceKeyForPip(PipId pip) const
 {
     const auto &extra_data = *pip_extra_data(pip);
     if (extra_data.type != PipExtra::PIP_EXTRA_MUX || extra_data.resource == 0)
-        return IdStringList();
+        return GroupId();
 
     auto resource_map = dict<uint32_t, IdString>{
             {PipMask::C_SELX, id_C_SELX},   {PipMask::C_SELY1, id_C_SELY1}, {PipMask::C_SELY2, id_C_SELY2},
@@ -969,8 +970,9 @@ IdStringList GateMateImpl::getResourceKeyForPip(PipId pip) const
     };
 
     NPNR_ASSERT(resource_map.count(extra_data.resource));
+    IdStringList name = IdStringList::concat(ctx->getPipName(pip)[0], resource_map.at(extra_data.resource));
 
-    return IdStringList::concat(ctx->getPipName(pip)[0], resource_map.at(extra_data.resource));
+    return ctx->getGroupByName(name);
 }
 
 int GateMateImpl::getResourceValueForPip(PipId pip) const

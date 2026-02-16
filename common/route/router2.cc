@@ -72,7 +72,7 @@ struct Router2
         WireId src_wire;
         dict<WireId, std::pair<PipId, int>> wires;
         std::vector<std::vector<PerArcData>> arcs;
-        dict<IdStringList, NetResourceData> resources;
+        dict<GroupId, NetResourceData> resources;
         BoundingBox bb;
         // Coordinates of the center of the net, used for the weight-to-average
         int cx, cy, hpwl;
@@ -110,7 +110,7 @@ struct Router2
 
     struct PerResourceData
     {
-        IdStringList key;
+        GroupId key;
         // Historical congestion cost
         dict<int, int> value_count;
         float hist_cong_cost = 1.0;
@@ -254,18 +254,18 @@ struct Router2
         }
     }
 
-    dict<IdStringList, int> resource_to_idx;
+    dict<GroupId, int> resource_to_idx;
     dict<WireId, int> wire_to_resource;
     std::vector<PerResourceData> flat_resources;
 
-    PerResourceData &resource_data(IdStringList r) { return flat_resources[resource_to_idx.at(r)]; }
+    PerResourceData &resource_data(GroupId r) { return flat_resources[resource_to_idx.at(r)]; }
 
     void setup_resources()
     {
         // should we have a getResources()???
         for (auto pip : ctx->getPips()) {
             auto resource_key = ctx->getResourceKeyForPip(pip);
-            if (resource_key == IdStringList())
+            if (resource_key == GroupId())
                 continue;
 
             auto entry = resource_to_idx.find(resource_key);
@@ -382,7 +382,7 @@ struct Router2
             return;
 
         auto resource_key = ctx->getResourceKeyForPip(pip);
-        if (resource_key == IdStringList())
+        if (resource_key == GroupId())
             return;
 
         auto &rd = resource_data(resource_key);
@@ -424,7 +424,7 @@ struct Router2
             return;
 
         auto resource_key = ctx->getResourceKeyForPip(pip);
-        if (resource_key == IdStringList())
+        if (resource_key == GroupId())
             return;
 
         auto &rd = resource_data(resource_key);
@@ -519,7 +519,7 @@ struct Router2
             if (uh == PipId())
                 break;
             auto resource_key = ctx->getResourceKeyForPip(uh);
-            if (resource_key != IdStringList()) {
+            if (resource_key != GroupId()) {
                 auto &rd = resource_data(resource_key);
                 if (rd.value_count.size() > 1)
                     break;
@@ -929,7 +929,7 @@ struct Router2
                             continue;
                         // Don't allow the same resource to be bound to the same net with a different value
                         auto resource_key = ctx->getResourceKeyForPip(dh);
-                        if (resource_key != IdStringList()) {
+                        if (resource_key != GroupId()) {
                             auto fnd_resource = nd.resources.find(resource_key);
                             if (fnd_resource != nd.resources.end() &&
                                 fnd_resource->second.value != ctx->getResourceValueForPip(dh))
@@ -987,7 +987,7 @@ struct Router2
                             continue;
                         // Don't allow the same resource to be bound to the same net with a different value
                         auto resource_key = ctx->getResourceKeyForPip(uh);
-                        if (resource_key != IdStringList()) {
+                        if (resource_key != GroupId()) {
                             auto fnd_resource = nd.resources.find(resource_key);
                             if (fnd_resource != nd.resources.end() &&
                                 fnd_resource->second.value != ctx->getResourceValueForPip(uh))
@@ -1024,10 +1024,10 @@ struct Router2
                         break;
                     }
                     auto resource_key = ctx->getResourceKeyForPip(pip);
-                    if (resource_key != IdStringList()) {
+                    if (resource_key != GroupId()) {
                         ROUTE_LOG_DBG("         fwd pip: %s (%d, %d) %s = %d\n", ctx->nameOfPip(pip),
                                       ctx->getPipLocation(pip).x, ctx->getPipLocation(pip).y,
-                                      resource_key.str(ctx).c_str(), ctx->getResourceValueForPip(pip));
+                                      ctx->nameOfGroup(resource_key), ctx->getResourceValueForPip(pip));
                     } else {
                         ROUTE_LOG_DBG("         fwd pip: %s (%d, %d)\n", ctx->nameOfPip(pip),
                                       ctx->getPipLocation(pip).x, ctx->getPipLocation(pip).y);
@@ -1063,10 +1063,10 @@ struct Router2
                     break;
                 }
                 auto resource_key = ctx->getResourceKeyForPip(pip);
-                if (resource_key != IdStringList()) {
+                if (resource_key != GroupId()) {
                     ROUTE_LOG_DBG("         bwd pip: %s (%d, %d) %s = %d\n", ctx->nameOfPip(pip),
-                                  ctx->getPipLocation(pip).x, ctx->getPipLocation(pip).y, resource_key.str(ctx).c_str(),
-                                  ctx->getResourceValueForPip(pip));
+                                  ctx->getPipLocation(pip).x, ctx->getPipLocation(pip).y,
+                                  ctx->nameOfGroup(resource_key), ctx->getResourceValueForPip(pip));
                 } else {
                     ROUTE_LOG_DBG("         bwd pip: %s (%d, %d)\n", ctx->nameOfPip(pip), ctx->getPipLocation(pip).x,
                                   ctx->getPipLocation(pip).y);
@@ -1203,7 +1203,7 @@ struct Router2
         total_resource_use = 0;
         failed_nets.clear();
         pool<WireId> already_updated_wires;
-        pool<IdStringList> already_updated_resources;
+        pool<GroupId> already_updated_resources;
         for (size_t i = 0; i < nets.size(); i++) {
             auto &nd = nets.at(i);
             for (const auto &w : nd.wires) {
