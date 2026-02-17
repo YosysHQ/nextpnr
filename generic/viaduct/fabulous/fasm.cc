@@ -204,6 +204,8 @@ struct FabFasmWriter
 
     void write_generic_cell(const CellInfo *ci)
     {
+        if (ci->bel == BelId())
+            return;
         prefix = format_name(ctx->getBelName(ci->bel)) + ".";
         for (auto &param : ci->params) {
             // TODO: better parameter type auto-detection

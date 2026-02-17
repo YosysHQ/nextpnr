@@ -34,6 +34,7 @@
 #include "fab_defs.h"
 #include "fasm.h"
 #include "pack.h"
+#include "pcf.h"
 #include "validity_check.h"
 
 #include <filesystem>
@@ -50,6 +51,8 @@ struct FabulousImpl : ViaductAPI
                 fasm_file = a.second;
             else if (a.first == "lut_k")
                 cfg.clb.lut_k = std::stoi(a.second);
+            else if (a.first == "pcf")
+                pcf_file = a.second;
             else
                 log_error("unrecognised fabulous option '%s'\n", a.first.c_str());
         }
@@ -131,7 +134,14 @@ struct FabulousImpl : ViaductAPI
         }
     }
 
-    void pack() override { fabulous_pack(ctx, cfg); }
+    void pack() override
+    {
+        if (!pcf_file.empty())
+            fabulous_pcf(ctx, pcf_file);
+        else
+            log_info("No PCF file specified, skipping constraints application.\n");
+        fabulous_pack(ctx, cfg);
+    }
 
     void postRoute() override
     {
@@ -156,6 +166,8 @@ struct FabulousImpl : ViaductAPI
     WireId global_clk_wire;
 
     std::string fasm_file;
+
+    std::string pcf_file;
 
     std::unique_ptr<BlockTracker> blk_trk;
 
