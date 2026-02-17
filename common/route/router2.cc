@@ -37,7 +37,6 @@
 #include <queue>
 #include <set>
 
-#include "idstringlist.h"
 #include "log.h"
 #include "nextpnr.h"
 #include "nextpnr_assertions.h"

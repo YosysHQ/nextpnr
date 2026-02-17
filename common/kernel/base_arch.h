@@ -27,7 +27,6 @@
 #include "arch_api.h"
 #include "base_clusterinfo.h"
 #include "idstring.h"
-#include "idstringlist.h"
 #include "nextpnr_types.h"
 
 NEXTPNR_NAMESPACE_BEGIN

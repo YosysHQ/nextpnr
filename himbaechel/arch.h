@@ -27,7 +27,6 @@
 #include "base_arch.h"
 #include "chipdb.h"
 #include "himbaechel_api.h"
-#include "idstringlist.h"
 #include "nextpnr_namespaces.h"
 #include "nextpnr_types.h"
 

@@ -22,7 +22,6 @@
 
 #include "extra_data.h"
 #include "himbaechel_api.h"
-#include "idstringlist.h"
 #include "log.h"
 #include "nextpnr.h"
 #include "util.h"

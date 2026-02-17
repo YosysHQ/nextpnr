@@ -20,7 +20,6 @@
 #include <utility>
 
 #include "gatemate.h"
-#include "idstringlist.h"
 #include "log.h"
 #include "nextpnr_assertions.h"
 #include "placer_heap.h"
