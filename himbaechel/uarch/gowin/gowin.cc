@@ -45,6 +45,7 @@ struct GowinImpl : HimbaechelAPI
 
     // wires
     bool checkPipAvail(PipId pip) const override;
+    bool checkPipAvailForNet(PipId pip, const NetInfo *net) const override;
 
     // Cluster
     bool isClusterStrict(const CellInfo *cell) const override { return true; }
@@ -247,6 +248,12 @@ void GowinImpl::init(Context *ctx)
 bool GowinImpl::checkPipAvail(PipId pip) const
 {
     return (ctx->getWireConstantValue(ctx->getPipSrcWire(pip)) != IdString()) ||
+           (!(gwu.is_global_pip(pip) || gwu.is_segment_pip(pip)));
+}
+
+bool GowinImpl::checkPipAvailForNet(PipId pip, const NetInfo *net) const
+{
+    return (net->constant_value == IdString() && ctx->getWireConstantValue(ctx->getPipSrcWire(pip)) != IdString()) ||
            (!(gwu.is_global_pip(pip) || gwu.is_segment_pip(pip)));
 }
 
