@@ -45,6 +45,7 @@ NPNR_PACKED_STRUCT(struct GateMatePipExtraDataPOD {
     uint16_t dummy2;
     uint32_t block;
     uint32_t resource;
+    uint32_t group_index;
 });
 
 NPNR_PACKED_STRUCT(struct GateMateBelPinConstraintPOD {
