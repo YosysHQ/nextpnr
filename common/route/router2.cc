@@ -54,7 +54,7 @@ struct Router2
     {
         WireId sink_wire;
         BoundingBox bb;
-        bool routed = false;
+        bool routed = false, pre_routed = false;
     };
 
     // As we allow overlap at first; the nextpnr bind functions can't be used
@@ -358,6 +358,9 @@ struct Router2
             cursor = ctx->getPipSrcWire(pip);
         }
         ad.routed = false;
+        // Once we've ripped up the arc, the routing may no longer be the same as before...
+        // (this should only happen if it was not strongly bound)
+        ad.pre_routed = false;
     }
 
     float score_wire_for_arc(NetInfo *net, store_index<PortRef> user, size_t phys_pin, WireId wire, PipId pip,
@@ -419,6 +422,7 @@ struct Router2
         auto &nd = nets.at(net->udata);
         auto &ad = nd.arcs.at(usr.idx()).at(phys_pin);
         ad.routed = true;
+        ad.pre_routed = true;
 
         WireId src = nets.at(net->udata).src_wire;
         WireId cursor = ad.sink_wire;
@@ -1141,7 +1145,7 @@ struct Router2
                 if (bound_net == nullptr) {
                     to_bind.push_back(p);
                 }
-            } else {
+            } else if (!ad.pre_routed || ctx->getBoundPipNet(p) != net) { // allow pre routing to break normal validity checking rules
                 if (ctx->verbose) {
                     log_info("Failed to bind pip %s to net %s\n", ctx->nameOfPip(p), net->name.c_str(ctx));
                 }
