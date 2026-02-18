@@ -261,10 +261,8 @@ struct Router2
 
     void setup_resources()
     {
-        // should we have a getResources()???
-        for (auto pip : ctx->getPips()) {
-            auto resource_key = ctx->getResourceKeyForPip(pip);
-            if (resource_key == GroupId())
+        for (auto resource_key : ctx->getGroups()) {
+            if (!ctx->isGroupResource(resource_key))
                 continue;
 
             auto entry = resource_to_idx.find(resource_key);
@@ -277,10 +275,11 @@ struct Router2
 
                 entry = resource_to_idx.find(resource_key);
             }
-
-            auto dest_wire = ctx->getPipDstWire(pip);
-            if (wire_to_resource.count(dest_wire) == 0)
-                wire_to_resource.insert({dest_wire, entry->second});
+            for (auto pip : ctx->getGroupPips(resource_key)) {
+                auto dest_wire = ctx->getPipDstWire(pip);
+                if (wire_to_resource.count(dest_wire) == 0)
+                    wire_to_resource.insert({dest_wire, entry->second});
+            }
         }
     }
 

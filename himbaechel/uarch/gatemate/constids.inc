@@ -3228,3 +3228,5 @@ X(timing_pll_clock_core0_i_clk_core180_o)
 X(timing_pll_clock_core0_i_clk_core270_o)
 X(timing_pll_clock_core0_i_clk_core90_o)
 X(timing_pll_locked_steady_reset_i_pll_locked_steady_o)
+
+X(RESOURCE)

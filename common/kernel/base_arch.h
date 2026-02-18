@@ -455,6 +455,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
     // Resource methods
     virtual GroupId getResourceKeyForPip(PipId /*pip*/) const override { return GroupId(); }
     virtual int getResourceValueForPip(PipId /*pip*/) const override { return 0; }
+    virtual bool isGroupResource(GroupId /*group*/) const override { return false; }
 
     // Flow methods
     virtual void assignArchInfo() override {};

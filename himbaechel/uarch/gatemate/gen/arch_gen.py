@@ -338,6 +338,7 @@ def main():
                 if mux.resource > 0:
                     group = RESOURCE_NAMES.get(mux.resource, "UNKNOWN")
                     group_index = tt._group2idx[tt.strs.id(group)]
+                    tt.add_pip_to_group(pp, group)
                 pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(mux.name), mux.bits, mux.value, mux_flags, plane, mux.block, mux.resource, group_index)
         if type_name in new_wires:
             for wire in sorted(new_wires[type_name]):

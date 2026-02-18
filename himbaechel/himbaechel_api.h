@@ -133,7 +133,8 @@ struct HimbaechelAPI
 
     // Resource methods
     virtual GroupId getResourceKeyForPip(PipId pip) const { return GroupId(); };
-    virtual int getResourceValueForPip(PipId pip) const { return 0; };
+    virtual int getResourceValueForPip(PipId pip) const { return 0; }
+    virtual bool isGroupResource(GroupId /*group*/) const { return false; }
 
     // --- Flow hooks ---
     virtual void pack() {}; // replaces the pack function

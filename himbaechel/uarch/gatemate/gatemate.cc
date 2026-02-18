@@ -972,6 +972,8 @@ int GateMateImpl::getResourceValueForPip(PipId pip) const
     return extra_data.value;
 }
 
+bool GateMateImpl::isGroupResource(GroupId group) const { return ctx->getGroupType(group) == id_RESOURCE; }
+
 void GateMateImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
 {
     cfg.chainRipup = true;

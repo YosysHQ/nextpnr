@@ -81,6 +81,7 @@ struct GateMateImpl : HimbaechelAPI
 
     GroupId getResourceKeyForPip(PipId pip) const override;
     int getResourceValueForPip(PipId pip) const override;
+    bool isGroupResource(GroupId group) const override;
 
     const GateMateTileExtraDataPOD *tile_extra_data(int tile) const;
     const GateMateBelExtraDataPOD *bel_extra_data(BelId bel) const;

@@ -153,6 +153,7 @@ template <typename R> struct ArchAPI : BaseCtx
     // Resource methods
     virtual GroupId getResourceKeyForPip(PipId pip) const = 0;
     virtual int getResourceValueForPip(PipId pip) const = 0;
+    virtual bool isGroupResource(GroupId group) const = 0;
 
     // Flow methods
     virtual bool pack() = 0;
