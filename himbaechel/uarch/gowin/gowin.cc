@@ -714,7 +714,7 @@ void GowinImpl::postRoute()
     std::vector<CellInfo*> to_remove;
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
-        if (ci->type == id_BLOCKER_LUT) {
+        if (ci->type.in(id_BLOCKER_LUT, id_BLOCKER_FF)) {
             to_remove.push_back(ci);
         }
     }
@@ -779,7 +779,7 @@ IdString GowinImpl::getBelBucketForCellType(IdString cell_type) const
     if (type_is_lut(cell_type) || cell_type == id_BLOCKER_LUT) {
         return id_LUT4;
     }
-    if (type_is_dff(cell_type)) {
+    if (type_is_dff(cell_type) || cell_type == id_BLOCKER_FF) {
         return id_DFF;
     }
     if (type_is_ssram(cell_type)) {
@@ -820,7 +820,7 @@ bool GowinImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
         return type_is_lut(cell_type) || cell_type == id_BLOCKER_LUT;
     }
     if (bel_type == id_DFF) {
-        return type_is_dff(cell_type);
+        return type_is_dff(cell_type) || cell_type == id_BLOCKER_FF;
     }
     if (bel_type == id_RAM16SDP4) {
         return type_is_ssram(cell_type);
@@ -1068,6 +1068,10 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
     const CellInfo *alu = (z < 6) ? ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, z + BelZ::ALU0_Z))) : nullptr;
     const CellInfo *ramw = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, BelZ::RAMW_Z)));
 
+    auto is_not_blocker = [](const CellInfo *ci) {
+        return ci && !ci->type.in(id_BLOCKER_LUT, id_BLOCKER_FF);
+    };
+
     if (alu && lut && lut->type != id_BLOCKER_LUT) {
         return false;
     }
@@ -1075,23 +1079,23 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
     if (ramw) {
         // FFs in slices 4 and 5 are not allowed
         // also temporarily disallow FF to be placed near RAM
-        if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 0 * 2 + 1))) ||
-            ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 1 * 2 + 1))) ||
-            ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 2 * 2 + 1))) ||
-            ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 3 * 2 + 1))) ||
-            ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 4 * 2 + 1))) ||
-            ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 5 * 2 + 1)))) {
+        if (is_not_blocker(ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 0 * 2 + 1)))) ||
+            is_not_blocker(ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 1 * 2 + 1)))) ||
+            is_not_blocker(ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 2 * 2 + 1)))) ||
+            is_not_blocker(ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 3 * 2 + 1)))) ||
+            is_not_blocker(ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 4 * 2 + 1)))) ||
+            is_not_blocker(ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 5 * 2 + 1))))) {
             return false;
         }
         if (gwu.has_DFF67()) {
-            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 6 * 2 + 1))) ||
-                ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 7 * 2 + 1)))) {
+            if (is_not_blocker(ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 6 * 2 + 1)))) ||
+                is_not_blocker(ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 7 * 2 + 1))))) {
                 return false;
             }
         }
         // ALU/LUTs in slices 4, 5, 6, 7 are not allowed
         for (int i = 4; i < 8; ++i) {
-            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, i * 2)))) {
+            if (is_not_blocker(ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, i * 2))))) {
                 return false;
             }
             if (i < 6 && ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, i + BelZ::ALU0_Z)))) {
@@ -1113,7 +1117,7 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
         return false;
     }
 
-    if (ff) {
+    if (ff && ff->type != id_BLOCKER_FF) {
         static std::vector<int> mux_z = {BelZ::MUX20_Z,     BelZ::MUX21_Z,     BelZ::MUX20_Z + 4,  BelZ::MUX23_Z,
                                          BelZ::MUX20_Z + 8, BelZ::MUX21_Z + 8, BelZ::MUX20_Z + 12, BelZ::MUX27_Z};
         const auto &ff_data = fast_cell_info.at(ff->flat_index);
@@ -1328,6 +1332,7 @@ void GowinImpl::notifyBelChange(BelId bel, CellInfo *cell)
 
 void GowinImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
 {
+    // SLICE types are closely associated with each other
     cfg.placeAllAtOnce = true;
 
     // Treat control and constants like IO buffers, because they have only one possible location

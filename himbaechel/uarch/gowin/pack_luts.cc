@@ -608,6 +608,26 @@ void GowinPacker::pack_ssram(void)
                     }
                 }
             }
+            for (int i = 4; i < 8; ++i) {
+                auto cell = std::make_unique<CellInfo>(ctx, ctx->idf("%s_BLOCKER_LUT_%d", ctx->nameOf(ci), i), id_BLOCKER_LUT);
+                cell->cluster = ci->cluster;
+                ci->constr_children.push_back(cell.get());
+                cell->constr_abs_z = true;
+                cell->constr_x = 0;
+                cell->constr_y = 0;
+                cell->constr_z = 2 * i;
+                new_cells.emplace_back(std::move(cell));
+            }
+            for (int i = 0; i < (gwu.has_DFF67() ? 8 : 6); ++i) {
+                auto cell = std::make_unique<CellInfo>(ctx, ctx->idf("%s_BLOCKER_FF_%d", ctx->nameOf(ci), i), id_BLOCKER_FF);
+                cell->cluster = ci->cluster;
+                ci->constr_children.push_back(cell.get());
+                cell->constr_abs_z = true;
+                cell->constr_x = 0;
+                cell->constr_y = 0;
+                cell->constr_z = 2 * i + 1;
+                new_cells.emplace_back(std::move(cell));
+            }
         }
     }
     for (auto &ncell : new_cells) {
