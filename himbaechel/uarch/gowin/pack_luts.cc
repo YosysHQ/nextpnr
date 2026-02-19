@@ -479,6 +479,27 @@ void GowinPacker::pack_alus(void)
     for (auto &ncell : new_cells) {
         ctx->cells[ncell->name] = std::move(ncell);
     }
+    new_cells.clear();
+    // The placer doesn't know "a priori" that LUTs and ALUs conflict. So create blocker LUTs to make this explicit and reduce wasted legalisation effort
+    for (auto &cell : ctx->cells) {
+        auto ci = cell.second.get();
+        if (ci->cluster == ClusterId()) {
+            continue;
+        }
+        if (is_alu(ci)) {
+            auto cell = std::make_unique<CellInfo>(ctx, ctx->idf("%s_BLOCKER_LUT", ctx->nameOf(ci)), id_BLOCKER_LUT);
+            cell->cluster = ci->cluster;
+            ctx->cells.at(cell->cluster)->constr_children.push_back(cell.get());
+            cell->constr_abs_z = true;
+            cell->constr_x = ci->constr_x;
+            cell->constr_y = ci->constr_y;
+            cell->constr_z = 2 * (ci->constr_z - (ci->constr_abs_z ? BelZ::ALU0_Z : 0));
+            new_cells.emplace_back(std::move(cell));
+        }
+    }
+    for (auto &ncell : new_cells) {
+        ctx->cells[ncell->name] = std::move(ncell);
+    }
 }
 
 // ===================================
