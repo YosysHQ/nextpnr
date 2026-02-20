@@ -3525,6 +3525,62 @@ struct GowinPacker
                         }
                     }
                 } break;
+                case ID_MULTADDALU12X12: {
+                    for (int i = 0; i < 2; ++i) {
+                        ci->renamePort(ctx->idf("CLK[%d]", i), ctx->idf("CLK%d", i));
+                        ci->renamePort(ctx->idf("CE[%d]", i), ctx->idf("CE%d", i));
+                        ci->renamePort(ctx->idf("RESET[%d]", i), ctx->idf("RESET%d", i));
+                        ci->renamePort(ctx->idf("ADDSUB[%d]", i), ctx->idf("ADDSUB%d", i));
+                    }
+                    for (int i = 0; i < 12; ++i) {
+                        ci->renamePort(ctx->idf("A0[%d]", i), ctx->idf("A0%d", i));
+                        ci->renamePort(ctx->idf("B0[%d]", i), ctx->idf("B0%d", i));
+                        ci->renamePort(ctx->idf("A1[%d]", i), ctx->idf("A1%d", i));
+                        ci->renamePort(ctx->idf("B1[%d]", i), ctx->idf("B1%d", i));
+                    }
+                    pass_net_type(ci, id_ACCSEL);
+                    ci->cell_bel_pins.at(id_ACCSEL).clear();
+                    ci->cell_bel_pins.at(id_ACCSEL).push_back(id_ACCSEL0);
+                    ci->cell_bel_pins.at(id_ACCSEL).push_back(id_ACCSEL1);
+
+                    for (int i = 0; i < 48; ++i) {
+                        ci->renamePort(ctx->idf("DOUT[%d]", i), ctx->idf("DOUT%d", i));
+                    }
+
+                    // mark 2 mult12x12 as parts of the cluster to prevent
+                    // other multipliers from being placed there
+                    ci->cluster = ci->name;
+                    ci->constr_abs_z = false;
+                    ci->constr_x = 0;
+                    ci->constr_y = 0;
+                    ci->constr_z = 0;
+                    ci->constr_children.clear();
+
+                    for (int i = 0; i < 2; ++i) {
+                        IdString mult12x12_name = gwu.create_aux_name(ci->name, i * 2);
+                        std::unique_ptr<CellInfo> mult12x12_cell = gwu.create_cell(mult12x12_name, id_DUMMY_CELL);
+                        new_cells.push_back(std::move(mult12x12_cell));
+                        CellInfo *mult12x12_ci = new_cells.back().get();
+
+                        mult12x12_ci->cluster = ci->name;
+                        mult12x12_ci->constr_abs_z = false;
+                        mult12x12_ci->constr_x = 0;
+                        mult12x12_ci->constr_y = 0;
+                        mult12x12_ci->constr_z = BelZ::MULT12X12_0_Z - BelZ::MULTADDALU12X12_Z + i;
+                    }
+
+                    // DSP head?
+                    if (gwu.dsp_bus_src(ci, "CASI", 48) == nullptr) {
+                        for (int i = 0; i < 48; ++i) {
+                            ci->disconnectPort(ctx->idf("CASI[%d]", i));
+                        }
+                        dsp_heads.push_back(ci);
+                        if (ctx->verbose) {
+                            log_info(" found a DSP head: %s\n", ctx->nameOf(ci));
+                        }
+                    }
+
+                } break;
                 case ID_MULTADDALU18X18: {
                     if (ci->params.count(id_MULTADDALU18X18_MODE) == 0) {
                         ci->setParam(id_MULTADDALU18X18_MODE, 0);
@@ -3717,6 +3773,40 @@ struct GowinPacker
             }
         }
 
+        auto make_CAS_chain = [&](CellInfo *head, int wire_num) {
+            CellInfo *cur_dsp = head;
+            while (1) {
+                CellInfo *next_dsp = gwu.dsp_bus_dst(cur_dsp, "CASO", wire_num);
+                if (next_dsp == nullptr) {
+                    // End of chain
+                    for (int i = 0; i < wire_num; ++i) {
+                        cur_dsp->disconnectPort(ctx->idf("CASO[%d]", i));
+                    }
+                    break;
+                }
+                for (int i = 0; i < wire_num; ++i) {
+                    cur_dsp->disconnectPort(ctx->idf("CASO[%d]", i));
+                    next_dsp->disconnectPort(ctx->idf("CASI[%d]", i));
+                }
+                cur_dsp->setAttr(id_USE_CASCADE_OUT, 1);
+                cur_dsp = next_dsp;
+                cur_dsp->setAttr(id_USE_CASCADE_IN, 1);
+                if (ctx->verbose) {
+                    log_info("  add %s to the chain.\n", ctx->nameOf(cur_dsp));
+                }
+                if (head->cluster == ClusterId()) {
+                    head->cluster = head->name;
+                }
+                cur_dsp->cluster = head->name;
+                head->constr_children.push_back(cur_dsp);
+                for (auto child : cur_dsp->constr_children) {
+                    child->cluster = head->name;
+                    head->constr_children.push_back(child);
+                }
+                cur_dsp->constr_children.clear();
+            }
+        };
+
         // DSP chains
         for (CellInfo *head : dsp_heads) {
             if (ctx->verbose) {
@@ -3821,38 +3911,10 @@ struct GowinPacker
             case ID_MULTALU18X18: /* fallthrough */
             case ID_MULTALU36X18: /* fallthrough */
             case ID_ALU54D: {
-                int wire_num = 55;
-                CellInfo *cur_dsp = head;
-                while (1) {
-                    CellInfo *next_dsp_a = gwu.dsp_bus_dst(cur_dsp, "CASO", wire_num);
-                    if (next_dsp_a == nullptr) {
-                        // End of chain
-                        for (int i = 0; i < wire_num; ++i) {
-                            cur_dsp->disconnectPort(ctx->idf("CASO[%d]", i));
-                        }
-                        break;
-                    }
-                    for (int i = 0; i < wire_num; ++i) {
-                        cur_dsp->disconnectPort(ctx->idf("CASO[%d]", i));
-                        next_dsp_a->disconnectPort(ctx->idf("CASI[%d]", i));
-                    }
-                    cur_dsp->setAttr(id_USE_CASCADE_OUT, 1);
-                    cur_dsp = next_dsp_a;
-                    cur_dsp->setAttr(id_USE_CASCADE_IN, 1);
-                    if (ctx->verbose) {
-                        log_info("  add %s to the chain.\n", ctx->nameOf(cur_dsp));
-                    }
-                    if (head->cluster == ClusterId()) {
-                        head->cluster = head->name;
-                    }
-                    cur_dsp->cluster = head->name;
-                    head->constr_children.push_back(cur_dsp);
-                    for (auto child : cur_dsp->constr_children) {
-                        child->cluster = head->name;
-                        head->constr_children.push_back(child);
-                    }
-                    cur_dsp->constr_children.clear();
-                }
+                make_CAS_chain(head, 55);
+            } break;
+            case ID_MULTADDALU12X12: {
+                make_CAS_chain(head, 48);
             } break;
             case ID_MULTADDALU18X18: {
                 // This primitive has the ability to form chains using both SO[AB] -> SI[AB] and CASO->CASI

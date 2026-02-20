@@ -505,6 +505,16 @@ Loc GowinUtils::get_dsp_next_macro_in_chain(Loc from) const
     return res;
 }
 
+Loc GowinUtils::get_dsp_next_in_chain_5a(Loc from) const
+{
+    Loc res;
+    res.y = from.y;
+    // next DSP
+    res.x = from.x + 3;
+    res.z = from.z;
+    return res;
+}
+
 Loc GowinUtils::get_dsp_next_in_chain(Loc from, IdString dsp_type) const
 {
     if (dsp_type.in(id_PADD9, id_PADD18, id_MULT9X9, id_MULT18X18)) {
@@ -512,6 +522,9 @@ Loc GowinUtils::get_dsp_next_in_chain(Loc from, IdString dsp_type) const
     }
     if (dsp_type.in(id_ALU54D, id_MULTALU18X18, id_MULTALU36X18, id_MULTADDALU18X18)) {
         return get_dsp_next_macro_in_chain(from);
+    }
+    if (dsp_type.in(id_MULTADDALU12X12)) {
+        return get_dsp_next_in_chain_5a(from);
     }
     NPNR_ASSERT_FALSE("Unknown DSP cell type.");
 }

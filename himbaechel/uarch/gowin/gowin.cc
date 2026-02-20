@@ -1212,7 +1212,7 @@ bool GowinImpl::getClusterPlacement(ClusterId cluster, BelId root_bel,
 {
     CellInfo *root_ci = getClusterRootCell(cluster);
     if (!root_ci->type.in(id_PADD9, id_MULT9X9, id_PADD18, id_MULT18X18, id_MULTALU18X18, id_MULTALU36X18,
-                          id_MULTADDALU18X18, id_ALU54D)) {
+                          id_MULTADDALU18X18, id_ALU54D, id_MULTADDALU12X12)) {
         return HimbaechelAPI::getClusterPlacement(cluster, root_bel, placement);
     }
 

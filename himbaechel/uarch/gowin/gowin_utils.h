@@ -146,6 +146,7 @@ struct GowinUtils
     Loc get_dsp_next_9_in_chain(Loc from) const;
     Loc get_dsp_next_macro_in_chain(Loc from) const;
     Loc get_dsp_next_in_chain(Loc from, IdString dsp_type) const;
+    Loc get_dsp_next_in_chain_5a(Loc from) const;
 
     // check bus.
     // This is necessary to find the head in the DSP chain - these buses are

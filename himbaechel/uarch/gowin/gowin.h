@@ -73,7 +73,7 @@ inline bool is_bsram(const CellInfo *cell) { return type_is_bsram(cell->type); }
 inline bool type_is_dsp(IdString cell_type)
 {
     return cell_type.in(id_PADD9, id_PADD18, id_MULT9X9, id_MULT18X18, id_MULT36X36, id_ALU54D, id_MULTALU18X18,
-                        id_MULTALU36X18, id_MULTADDALU18X18, id_MULT12X12);
+                        id_MULTALU36X18, id_MULTADDALU18X18, id_MULT12X12, id_MULTADDALU12X12);
 }
 inline bool is_dsp(const CellInfo *cell) { return type_is_dsp(cell->type); }
 
@@ -333,7 +333,8 @@ enum
     CLKDIV_3_Z = 623,
 
     MULT12X12_0_Z = 640,
-    MULT12X12_1_Z = 641
+    MULT12X12_1_Z = 641,
+    MULTADDALU12X12_Z = 642,
 };
 }
 
