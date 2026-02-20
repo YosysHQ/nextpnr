@@ -20,7 +20,9 @@
 #include "globals.h"
 #include <algorithm>
 #include <iomanip>
+#include <optional>
 #include <queue>
+
 #include "cells.h"
 #include "log.h"
 #include "nextpnr.h"
@@ -51,6 +53,23 @@ class Ecp5GlobalRouter
     Ecp5GlobalRouter(Context *ctx) : ctx(ctx) {};
 
   private:
+    struct DccMetric
+    {
+        DccMetric(wirelen_t wirelen, bool dedicated_routing, int hops)
+                : wirelen(wirelen), dedicated_routing(dedicated_routing), hops(hops) {};
+        wirelen_t wirelen;
+        bool dedicated_routing;
+        int hops;
+        bool operator<(const DccMetric &other)
+        {
+            if (dedicated_routing) {
+                return !other.dedicated_routing || hops < other.hops;
+            } else {
+                return !other.dedicated_routing && wirelen < other.wirelen;
+            }
+        }
+    };
+
     bool is_clock_port(const PortRef &user)
     {
         if (user.cell->type == id_TRELLIS_FF && user.port == id_CLK)
@@ -295,14 +314,13 @@ class Ecp5GlobalRouter
     }
 
     // Get DCC wirelength based on source
-    wirelen_t get_dcc_wirelen(CellInfo *dcc, bool &dedicated_routing)
+    DccMetric get_dcc_metric(CellInfo *dcc)
     {
         NetInfo *clki = dcc->ports.at((dcc->type == id_DCSC) ? id_CLK0 : id_CLKI).net;
         BelId drv_bel;
         const PortRef &drv = clki->driver;
-        dedicated_routing = false;
         if (drv.cell == nullptr) {
-            return 0;
+            return DccMetric(0, false, 0);
         } else if (drv.cell->attrs.count(id_BEL)) {
             drv_bel = ctx->getBelByNameStr(drv.cell->attrs.at(id_BEL).as_string());
         } else {
@@ -325,60 +343,45 @@ class Ecp5GlobalRouter
         if (drv_bel == BelId()) {
             // Driver is not locked. Use standard metric
             float tns;
-            return get_net_metric(ctx, clki, MetricType::WIRELENGTH, tns);
+            return DccMetric(get_net_metric(ctx, clki, MetricType::WIRELENGTH, tns), false, 0);
         } else {
             // Check for dedicated routing
-            if (has_short_route(ctx->getBelPinWire(drv_bel, drv.port), ctx->getBelPinWire(dcc->bel, id_CLKI))) {
+            if (auto hops =
+                        has_short_route(ctx->getBelPinWire(drv_bel, drv.port), ctx->getBelPinWire(dcc->bel, id_CLKI))) {
                 // log_info("dedicated route %s -> %s\n", ctx->nameOfWire(ctx->getBelPinWire(drv_bel,
                 // drv.port)), ctx->nameOfWire(dcc->bel));
-                dedicated_routing = true;
-                return 0;
+                return DccMetric(0, true, *hops);
             }
             // Driver is locked
             Loc dcc_loc = ctx->getBelLocation(dcc->bel);
             Loc drv_loc = ctx->getBelLocation(drv_bel);
-            return std::abs(dcc_loc.x - drv_loc.x) + std::abs(dcc_loc.y - drv_loc.y);
+            return DccMetric(std::abs(dcc_loc.x - drv_loc.x) + std::abs(dcc_loc.y - drv_loc.y), false, 0);
         }
     }
 
-    // Return true if a short (<5) route exists between two wires
-    bool has_short_route(WireId src, WireId dst, int thresh = 7)
+    // Return hop count if a short (<5) route exists between two wires
+    std::optional<int> has_short_route(WireId src, WireId dst, int thresh = 7)
     {
-        std::queue<WireId> visit;
-        dict<WireId, PipId> backtrace;
-        visit.push(src);
-        WireId cursor;
-        while (true) {
-
-            if (visit.empty() || visit.size() > 10000) {
-                // log_info ("dist %s -> %s = inf\n", ctx->nameOfWire(src),
-                // ctx->nameOfWire(dst));
-                return false;
-            }
-            cursor = visit.front();
+        std::queue<std::pair<WireId, int>> visit;
+        pool<WireId> seen;
+        visit.emplace(src, 0);
+        while (!visit.empty()) {
+            auto cursor = visit.front();
             visit.pop();
-
-            if (cursor == dst)
-                break;
-            for (auto dh : ctx->getPipsDownhill(cursor)) {
-                WireId pipDst = ctx->getPipDstWire(dh);
-                if (backtrace.count(pipDst))
-                    continue;
-                backtrace[pipDst] = dh;
-                visit.push(pipDst);
+            if (cursor.first == dst) {
+                return cursor.second;
+            }
+            if (cursor.second < (thresh - 1)) {
+                for (auto dh : ctx->getPipsDownhill(cursor.first)) {
+                    WireId pipDst = ctx->getPipDstWire(dh);
+                    if (seen.count(pipDst))
+                        continue;
+                    seen.insert(pipDst);
+                    visit.emplace(pipDst, cursor.second + 1);
+                }
             }
         }
-        int length = 0;
-        while (true) {
-            auto fnd = backtrace.find(cursor);
-            if (fnd == backtrace.end())
-                break;
-            cursor = ctx->getPipSrcWire(fnd->second);
-            length++;
-        }
-        // log_info ("dist %s -> %s = %d\n", ctx->nameOfWire(src), ctx->nameOfWire(dst),
-        // length);
-        return length < thresh;
+        return {};
     }
 
     pool<WireId> used_pclkcib;
@@ -404,8 +407,7 @@ class Ecp5GlobalRouter
         BelId best_bel;
         WireId best_bel_pclkcib;
         bool using_ce = dcc->getPort(id_CE) != nullptr;
-        wirelen_t best_wirelen = 9999999;
-        bool dedicated_routing = false;
+        DccMetric best_metric(9999999, false, 0);
         for (auto bel : ctx->getBels()) {
             if (ctx->getBelType(bel) == dcc->type && ctx->checkBelAvail(bel)) {
                 std::string belname = ctx->loc_info(bel)->bel_data[bel.index].name.get();
@@ -416,9 +418,9 @@ class Ecp5GlobalRouter
                     ctx->unbindBel(bel);
                     continue;
                 }
-                wirelen_t wirelen = get_dcc_wirelen(dcc, dedicated_routing);
-                if (wirelen < best_wirelen) {
-                    if (dedicated_routing || dcc->type == id_DCSC) {
+                auto metric = get_dcc_metric(dcc);
+                if (metric < best_metric) {
+                    if (metric.dedicated_routing || dcc->type == id_DCSC) {
                         best_bel_pclkcib = WireId();
                     } else {
                         bool found_pclkcib = false;
@@ -433,7 +435,7 @@ class Ecp5GlobalRouter
                             goto pclkcib_fail;
                     }
                     best_bel = bel;
-                    best_wirelen = wirelen;
+                    best_metric = metric;
                 }
             pclkcib_fail:
                 ctx->unbindBel(bel);
