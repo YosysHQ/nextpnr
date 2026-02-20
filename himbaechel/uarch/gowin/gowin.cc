@@ -1359,7 +1359,12 @@ void GowinImpl::notifyBelChange(BelId bel, CellInfo *cell)
 
 void GowinImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
 {
-    // SLICE types are closely associated with each other
+    // Use cell groups to enforce a legalisation order
+    cfg.cellGroups.emplace_back();
+    cfg.cellGroups.back().insert(id_RAM16SDP4);
+    cfg.cellGroups.emplace_back();
+    cfg.cellGroups.back().insert(id_ALU);
+
     cfg.placeAllAtOnce = true;
 
     // Treat control and constants like IO buffers, because they have only one possible location
