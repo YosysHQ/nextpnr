@@ -52,11 +52,11 @@ void GateMateImpl::route_clock()
     auto reserved_wires = dict<WireId, IdString>{};
 
     auto feeds_clk_port = [&](PortRef &port) {
-        return (ctx->getBelBucketForCellType(port.cell->type) == id_CPE_FF) && port.port.in(id_CLK);
+        return (ctx->getBelBucketForCellType(port.cell->type) == id_CPE_FF) && port.port.in(id_CLK_INT);
     };
 
     auto feeds_ddr_port = [&](NetInfo *net, PortRef &port) {
-        return this->ddr_nets.find(net->name) != this->ddr_nets.end() && port.port == id_IN1;
+        return this->ddr_nets.find(net->name) != this->ddr_nets.end() && port.port == id_D0_10;
     };
 
     auto pip_plane = [&](PipId pip) {
