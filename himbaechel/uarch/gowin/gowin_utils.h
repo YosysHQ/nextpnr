@@ -131,10 +131,12 @@ struct GowinUtils
     bool has_spine_enable_nets(void) const;
 
     // DSP
+    bool has_5A_DSP(void) const;
     inline int get_dsp_18_z(int z) const { return z & (~3); }
     inline int get_dsp_9_idx(int z) const { return z & 3; }
     inline int get_dsp_18_idx(int z) const { return z & 4; }
     inline int get_dsp_paired_9(int z) const { return (3 - get_dsp_9_idx(z)) | (z & (~3)); }
+    inline int get_dsp_paired_12(int z) const { return BelZ::MULT12X12_1_Z - (z & 1); }
     inline int get_dsp_mult_from_padd(int padd_z) const { return padd_z + 8; }
     inline int get_dsp_padd_from_mult(int mult_z) const { return mult_z - 8; }
     inline int get_dsp_next_macro(int z) const { return z + 32; }
@@ -144,6 +146,7 @@ struct GowinUtils
     Loc get_dsp_next_9_in_chain(Loc from) const;
     Loc get_dsp_next_macro_in_chain(Loc from) const;
     Loc get_dsp_next_in_chain(Loc from, IdString dsp_type) const;
+    Loc get_dsp_next_in_chain_5a(Loc from) const;
 
     // check bus.
     // This is necessary to find the head in the DSP chain - these buses are

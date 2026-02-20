@@ -462,6 +462,12 @@ std::unique_ptr<CellInfo> GowinUtils::create_cell(IdString name, IdString type)
 }
 
 // DSP
+bool GowinUtils::has_5A_DSP(void) const
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->chip_flags & Extra_chip_data_POD::HAS_5A_DSP;
+}
+
 Loc GowinUtils::get_dsp_next_9_in_chain(Loc from) const
 {
     Loc res;
@@ -499,6 +505,16 @@ Loc GowinUtils::get_dsp_next_macro_in_chain(Loc from) const
     return res;
 }
 
+Loc GowinUtils::get_dsp_next_in_chain_5a(Loc from) const
+{
+    Loc res;
+    res.y = from.y;
+    // next DSP
+    res.x = from.x + 3;
+    res.z = from.z;
+    return res;
+}
+
 Loc GowinUtils::get_dsp_next_in_chain(Loc from, IdString dsp_type) const
 {
     if (dsp_type.in(id_PADD9, id_PADD18, id_MULT9X9, id_MULT18X18)) {
@@ -506,6 +522,9 @@ Loc GowinUtils::get_dsp_next_in_chain(Loc from, IdString dsp_type) const
     }
     if (dsp_type.in(id_ALU54D, id_MULTALU18X18, id_MULTALU36X18, id_MULTADDALU18X18)) {
         return get_dsp_next_macro_in_chain(from);
+    }
+    if (dsp_type.in(id_MULTADDALU12X12)) {
+        return get_dsp_next_in_chain_5a(from);
     }
     NPNR_ASSERT_FALSE("Unknown DSP cell type.");
 }

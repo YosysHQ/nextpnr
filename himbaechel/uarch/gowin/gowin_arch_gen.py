@@ -33,6 +33,7 @@ CHIP_NEED_BSRAM_RESET_FIX   = 0x400
 CHIP_NEED_SDP_FIX           = 0x800
 CHIP_NEED_CFGPINS_INVERSION = 0x1000
 CHIP_HAS_I2CCFG             = 0x2000
+CHIP_HAS_5A_DSP             = 0x4000
 
 # Tile flags
 TILE_I3C_CAPABLE_IO        = 0x1
@@ -135,6 +136,10 @@ CLKDIV_0_Z = 620
 CLKDIV_1_Z = 621
 CLKDIV_2_Z = 622
 CLKDIV_3_Z = 623
+
+MULT12X12_0_Z = 640
+MULT12X12_1_Z = 641
+MULTADDALU12X12_Z = 642
 
 # =======================================
 # Chipdb additional info
@@ -1155,6 +1160,64 @@ def create_bsram_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tde
     tdesc.tiletype = tiletype
     return tt
 
+
+# GW5A series has different DSP
+def create_dsp_5a_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc: TypeDesc):
+    typename = "DSP"
+    tiletype = f"{typename}_{ttyp}"
+    if tdesc.sfx != 0:
+        tiletype += f"_{tdesc.sfx}"
+    tt = chip.create_tile_type(tiletype)
+    tt.extra_data = TileExtraData(chip.strs.id(typename))
+
+    # create big DSP
+    belname = f'DSP'
+    dsp = tt.create_bel(belname, "DSP", DSP_Z)
+    dsp.flags = BEL_FLAG_HIDDEN
+
+    # create DSP macro
+    belname = 'DSP0'
+    dsp = tt.create_bel(belname, "DSP", DSP_0_Z)
+    dsp.flags = BEL_FLAG_HIDDEN
+
+    # create multipliers
+    for idx in range(2):
+        belname = f'MULT12X120{idx}'
+        portmap = db[y, x].bels[belname].portmap
+        dsp = tt.create_bel(belname, "MULT12X12", eval(f'MULT12X12_{idx}_Z'))
+
+        for sfx in {'A', 'B'}:
+            for inp in range(12):
+                add_port_wire(tt, dsp, portmap, f"{sfx}{inp}", "DSP_I", PinType.INPUT)
+        for inp in range(2):
+            add_port_wire(tt, dsp, portmap, f"CE{inp}", "DSP_I", PinType.INPUT)
+            add_port_wire(tt, dsp, portmap, f"CLK{inp}", "DSP_I", PinType.INPUT)
+            add_port_wire(tt, dsp, portmap, f"RESET{inp}", "DSP_I", PinType.INPUT)
+        for outp in range(24):
+            add_port_wire(tt, dsp, portmap, f"DOUT{outp}", "DSP_O", PinType.OUTPUT)
+
+    # create MultAddAlu12x12
+    belname = f'MULTADDALU12X1200'
+    portmap = db[y, x].bels[belname].portmap
+    dsp = tt.create_bel(belname, "MULTADDALU12X12", MULTADDALU12X12_Z)
+
+    for sfx in {'A', 'B'}:
+        for mult in range(2):
+            for inp in range(12):
+                add_port_wire(tt, dsp, portmap, f"{sfx}{mult}{inp}", "DSP_I", PinType.INPUT)
+    for inp in range(2):
+        add_port_wire(tt, dsp, portmap, f"CE{inp}", "DSP_I", PinType.INPUT)
+        add_port_wire(tt, dsp, portmap, f"CLK{inp}", "DSP_I", PinType.INPUT)
+        add_port_wire(tt, dsp, portmap, f"RESET{inp}", "DSP_I", PinType.INPUT)
+        add_port_wire(tt, dsp, portmap, f"ADDSUB{inp}", "DSP_I", PinType.INPUT)
+        add_port_wire(tt, dsp, portmap, f"ACCSEL{inp}", "DSP_I", PinType.INPUT)
+    add_port_wire(tt, dsp, portmap, "CASISEL", "DSP_I", PinType.INPUT)
+    for outp in range(48):
+        add_port_wire(tt, dsp, portmap, f"DOUT{outp}", "DSP_O", PinType.OUTPUT)
+
+    tdesc.tiletype = tiletype
+    return tt
+
 # DSP
 _mult_inputs = {'ASEL', 'BSEL', 'ASIGN', 'BSIGN'}
 def create_dsp_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc: TypeDesc):
@@ -1167,7 +1230,6 @@ def create_dsp_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc
 
     # create big DSP
     belname = f'DSP'
-    portmap = db[y, x].bels[belname].portmap
     dsp = tt.create_bel(belname, "DSP", DSP_Z)
     dsp.flags = BEL_FLAG_HIDDEN
 
@@ -1687,8 +1749,10 @@ def main():
             chip_flags |= CHIP_NEED_SDP_FIX;
         if "NEED_CFGPINS_INVERSION" in db.chip_flags:
             chip_flags |= CHIP_NEED_CFGPINS_INVERSION;
-        if "CHIP_HAS_I2CCFG" in db.chip_flags:
+        if "HAS_I2CCFG" in db.chip_flags:
             chip_flags |= CHIP_HAS_I2CCFG;
+        if "HAS_5A_DSP" in db.chip_flags:
+            chip_flags |= CHIP_HAS_5A_DSP;
 
     X = db.cols;
     Y = db.rows;
@@ -1710,6 +1774,7 @@ def main():
     pll_tiletypes = db.tile_types['P']
     bsram_tiletypes = db.tile_types.get('B', set())
     dsp_tiletypes = db.tile_types.get('D', set())
+    dsp_5a_tiletypes = db.tile_types.get('D5A', set())
 
     # If Apicula does not specify a special location for the global GND and VCC
     # sources, place them at X0Y0.
@@ -1731,6 +1796,8 @@ def main():
                 create_tiletype(create_bsram_tiletype, ch, db, x, y, ttyp)
             elif ttyp in dsp_tiletypes:
                 create_tiletype(create_dsp_tiletype, ch, db, x, y, ttyp)
+            elif ttyp in dsp_5a_tiletypes:
+                create_tiletype(create_dsp_5a_tiletype, ch, db, x, y, ttyp)
             else:
                 create_tiletype(create_null_tiletype, ch, db, x, y, ttyp)
 
