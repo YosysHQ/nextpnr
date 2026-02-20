@@ -363,6 +363,10 @@ class HeAPPlacer
         log_info("  of which spreading cells: %.02fs\n", cl_time);
         log_info("  of which strict legalisation: %.02fs\n", sl_time);
 
+        for (auto pair : time_per_cell_type) {
+            log_info("     %s %.03fs\n", ctx->nameOf(pair.first), pair.second);
+        }
+
         ctx->check();
         lock.unlock_early();
 
@@ -397,6 +401,8 @@ class HeAPPlacer
     TimingAnalyser tmg;
 
     dict<IdString, BoundingBox> constraint_region_bounds;
+
+    dict<IdString, float> time_per_cell_type;
 
     // In some cases, we can't use bindBel because we allow overlap in the earlier stages. So we use this custom
     // structure instead
@@ -876,6 +882,8 @@ class HeAPPlacer
             // Was now placed, ignore
             if (ci->bel != BelId())
                 continue;
+            auto ci_startt = std::chrono::high_resolution_clock::now();
+
             if (ctx->debug)
                 log_info("   Legalising %s (%s) priority=%d\n", top.second.c_str(ctx), ci->type.c_str(ctx), top.first);
             FastBels::FastBelsData *fb;
@@ -1135,7 +1143,11 @@ class HeAPPlacer
                 }
 
                 total_iters_for_cell++;
+
+        
             }
+            auto ci_endt = std::chrono::high_resolution_clock::now();
+            time_per_cell_type[ci->type] += std::chrono::duration<float>(ci_endt - ci_startt).count();
         }
         auto endt = std::chrono::high_resolution_clock::now();
         sl_time += std::chrono::duration<float>(endt - startt).count();
@@ -1274,6 +1286,8 @@ class HeAPPlacer
         pool<BelBucketId> buckets;
         dict<BelBucketId, size_t> type_index;
         std::vector<std::vector<std::vector<int>>> occupancy;
+        std::vector<std::vector<std::vector<int>>> fixed_occupancy;
+
         std::vector<std::vector<int>> groups;
         std::vector<std::vector<ChainExtent>> chaines;
         std::map<IdString, ChainExtent> cell_extents;
@@ -1291,7 +1305,7 @@ class HeAPPlacer
         {
             if (x >= int(fb.at(type)->size()) || y >= int(fb.at(type)->at(x).size()))
                 return 0;
-            return int(fb.at(type)->at(x).at(y).size());
+            return std::max(0, int(fb.at(type)->at(x).at(y).size()) - fixed_occupancy.at(x).at(y).at(type));
         }
 
         bool is_cell_fixed(const CellInfo &cell) const
@@ -1304,6 +1318,8 @@ class HeAPPlacer
         void init()
         {
             occupancy.resize(p->max_x + 1,
+                             std::vector<std::vector<int>>(p->max_y + 1, std::vector<int>(buckets.size(), 0)));
+            fixed_occupancy.resize(p->max_x + 1,
                              std::vector<std::vector<int>>(p->max_y + 1, std::vector<int>(buckets.size(), 0)));
             groups.resize(p->max_x + 1, std::vector<int>(p->max_y + 1, -1));
             chaines.resize(p->max_x + 1, std::vector<ChainExtent>(p->max_y + 1));
@@ -1339,8 +1355,11 @@ class HeAPPlacer
                 if (cell.belStrength > STRENGTH_STRONG) {
                     continue;
                 }
-
-                occupancy.at(cell_loc.second.x).at(cell_loc.second.y).at(cell_index(cell))++;
+                if (cell.cluster != ClusterId() && is_cell_fixed(*ctx->getClusterRootCell(cell.cluster))) {
+                    fixed_occupancy.at(cell_loc.second.x).at(cell_loc.second.y).at(cell_index(cell))++;
+                } else {
+                    occupancy.at(cell_loc.second.x).at(cell_loc.second.y).at(cell_index(cell))++;
+                }
 
                 // Compute ultimate extent of each chain root
                 if (cell.cluster != ClusterId()) {
