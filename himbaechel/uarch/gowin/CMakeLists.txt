@@ -13,6 +13,11 @@ set(SOURCES
     gowin_utils.cc
     gowin_utils.h
     pack.cc
+    pack_bsram.cc
+    pack_dsp.cc
+    pack_luts.cc
+    pack_io.cc
+    pack_iologic.cc
     pack.h
 )
 
