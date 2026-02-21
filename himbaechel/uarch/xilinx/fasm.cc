@@ -742,6 +742,8 @@ struct FasmBackend
 
     dict<int, BankIoConfig> ioconfig_by_hclk;
 
+    bool warned_dci = false;
+
     void write_io_config(CellInfo *pad)
     {
         NetInfo *pad_net = pad->getPort(id_PAD);
@@ -759,6 +761,13 @@ struct FasmBackend
                 is_input = true;
         std::string tile = uarch->tile_name(pad->bel.tile);
         push(tile);
+
+        if (boost::ends_with(iostandard, "_T_DCI")) {
+            if (!warned_dci)
+                log_warning("DCI is not supported, will be removed.\n");
+            warned_dci = true;
+            iostandard.erase(iostandard.size() - 6, iostandard.size());
+        }
 
         bool is_riob18 = boost::starts_with(tile, "RIOB18_");
         bool is_sing = boost::contains(tile, "_SING_");
@@ -779,6 +788,7 @@ struct FasmBackend
         if (has_diff_prefix)
             iostandard.erase(0, 5);
         bool is_sstl = iostandard == "SSTL12" || iostandard == "SSTL135" || iostandard == "SSTL15";
+
 
         int hclk = uarch->hclk_for_iob(pad->bel);
 
