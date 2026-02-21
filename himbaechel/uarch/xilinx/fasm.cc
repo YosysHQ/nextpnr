@@ -37,6 +37,15 @@
 #include "himbaechel_constids.h"
 
 NEXTPNR_NAMESPACE_BEGIN
+
+namespace Xc7MMCM {
+extern const uint16_t filter_lookup_low[];
+extern const uint16_t filter_lookup_low_ss[];
+extern const uint16_t filter_lookup_high[];
+extern const uint16_t filter_lookup_optimized[];
+extern const int64_t lk_table[];
+};
+
 namespace {
 struct FasmBackend
 {
@@ -1204,6 +1213,8 @@ struct FasmBackend
                 pop(2);
             } else if (ci->type == id_PLLE2_ADV_PLLE2_ADV) {
                 write_pll(ci);
+            } else if (ci->type == id_MMCME2_ADV_MMCME2_ADV) {
+                write_mmcm(ci);
             }
             blank();
         }
@@ -1491,6 +1502,142 @@ struct FasmBackend
         pop(2);
     }
 
+
+ void write_mmcm_clkout(const std::string &name, CellInfo *ci)
+    {
+        // FIXME: variable duty cycle
+        int high = 1, low = 1, phasemux = 0, delaytime = 0, frac = 0;
+        bool no_count = false, edge = false;
+        double divide = float_or_default(ci, name + ((name == "CLKFBOUT") ? "_MULT_F" :
+                                                     (name == "CLKOUT0" ? "_DIVIDE_F" : "_DIVIDE")), 1);
+        double phase = float_or_default(ci, name + "_PHASE", 1);
+        if (divide <= 1) {
+            no_count = true;
+        } else {
+            high = floor(divide / 2);
+            low = int(floor(divide) - high);
+            if (high != low)
+                edge = true;
+            if (name == "CLKOUT0" || name == "CLKFBOUT")
+                frac = floor(divide * 8) - floor(divide) * 8;
+            int phase_eights = floor((phase / 360) * divide * 8);
+            phasemux = phase_eights % 8;
+            delaytime = phase_eights / 8;
+        }
+        bool used = false;
+        if (name == "DIVCLK" || name == "CLKFBOUT") {
+            used = true;
+        } else {
+            used = ci->getPort(ctx->id(name)) != nullptr;
+        }
+        if (name == "DIVCLK") {
+            write_int_vector("DIVCLK_DIVCLK_HIGH_TIME[5:0]", high, 6);
+            write_int_vector("DIVCLK_DIVCLK_LOW_TIME[5:0]", low, 6);
+            write_bit("DIVCLK_DIVCLK_EDGE[0]", edge);
+            write_bit("DIVCLK_DIVCLK_NO_COUNT[0]", no_count);
+        } else if (used) {
+            auto is_clkout_5_or_6 = name == "CLKOUT5" || name == "CLKOUT6";
+            auto is_clkout0 = name == "CLKOUT0";
+            auto is_clkfbout = name == "CLKFBOUT";
+
+            if ((is_clkout0 || is_clkfbout) && frac != 0) {
+                --high;
+                --low;
+
+                auto frac_shifted = frac >> 1;
+                // CLKOUT0 controls CLKOUT5_CLKOUT2, CLKFBOUT controls CLKOUT6_CLKOUT2
+                std::string frac_conf_name = is_clkout0 ? "CLKOUT5_CLKOUT2_" : "CLKOUT6_CLKOUT2_";
+
+                if (1 <= frac_shifted) {
+                    write_bit(frac_conf_name + "FRACTIONAL_FRAC_WF_F[0]");
+                    write_int_vector(frac_conf_name + "FRACTIONAL_PHASE_MUX_F[1:0]", frac_shifted, 2);
+                }
+            }
+
+            write_bit(name + "_CLKOUT1_OUTPUT_ENABLE[0]");
+            write_int_vector(name + "_CLKOUT1_HIGH_TIME[5:0]", high, 6);
+            write_int_vector(name + "_CLKOUT1_LOW_TIME[5:0]", low, 6);
+
+            auto phase_mux_feature = name + (is_clkout_5_or_6 ? "_CLKOUT2_FRACTIONAL_PHASE_MUX_F[0]" : "_CLKOUT2_PHASE_MUX[0]");
+            write_int_vector(name + "_CLKOUT1_PHASE_MUX[2:0]", phasemux, 3);
+
+            auto edge_feature = name + (is_clkout_5_or_6 ? "_CLKOUT2_FRACTIONAL_EDGE[0]" : "_CLKOUT2_EDGE[0]");
+            write_bit(edge_feature, edge);
+
+            auto no_count_feature = name + (is_clkout_5_or_6 ? "_CLKOUT2_FRACTIONAL_NO_COUNT[0]" : "_CLKOUT2_NO_COUNT[0]");
+            write_bit(no_count_feature, no_count);
+
+            auto delay_time_feature = name + (is_clkout_5_or_6 ? "_CLKOUT2_FRACTIONAL_DELAY_TIME[5:0]" : "_CLKOUT2_DELAY_TIME[5:0]");
+            write_int_vector(delay_time_feature, delaytime, 6);
+
+            if (!is_clkout_5_or_6 && frac != 0) {
+                write_bit(name + "_CLKOUT2_FRAC_EN[0]", 1);
+                write_bit(name + "_CLKOUT2_FRAC_WF_R[0]", 1);
+                write_int_vector(name + "_CLKOUT2_FRAC[2:0]", frac, 3);
+            }
+        }
+    }
+
+    // From openXC7
+    void write_mmcm(CellInfo *ci)
+    {
+        push(uarch->tile_name(ci->bel.tile));
+        push("MMCME2_ADV");
+        write_bit("IN_USE");
+        // FIXME: should be INV not ZINV (XRay error?)
+        write_bit("ZINV_PWRDWN", bool_or_default(ci->params, id_IS_PWRDWN_INVERTED, false));
+        write_bit("ZINV_RST", bool_or_default(ci->params, id_IS_RST_INVERTED, false));
+        write_bit("ZINV_PSEN", bool_or_default(ci->params, id_IS_PSEN_INVERTED, false));
+        write_bit("ZINV_PSINCDEC", bool_or_default(ci->params, id_IS_PSINCDEC_INVERTED, false));
+        write_bit("INV_CLKINSEL", bool_or_default(ci->params, id_IS_CLKINSEL_INVERTED, false));
+        write_mmcm_clkout("DIVCLK", ci);
+        write_mmcm_clkout("CLKFBOUT", ci);
+        write_mmcm_clkout("CLKOUT0", ci);
+        write_mmcm_clkout("CLKOUT1", ci);
+        write_mmcm_clkout("CLKOUT2", ci);
+        write_mmcm_clkout("CLKOUT3", ci);
+        write_mmcm_clkout("CLKOUT4", ci);
+        write_mmcm_clkout("CLKOUT5", ci);
+        write_mmcm_clkout("CLKOUT6", ci);
+
+        std::string comp = str_or_default(ci->params, id_COMPENSATION, "INTERNAL");
+        push("COMP");
+        if (comp == "INTERNAL" || comp == "ZHOLD") {
+            // does not seem to make a difference in vivado
+            // both modes set this bit
+            write_bit("Z_ZHOLD");
+        } else {
+            log_error("unsupported COMPENSATION type '%s' for MMCM (supported compensation types: INTERNAL, ZHOLD)\n", comp.c_str());
+        }
+        pop();
+
+        auto clkfbout_mult = (int)float_or_default(ci, "CLKFBOUT_MULT_F", 5.000);
+        if (63 < clkfbout_mult)
+            log_error("MMCME2_ADV: CLKFBOUT_MULT_F must not be greater than 63");
+        if (0 == clkfbout_mult)
+            log_error("MMCME2_ADV: CLKFBOUT_MULT_F must not be 0");
+        write_int_vector("LKTABLE[39:0]", Xc7MMCM::lk_table[clkfbout_mult - 1], 40);
+
+        std::string bandwidth = str_or_default(ci->params, id_BANDWIDTH, "OPTIMIZED");
+        const uint16_t *filter_lookup;
+        if (bandwidth == "LOW")
+            filter_lookup = Xc7MMCM::filter_lookup_low;
+        else if (bandwidth == "LOW_SS")
+            filter_lookup = Xc7MMCM::filter_lookup_low_ss;
+        else if (bandwidth == "HIGH")
+            filter_lookup = Xc7MMCM::filter_lookup_high;
+        else
+            filter_lookup = Xc7MMCM::filter_lookup_optimized;
+        write_int_vector("FILTREG1_RESERVED[11:0]", filter_lookup[clkfbout_mult - 1], 12);
+
+        // 0x9900 enables fractional counters
+        // only int counters would be 0x1 << 8
+        // 0xffff enables everything, I suppose, this is what is used in xap888
+        write_int_vector("POWER_REG_POWER_REG_POWER_REG[15:0]", 0xffff, 16);
+        write_bit("LOCKREG3_RESERVED[0]");
+        write_int_vector("TABLE[9:0]", 0x3d4, 10);
+        pop(2);
+    }
     void write_dsp_cell(CellInfo *ci)
     {
         auto tile_name = uarch->tile_name(ci->bel.tile);

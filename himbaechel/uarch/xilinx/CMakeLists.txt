@@ -3,6 +3,7 @@ set(SOURCES
     constids.inc
     extra_data.h
     fasm.cc
+    mmcm_tables.cc
     pack_carry.cc
     pack.cc
     pack_clocking.cc
