@@ -83,8 +83,6 @@ def include_pip(tile_type, p):
         return False
     if tile_type.startswith("HCLK_CMT") and "FREQ_REF" in p.dst_wire().name():
         return False
-    if tile_type.startswith("CMT_TOP_L_LOWER"):
-        return False
     if tile_type.startswith("CLK_HROW_TOP"):
         if "CK_BUFG_CASCO" in p.dst_wire().name() and "CK_BUFG_CASCIN" in p.src_wire().name():
             return False
