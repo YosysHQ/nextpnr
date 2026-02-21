@@ -367,7 +367,10 @@ def main():
     ff.add_clock_out("CK", "Q", ClockEdge.RISING, TimingValue(300, 350))
 
     # Load SDF for carry and mux
-    slicem_sdf = parse_sdf.parse_sdf_file(path.join(xraydb_root, "timings", "slicem.sdf"))
+    timings_root = xraydb_root
+    if "kintex7" in xraydb_root: # TODO: missing
+        timings_root = xraydb_root.replace("kintex7", "artix7")
+    slicem_sdf = parse_sdf.parse_sdf_file(path.join(timings_root, "timings", "slicem.sdf"))
     mux = ch.timing.add_cell_variant("DEFAULT", "SELMUX2_1")
     import_sdf_timings(mux, slicem_sdf.cells[("SELMUX2_1", "SLICEM/F7BMUX")])
     carry = ch.timing.add_cell_variant("DEFAULT", "CARRY4")
