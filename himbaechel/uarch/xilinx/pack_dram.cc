@@ -461,7 +461,7 @@ void XilinxPacker::pack_dram()
                     z--;
                 }
                 // Decode mux tree using MUXF[78]
-                create_muxf_tree(base, "O", o_pre, addressw_high, o, m256 ? 4 : 2);
+                create_muxf_tree(base, "O", o_pre, addressw_high, o, m256 ? 0 : 2);
                 packed_cells.insert(ci->name);
             }
         }
