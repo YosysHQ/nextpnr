@@ -479,6 +479,27 @@ void GowinPacker::pack_alus(void)
     for (auto &ncell : new_cells) {
         ctx->cells[ncell->name] = std::move(ncell);
     }
+    new_cells.clear();
+    // The placer doesn't know "a priori" that LUTs and ALUs conflict. So create blocker LUTs to make this explicit and reduce wasted legalisation effort
+    for (auto &cell : ctx->cells) {
+        auto ci = cell.second.get();
+        if (ci->cluster == ClusterId()) {
+            continue;
+        }
+        if (is_alu(ci)) {
+            auto cell = std::make_unique<CellInfo>(ctx, ctx->idf("%s_BLOCKER_LUT", ctx->nameOf(ci)), id_BLOCKER_LUT);
+            cell->cluster = ci->cluster;
+            ctx->cells.at(cell->cluster)->constr_children.push_back(cell.get());
+            cell->constr_abs_z = true;
+            cell->constr_x = ci->constr_x;
+            cell->constr_y = ci->constr_y;
+            cell->constr_z = 2 * (ci->constr_z - (ci->constr_abs_z ? BelZ::ALU0_Z : 0));
+            new_cells.emplace_back(std::move(cell));
+        }
+    }
+    for (auto &ncell : new_cells) {
+        ctx->cells[ncell->name] = std::move(ncell);
+    }
 }
 
 // ===================================
@@ -586,6 +607,26 @@ void GowinPacker::pack_ssram(void)
                         lut_ci->connectPort(ctx->idf("I%d", j), rad[j]);
                     }
                 }
+            }
+            for (int i = 4; i < 8; ++i) {
+                auto cell = std::make_unique<CellInfo>(ctx, ctx->idf("%s_BLOCKER_LUT_%d", ctx->nameOf(ci), i), id_BLOCKER_LUT);
+                cell->cluster = ci->cluster;
+                ci->constr_children.push_back(cell.get());
+                cell->constr_abs_z = true;
+                cell->constr_x = 0;
+                cell->constr_y = 0;
+                cell->constr_z = 2 * i;
+                new_cells.emplace_back(std::move(cell));
+            }
+            for (int i = 0; i < (gwu.has_DFF67() ? 8 : 6); ++i) {
+                auto cell = std::make_unique<CellInfo>(ctx, ctx->idf("%s_BLOCKER_FF_%d", ctx->nameOf(ci), i), id_BLOCKER_FF);
+                cell->cluster = ci->cluster;
+                ci->constr_children.push_back(cell.get());
+                cell->constr_abs_z = true;
+                cell->constr_x = 0;
+                cell->constr_y = 0;
+                cell->constr_z = 2 * i + 1;
+                new_cells.emplace_back(std::move(cell));
             }
         }
     }

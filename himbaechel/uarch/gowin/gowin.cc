@@ -15,6 +15,7 @@
 #include "gowin.h"
 #include "gowin_utils.h"
 #include "pack.h"
+#include "array2d.h"
 
 #include "placer_heap.h"
 
@@ -112,6 +113,8 @@ struct GowinImpl : HimbaechelAPI
     bool slice_valid(int x, int y, int z) const;
     bool dsp_valid(Loc l, IdString bel_type, bool explain_invalid) const;
     bool hclk_valid(BelId bel, IdString bel_type) const;
+
+    array2d<std::vector<CellInfo*>> fast_logic_cell;
 };
 
 struct GowinArch : HimbaechelArch
@@ -616,6 +619,13 @@ void GowinImpl::prePlace()
 {
     place_constrained_hclk_cells();
     assign_cell_info();
+    fast_logic_cell.reset(ctx->getGridDimX(), ctx->getGridDimY());
+    for (auto bel : ctx->getBels()) {
+        if (ctx->getBelType(bel) == id_LUT4) {
+            Loc loc = ctx->getBelLocation(bel);
+            fast_logic_cell.at(loc.x, loc.y).resize(37);
+        }
+    }
 }
 
 void GowinImpl::postPlace()
@@ -711,6 +721,19 @@ void GowinImpl::postRoute()
             }
         }
     }
+    std::vector<CellInfo*> to_remove;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->type.in(id_BLOCKER_LUT, id_BLOCKER_FF)) {
+            to_remove.push_back(ci);
+        }
+    }
+    for (auto ci : to_remove) {
+        auto root = ctx->cells.at(ci->cluster).get();
+        root->constr_children.erase(std::remove_if(root->constr_children.begin(),
+            root->constr_children.end(), [&](CellInfo *c) { return c == ci; }));
+        ctx->cells.erase(ci->name);
+    }
 }
 
 bool GowinImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
@@ -763,10 +786,10 @@ IdString GowinImpl::getBelBucketForCellType(IdString cell_type) const
     if (cell_type.in(id_MIPI_OBUF, id_MIPI_OBUF_A)) {
         return id_MIPI_OBUF;
     }
-    if (type_is_lut(cell_type)) {
+    if (type_is_lut(cell_type) || cell_type == id_BLOCKER_LUT) {
         return id_LUT4;
     }
-    if (type_is_dff(cell_type)) {
+    if (type_is_dff(cell_type) || cell_type == id_BLOCKER_FF) {
         return id_DFF;
     }
     if (type_is_ssram(cell_type)) {
@@ -804,10 +827,10 @@ bool GowinImpl::isValidBelForCellType(IdString cell_type, BelId bel) const
         return cell_type.in(id_MIPI_OBUF, id_MIPI_OBUF_A);
     }
     if (bel_type == id_LUT4) {
-        return type_is_lut(cell_type);
+        return type_is_lut(cell_type) || cell_type == id_BLOCKER_LUT;
     }
     if (bel_type == id_DFF) {
-        return type_is_dff(cell_type);
+        return type_is_dff(cell_type) || cell_type == id_BLOCKER_FF;
     }
     if (bel_type == id_RAM16SDP4) {
         return type_is_ssram(cell_type);
@@ -1049,39 +1072,44 @@ bool GowinImpl::dsp_valid(Loc l, IdString bel_type, bool explain_invalid) const
 
 bool GowinImpl::slice_valid(int x, int y, int z) const
 {
-    const CellInfo *lut = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, z * 2)));
-    const CellInfo *ff = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, z * 2 + 1)));
+    auto &bels = fast_logic_cell.at(x, y);
+    const CellInfo *lut = bels.at(z * 2);
+    const CellInfo *ff = bels.at(z * 2 + 1);
     // There are only 6 ALUs
-    const CellInfo *alu = (z < 6) ? ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, z + BelZ::ALU0_Z))) : nullptr;
-    const CellInfo *ramw = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, BelZ::RAMW_Z)));
+    const CellInfo *alu = (z < 6) ? bels.at(z + BelZ::ALU0_Z) : nullptr;
+    const CellInfo *ramw = bels.at(BelZ::RAMW_Z);
 
-    if (alu && lut) {
+    auto is_not_blocker = [](const CellInfo *ci) {
+        return ci && !ci->type.in(id_BLOCKER_LUT, id_BLOCKER_FF);
+    };
+
+    if (alu && lut && lut->type != id_BLOCKER_LUT) {
         return false;
     }
 
     if (ramw) {
         // FFs in slices 4 and 5 are not allowed
         // also temporarily disallow FF to be placed near RAM
-        if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 0 * 2 + 1))) ||
-            ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 1 * 2 + 1))) ||
-            ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 2 * 2 + 1))) ||
-            ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 3 * 2 + 1))) ||
-            ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 4 * 2 + 1))) ||
-            ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 5 * 2 + 1)))) {
+        if (is_not_blocker(bels.at(0 * 2 + 1)) ||
+            is_not_blocker(bels.at(1 * 2 + 1)) ||
+            is_not_blocker(bels.at(2 * 2 + 1)) ||
+            is_not_blocker(bels.at(3 * 2 + 1)) ||
+            is_not_blocker(bels.at(4 * 2 + 1)) ||
+            is_not_blocker(bels.at(5 * 2 + 1))) {
             return false;
         }
         if (gwu.has_DFF67()) {
-            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 6 * 2 + 1))) ||
-                ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, 7 * 2 + 1)))) {
+            if (is_not_blocker(bels.at(6 * 2 + 1)) ||
+                is_not_blocker(bels.at(7 * 2 + 1))) {
                 return false;
             }
         }
         // ALU/LUTs in slices 4, 5, 6, 7 are not allowed
         for (int i = 4; i < 8; ++i) {
-            if (ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, i * 2)))) {
+            if (is_not_blocker(bels.at(i * 2))) {
                 return false;
             }
-            if (i < 6 && ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, i + BelZ::ALU0_Z)))) {
+            if (i < 6 && bels.at(i + BelZ::ALU0_Z)) {
                 return false;
             }
         }
@@ -1090,17 +1118,17 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
     // check for ALU/LUT in the adjacent cell
     int adj_lut_z = (1 - (z & 1) * 2 + z) * 2;
     int adj_alu_z = adj_lut_z / 2 + BelZ::ALU0_Z;
-    const CellInfo *adj_lut = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, adj_lut_z)));
-    const CellInfo *adj_ff = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, adj_lut_z + 1)));
+    const CellInfo *adj_lut = bels.at(adj_lut_z);
+    const CellInfo *adj_ff = bels.at(adj_lut_z + 1);
     const CellInfo *adj_alu = adj_alu_z < (6 + BelZ::ALU0_Z)
-                                      ? ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, adj_alu_z)))
+                                      ? bels.at(adj_alu_z)
                                       : nullptr;
 
-    if ((alu && (adj_lut || (adj_ff && !adj_alu))) || ((lut || (ff && !alu)) && adj_alu)) {
+    if ((alu && ((adj_lut && adj_lut->type != id_BLOCKER_LUT) || (adj_ff && !adj_alu))) || (((lut && lut->type != id_BLOCKER_LUT) || (ff && !alu)) && adj_alu)) {
         return false;
     }
 
-    if (ff) {
+    if (ff && ff->type != id_BLOCKER_FF) {
         static std::vector<int> mux_z = {BelZ::MUX20_Z,     BelZ::MUX21_Z,     BelZ::MUX20_Z + 4,  BelZ::MUX23_Z,
                                          BelZ::MUX20_Z + 8, BelZ::MUX21_Z + 8, BelZ::MUX20_Z + 12, BelZ::MUX27_Z};
         const auto &ff_data = fast_cell_info.at(ff->flat_index);
@@ -1108,7 +1136,7 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
         // check implcit LUT(ALU) -> FF connection
         NPNR_ASSERT(!ramw); // XXX shouldn't happen for now
         if (lut || alu) {
-            if (lut) {
+            if (lut && lut->type != id_BLOCKER_LUT) {
                 src = fast_cell_info.at(lut->flat_index).lut_f;
             } else {
                 src = fast_cell_info.at(alu->flat_index).alu_sum;
@@ -1139,7 +1167,7 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
             // The 4th, 5th, 6th, and 7th DFFs have the same control wires. Let's check this.
             const int adj_top_ff_z = (5 - (z >> 1)) * 4 + 1;
             for (int i = 0; i < 4; i += 2) {
-                const CellInfo *adj_top_ff = ctx->getBoundBelCell(ctx->getBelByLocation(Loc(x, y, adj_top_ff_z + i)));
+                const CellInfo *adj_top_ff = bels.at(adj_top_ff_z + i);
                 if (adj_top_ff) {
                     const auto &adj_top_ff_data = fast_cell_info.at(adj_top_ff->flat_index);
                     if (adj_top_ff_data.ff_lsr != ff_data.ff_lsr) {
@@ -1253,6 +1281,22 @@ bool GowinImpl::getClusterPlacement(ClusterId cluster, BelId root_bel,
 
 void GowinImpl::notifyBelChange(BelId bel, CellInfo *cell)
 {
+
+    IdString bel_type = ctx->getBelType(bel);
+    switch (bel_type.hash()) {
+        case ID_LUT4: /* fall-through */
+        case ID_DFF:
+        case ID_ALU:
+        case ID_RAM16SDP4:
+        case ID_MUX2_LUT5:
+        case ID_MUX2_LUT6:
+        case ID_MUX2_LUT7:
+        case ID_MUX2_LUT8:
+            auto loc = ctx->getBelLocation(bel);
+            fast_logic_cell.at(loc.x, loc.y).at(loc.z) = cell;
+            return;
+    }
+
     if (cell != nullptr && !is_dsp(cell)) {
         return;
     }
@@ -1315,16 +1359,13 @@ void GowinImpl::notifyBelChange(BelId bel, CellInfo *cell)
 
 void GowinImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
 {
-    // SLICE types are closely associated with each other
+    // Use cell groups to enforce a legalisation order
     cfg.cellGroups.emplace_back();
-    cfg.cellGroups.back().insert(id_LUT4);
-    cfg.cellGroups.back().insert(id_DFF);
-    cfg.cellGroups.back().insert(id_ALU);
-    cfg.cellGroups.back().insert(id_MUX2_LUT5);
-    cfg.cellGroups.back().insert(id_MUX2_LUT6);
-    cfg.cellGroups.back().insert(id_MUX2_LUT7);
-    cfg.cellGroups.back().insert(id_MUX2_LUT8);
     cfg.cellGroups.back().insert(id_RAM16SDP4);
+    cfg.cellGroups.emplace_back();
+    cfg.cellGroups.back().insert(id_ALU);
+
+    cfg.placeAllAtOnce = true;
 
     // Treat control and constants like IO buffers, because they have only one possible location
     cfg.ioBufTypes.insert(id_GOWIN_VCC);
