@@ -130,6 +130,12 @@ struct HimbaechelAPI
 
     // Routing methods
     virtual void expandBoundingBox(BoundingBox &bb) const;
+
+    // Resource methods
+    virtual GroupId getResourceKeyForPip(PipId pip) const { return GroupId(); };
+    virtual int getResourceValueForPip(PipId pip) const { return 0; }
+    virtual bool isGroupResource(GroupId /*group*/) const { return false; }
+
     // --- Flow hooks ---
     virtual void pack() {}; // replaces the pack function
     // Called before and after main placement and routing

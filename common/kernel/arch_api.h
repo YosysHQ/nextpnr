@@ -150,6 +150,10 @@ template <typename R> struct ArchAPI : BaseCtx
                                      std::vector<std::pair<CellInfo *, BelId>> &placement) const = 0;
     // Routing methods
     virtual void expandBoundingBox(BoundingBox &bb) const = 0;
+    // Resource methods
+    virtual GroupId getResourceKeyForPip(PipId pip) const = 0;
+    virtual int getResourceValueForPip(PipId pip) const = 0;
+    virtual bool isGroupResource(GroupId group) const = 0;
 
     // Flow methods
     virtual bool pack() = 0;

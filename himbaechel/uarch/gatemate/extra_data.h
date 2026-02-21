@@ -43,6 +43,9 @@ NPNR_PACKED_STRUCT(struct GateMatePipExtraDataPOD {
     uint8_t plane;
     uint8_t dummy1;
     uint16_t dummy2;
+    uint32_t block;
+    uint32_t resource;
+    uint32_t group_index;
 });
 
 NPNR_PACKED_STRUCT(struct GateMateBelPinConstraintPOD {
@@ -122,6 +125,26 @@ enum CPE_Z
 enum ClusterPlacement
 {
     PLACE_DB_CONSTR = 32,
+};
+
+enum PipMask
+{
+    C_SELX = 1 << 0,
+    C_SELY1 = 1 << 1,
+    C_SELY2 = 1 << 2,
+    C_SEL_C = 1 << 3,
+    C_SEL_P = 1 << 4,
+    C_Y12 = 1 << 5,
+    C_CX_I = 1 << 6,
+    C_CY1_I = 1 << 7,
+    C_CY2_I = 1 << 8,
+    C_PX_I = 1 << 9,
+    C_PY1_I = 1 << 10,
+    C_PY2_I = 1 << 11,
+
+    IS_MULT = 1 << 29,
+    IS_ADDF = 1 << 30,
+    IS_COMP = 1 << 31,
 };
 
 struct PllCfgRecord

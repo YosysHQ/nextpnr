@@ -79,6 +79,10 @@ struct GateMateImpl : HimbaechelAPI
 
     bool isPipInverting(PipId pip) const override;
 
+    GroupId getResourceKeyForPip(PipId pip) const override;
+    int getResourceValueForPip(PipId pip) const override;
+    bool isGroupResource(GroupId group) const override;
+
     const GateMateTileExtraDataPOD *tile_extra_data(int tile) const;
     const GateMateBelExtraDataPOD *bel_extra_data(BelId bel) const;
     const GateMatePipExtraDataPOD *pip_extra_data(PipId pip) const;
@@ -95,8 +99,9 @@ struct GateMateImpl : HimbaechelAPI
     pool<IdString> multiplier_a_passthru_lowers;
     pool<IdString> multiplier_a_passthru_uppers;
     pool<IdString> multiplier_zero_drivers;
-    std::vector<CellInfo *> multipliers;
     std::vector<bool> used_cpes;
+    std::vector<uint32_t> pip_data;
+    std::vector<uint32_t> pip_mask;
     int fpga_mode;
     int timing_mode;
     std::map<const NetInfo *, int> global_signals;
@@ -109,6 +114,7 @@ struct GateMateImpl : HimbaechelAPI
     MultiDieStrategy strategy;
     dict<int, IdString> index_to_die;
     dict<IdString, int> die_to_index;
+    dict<IdString, dict<IdString, IdString>> pass_backtrace;
 
   private:
     bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
@@ -123,6 +129,8 @@ struct GateMateImpl : HimbaechelAPI
     void route_mult();
     void reassign_bridges(NetInfo *net, const dict<WireId, PipMap> &net_wires, WireId wire,
                           dict<WireId, IdString> &wire_to_net, int &num);
+    void reassign_cplines(NetInfo *net, const dict<WireId, PipMap> &net_wires, WireId wire,
+                          dict<WireId, IdString> &wire_to_net, int &num, IdString in_port);
     void repack();
 
     bool get_delay_from_tmg_db(IdString id, DelayQuad &delay) const;
@@ -142,6 +150,9 @@ struct GateMateImpl : HimbaechelAPI
     std::map<IdString, const GateMateTimingExtraDataPOD *> timing;
     dict<IdString, int> ram_signal_clk;
     IdString forced_die;
+    bool use_cp_for_clk;
+    bool use_cp_for_cpe;
+    bool use_bridges;
 };
 
 NEXTPNR_NAMESPACE_END

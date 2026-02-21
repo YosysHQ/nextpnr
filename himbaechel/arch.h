@@ -789,6 +789,12 @@ struct Arch : BaseArch<ArchRanges>
     void expandBoundingBox(BoundingBox &bb) const override { uarch->expandBoundingBox(bb); };
 
     // ------------------------------------------------
+    // Resource methods
+    GroupId getResourceKeyForPip(PipId pip) const override { return uarch->getResourceKeyForPip(pip); };
+    int getResourceValueForPip(PipId pip) const override { return uarch->getResourceValueForPip(pip); };
+    bool isGroupResource(GroupId group) const override { return uarch->isGroupResource(group); };
+
+    // ------------------------------------------------
 
     bool pack() override;
     bool place() override;

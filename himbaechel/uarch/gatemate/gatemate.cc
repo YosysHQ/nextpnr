@@ -21,6 +21,7 @@
 
 #include "gatemate.h"
 #include "log.h"
+#include "nextpnr_assertions.h"
 #include "placer_heap.h"
 
 #define GEN_INIT_CONSTIDS
@@ -43,6 +44,9 @@ po::options_description GateMateImpl::getUArchOptions()
     specific.add_options()("strategy", po::value<std::string>(),
                            "multi-die clock placement strategy (mirror, full or clk1)");
     specific.add_options()("force_die", po::value<std::string>(), "force specific die (example 1A,1B...)");
+    specific.add_options()("no-clk-cp", "do not use CP lines for CLK and EN");
+    specific.add_options()("no-cpe-cp", "do not use CP lines pass through CPE");
+    specific.add_options()("no-bridges", "do not use CPE in bridge mode");
     return specific;
 }
 
@@ -112,6 +116,9 @@ void GateMateImpl::init_database(Arch *arch)
                                             : fpga_mode == 3 ? "SPEED"
                                                              : "");
     arch->set_speed_grade(speed_grade);
+    use_cp_for_clk = args.options.count("no-clk-cp") == 0;
+    use_cp_for_cpe = args.options.count("no-cpe-cp") == 0;
+    use_bridges = args.options.count("no-bridges") == 0;
 }
 
 void GateMateImpl::init(Context *ctx)
@@ -312,6 +319,16 @@ void GateMateImpl::postPlace()
     repack();
     ctx->assignArchInfo();
     used_cpes.resize(ctx->getGridDimX() * ctx->getGridDimY());
+    pip_data = std::vector<uint32_t>(ctx->getGridDimX() * ctx->getGridDimY());
+    pip_mask = std::vector<uint32_t>(ctx->getGridDimX() * ctx->getGridDimY());
+
+    auto check_param = [&](CellInfo *cell, IdString param, uint32_t pip_mask, uint32_t &mask, uint32_t &data) {
+        if (cell->params.count(param)) {
+            mask |= pip_mask;
+            if (int_or_default(cell->params, param, 0))
+                data |= pip_mask;
+        }
+    };
     for (auto &cell : ctx->cells) {
         // We need to skip CPE_MULT since using CP outputs is mandatory
         // even if output is actually not connected
@@ -321,11 +338,64 @@ void GateMateImpl::postPlace()
             marked_used = true;
         if (marked_used)
             used_cpes[cell.second.get()->bel.tile] = true;
+
+        uint32_t mask = pip_mask[cell.second.get()->bel.tile];
+        uint32_t data = pip_data[cell.second.get()->bel.tile];
+        if (cell.second.get()->type == id_CPE_MULT) {
+            mask |= PipMask::IS_MULT;
+            data |= PipMask::IS_MULT;
+        }
+        if (cell.second.get()->type.in(id_CPE_ADDF, id_CPE_ADDF2)) {
+            data |= PipMask::IS_ADDF;
+            mask |= PipMask::IS_ADDF;
+        }
+        if (cell.second.get()->type == id_CPE_COMP) {
+            data |= PipMask::IS_COMP;
+            mask |= PipMask::IS_COMP;
+        }
+        check_param(cell.second.get(), id_C_SELX, PipMask::C_SELX, mask, data);
+        check_param(cell.second.get(), id_C_SELY1, PipMask::C_SELY1, mask, data);
+        check_param(cell.second.get(), id_C_SELY2, PipMask::C_SELY2, mask, data);
+        check_param(cell.second.get(), id_C_SEL_C, PipMask::C_SEL_C, mask, data);
+        check_param(cell.second.get(), id_C_SEL_P, PipMask::C_SEL_P, mask, data);
+        check_param(cell.second.get(), id_C_Y12, PipMask::C_Y12, mask, data);
+        check_param(cell.second.get(), id_C_CX_I, PipMask::C_CX_I, mask, data);
+        check_param(cell.second.get(), id_C_CY1_I, PipMask::C_CY1_I, mask, data);
+        check_param(cell.second.get(), id_C_CY2_I, PipMask::C_CY2_I, mask, data);
+        check_param(cell.second.get(), id_C_PX_I, PipMask::C_PX_I, mask, data);
+        check_param(cell.second.get(), id_C_PY1_I, PipMask::C_PY1_I, mask, data);
+        check_param(cell.second.get(), id_C_PY2_I, PipMask::C_PY2_I, mask, data);
+        pip_mask[cell.second.get()->bel.tile] = mask;
+        pip_data[cell.second.get()->bel.tile] = data;
     }
 }
 bool GateMateImpl::checkPipAvail(PipId pip) const
 {
     const auto &extra_data = *pip_extra_data(pip);
+    if (!use_cp_for_clk && extra_data.type == PipExtra::PIP_EXTRA_MUX) {
+        if (extra_data.value == 1 && IdString(extra_data.name).in(id_C_CLKSEL, id_C_ENSEL))
+            return false;
+    }
+    if (!use_cp_for_cpe && extra_data.type == PipExtra::PIP_EXTRA_MUX && extra_data.resource != 0 &&
+        extra_data.resource <= PipMask::C_PY2_I) {
+        return false;
+    }
+    if (!use_bridges && extra_data.type == PipExtra::PIP_EXTRA_MUX &&
+        IdString(extra_data.name) == ctx->id("CPE.C_SN")) {
+        return false;
+    }
+    if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.block != 0)) {
+        if (pip_mask[pip.tile] & extra_data.block) {
+            return false;
+        }
+    }
+    if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.resource != 0)) {
+        if (pip_mask[pip.tile] & extra_data.resource) {
+            if ((pip_data[pip.tile] & extra_data.resource) != (extra_data.value ? extra_data.resource : 0)) {
+                return false;
+            }
+        }
+    }
     if (extra_data.type != PipExtra::PIP_EXTRA_MUX || (extra_data.flags & MUX_ROUTING) == 0)
         return true;
     if (used_cpes[pip.tile])
@@ -338,6 +408,21 @@ void GateMateImpl::preRoute()
     route_mult();
     route_clock();
     ctx->assignArchInfo();
+
+    for (auto &net : ctx->nets) {
+        NetInfo *ni = net.second.get();
+        if (ni->wires.empty())
+            continue;
+        for (auto &w : ni->wires) {
+            if (w.second.pip != PipId()) {
+                const auto &extra_data = *pip_extra_data(w.second.pip);
+                if (extra_data.type == PipExtra::PIP_EXTRA_MUX && extra_data.resource != 0) {
+                    pip_mask[w.second.pip.tile] |= extra_data.resource;
+                    pip_data[w.second.pip.tile] |= extra_data.value ? extra_data.resource : 0;
+                }
+            }
+        }
+    }
 }
 
 void GateMateImpl::reassign_bridges(NetInfo *ni, const dict<WireId, PipMap> &net_wires, WireId wire,
@@ -380,15 +465,132 @@ void GateMateImpl::reassign_bridges(NetInfo *ni, const dict<WireId, PipMap> &net
         NetInfo *new_net = ctx->createNet(ctx->idf("%s$muxout", name.c_str(ctx)));
         IdString in_port = ctx->idf("IN%d", extra_data.value + 1);
 
-        cell->addInput(in_port);
-        cell->connectPort(in_port, ni);
+        auto add_port = [&](const IdString id, PortType dir) {
+            cell->ports[id].name = id;
+            cell->ports[id].type = dir;
+            cell->cell_bel_pins[id] = std::vector{id};
+        };
 
-        cell->addOutput(id_MUXOUT);
+        add_port(in_port, PORT_IN);
+        add_port(id_MUXOUT, PORT_OUT);
+
+        cell->connectPort(in_port, ni);
         cell->connectPort(id_MUXOUT, new_net);
+        pass_backtrace[cell->name][id_MUXOUT] = in_port;
 
         num++;
 
         reassign_bridges(new_net, net_wires, dst, wire_to_net, num);
+    }
+}
+
+void GateMateImpl::reassign_cplines(NetInfo *ni, const dict<WireId, PipMap> &net_wires, WireId wire,
+                                    dict<WireId, IdString> &wire_to_net, int &num, IdString in_port)
+{
+    wire_to_net.insert({wire, ni->name});
+
+    for (auto pip : ctx->getPipsDownhill(wire)) {
+        auto dst = ctx->getPipDstWire(pip);
+
+        // Ignore wires not part of the net
+        auto it = net_wires.find(dst);
+        if (it == net_wires.end())
+            continue;
+        // Ignore pips if the wire is driven by another pip.
+        if (pip != it->second.pip)
+            continue;
+        // Ignore wires already visited.
+        if (wire_to_net.count(dst))
+            continue;
+
+        const auto &extra_data = *pip_extra_data(pip);
+        // If not a CP line pip, just recurse.
+        if (extra_data.type != PipExtra::PIP_EXTRA_MUX || extra_data.resource == 0) {
+            reassign_cplines(ni, net_wires, dst, wire_to_net, num, in_port);
+            continue;
+        }
+
+        // We have a bridge that needs to be translated to a bel.
+        IdStringList id = ctx->getPipName(pip);
+        Loc loc = ctx->getPipLocation(pip);
+        BelId bel = ctx->getBelByLocation({loc.x, loc.y, CPE_CPLINES_Z});
+        CellInfo *cell = ctx->getBoundBelCell(bel);
+        if (!cell) {
+            IdString name = ctx->idf("cplines$%s", id[0].c_str(ctx));
+            cell = ctx->createCell(name, id_CPE_CPLINES);
+            auto add_port = [&](const IdString id, PortType dir) {
+                cell->ports[id].name = id;
+                cell->ports[id].type = dir;
+                cell->cell_bel_pins[id] = std::vector{id};
+            };
+
+            add_port(id_OUT1, PORT_IN);
+            add_port(id_OUT2, PORT_IN);
+            add_port(id_COMPOUT, PORT_IN);
+
+            add_port(id_CINX, PORT_IN);
+            add_port(id_PINX, PORT_IN);
+            add_port(id_CINY1, PORT_IN);
+            add_port(id_PINY1, PORT_IN);
+            add_port(id_CINY2, PORT_IN);
+            add_port(id_PINY2, PORT_IN);
+
+            add_port(id_COUTX, PORT_OUT);
+            add_port(id_POUTX, PORT_OUT);
+            add_port(id_COUTY1, PORT_OUT);
+            add_port(id_POUTY1, PORT_OUT);
+            add_port(id_COUTY2, PORT_OUT);
+            add_port(id_POUTY2, PORT_OUT);
+
+            ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
+        }
+
+        cell->setParam(ctx->getGroupName(ctx->getResourceKeyForPip(pip))[1],
+                       Property(extra_data.value, extra_data.bits));
+
+        // We have to discover the ports needed by this config.
+        auto input_port_map = dict<IdString, IdString>{
+                {ctx->id("CPE.CINX"), id_CINX},
+                {ctx->id("CPE.CINY1"), id_CINY1},
+                {ctx->id("CPE.CINY2"), id_CINY2},
+                {ctx->id("CPE.PINX"), id_PINX},
+                {ctx->id("CPE.PINY1"), id_PINY1},
+                {ctx->id("CPE.PINY2"), id_PINY2},
+                {ctx->id("CPE.OUT1_IN_int"), id_OUT1},
+                {ctx->id("CPE.OUT2_IN_int"), id_OUT2},
+                {ctx->id("CPE.COMPOUT_IN_int"), id_COMPOUT},
+        };
+
+        auto input_port_name = input_port_map.find(ctx->getWireName(ctx->getPipSrcWire(pip))[1]);
+        if (input_port_name != input_port_map.end()) {
+            if (cell->getPort(input_port_name->second) == nullptr) {
+                cell->connectPort(input_port_name->second, ni);
+                in_port = input_port_name->second;
+            } else
+                NPNR_ASSERT(cell->getPort(input_port_name->second) == ni);
+        }
+
+        auto output_port_map =
+                dict<IdString, IdString>{{ctx->id("CPE.COUTX"), id_COUTX},   {ctx->id("CPE.COUTY1"), id_COUTY1},
+                                         {ctx->id("CPE.COUTY2"), id_COUTY2}, {ctx->id("CPE.POUTX"), id_POUTX},
+                                         {ctx->id("CPE.POUTY1"), id_POUTY1}, {ctx->id("CPE.POUTY2"), id_POUTY2}};
+
+        auto output_port_name = output_port_map.find(ctx->getWireName(ctx->getPipDstWire(pip))[1]);
+        if (output_port_name != output_port_map.end()) {
+            NetInfo *new_net =
+                    ctx->createNet(ctx->idf("%s$%s", cell->name.c_str(ctx), output_port_name->second.c_str(ctx)));
+
+            cell->addOutput(output_port_name->second);
+            cell->connectPort(output_port_name->second, new_net);
+            pass_backtrace[cell->name][output_port_name->second] = in_port;
+
+            num++;
+
+            reassign_cplines(new_net, net_wires, dst, wire_to_net, num, in_port);
+        } else {
+            // this is an internal resource pip; recurse anyway.
+            reassign_cplines(ni, net_wires, dst, wire_to_net, num, in_port);
+        }
     }
 }
 
@@ -397,6 +599,7 @@ void GateMateImpl::postRoute()
     int num = 0;
 
     pool<IdString> nets_with_bridges;
+    pool<IdString> nets_with_cplines;
 
     for (auto &net : ctx->nets) {
         NetInfo *ni = net.second.get();
@@ -451,19 +654,76 @@ void GateMateImpl::postRoute()
         }
     }
 
+    num = 0;
+
+    for (auto &net : ctx->nets) {
+        NetInfo *ni = net.second.get();
+        for (auto &w : ni->wires) {
+            if (w.second.pip != PipId()) {
+                const auto &extra_data = *pip_extra_data(w.second.pip);
+                if (extra_data.type == PipExtra::PIP_EXTRA_MUX && extra_data.resource != 0) {
+                    nets_with_cplines.insert(ni->name);
+                }
+            }
+        }
+    }
+
+    for (auto net_name : nets_with_cplines) {
+        auto *ni = ctx->nets.at(net_name).get();
+        auto net_wires = ni->wires; // copy wires to preserve across unbind/rebind.
+        auto wire_to_net = dict<WireId, IdString>{};
+        auto wire_to_port = dict<WireId, std::vector<PortRef>>{};
+
+        for (auto &usr : ni->users)
+            for (auto sink_wire : ctx->getNetinfoSinkWires(ni, usr)) {
+                auto result = wire_to_port.find(sink_wire);
+                if (result == wire_to_port.end())
+                    wire_to_port.insert({sink_wire, std::vector<PortRef>{usr}});
+                else
+                    result->second.push_back(usr);
+            }
+
+        // traverse the routing tree to assign bridge nets to wires.
+        reassign_cplines(ni, net_wires, ctx->getNetinfoSourceWire(ni), wire_to_net, num, IdString());
+
+        for (auto &pair : net_wires)
+            ctx->unbindWire(pair.first);
+
+        for (auto &pair : net_wires) {
+            auto wire = pair.first;
+            auto pip = pair.second.pip;
+            auto strength = pair.second.strength;
+            auto *net = ctx->nets.at(wire_to_net.at(wire)).get();
+            if (pip == PipId())
+                ctx->bindWire(wire, net, strength);
+            else
+                ctx->bindPip(pip, net, strength);
+
+            if (wire_to_port.count(wire)) {
+                for (auto sink : wire_to_port.at(wire)) {
+                    NPNR_ASSERT(sink.cell != nullptr && sink.port != IdString());
+                    sink.cell->disconnectPort(sink.port);
+                    sink.cell->connectPort(sink.port, net);
+                }
+            }
+        }
+    }
+
     dict<IdString, int> cfg;
     dict<IdString, IdString> port_mapping;
     auto add_input = [&](IdString orig_port, IdString port, bool merged) -> bool {
         static dict<IdString, IdString> convert_port = {
-                {ctx->id("CPE.IN1"), id_IN1},   {ctx->id("CPE.IN2"), id_IN2},  {ctx->id("CPE.IN3"), id_IN3},
-                {ctx->id("CPE.IN4"), id_IN4},   {ctx->id("CPE.IN5"), id_IN1},  {ctx->id("CPE.IN6"), id_IN2},
-                {ctx->id("CPE.IN7"), id_IN3},   {ctx->id("CPE.IN8"), id_IN4},  {ctx->id("CPE.PINY1"), id_PINY1},
-                {ctx->id("CPE.CINX"), id_CINX}, {ctx->id("CPE.PINX"), id_PINX}};
+                {ctx->id("CPE.IN1"), id_IN1},     {ctx->id("CPE.IN2"), id_IN2},     {ctx->id("CPE.IN3"), id_IN3},
+                {ctx->id("CPE.IN4"), id_IN4},     {ctx->id("CPE.IN5"), id_IN1},     {ctx->id("CPE.IN6"), id_IN2},
+                {ctx->id("CPE.IN7"), id_IN3},     {ctx->id("CPE.IN8"), id_IN4},     {ctx->id("CPE.PINY1"), id_PINY1},
+                {ctx->id("CPE.PINY2"), id_PINY2}, {ctx->id("CPE.CINY2"), id_CINY2}, {ctx->id("CPE.CLK"), id_CLK},
+                {ctx->id("CPE.EN"), id_EN},       {ctx->id("CPE.CINX"), id_CINX},   {ctx->id("CPE.PINX"), id_PINX}};
         static dict<IdString, IdString> convert_port_merged = {
-                {ctx->id("CPE.IN1"), id_IN1},   {ctx->id("CPE.IN2"), id_IN2},  {ctx->id("CPE.IN3"), id_IN3},
-                {ctx->id("CPE.IN4"), id_IN4},   {ctx->id("CPE.IN5"), id_IN5},  {ctx->id("CPE.IN6"), id_IN6},
-                {ctx->id("CPE.IN7"), id_IN7},   {ctx->id("CPE.IN8"), id_IN8},  {ctx->id("CPE.PINY1"), id_PINY1},
-                {ctx->id("CPE.CINX"), id_CINX}, {ctx->id("CPE.PINX"), id_PINX}};
+                {ctx->id("CPE.IN1"), id_IN1},     {ctx->id("CPE.IN2"), id_IN2},     {ctx->id("CPE.IN3"), id_IN3},
+                {ctx->id("CPE.IN4"), id_IN4},     {ctx->id("CPE.IN5"), id_IN5},     {ctx->id("CPE.IN6"), id_IN6},
+                {ctx->id("CPE.IN7"), id_IN7},     {ctx->id("CPE.IN8"), id_IN8},     {ctx->id("CPE.PINY1"), id_PINY1},
+                {ctx->id("CPE.PINY2"), id_PINY2}, {ctx->id("CPE.CINY2"), id_CINY2}, {ctx->id("CPE.CLK"), id_CLK},
+                {ctx->id("CPE.EN"), id_EN},       {ctx->id("CPE.CINX"), id_CINX},   {ctx->id("CPE.PINX"), id_PINX}};
         if (convert_port.count(port)) {
             port_mapping.emplace(orig_port, merged ? convert_port_merged[port] : convert_port[port]);
             return true;
@@ -645,6 +905,24 @@ void GateMateImpl::postRoute()
             if (cfg.count(id_C_I4) && cfg.at(id_C_I4) == 1)
                 cell.second->params[id_C_I4] = Property(1, 1);
         }
+        if (cell.second->type.in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U, id_CPE_LATCH)) {
+            cfg.clear();
+            port_mapping.clear();
+            check_input(cell.second.get(), id_CLK_INT, false);
+            check_input(cell.second.get(), id_EN_INT, false);
+            if (cfg.count(id_C_CLKSEL) && cfg.at(id_C_CLKSEL) == 1) {
+                uint8_t val = int_or_default(cell.second->params, id_C_CPE_CLK, 0) & 1;
+                cell.second->params[id_C_CPE_CLK] = Property(val ? 3 : 0, 2);
+                cell.second->params[id_C_CLKSEL] = Property(1, 1);
+            }
+            if (cfg.count(id_C_ENSEL) && cfg.at(id_C_ENSEL) == 1) {
+                uint8_t val = int_or_default(cell.second->params, id_C_CPE_EN, 0) & 1;
+                cell.second->params[id_C_CPE_EN] = Property(val ? 3 : 0, 2);
+                cell.second->params[id_C_ENSEL] = Property(1, 1);
+            }
+            cell.second->renamePort(id_CLK_INT, port_mapping[id_CLK_INT]);
+            cell.second->renamePort(id_EN_INT, port_mapping[id_EN_INT]);
+        }
     }
     ctx->assignArchInfo();
 
@@ -680,6 +958,25 @@ void GateMateImpl::expandBoundingBox(BoundingBox &bb) const
     bb.x1 = std::min((bb.x1 & 0xfffe) + 5, ctx->getGridDimX());
     bb.y1 = std::min((bb.y1 & 0xfffe) + 5, ctx->getGridDimY());
 }
+
+GroupId GateMateImpl::getResourceKeyForPip(PipId pip) const
+{
+    const auto &extra_data = *pip_extra_data(pip);
+    if (extra_data.type != PipExtra::PIP_EXTRA_MUX || extra_data.group_index == 0)
+        return GroupId();
+
+    return GroupId(pip.tile, extra_data.group_index);
+}
+
+int GateMateImpl::getResourceValueForPip(PipId pip) const
+{
+    const auto &extra_data = *pip_extra_data(pip);
+    if (extra_data.type != PipExtra::PIP_EXTRA_MUX || extra_data.resource == 0)
+        return 0;
+    return extra_data.value;
+}
+
+bool GateMateImpl::isGroupResource(GroupId group) const { return ctx->getGroupType(group) == id_RESOURCE; }
 
 void GateMateImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
 {
@@ -722,8 +1019,8 @@ void GateMateImpl::assign_cell_info()
         CellInfo *ci = cell.second.get();
         auto &fc = fast_cell_info.at(ci->flat_index);
         if (getBelBucketForCellType(ci->type) == id_CPE_FF) {
-            fc.ff_en = ci->getPort(id_EN);
-            fc.ff_clk = ci->getPort(id_CLK);
+            fc.ff_en = ci->getPort(id_EN_INT);
+            fc.ff_clk = ci->getPort(id_CLK_INT);
             fc.ff_sr = ci->getPort(id_SR);
             fc.config = get_dff_config(ci);
             fc.used = true;

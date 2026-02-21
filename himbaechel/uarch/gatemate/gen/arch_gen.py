@@ -73,6 +73,9 @@ class PipExtraData(BBAStruct):
     value: int = 0
     invert: int = 0
     plane: int = 0
+    block: int = 0
+    resource: int = 0
+    group_index: int = 0
 
     def serialise_lists(self, context: str, bba: BBAWriter):
         pass
@@ -85,6 +88,9 @@ class PipExtraData(BBAStruct):
         bba.u8(self.plane)
         bba.u8(0)
         bba.u16(0)
+        bba.u32(self.block)
+        bba.u32(self.resource)
+        bba.u32(self.group_index)
 
 @dataclass
 class BelPinConstraint(BBAStruct):
@@ -224,7 +230,22 @@ def set_timings(ch):
             assert k in timing, f"pip class {k} not found in timing data"
             tmg.set_pip_class(grade=speed, name=k, delay=convert_timing(timing[k]))
 
-EXPECTED_VERSION = 1.11
+EXPECTED_VERSION = 1.12
+
+RESOURCE_NAMES = {
+    1 << 0:  "C_SELX",
+    1 << 1:  "C_SELY1",
+    1 << 2:  "C_SELY2",
+    1 << 3:  "C_SEL_C",
+    1 << 4:  "C_SEL_P",
+    1 << 5:  "C_Y12",
+    1 << 6:  "C_CX_I",
+    1 << 7:  "C_CY1_I",
+    1 << 8:  "C_CY2_I",
+    1 << 9:  "C_PX_I",
+    1 << 10: "C_PY1_I",
+    1 << 11: "C_PY2_I",
+}
 
 def main():
     # Range needs to be +1, but we are adding +2 more to coordinates, since 
@@ -278,6 +299,9 @@ def main():
         tt = ch.create_tile_type(type_name)
         for group in sorted(die.get_groups_for_type(type_name)):
             tt.create_group(group.name, group.type)
+        if ("CPE" in type_name):
+            for name in RESOURCE_NAMES.values():
+                tt.create_group(name, "RESOURCE")
         for wire in sorted(die.get_endpoints_for_type(type_name)):
             tt.create_wire(wire.name, wire.type)
         if type_name in new_wires:
@@ -310,7 +334,12 @@ def main():
                     plane = int(mux.name[10:12])
                 if mux.name == "CPE.C_SN":
                     mux_flags |= MUX_ROUTING
-                pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(mux.name), mux.bits, mux.value, mux_flags, plane)
+                group_index = 0
+                if mux.resource > 0:
+                    group = RESOURCE_NAMES.get(mux.resource, "UNKNOWN")
+                    group_index = tt._group2idx[tt.strs.id(group)]
+                    tt.add_pip_to_group(pp, group)
+                pp.extra_data = PipExtraData(PIP_EXTRA_MUX, ch.strs.id(mux.name), mux.bits, mux.value, mux_flags, plane, mux.block, mux.resource, group_index)
         if type_name in new_wires:
             for wire in sorted(new_wires[type_name]):
                 delay = wire_delay[wire]
