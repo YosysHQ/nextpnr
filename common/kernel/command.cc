@@ -397,6 +397,8 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("parallel-refine", "use new experimental parallelised engine for placement refinement");
 #endif
 
+    general.add_options()("router1-timeout", po::value<int>(), "Timeout for router1 in iteration count (default: 0, no timeout)");
+
     general.add_options()("router2-heatmap", po::value<std::string>(),
                           "prefix for router2 resource congestion heatmaps");
 
@@ -538,6 +540,10 @@ void CommandHandler::setupContext(Context *ctx)
 
     if (vm.count("parallel-refine"))
         ctx->settings[ctx->id("placerHeap/parallelRefine")] = true;
+
+    if (vm.count("router1-timeout")) {
+        ctx->settings[ctx->id("router1/maxIterCnt")] = std::to_string(std::max(0, vm["router1-timeout"].as<int>()));
+    }
 
     if (vm.count("router2-heatmap"))
         ctx->settings[ctx->id("router2/heatmap")] = vm["router2-heatmap"].as<std::string>();
