@@ -46,12 +46,14 @@ struct ZeroDriver
 // Propagate A0 through OUT1 and A1 through OUT2; zero COUTX and POUTX.
 struct APassThroughCell
 {
-    APassThroughCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, CellInfo *cplines, IdString name);
+    APassThroughCell(CellInfo *lower_lut, CellInfo *upper_lut, CellInfo *comp, CellInfo *cplines, IdString name);
 
-    void clean_up_cell(Context *ctx, CellInfo *cell);
+    void clean_up_lut(Context *ctx, CellInfo *cell);
 
-    CellInfo *lower;
-    CellInfo *upper;
+    CellInfo *lower_lut;
+    CellInfo *upper_lut;
+    CellInfo *lower_ff;
+    CellInfo *upper_ff;
     CellInfo *comp;
     CellInfo *cplines;
 };
@@ -166,18 +168,19 @@ ZeroDriver::ZeroDriver(CellInfo *lower, CellInfo *upper, IdString name) : lower{
     upper->params[id_INIT_L10] = Property(LUT_ZERO, 4); // (unused)
 }
 
-APassThroughCell::APassThroughCell(CellInfo *lower, CellInfo *upper, CellInfo *comp, CellInfo *cplines, IdString name)
-        : lower{lower}, upper{upper}, comp{comp}, cplines{cplines}
+APassThroughCell::APassThroughCell(CellInfo *lower_lut, CellInfo *upper_lut, CellInfo *comp, CellInfo *cplines,
+                                   IdString name)
+        : lower_lut{lower_lut}, upper_lut{upper_lut}, lower_ff{nullptr}, upper_ff{nullptr}, comp{comp}, cplines{cplines}
 {
-    lower->params[id_INIT_L00] = Property(LUT_D0, 4);   // IN5
-    lower->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
-    lower->params[id_INIT_L10] = Property(LUT_D0, 4);   // L02
+    lower_lut->params[id_INIT_L00] = Property(LUT_D0, 4);   // IN5
+    lower_lut->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
+    lower_lut->params[id_INIT_L10] = Property(LUT_D0, 4);   // L02
 
     comp->params[id_INIT_L30] = Property(LUT_ONE, 4); // zero -> COMP_OUT (L30 is inverted)
 
-    upper->params[id_INIT_L00] = Property(LUT_D0, 4);   // IN1
-    upper->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
-    upper->params[id_INIT_L10] = Property(LUT_D0, 4);   // L00 -> COMB2OUT
+    upper_lut->params[id_INIT_L00] = Property(LUT_D0, 4);   // IN1
+    upper_lut->params[id_INIT_L01] = Property(LUT_ZERO, 4); // (unused)
+    upper_lut->params[id_INIT_L10] = Property(LUT_D0, 4);   // L00 -> COMB2OUT
 
     cplines->params[id_C_SEL_C] = Property(1, 1); // COMP_OUT -> CX_VAL
     cplines->params[id_C_SEL_P] = Property(1, 1); // COMP_OUT -> PX_VAL
@@ -185,7 +188,7 @@ APassThroughCell::APassThroughCell(CellInfo *lower, CellInfo *upper, CellInfo *c
     cplines->params[id_C_PX_I] = Property(1, 1);  // PX_VAL -> POUTX
 }
 
-void APassThroughCell::clean_up_cell(Context *ctx, CellInfo *cell)
+void APassThroughCell::clean_up_lut(Context *ctx, CellInfo *cell)
 {
     auto *net = cell->ports.at(id_IN1).net;
 
@@ -596,8 +599,8 @@ void GateMatePacker::pack_mult()
         // Constrain A passthrough cells.
         for (int a = 0; a < a_width / 2; a++) {
             auto &a_passthru = m.a_passthrus.at(a);
-            constrain_cell(a_passthru.lower, -1, 4 + a, CPE_LT_L_Z);
-            constrain_cell(a_passthru.upper, -1, 4 + a, CPE_LT_U_Z);
+            constrain_cell(a_passthru.lower_lut, -1, 4 + a, CPE_LT_L_Z);
+            constrain_cell(a_passthru.upper_lut, -1, 4 + a, CPE_LT_U_Z);
             constrain_cell(a_passthru.comp, -1, 4 + a, CPE_COMP_Z);
             constrain_cell(a_passthru.cplines, -1, 4 + a, CPE_CPLINES_Z);
         }
@@ -646,26 +649,99 @@ void GateMatePacker::pack_mult()
             auto &a_passthru = m.a_passthrus.at(a);
 
             // Connect A input passthrough cell.
-            mult->movePortTo(ctx->idf("A[%d]", 2 * a), a_passthru.lower, id_IN1);
-            mult->movePortTo(ctx->idf("A[%d]", 2 * a + 1), a_passthru.upper, id_IN1);
+            mult->movePortTo(ctx->idf("A[%d]", 2 * a), a_passthru.lower_lut, id_IN1);
+            mult->movePortTo(ctx->idf("A[%d]", 2 * a + 1), a_passthru.upper_lut, id_IN1);
 
             // Prepare A passthrough nets.
-            auto lower_name = a_passthru.lower->name;
-            auto upper_name = a_passthru.upper->name;
-            auto lower_net_name = a_passthru.lower->ports.at(id_IN1).net->name;
-            auto upper_net_name = a_passthru.upper->ports.at(id_IN1).net->name;
+            auto lower_name = a_passthru.lower_lut->name;
+            auto upper_name = a_passthru.upper_lut->name;
+            auto lower_net_name = a_passthru.lower_lut->ports.at(id_IN1).net->name;
+            auto upper_net_name = a_passthru.upper_lut->ports.at(id_IN1).net->name;
 
             auto *lower_net = ctx->createNet(
                     ctx->idf("%s$%s$a%d_passthru", lower_name.c_str(ctx), lower_net_name.c_str(ctx), 2 * a));
-            a_passthru.lower->connectPort(id_OUT, lower_net);
+            a_passthru.lower_lut->connectPort(id_OUT, lower_net);
 
             auto *upper_net = ctx->createNet(
                     ctx->idf("%s$%s$a%d_passthru", upper_name.c_str(ctx), upper_net_name.c_str(ctx), 2 * a + 1));
-            a_passthru.upper->connectPort(id_OUT, upper_net);
+            a_passthru.upper_lut->connectPort(id_OUT, upper_net);
 
             // Inputs may be GND/VCC; if so, clean them up.
-            a_passthru.clean_up_cell(ctx, a_passthru.lower);
-            a_passthru.clean_up_cell(ctx, a_passthru.upper);
+            a_passthru.clean_up_lut(ctx, a_passthru.lower_lut);
+            a_passthru.clean_up_lut(ctx, a_passthru.upper_lut);
+
+            {
+                // I am nursing a headache while writing this, so you get ASCII diagrams.
+
+                // We have a path that looks like this:
+                // A[n]   -------   A[n]     --------
+                // ---> D | DFF | Q ---> IN1 | L2T4 | OUT ->
+                //        -------            --------
+                //
+                // We need to transpose it to look like this:
+                // A[n]     --------     A[n]   -------
+                // ---> IN1 | L2T4 | OUT ---> D | DFF | Q ->
+                //          --------            -------
+
+                auto lower_net = a_passthru.lower_lut->ports.at(id_IN1).net;
+                if (lower_net != nullptr) {
+                    auto lower_net_driver = lower_net->driver;
+                    if (lower_net_driver.cell != nullptr && lower_net_driver.cell->type == id_CC_DFF &&
+                        lower_net_driver.cell->ports.at(id_Q).net->users.entries() != 1) {
+                        auto *flop = lower_net_driver.cell;
+
+                        // Reconfigure the flop.
+                        flop->renamePort(id_D, id_DIN);
+                        flop->renamePort(id_Q, id_DOUT);
+                        flop->type = id_CPE_FF;
+
+                        log_info("CPE_FF.DIN:  %s\n", flop->ports.at(id_DIN).net->name.c_str(ctx));
+                        log_info("CPE_FF.DOUT: %s\n", flop->ports.at(id_DOUT).net->name.c_str(ctx));
+
+                        //        -------       A[n]     --------
+                        // -. DIN | DFF | DOUT  .--> IN1 | L2T4 | OUT ->
+                        //  |     -------       |        --------
+                        //  '-------------------'
+                        auto *lut_out = a_passthru.lower_lut->ports.at(id_OUT).net;
+                        flop->movePortTo(id_DIN, a_passthru.lower_lut, id_IN1);
+                        for (auto &user : flop->ports.at(id_DOUT).net->users) {
+                            user.cell->disconnectPort(user.port);
+                            user.cell->connectPort(user.port, lut_out);
+                        }
+                        flop->disconnectPort(id_DOUT);
+
+                        //         .-----------------(conceptually)---------------.
+                        //         |                                              |
+                        //        -------       A[n]     --------                 v
+                        // -. DIN | DFF | DOUT  .--> IN1 | L2T4 | OUT ->
+                        //  |     -------       |        --------
+                        //  '-------------------'
+
+                        //          A[n]                 --------              -------      A[n]
+                        // ------------------------> IN1 | L2T4 | OUT      DIN | DFF | DOUT --->
+                        //                               --------              -------
+                        a_passthru.lower_lut->movePortTo(id_OUT, flop, id_DOUT);
+
+                        //          A[n]                 --------              -------      A[n]
+                        // ------------------------> IN1 | L2T4 | OUT ---> DIN | DFF | DOUT --->
+                        //                               --------              -------
+                        auto *a_net = ctx->createNet(ctx->idf("%s$a", a_passthru.lower_lut->name.c_str(ctx)));
+                        a_passthru.lower_lut->connectPort(id_OUT, a_net);
+                        flop->connectPort(id_DIN, a_net);
+
+                        constrain_cell(flop, -1, 4 + a, CPE_FF_L_Z);
+
+                        log_info("        Constrained '%s' as register for A[%zu] at (%d, %zu).\n",
+                                 flop->name.c_str(ctx), 2 * a, -1, 4 + a);
+                    }
+
+                    auto upper_net_driver = a_passthru.upper_lut->ports.at(id_IN1).net->driver;
+                    if (upper_net_driver.cell != nullptr && upper_net_driver.cell->type == id_CC_DFF &&
+                        upper_net_driver.cell->ports.at(id_Q).net->users.entries() != 1) {
+                        log_info("A[%d] driven by an FF, but it has multiple users\n", 2 * a + 1);
+                    }
+                }
+            }
 
             // Connect A passthrough outputs to multiplier inputs.
             {
