@@ -72,6 +72,7 @@ struct GateMatePacker
     void reassign_clocks();
     void copy_clocks();
     void assign_clocks();
+    void find_regions();
     void assign_regions();
     void fix_regions();
 
