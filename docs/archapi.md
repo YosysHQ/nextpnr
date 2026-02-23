@@ -784,14 +784,22 @@ Default implementation expands by one tile in each direction.
 Resource Methods
 ---------------
 
+Some architectures may have shared resources across pips, e.g. a single bitstream bit controls multiple multiplexers. To produce legal output, these resource APIs can be used to ensure resource "keys" have "values" that agree across pips. Note that a pip has zero or one resource keys, so if a shared resource requires multiple keys, it must have multiple pips in series.
+
 ### GroupId getResourceKeyForPip(PipId pip) const
 
-Returns GroupId that represents resource for given pip.
+Returns the resource key for given pip, or `GroupId()` if a pip has no resource key.
+
+*BaseArch default: returns `GroupId()`*
 
 ### int getResourceValueForPip(PipId pip) const
 
-Returns resource value for given pip.
+Returns the resource value for given pip, or `0` if a pip has no resource key.
+
+*BaseArch default: returns `0`*
 
 ### bool isGroupResource(GroupId group) const
 
-Returns `true` if the group is representing resource.
+Returns `true` if `group` represents a resource.
+
+*BaseArch default: returns `false`*
