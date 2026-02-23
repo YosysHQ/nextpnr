@@ -315,10 +315,10 @@ void GateMateImpl::postPlace()
     repack();
     ctx->assignArchInfo();
     used_cpes.resize(ctx->getGridDimX() * ctx->getGridDimY());
-    pip_data = std::vector<uint32_t>(ctx->getGridDimX() * ctx->getGridDimY());
-    pip_mask = std::vector<uint32_t>(ctx->getGridDimX() * ctx->getGridDimY());
+    pip_data.resize(ctx->getGridDimX() * ctx->getGridDimY());
+    pip_mask.resize(ctx->getGridDimX() * ctx->getGridDimY());
 
-    auto check_param = [&](CellInfo *cell, IdString param, uint32_t pip_mask, uint32_t &mask, uint32_t &data) {
+    auto set_param_mask_data = [&](CellInfo *cell, IdString param, uint32_t pip_mask, uint32_t &mask, uint32_t &data) {
         if (cell->params.count(param)) {
             mask |= pip_mask;
             if (int_or_default(cell->params, param, 0))
@@ -349,18 +349,18 @@ void GateMateImpl::postPlace()
             data |= PipMask::IS_COMP;
             mask |= PipMask::IS_COMP;
         }
-        check_param(cell.second.get(), id_C_SELX, PipMask::C_SELX, mask, data);
-        check_param(cell.second.get(), id_C_SELY1, PipMask::C_SELY1, mask, data);
-        check_param(cell.second.get(), id_C_SELY2, PipMask::C_SELY2, mask, data);
-        check_param(cell.second.get(), id_C_SEL_C, PipMask::C_SEL_C, mask, data);
-        check_param(cell.second.get(), id_C_SEL_P, PipMask::C_SEL_P, mask, data);
-        check_param(cell.second.get(), id_C_Y12, PipMask::C_Y12, mask, data);
-        check_param(cell.second.get(), id_C_CX_I, PipMask::C_CX_I, mask, data);
-        check_param(cell.second.get(), id_C_CY1_I, PipMask::C_CY1_I, mask, data);
-        check_param(cell.second.get(), id_C_CY2_I, PipMask::C_CY2_I, mask, data);
-        check_param(cell.second.get(), id_C_PX_I, PipMask::C_PX_I, mask, data);
-        check_param(cell.second.get(), id_C_PY1_I, PipMask::C_PY1_I, mask, data);
-        check_param(cell.second.get(), id_C_PY2_I, PipMask::C_PY2_I, mask, data);
+        set_param_mask_data(cell.second.get(), id_C_SELX, PipMask::C_SELX, mask, data);
+        set_param_mask_data(cell.second.get(), id_C_SELY1, PipMask::C_SELY1, mask, data);
+        set_param_mask_data(cell.second.get(), id_C_SELY2, PipMask::C_SELY2, mask, data);
+        set_param_mask_data(cell.second.get(), id_C_SEL_C, PipMask::C_SEL_C, mask, data);
+        set_param_mask_data(cell.second.get(), id_C_SEL_P, PipMask::C_SEL_P, mask, data);
+        set_param_mask_data(cell.second.get(), id_C_Y12, PipMask::C_Y12, mask, data);
+        set_param_mask_data(cell.second.get(), id_C_CX_I, PipMask::C_CX_I, mask, data);
+        set_param_mask_data(cell.second.get(), id_C_CY1_I, PipMask::C_CY1_I, mask, data);
+        set_param_mask_data(cell.second.get(), id_C_CY2_I, PipMask::C_CY2_I, mask, data);
+        set_param_mask_data(cell.second.get(), id_C_PX_I, PipMask::C_PX_I, mask, data);
+        set_param_mask_data(cell.second.get(), id_C_PY1_I, PipMask::C_PY1_I, mask, data);
+        set_param_mask_data(cell.second.get(), id_C_PY2_I, PipMask::C_PY2_I, mask, data);
         pip_mask[cell.second.get()->bel.tile] = mask;
         pip_data[cell.second.get()->bel.tile] = data;
     }

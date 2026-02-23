@@ -1741,21 +1741,20 @@ struct Router2
             }
             for (auto cn : failed_nets)
                 route_queue.push_back(cn);
+            std::string resource_str = total_resource_use == 0
+                                               ? ""
+                                               : stringf("resources=%d overused=%d overuse=%d ", total_resource_use,
+                                                         overused_resources, total_resource_overuse);
             if (timing_driven_ripup)
-                log_info("    iter=%d wires=%d overused=%d overuse=%d resources=%d overused=%d overuse=%d tmgfail=%d "
+                log_info("    iter=%d wires=%d overused=%d overuse=%d %stmgfail=%d "
                          "archfail=%s\n",
-                         iter, total_wire_use, overused_wires, total_wire_overuse, total_resource_use,
-                         overused_resources, total_resource_overuse, tmgfail,
+                         iter, total_wire_use, overused_wires, total_wire_overuse, resource_str.c_str(), tmgfail,
                          (overused_wires > 0 || tmgfail > 0) ? "NA" : std::to_string(arch_fail).c_str());
             else
-                log_info(
-                        "    iter=%d wires=%d overused=%d overuse=%d resources=%d overused=%d overuse=%d archfail=%s\n",
-                        iter, total_wire_use, overused_wires, total_wire_overuse, total_resource_use,
-                        overused_resources, total_resource_overuse,
-                        (overused_wires > 0 || tmgfail > 0) ? "NA" : std::to_string(arch_fail).c_str());
+                log_info("    iter=%d wires=%d overused=%d overuse=%d %sarchfail=%s\n", iter, total_wire_use,
+                         overused_wires, total_wire_overuse, resource_str.c_str(),
+                         (overused_wires > 0 || tmgfail > 0) ? "NA" : std::to_string(arch_fail).c_str());
             ++iter;
-            if (iter >= 1000)
-                log_error("giving up\n");
             if (curr_cong_weight < 1e9)
                 curr_cong_weight += cfg.curr_cong_mult;
         } while (!failed_nets.empty());

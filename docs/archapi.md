@@ -780,3 +780,18 @@ Router Methods
 As part of `router2` implementation, during congestion update, every third time a net fails to route, this method is executed to expand the bounding box to increase the search space.
 
 Default implementation expands by one tile in each direction.
+
+Resource Methods
+---------------
+
+### GroupId getResourceKeyForPip(PipId pip) const
+
+Returns GroupId that represents resource for given pip.
+
+### int getResourceValueForPip(PipId pip) const
+
+Returns resource value for given pip.
+
+### bool isGroupResource(GroupId group) const
+
+Returns `true` if the group is representing resource.
