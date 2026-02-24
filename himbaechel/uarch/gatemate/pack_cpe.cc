@@ -170,7 +170,7 @@ void GateMatePacker::override_region(CellInfo *first, CellInfo *second)
 {
     if (first->region) {
         if (second->region && second->region->name != first->region->name) {
-            log_warning("Unable to place cell '%s' in '%s' region\n", first->name.c_str(ctx),
+            log_warning("Unable to place cell '%s' in '%s' region.\n", first->name.c_str(ctx),
                         first->region->name.c_str(ctx));
         }
     } else {
@@ -717,7 +717,7 @@ void GateMatePacker::remove_constants()
                 ctx->unbindBel(bel);
             ctx->cells.erase(fnd_cell);
             ctx->nets.erase(fnd_net);
-            log_info("    Removed unused VCC cell\n");
+            log_info("    Removed unused VCC cell.\n");
         }
     }
     fnd_cell = ctx->cells.find(ctx->id("$PACKER_GND_DRV"));
@@ -729,7 +729,7 @@ void GateMatePacker::remove_constants()
                 ctx->unbindBel(bel);
             ctx->cells.erase(fnd_cell);
             ctx->nets.erase(fnd_net);
-            log_info("    Removed unused GND cell\n");
+            log_info("    Removed unused GND cell.\n");
         }
     }
 }

@@ -51,7 +51,7 @@ struct GateMateCCFReader
     {
         if (str.at(0) == '"') {
             if (str.back() != '"') {
-                log_error("expected '\"' at end of string '%s' (on line %d).\n", str.c_str(), lineno);
+                log_error("Expected '\"' at end of string '%s' (on line %d).\n", str.c_str(), lineno);
             }
             return str.substr(1, str.size() - 2);
         } else {
@@ -70,8 +70,8 @@ struct GateMateCCFReader
 
             if (expr.size() != 2) {
                 if (name == "LOC" || name == "DRIVE" || name == "DELAY_IBF" || name == "DELAY_OBF" || name == "DIE")
-                    log_error("Parameter must be in form NAME=VALUE (on line %d)\n", lineno);
-                log_warning("Parameter '%s' missing value, defaulting to '1' (on line %d)\n", name.c_str(), lineno);
+                    log_error("Parameter must be in form NAME=VALUE (on line %d).\n", lineno);
+                log_warning("Parameter '%s' missing value, defaulting to '1' (on line %d).\n", name.c_str(), lineno);
                 expr.push_back("1");
             }
 
@@ -199,13 +199,13 @@ struct GateMateCCFReader
                 boost::algorithm::to_lower(type);
                 if (type == "default_gpio") {
                     if (words.size() != 1)
-                        log_error("line with default_GPIO should not contain only parameters (in line %d).\n", lineno);
+                        log_error("Line with default_GPIO should not contain only parameters (in line %d).\n", lineno);
                     params.erase(params.begin());
                     parse_params(params, true, &defaults);
 
                 } else if (type == "net" || type == "pin_in" || type == "pin_out" || type == "pin_inout") {
                     if (words.size() < 3 || words.size() > 5)
-                        log_error("pin definition line not properly formed (in line %d).\n", lineno);
+                        log_error("Pin definition line not properly formed (in line %d).\n", lineno);
                     std::string pin_name = strip_quotes(words.at(1));
 
                     // put back other words and use them as parameters
@@ -223,7 +223,7 @@ struct GateMateCCFReader
                     } else
                         log_warning("Pad with name '%s' not found in netlist.\n", pin_name.c_str());
                 } else {
-                    log_error("unknown type '%s' in line %d.\n", type.c_str(), lineno);
+                    log_error("Unknown type '%s' in line %d.\n", type.c_str(), lineno);
                 }
 
                 linebuf = linebuf.substr(pos + 1);
@@ -231,7 +231,7 @@ struct GateMateCCFReader
             }
         }
         if (!isempty(linebuf))
-            log_error("unexpected end of CCF file\n");
+            log_error("Unexpected end of CCF file.\n");
         int max_num = 0;
         uarch->preferred_die = 0;
         for (int i = 0; i < uarch->dies; i++) {
@@ -247,7 +247,7 @@ void GateMateImpl::parse_ccf(const std::string &filename)
 {
     std::ifstream in(filename);
     if (!in)
-        log_error("failed to open CCF file '%s'\n", filename.c_str());
+        log_error("Failed to open CCF file '%s'.\n", filename.c_str());
     GateMateCCFReader reader(ctx, this, in);
     reader.run();
 }

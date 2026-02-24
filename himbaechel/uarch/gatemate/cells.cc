@@ -143,7 +143,7 @@ CellInfo *GateMatePacker::create_cell_ptr(IdString type, IdString name)
         add_port(id_USR_PLL_LOCKED_STDY, PORT_OUT);
         add_port(id_USR_LOCKED_STDY_RST, PORT_IN);
     } else {
-        log_error("Trying to create unknown cell type %s\n", type.c_str(ctx));
+        log_error("Trying to create unknown cell type %s.\n", type.c_str(ctx));
     }
     return cell;
 }

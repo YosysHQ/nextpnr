@@ -37,7 +37,7 @@ void GateMatePacker::pack_io()
     // Trim nextpnr IOBs - assume IO buffer insertion has been done in synthesis
     for (auto &port : ctx->ports) {
         if (!ctx->cells.count(port.first))
-            log_error("Port '%s' doesn't seem to have a corresponding top level IO\n", ctx->nameOf(port.first));
+            log_error("Port '%s' doesn't seem to have a corresponding top level IO.\n", ctx->nameOf(port.first));
         CellInfo *ci = ctx->cells.at(port.first).get();
 
         PortRef top_port;
@@ -51,7 +51,7 @@ void GateMatePacker::pack_io()
             if (o == nullptr)
                 ;
             else if (o->users.entries() > 1)
-                log_error("Top level pin '%s' has multiple input buffers\n", ctx->nameOf(port.first));
+                log_error("Top level pin '%s' has multiple input buffers.\n", ctx->nameOf(port.first));
             else if (o->users.entries() == 1)
                 top_port = *o->users.begin();
         }
@@ -61,15 +61,15 @@ void GateMatePacker::pack_io()
             NetInfo *i = ci->getPort(id_I);
             if (i != nullptr && i->driver.cell != nullptr) {
                 if (top_port.cell != nullptr)
-                    log_error("Top level pin '%s' has multiple input/output buffers\n", ctx->nameOf(port.first));
+                    log_error("Top level pin '%s' has multiple input/output buffers.\n", ctx->nameOf(port.first));
                 top_port = i->driver;
             }
             // Edge case of a bidirectional buffer driving an output pin
             if (i->users.entries() > 2) {
-                log_error("Top level pin '%s' has illegal buffer configuration\n", ctx->nameOf(port.first));
+                log_error("Top level pin '%s' has illegal buffer configuration.\n", ctx->nameOf(port.first));
             } else if (i->users.entries() == 2) {
                 if (top_port.cell != nullptr)
-                    log_error("Top level pin '%s' has illegal buffer configuration\n", ctx->nameOf(port.first));
+                    log_error("Top level pin '%s' has illegal buffer configuration.\n", ctx->nameOf(port.first));
                 for (auto &usr : i->users) {
                     if (usr.cell->type == ctx->id("$nextpnr_obuf") || usr.cell->type == ctx->id("$nextpnr_iobuf"))
                         continue;
@@ -79,7 +79,7 @@ void GateMatePacker::pack_io()
             }
         }
         if (!is_npnr_iob)
-            log_error("Port '%s' doesn't seem to have a corresponding top level IO (internal cell type mismatch)\n",
+            log_error("Port '%s' doesn't seem to have a corresponding top level IO (internal cell type mismatch).\n",
                       ctx->nameOf(port.first));
 
         if (top_port.cell == nullptr) {
@@ -129,7 +129,7 @@ void GateMatePacker::pack_io()
         if (ci.params.count(id_LOC)) {
             std::string new_loc = str_or_default(ci.params, id_LOC, "UNPLACED");
             if (loc != "UNPLACED" && loc != new_loc)
-                log_warning("Overriding location of cell '%s' from '%s' with '%s'\n", ctx->nameOf(&ci), loc.c_str(),
+                log_warning("Overriding location of cell '%s' from '%s' with '%s'.\n", ctx->nameOf(&ci), loc.c_str(),
                             new_loc.c_str());
             loc = new_loc;
         }
@@ -329,12 +329,12 @@ void GateMatePacker::pack_io()
                 bel = ctx->get_package_pin_bel(ctx->id(loc));
         }
         if (bel == BelId())
-            log_error("Unable to constrain IO '%s', device does not have a pin named '%s'\n", ci.name.c_str(ctx),
+            log_error("Unable to constrain IO '%s', device does not have a pin named '%s'.\n", ci.name.c_str(ctx),
                       loc.c_str());
         log_info("    Constraining '%s' to pad '%s'%s.\n", ci.name.c_str(ctx), loc.c_str(),
                  get_die_name(uarch->dies, uarch->tile_extra_data(bel.tile)->die).c_str());
         if (!ctx->checkBelAvail(bel)) {
-            log_error("Can't place %s at %s because it's already taken by %s\n", ctx->nameOf(&ci), ctx->nameOfBel(bel),
+            log_error("Can't place %s at %s because it's already taken by %s.\n", ctx->nameOf(&ci), ctx->nameOfBel(bel),
                       ctx->nameOf(ctx->getBoundBelCell(bel)));
         }
 

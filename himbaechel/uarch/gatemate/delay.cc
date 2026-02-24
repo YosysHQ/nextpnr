@@ -326,7 +326,7 @@ TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString 
         }
         NPNR_ASSERT_FALSE_STR("no timing type for RAM port '" + port.str(ctx) + "'");
     } else {
-        log_error("cell type '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(ctx),
+        log_error("Cell type '%s' is unsupported (instantiated as '%s').\n", cell->type.c_str(ctx),
                   cell->name.c_str(ctx));
     }
 }
@@ -516,7 +516,7 @@ TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdStr
                 break;
             }
         } else {
-            log_error("Unknown clock signal for %s\n", name.c_str());
+            log_error("Unknown clock signal for %s.\n", name.c_str());
         }
     }
 

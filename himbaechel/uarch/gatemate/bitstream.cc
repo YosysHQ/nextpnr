@@ -243,10 +243,10 @@ struct BitstreamBackend
         NPNR_ASSERT(!(all_correct && all_inverted) && "net doesn't drive any ports?");
 
         if (!all_correct && !all_inverted) {
-            log_warning("multiplier net '%s' has inconsistent inversion\n", net->name.c_str(ctx));
+            log_warning("Multiplier net '%s' has inconsistent inversion.\n", net->name.c_str(ctx));
 
             auto driver_loc = ctx->getBelLocation(net->driver.cell->bel);
-            log_warning("net is driven from (%d, %d)\n", driver_loc.x, driver_loc.y);
+            log_warning("Net is driven from (%d, %d)\n", driver_loc.x, driver_loc.y);
 
             log_warning("  these ports are not inverted:\n");
             for (PortRef user : net->users) {
@@ -272,7 +272,7 @@ struct BitstreamBackend
         } else if (all_inverted) {
             params[id_INIT_L10] = Property(~driver_l10 & 0b1111, 4);
             if (ctx->debug)
-                log_info("multiplier net '%s': fixed inversion\n", net->name.c_str(ctx));
+                log_info("Multiplier net '%s': fixed inversion.\n", net->name.c_str(ctx));
         }
     }
 
@@ -468,7 +468,7 @@ struct BitstreamBackend
             case id_CFG_CTRL.index:
                 break;
             default:
-                log_error("Unhandled cell %s of type %s\n", cell.second.get()->name.c_str(ctx),
+                log_error("Unhandled cell %s of type %s.\n", cell.second.get()->name.c_str(ctx),
                           cell.second->type.c_str(ctx));
             }
         }
@@ -508,7 +508,7 @@ void GateMateImpl::write_bitstream(const std::string &device, const std::string 
 {
     std::ofstream out(filename);
     if (!out)
-        log_error("failed to open file %s for writing (%s)\n", filename.c_str(), strerror(errno));
+        log_error("Failed to open file '%s' for writing (%s).\n", filename.c_str(), strerror(errno));
 
     BitstreamBackend be(ctx, this, device, out);
     be.write_bitstream();

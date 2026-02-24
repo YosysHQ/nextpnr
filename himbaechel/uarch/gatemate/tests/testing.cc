@@ -196,7 +196,7 @@ CellInfo *GateMateTest::create_cell_ptr(IdString type, std::string name)
         break;
 
     default:
-        log_error("Trying to create unknown cell type %s\n", type.c_str(ctx));
+        log_error("Trying to create unknown cell type %s.\n", type.c_str(ctx));
         break;
     }
     return cell;

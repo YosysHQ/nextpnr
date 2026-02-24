@@ -79,6 +79,7 @@ void GateMatePacker::sort_bufg(unsigned max_num)
     flush_cells();
 }
 
+// clang-format off
 static int glb_mux_mapping[] = {
         // CLK0_0 CLK90_0 CLK180_0 CLK270_0 CLK0_1 CLK0_2 CLK0_3
         4, 5, 6, 7, 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, // GLBOUT 0
@@ -89,6 +90,7 @@ static int glb_mux_mapping[] = {
         // CLK270_0 CLK270_1 CLK270_2 CLK0_3 CLK90_3 CLK180_3 CLK270_3
         0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 3, 4, 5, 6, 7, // GLBOUT 3
 };
+// clang-format on
 
 void GateMatePacker::pack_bufg()
 {
@@ -144,7 +146,7 @@ void GateMatePacker::pack_bufg()
         }
     } while (std::next_permutation(indexes.begin(), indexes.end()));
     if (!valid)
-        log_error("Unable to place PLLs and BUFGs\n");
+        log_error("Unable to place PLLs and BUFGs.\n");
 
     for (unsigned i = 0; i < max_plls; ++i) {
 
@@ -317,7 +319,7 @@ void GateMatePacker::pll_out(CellInfo *cell, IdString origPort, Loc fixed)
     }
     if (bufg) {
         if (net->users.entries() != 1) {
-            log_error("not handled BUFG\n");
+            log_error("Not handled BUFG.\n");
         }
     } else {
         move_ram_i_fixed(cell, origPort, fixed);
@@ -487,11 +489,11 @@ void GateMatePacker::pack_pll()
                 log_error("OUT_CLK parameter is out of range (0,%.2lf] for '%s'.\n", max_freq, ci.name.c_str(ctx));
 
             if ((ci_const < 1) || (ci_const > 31)) {
-                log_warning("CI const out of range. Set to default CI = 2 for '%s'\n", ci.name.c_str(ctx));
+                log_warning("CI const out of range. Set to default CI = 2 for '%s'.\n", ci.name.c_str(ctx));
                 ci_const = 2;
             }
             if ((cp_const < 1) || (cp_const > 31)) {
-                log_warning("CP const out of range. Set to default CP = 4 for '%s'\n", ci.name.c_str(ctx));
+                log_warning("CP const out of range. Set to default CP = 4 for '%s'.\n", ci.name.c_str(ctx));
                 cp_const = 4;
             }
             // PLL_cfg_val_800_1400  PLL values from 11.08.2021
@@ -537,7 +539,7 @@ void GateMatePacker::pack_pll()
                 ci.params[ctx->id("CFG_A_M2")] = Property(val.M2, 10);
                 ci.params[ctx->id("CFG_A_PDIV1_SEL")] = Property(val.PDIV1 == 2 ? 1 : 0, 1);
             } else {
-                log_error("Unable to configure PLL %s\n", ci.name.c_str(ctx));
+                log_error("Unable to configure PLL %s.\n", ci.name.c_str(ctx));
             }
             // Remove all not propagated parameters
             ci.unsetParam(id_PERF_MD);
@@ -666,15 +668,15 @@ void GateMatePacker::rewire_ram_o(CellInfo *first, IdString port, CellInfo *seco
                 net = net->driver.cell->getPort(id_IN1);
                 break;
             default:
-                log_error("Unsupported config, rewire from '%s' port '%s'\n", first->name.c_str(ctx), port.c_str(ctx));
+                log_error("Unsupported config, rewire from '%s' port '%s'.\n", first->name.c_str(ctx), port.c_str(ctx));
                 break;
             }
             second->connectPort(port, net);
         } else {
-            log_error("Missing cell, rewire from '%s' port '%s'\n", first->name.c_str(ctx), port.c_str(ctx));
+            log_error("Missing cell, rewire from '%s' port '%s'.\n", first->name.c_str(ctx), port.c_str(ctx));
         }
     } else {
-        log_error("Missing cell, rewire from '%s' port '%s'\n", first->name.c_str(ctx), port.c_str(ctx));
+        log_error("Missing cell, rewire from '%s' port '%s'.\n", first->name.c_str(ctx), port.c_str(ctx));
     }
 }
 

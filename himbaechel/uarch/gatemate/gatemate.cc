@@ -92,10 +92,10 @@ void GateMateImpl::init_database(Arch *arch)
         speed_grade = "worst_";
         break;
     }
-    log_info("Using timing mode '%s'\n", timing_mode == 1   ? "BEST"
-                                         : timing_mode == 2 ? "TYPICAL"
-                                         : timing_mode == 3 ? "WORST"
-                                                            : "");
+    log_info("Using timing mode '%s'.\n", timing_mode == 1   ? "BEST"
+                                          : timing_mode == 2 ? "TYPICAL"
+                                          : timing_mode == 3 ? "WORST"
+                                                             : "");
 
     switch (fpga_mode) {
     case 1:
@@ -107,10 +107,10 @@ void GateMateImpl::init_database(Arch *arch)
     default:
         speed_grade += "spd";
     }
-    log_info("Using operation mode '%s'\n", fpga_mode == 1   ? "LOWPOWER"
-                                            : fpga_mode == 2 ? "ECONOMY"
-                                            : fpga_mode == 3 ? "SPEED"
-                                                             : "");
+    log_info("Using operation mode '%s'.\n", fpga_mode == 1   ? "LOWPOWER"
+                                             : fpga_mode == 2 ? "ECONOMY"
+                                             : fpga_mode == 3 ? "SPEED"
+                                                              : "");
     arch->set_speed_grade(speed_grade);
 }
 

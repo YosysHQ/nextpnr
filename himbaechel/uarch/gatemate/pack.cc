@@ -103,10 +103,10 @@ void GateMatePacker::copy_constraint(const NetInfo *in_net, NetInfo *out_net)
     if (!in_net || !out_net)
         return;
     if (ctx->debug)
-        log_info("copy clock period constraint on net '%s' from net '%s'\n", out_net->name.c_str(ctx),
+        log_info("Copy clock period constraint on net '%s' from net '%s'\n", out_net->name.c_str(ctx),
                  in_net->name.c_str(ctx));
     if (out_net->clkconstr.get() != nullptr)
-        log_warning("found multiple clock constraints on net '%s'\n", out_net->name.c_str(ctx));
+        log_warning("Found multiple clock constraints on net '%s'\n", out_net->name.c_str(ctx));
     if (in_net->clkconstr) {
         out_net->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint());
         out_net->clkconstr->low = in_net->clkconstr->low;
@@ -576,15 +576,16 @@ void GateMateImpl::pack()
         std::string val = args.options["strategy"].as<std::string>();
         if (val == "mirror") {
             strategy = MultiDieStrategy::CLOCK_MIRROR;
-            log_info("Multidie mode: CLOCK MIRROR\n");
+            log_info("Multidie mode: CLOCK MIRROR.\n");
         } else if (val == "clk1") {
             strategy = MultiDieStrategy::REUSE_CLK1;
-            log_info("Multidie mode: REUSE CLK1\n");
+            log_info("Multidie mode: REUSE CLK1.\n");
         } else if (val == "full") {
             strategy = MultiDieStrategy::FULL_USE;
-            log_info("Multidie mode: FULL USE\n");
+            log_info("Multidie mode: FULL USE.\n");
         } else {
-            log_error("Unknown value for 'strategy' option. Allowed values are 'mirror', 'full' and 'clk1'.\n");
+            log_error("Unknown value='%s' for 'strategy' option. Allowed values are 'mirror', 'full' and 'clk1'.\n",
+                      val.c_str());
         }
     } else {
         strategy = MultiDieStrategy::CLOCK_MIRROR;

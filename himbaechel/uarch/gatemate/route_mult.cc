@@ -48,7 +48,7 @@ void find_and_bind_downhill_pip(Context *ctx, WireId from, WireId to, NetInfo *n
             return;
         }
     }
-    log_error("Couldn't find pip from %s to %s\n", ctx->nameOfWire(from), ctx->nameOfWire(to));
+    log_error("Couldn't find pip from %s to %s.\n", ctx->nameOfWire(from), ctx->nameOfWire(to));
 }
 
 void route_mult_diag(Context *ctx, NetInfo *net, Loc loc, WireId last_wire, int plane)

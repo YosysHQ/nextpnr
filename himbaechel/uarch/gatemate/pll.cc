@@ -208,18 +208,18 @@ PllCfgRecord GateMatePacker::get_pll_settings(double f_ref, double f_core, int m
     double f_core_par = f_core;
 
     if (f_ref > 50)
-        log_warning("The PLL input frequency is outside the specified frequency (max 50 MHz ) range\n");
+        log_warning("The PLL input frequency is outside the specified frequency (max 50 MHz) range.\n");
 
     if (pdiv0_mux && feedback) {
         double res;
         if (modf(f_core / f_ref, &res) != 0)
-            log_warning("In this PLL mode f_core can only be greater and multiple of f_ref\n");
+            log_warning("In this PLL mode f_core can only be greater and multiple of f_ref.\n");
     }
 
     if (pdiv0_mux) {
         if (f_core > max_input_freq / 4) {
             f_core = max_input_freq / 4;
-            log_warning("Frequency out of range; PLL max output frequency for mode: %d: %.5f MHz\n", mode,
+            log_warning("Frequency out of range; PLL max output frequency for mode: %d: %.5f MHz.\n", mode,
                         max_input_freq / 4);
         }
     }
