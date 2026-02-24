@@ -97,16 +97,44 @@ struct FabulousPacker
 
     void prepare_ffs()
     {
+        // The following LUTFF are supported:
+        // Enable before reset: LUTFF_[N][E][AS|AR|SS|SR]
+        // Reset before enable: LUTFF_[N][AS|AR|SS|SR][E]
+
+        // Note: A simple LUTFF will have SR and EN disconnected,
+        //       ensure that the default value is SR=0 and EN=1.
+
+        // N  ... clock inversion (NEG_CLK=1)
+        // E  ... clock enable    (EN port)
+        // AS ... async set       (SET_NORESET=1, ASYNC_SR=1)
+        // AR ... async reset     (SET_NORESET=0, ASYNC_SR=1)
+        // SS ... sync set        (SET_NORESET=1, ASYNC_SR=0)
+        // SR ... sync reset      (SET_NORESET=0, ASYNC_SR=0)
+
+        // The ports of FABULOUS_FF are:
+        // - CLK: clock
+        // - SR: set/reset
+        // - EN: enable
+
+        // The parameters of FABULOUS_FF are:
+        // - SET_NORESET: the value to load into the flip-flop when SR=1
+        // - ASYNC_SR: used to indicate asynchronous load
+        // - NEG_CLK: invert the clock
+
+        // Note: Both ASYNC_SR and NEG_CLK are currently unused by the default FABulous fabric.
+
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
             const std::string &type_str = ci->type.str(ctx);
             if (type_str.size() < 5 || type_str.substr(0, 5) != "LUTFF")
                 continue;
             ci->type = id_FABULOUS_FF;
+
             // parse config string and unify
             size_t idx = 5;
             if (idx < type_str.size() && type_str.at(idx) == '_')
                 ++idx;
+
             // clock inversion
             if (idx < type_str.size() && type_str.at(idx) == 'N') {
                 ci->params[id_NEG_CLK] = 1;
@@ -114,36 +142,70 @@ struct FabulousPacker
             } else {
                 ci->params[id_NEG_CLK] = 0;
             }
-            // clock enable
+
+            // clock enable (enable before reset)
             if (idx < type_str.size() && type_str.at(idx) == 'E')
                 ++idx;
-            if (ci->ports.count(id_E))
-                ci->renamePort(id_E, id_EN);
-            else
-                ci->addInput(id_EN); // autocreate emtpy enable port if enable missing or unused
-            // sr presence and type
-            std::string srt = type_str.substr(idx);
-            if (srt == "S") {
-                ci->params[id_SET_NORESET] = 1;
-                ci->params[id_ASYNC_SR] = 1;
-            } else if (srt == "R") {
-                ci->params[id_SET_NORESET] = 0;
-                ci->params[id_ASYNC_SR] = 1;
-            } else if (srt == "SS") {
+
+            // default settings
+            ci->params[id_SET_NORESET] = 0;
+            ci->params[id_ASYNC_SR] = 0;
+
+            // synchronous set
+            if (idx < type_str.size() - 1 && type_str.substr(idx, 2) == "SS") {
                 ci->params[id_SET_NORESET] = 1;
                 ci->params[id_ASYNC_SR] = 0;
-            } else if (srt == "SR" || srt == "") {
+                idx += 2;
+            }
+
+            // synchronous reset
+            if (idx < type_str.size() - 1 && type_str.substr(idx, 2) == "SR") {
                 ci->params[id_SET_NORESET] = 0;
                 ci->params[id_ASYNC_SR] = 0;
-            } else {
+                idx += 2;
+            }
+
+            // asynchronous set
+            if (idx < type_str.size() - 1 && type_str.substr(idx, 2) == "AS") {
+                ci->params[id_SET_NORESET] = 1;
+                ci->params[id_ASYNC_SR] = 1;
+                idx += 2;
+            }
+
+            // asynchronous reset
+            if (idx < type_str.size() - 1 && type_str.substr(idx, 2) == "AR") {
+                ci->params[id_SET_NORESET] = 0;
+                ci->params[id_ASYNC_SR] = 1;
+                idx += 2;
+            }
+
+            // clock enable (reset before enable)
+            if (idx < type_str.size() && type_str.at(idx) == 'E')
+                ++idx;
+
+            // check that we are the end of the string
+            if (idx != type_str.size()) {
+                log_error("unhandled FF type %s of cell %s\n", type_str.c_str(), ci->name.c_str(ctx));
                 NPNR_ASSERT_FALSE("unhandled FF type");
             }
+
+            // Rename S/R ports to SR
             if (ci->ports.count(id_S))
                 ci->renamePort(id_S, id_SR);
             else if (ci->ports.count(id_R))
                 ci->renamePort(id_R, id_SR);
+
+            // Rename E port to EN
+            if (ci->ports.count(id_E))
+                ci->renamePort(id_E, id_EN);
+
+            // autocreate empty set/reset port if enable missing or unused
             if (!ci->ports.count(id_SR))
-                ci->addInput(id_SR); // autocreate emtpy enable port if enable missing or unused
+                ci->addInput(id_SR);
+
+            // autocreate empty enable port if enable missing or unused
+            if (!ci->ports.count(id_EN))
+                ci->addInput(id_EN);
         }
     }
 
