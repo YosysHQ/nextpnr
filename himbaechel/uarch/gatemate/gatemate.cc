@@ -57,7 +57,7 @@ static int parse_mode(const std::string &val, const std::map<std::string, int> &
         if (it != map.end())
             return it->second;
     }
-    log_error("%s\n", error_msg);
+    log_error("Invalid mode='%s', %s", val.c_str(), error_msg);
 }
 
 void GateMateImpl::init_database(Arch *arch)
@@ -75,10 +75,10 @@ void GateMateImpl::init_database(Arch *arch)
 
     if (args.options.count("fpga_mode"))
         fpga_mode = parse_mode(args.options["fpga_mode"].as<std::string>(), fpga_map,
-                               "operation mode valid values are {1:lowpower, 2:economy, 3:speed}");
+                               "operation valid values are {1:lowpower, 2:economy, 3:speed}.\n");
     if (args.options.count("time_mode"))
         timing_mode = parse_mode(args.options["time_mode"].as<std::string>(), timing_map,
-                                 "timing mode valid values are {1:best, 2:typical, 3:worst}");
+                                 "timing valid values are {1:best, 2:typical, 3:worst}.\n");
 
     std::string speed_grade = "";
     switch (timing_mode) {
