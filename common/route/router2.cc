@@ -707,6 +707,7 @@ struct Router2
 
         // This records the point where forwards and backwards routing met
         int midpoint_wire = -1;
+        float best_midpoint_cost = 0;
         int explored = 1;
 
         for (; mode < 2; mode++) {
@@ -776,7 +777,7 @@ struct Router2
             // Mode 0 required both queues to be live
             while (((mode == 0) ? (!t.fwd_queue.empty() && !t.bwd_queue.empty())
                                 : (!t.fwd_queue.empty() || !t.bwd_queue.empty())) &&
-                   (!is_bb || iter < toexplore)) {
+                   ((!is_bb && midpoint_wire == -1) || iter < toexplore)) {
                 ++iter;
                 if (!t.fwd_queue.empty() && !const_mode) {
                     // Explore forwards
@@ -828,11 +829,26 @@ struct Router2
                     t.bwd_queue.pop();
                     ++explored;
                     auto &curr_data = flat_wires.at(curr.wire);
-                    if (was_visited_fwd(curr.wire, std::numeric_limits<float>::max()) ||
-                        (const_mode && ctx->getWireConstantValue(curr_data.w) == net->constant_value)) {
-                        // Meet in the middle; done
-                        midpoint_wire = curr.wire;
-                        break;
+                    if (const_mode && ctx->getWireConstantValue(curr_data.w) == net->constant_value) {
+                        if (midpoint_wire == -1) {
+                            midpoint_wire = curr.wire;
+                            best_midpoint_cost = curr.score.cost;
+                            if (curr_cong_weight >= 10) { 
+                                // try harder at this point to prevent infinite iterations when constants conflict
+                                toexplore = iter + std::min(200, int(curr.score.cost));
+                            } else {
+                                break;
+                            }
+                        } else if (curr.score.cost < best_midpoint_cost) {
+                            midpoint_wire = curr.wire;
+                            best_midpoint_cost = curr.score.cost;
+                        }
+                    } else {
+                        if (was_visited_fwd(curr.wire, std::numeric_limits<float>::max())) {
+                            // Meet in the middle; done
+                            midpoint_wire = curr.wire;
+                            break;
+                        } 
                     }
                     // Don't allow the same wire to be bound to the same net with a different driving pip
                     PipId bound_pip;
