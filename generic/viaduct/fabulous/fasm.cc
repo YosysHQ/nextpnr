@@ -170,7 +170,7 @@ struct FabFasmWriter
             unsigned width = 1U << cfg.clb.lut_k;
             write_int_vector(stringf("INIT[%d:0]", width - 1), init, width); // todo lut depermute and thru
             if (bool_or_default(lc->params, id_I0MUX, false))
-                add_feature("IOmux"); // typo in FABulous?
+                add_feature("I0mux");
         }
         if (lc->type == id_FABULOUS_LC) {
             write_bool(lc, "FF");
