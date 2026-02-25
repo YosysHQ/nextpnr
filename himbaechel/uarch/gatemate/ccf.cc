@@ -299,7 +299,7 @@ struct GateMateCCFReader
 
                                     if (x1 < 0 || x1 >= ctx->getGridDimX() || x2 < 0 || x2 >= ctx->getGridDimX() ||
                                         y1 < 0 || y1 >= ctx->getGridDimY() || y2 < 0 || y2 >= ctx->getGridDimY())
-                                        log_error("Placebox coordinates out of range '%s' in line %d\n",
+                                        log_error("Placebox coordinates out of range '%s' in line %d.\n",
                                                   pb_position.c_str(), lineno);
 
                                     IdString scopename(ctx, src_location.c_str());
@@ -319,17 +319,17 @@ struct GateMateCCFReader
                                     }
 
                                     if (!matched_any) {
-                                        log_error("Unknown scope name or pattern: '%s' in line %d\n",
+                                        log_error("Unknown scope name or pattern: '%s' in line %d.\n",
                                                   src_location.c_str(), lineno);
                                     }
                                 } else {
-                                    log_error("Placebox format invalid: %s in line %d\n", pb_position.c_str(), lineno);
+                                    log_error("Placebox format invalid: %s in line %d.\n", pb_position.c_str(), lineno);
                                 }
                             } else {
-                                log_error("Missing data for pB (in line %d)\n", lineno);
+                                log_error("Missing data for pB (in line %d).\n", lineno);
                             }
                         } else {
-                            log_error("Unexpected content in last segment (in line %d)\n", lineno);
+                            log_error("Unexpected content in last segment (in line %d).\n", lineno);
                         }
                     }
                 }
@@ -386,7 +386,7 @@ struct GateMateCCFReader
                     if (word2 == "floorplanning") {
                         log("Found floor planning\n");
                     } else
-                        log_error("unknown command '%s' in line %d.\n", word2.c_str(), lineno);
+                        log_error("Unknown command '%s' in line %d.\n", word2.c_str(), lineno);
 
                 } else {
                     log_error("Unknown type '%s' in line %d.\n", type.c_str(), lineno);
