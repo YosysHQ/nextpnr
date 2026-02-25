@@ -52,6 +52,8 @@ struct GateMateImpl : HimbaechelAPI
     void preRoute() override;
     void postRoute() override;
 
+    virtual std::string getDefaultRouter() const override { return "router2"; };
+
     BoundingBox getRouteBoundingBox(WireId src, WireId dst) const override;
     void expandBoundingBox(BoundingBox &bb) const override;
     bool checkPipAvail(PipId pip) const override;

@@ -287,6 +287,9 @@ bool Arch::route()
     set_fast_pip_delays(true);
     uarch->preRoute();
     std::string router = str_or_default(settings, id("router"), defaultRouter);
+    if (router == "default") {
+        router = uarch->getDefaultRouter();
+    }
     bool result;
     if (router == "router1") {
         result = router1(getCtx(), Router1Cfg(getCtx()));
@@ -402,8 +405,8 @@ const std::string Arch::defaultPlacer = "heap";
 
 const std::vector<std::string> Arch::availablePlacers = {"sa", "heap"};
 
-const std::string Arch::defaultRouter = "router1";
-const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
+const std::string Arch::defaultRouter = "default";
+const std::vector<std::string> Arch::availableRouters = {"default", "router1", "router2"};
 
 void Arch::set_fast_pip_delays(bool fast_mode)
 {

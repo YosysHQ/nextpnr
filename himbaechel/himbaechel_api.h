@@ -147,6 +147,8 @@ struct HimbaechelAPI
     // For custom placer configuration
     virtual void configurePlacerHeap(PlacerHeapCfg &cfg) {};
 
+    virtual std::string getDefaultRouter() const { return "router1"; };
+
     virtual ~HimbaechelAPI() {};
 };
 
