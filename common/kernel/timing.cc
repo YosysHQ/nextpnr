@@ -880,7 +880,7 @@ std::vector<PortRef> TimingAnalyser::walk_crit_path(domain_id_t domain_pair, Cel
         } else {
             cursor = ports.at(cursor).arrival.at(dp.key.launch).bwd_min;
         }
-        is_startpoint = portClass == TMG_REGISTER_OUTPUT || portClass == TMG_STARTPOINT;
+        is_startpoint = portClass == TMG_STARTPOINT;
     } while (!is_startpoint);
 
     return crit_path_rev;
