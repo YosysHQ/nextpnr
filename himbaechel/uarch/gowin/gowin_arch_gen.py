@@ -1610,6 +1610,15 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
         rf = int(group[3] * 1000)
         return TimingValue(min(ff, fr, rf, rr), max(ff, fr, rf, rr))
 
+    def add_bram_bus_input(cell, clock, bus, width, group):
+        for i in range(width):
+            cell.add_setup_hold(clock, f"{bus}{i}", ClockEdge.RISING, group_to_timingvalue(arc[f"{group}_set"]), group_to_timingvalue(arc[f"{group}_hold"]))
+
+    def add_bram_bus_output(cell, clock, bus, width, group):
+        for i in range(width):
+            cell.add_clock_out(clock, f"{bus}{i}", ClockEdge.RISING, group_to_timingvalue(arc[group]))
+
+
     speed_grades = []
     for speed in db.timing.keys():
         speed_grades.append(speed)
@@ -1692,7 +1701,50 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
                             dff.add_setup_hold("CLK", port, ClockEdge.FALLING, group_to_timingvalue(arc["lsr_clksetneg_asyn"]), group_to_timingvalue(arc["lsr_clkholdneg_asyn"]))
                             dff.add_comb_arc(port, "Q", group_to_timingvalue(arc["lsr_q"]))
             elif group == "bram":
-                pass # TODO
+                for sp_type in ("SP", "SPX9"):
+                    sp = tmg.add_cell_variant(speed, sp_type)
+                    add_bram_bus_output(sp, "CLK", "DO", 36 if sp_type == "SPX9" else 32, "clk_do_bypass")
+                    add_bram_bus_input(sp, "CLK", "DI", 36 if sp_type == "SPX9" else 32, "clk_di")
+                    add_bram_bus_input(sp, "CLK", "AD", 14, "clk_ad")
+                    add_bram_bus_input(sp, "CLK", "BLKSEL", 3, "clk_blksel")
+
+                    for sig in ["CE", "WRE", "OCE", "RESET"]:
+                        sp.add_setup_hold("CLK", sig, ClockEdge.RISING, group_to_timingvalue(arc[f"clk_{sig.lower()}_set"]), group_to_timingvalue(arc[f"clk_{sig.lower()}_hold"]))
+                for sdp_type in ("SDP", "SDPX9", "SDPB", "SDPX9B"):
+                    sdp = tmg.add_cell_variant(speed, sdp_type)
+                    add_bram_bus_output(sdp, "CLKB", "DO", 36 if sdp_type.startswith("SDPX9") else 32, "clkb_do_bypass")
+                    add_bram_bus_input(sdp, "CLKA", "DI", 36 if sdp_type.startswith("SDPX9") else 32, "clka_di")
+                    add_bram_bus_input(sdp, "CLKA", "ADA", 14, "clka_ada")
+                    add_bram_bus_input(sdp, "CLKB", "ADB", 14, "clkb_adb")
+
+                    add_bram_bus_input(sdp, "CLKA", "BLKSELA", 3, "clka_blksel")
+                    add_bram_bus_input(sdp, "CLKB", "BLKSELB", 3, "clkb_blksel")
+
+                    for sig in ["CEA", "WREA", "RESETA"]:
+                        sdp.add_setup_hold("CLKA", sig, ClockEdge.RISING, group_to_timingvalue(arc[f"clka_{sig.lower()}_set"]), group_to_timingvalue(arc[f"clka_{sig.lower()}_hold"]))
+
+                    for sig in ["CEB", "OCEB", "RESETB"]:
+                        sdp.add_setup_hold("CLKB", sig, ClockEdge.RISING, group_to_timingvalue(arc[f"clkb_{sig.lower()}_set"]), group_to_timingvalue(arc[f"clkb_{sig.lower()}_hold"]))
+
+                for dp_type in ("DP", "DPX9", "DPB", "DPX9B"):
+                    dp = tmg.add_cell_variant(speed, dp_type)
+                    add_bram_bus_output(dp, "CLKA", "DOA", 36 if dp_type.startswith("DPX9") else 32, "clka_doa_bypass")
+                    add_bram_bus_output(dp, "CLKB", "DO", 36 if dp_type.startswith("DPX9") else 32, "clkb_dob_bypass")
+                    add_bram_bus_input(dp, "CLKA", "DIA", 36 if dp_type.startswith("DPX9") else 32, "clka_dia")
+                    add_bram_bus_input(dp, "CLKB", "DIB", 36 if dp_type.startswith("DPX9") else 32, "clkb_dib")
+                    add_bram_bus_input(dp, "CLKA", "ADA", 14, "clka_ada")
+                    add_bram_bus_input(sp, "CLKB", "ADB", 14, "clkb_adb")
+
+                    add_bram_bus_input(dp, "CLKA", "BLKSELA", 3, "clka_blksel")
+                    add_bram_bus_input(dp, "CLKB", "BLKSELB", 3, "clkb_blksel")
+
+                    for sig in ["CEA", "OCEA", "WREA", "RESETA"]:
+                        dp.add_setup_hold("CLKA", sig, ClockEdge.RISING, group_to_timingvalue(arc[f"clka_{sig.lower()}_set"]), group_to_timingvalue(arc[f"clka_{sig.lower()}_hold"]))
+
+                    for sig in ["CEB", "OCEB", "WREB", "RESETB"]:
+                        dp.add_setup_hold("CLKB", sig, ClockEdge.RISING, group_to_timingvalue(arc[f"clkb_{sig.lower()}_set"]), group_to_timingvalue(arc[f"clkb_{sig.lower()}_hold"]))
+
+
             elif group == "fanout":
                 pass # handled in "wire"
             elif group == "glbsrc":
