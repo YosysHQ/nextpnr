@@ -429,6 +429,17 @@ void XilinxImpl::assign_cell_tags()
                 ct.carry.x_sigs[i] = nullptr;
             }
             ct.carry.x_sigs[0] = ci->getPort(id_CYINIT);
+        } else if (ci->type == id_RAMB18E1_RAMB18E1 || ci->type == id_RAMB36E1_RAMB36E1) {
+            bool read_sdp = ((ci->type == id_RAMB18E1_RAMB18E1 &&
+                              int_or_default(ci->params, ctx->id("READ_WIDTH_B"), 0) == 36) ||
+                             (ci->type == id_RAMB36E1_RAMB36E1 &&
+                              int_or_default(ci->params, ctx->id("READ_WIDTH_B"), 0) == 72));
+            bool write_sdp = ((ci->type == id_RAMB18E1_RAMB18E1 &&
+                               int_or_default(ci->params, ctx->id("WRITE_WIDTH_B"), 0) == 36) ||
+                              (ci->type == id_RAMB36E1_RAMB36E1 &&
+                               int_or_default(ci->params, ctx->id("WRITE_WIDTH_B"), 0) == 72));
+            ci->timing_index = ctx->get_cell_timing_idx(
+                    ctx->idf("%s_%s_%s", ci->type.c_str(ctx), write_sdp ? "WSDP" : "WTDP", read_sdp ? "RSDP" : "RTDP"));
         }
     }
 }

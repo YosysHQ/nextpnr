@@ -112,6 +112,8 @@ def parse_sdf_file(filename):
         else:
             inst = "top"
         cell = CellData(celltype, inst)
+        setups = {}
+        holds = {}
         for subentry in entry[3:]:
             if subentry[0] == "DELAY":
                 assert subentry[1][0] == "ABSOLUTE"
@@ -128,7 +130,16 @@ def parse_sdf_file(filename):
                     if check[0] == "SETUPHOLD":
                         cell.entries.append(
                             SetupHoldCheck(check[1], check[2], parse_delay(check[3][0]), parse_delay(check[4][0])))
+                    elif check[0] == "SETUP":
+                        setups[(check[1], check[2][1])] = parse_delay(check[3][0])
+                    elif check[0] == "HOLD":
+                        holds[(check[1], check[2][1])] = parse_delay(check[3][0])
                     elif check[0] == "WIDTH":
                         cell.entries.append(WidthCheck(check[1], parse_delay(check[2][0])))
+        # merge setups and holds
+        for k, v in setups.items():
+            if k not in holds:
+                continue
+            cell.entries.append(SetupHoldCheck(k[0], k[1], v, holds[k]))
         sdf.cells[(celltype, inst)] = cell
     return sdf
