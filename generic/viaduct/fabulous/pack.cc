@@ -334,8 +334,8 @@ struct FabulousPacker
             auto &ci = *cell.second;
             if (!ci.type.in(ibuf, obuf, iobuf))
                 continue;
-            log_info("port is unconstrained: %s This pin will be assigned randomly\n", ctx->nameOf(&ci));
             bool found_pad = false;
+            bool constrained = false;
             for (auto &port : ci.ports) {
                 NetInfo *net = port.second.net;
                 if (!net)
@@ -347,6 +347,8 @@ struct FabulousPacker
                     if (usr.port != id_PAD)
                         log_error("Top-level port '%s' connected to illegal port %s.%s (must be PAD)\n",
                                   ctx->nameOf(&ci), ctx->nameOf(usr.cell), ctx->nameOf(usr.port));
+                    if (usr.cell->attrs.count(id_BEL))
+                        constrained = true;
                     if (found_pad)
                         log_error("Top-level port '%s' connected to multiple PAD ports (at least %s.%s and %s.%s)\n",
                                   ctx->nameOf(&ci), ctx->nameOf(usr.cell), ctx->nameOf(usr.port),
@@ -362,6 +364,8 @@ struct FabulousPacker
                     if (drv.port != id_PAD)
                         log_error("Top-level port '%s' connected to illegal port %s.%s (must be PAD)\n",
                                   ctx->nameOf(&ci), ctx->nameOf(drv.cell), ctx->nameOf(drv.port));
+                    if (drv.cell->attrs.count(id_BEL))
+                        constrained = true;
                     if (found_pad)
                         log_error("Top-level port '%s' connected to multiple PAD ports (at least %s.%s and %s.%s)\n",
                                   ctx->nameOf(&ci), ctx->nameOf(drv.cell), ctx->nameOf(drv.port),
@@ -372,6 +376,8 @@ struct FabulousPacker
             if (!found_pad)
                 log_error("No IO cell found connected to '%s' via PAD port. Was iopadmap run in Yosys?\n",
                           ctx->nameOf(&ci));
+            if (!constrained)
+                log_info("port is unconstrained: %s This pin will be assigned randomly\n", ctx->nameOf(&ci));
             ci.disconnectPort(id_I);
             ci.disconnectPort(id_O);
             to_remove.push_back(ci.name);
