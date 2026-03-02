@@ -558,7 +558,13 @@ static bool incompatible_ffs(IdString type_a, IdString type_b)
             (type_a == id_DFFNP && type_b != id_DFFNC) || (type_a == id_DFFNC && type_b != id_DFFNP) ||
             (type_a == id_DFFNPE && type_b != id_DFFNCE) || (type_a == id_DFFNCE && type_b != id_DFFNPE) ||
             (type_a == id_DFF && type_b != id_DFF) || (type_a == id_DFFN && type_b != id_DFFN) ||
-            (type_a == id_DFFE && type_b != id_DFFE) || (type_a == id_DFFNE && type_b != id_DFFNE));
+            (type_a == id_DFFE && type_b != id_DFFE) || (type_a == id_DFFNE && type_b != id_DFFNE) ||
+            (type_a == id_DL && type_b != id_DL) || (type_a == id_DLE && type_b != id_DLE) ||
+            (type_a == id_DLN && type_b != id_DLN) || (type_a == id_DLNE && type_b != id_DLNE) ||
+            (type_a == id_DLC && type_b != id_DLP) || (type_a == id_DLP && type_b != id_DLC) ||
+            (type_a == id_DLCE && type_b != id_DLPE) || (type_a == id_DLPE && type_b != id_DLCE) ||
+            (type_a == id_DLNC && type_b != id_DLNP) || (type_a == id_DLNP && type_b != id_DLNC) ||
+            (type_a == id_DLNCE && type_b != id_DLNPE) || (type_a == id_DLNPE && type_b != id_DLNCE));
 }
 
 void GowinPacker::pack_io_regs(void)

@@ -894,6 +894,20 @@ X(DFFNPE)
 X(DFFNC)
 X(DFFNCE)
 
+// Latches
+X(DL)
+X(DLE)
+X(DLN)
+X(DLNE)
+X(DLC)
+X(DLCE)
+X(DLNC)
+X(DLNCE)
+X(DLP)
+X(DLPE)
+X(DLNP)
+X(DLNPE)
+
 // Shadow RAM
 X(ROM16)
 X(RAM16)

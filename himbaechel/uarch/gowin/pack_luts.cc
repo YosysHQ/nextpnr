@@ -514,7 +514,10 @@ void GowinPacker::constrain_lutffs(void)
                                      {id_DFFS, id_D}, {id_DFFSE, id_D}, {id_DFFNS, id_D}, {id_DFFNSE, id_D},
                                      {id_DFFR, id_D}, {id_DFFRE, id_D}, {id_DFFNR, id_D}, {id_DFFNRE, id_D},
                                      {id_DFFP, id_D}, {id_DFFPE, id_D}, {id_DFFNP, id_D}, {id_DFFNPE, id_D},
-                                     {id_DFFC, id_D}, {id_DFFCE, id_D}, {id_DFFNC, id_D}, {id_DFFNCE, id_D}};
+                                     {id_DFFC, id_D}, {id_DFFCE, id_D}, {id_DFFNC, id_D}, {id_DFFNCE, id_D},
+                                     {id_DL, id_D}, {id_DLE, id_D}, {id_DLN, id_D}, {id_DLNE, id_D},
+                                     {id_DLC, id_D}, {id_DLCE, id_D}, {id_DLNC, id_D}, {id_DLNCE, id_D},
+                                     {id_DLP, id_D}, {id_DLPE, id_D}, {id_DLNP, id_D}, {id_DLNPE, id_D}};
 
     int lutffs = h.constrain_cell_pairs(lut_outs, dff_ins, 1, 1);
     log_info("Constrained %d LUTFF pairs.\n", lutffs);

@@ -981,7 +981,15 @@ inline bool incompatible_ffs(const CellInfo *ff, const CellInfo *adj_ff)
             (ff->type == id_DFFNPE && adj_ff->type != id_DFFNCE) ||
             (ff->type == id_DFFNCE && adj_ff->type != id_DFFNPE) || (ff->type == id_DFF && adj_ff->type != id_DFF) ||
             (ff->type == id_DFFE && adj_ff->type != id_DFFE) || (ff->type == id_DFFN && adj_ff->type != id_DFFN) ||
-            (ff->type == id_DFFNE && adj_ff->type != id_DFFNE));
+            (ff->type == id_DFFNE && adj_ff->type != id_DFFNE) ||
+            (ff->type == id_DL && adj_ff->type != id_DL) ||
+            (ff->type == id_DLE && adj_ff->type != id_DLE) ||
+            (ff->type == id_DLN && adj_ff->type != id_DLN) ||
+            (ff->type == id_DLNE && adj_ff->type != id_DLNE) ||
+            (ff->type == id_DLC && adj_ff->type != id_DLP) || (ff->type == id_DLP && adj_ff->type != id_DLC) ||
+            (ff->type == id_DLCE && adj_ff->type != id_DLPE) || (ff->type == id_DLPE && adj_ff->type != id_DLCE) ||
+            (ff->type == id_DLNC && adj_ff->type != id_DLNP) || (ff->type == id_DLNP && adj_ff->type != id_DLNC) ||
+            (ff->type == id_DLNCE && adj_ff->type != id_DLNPE) || (ff->type == id_DLNPE && adj_ff->type != id_DLNCE));
 }
 
 // placement validation
