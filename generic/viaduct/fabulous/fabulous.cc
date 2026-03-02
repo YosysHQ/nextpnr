@@ -163,8 +163,6 @@ struct FabulousImpl : ViaductAPI
     FabricConfig cfg; // TODO: non-default config
     ViaductHelpers h;
 
-    WireId global_clk_wire;
-
     std::string fasm_file;
 
     std::string pcf_file;
@@ -222,6 +220,7 @@ struct FabulousImpl : ViaductAPI
         } else if (bel_type.in(id_InPass4_frame_config, id_OutPass4_frame_config)) {
             WireId clk_wire = get_wire(tile, id_CLK, id_REG_CLK);
             if (ctx->wires.at(clk_wire.index).uphill.empty()) {
+                WireId global_clk_wire = get_wire(ctx->id("X0Y0"), id_CLK, id_CLK);
                 add_pseudo_pip(global_clk_wire, clk_wire, id_global_clock);
             }
             ctx->addBelInput(bel, id_CLK, clk_wire);
@@ -234,6 +233,7 @@ struct FabulousImpl : ViaductAPI
         } else if (bel_type == id_RegFile_32x4) {
             WireId clk_wire = get_wire(tile, id_CLK, id_REG_CLK);
             ctx->addBelInput(bel, id_CLK, clk_wire);
+            WireId global_clk_wire = get_wire(ctx->id("X0Y0"), id_CLK, id_CLK);
             add_pseudo_pip(global_clk_wire, clk_wire, id_global_clock);
             for (parser_view p : ports) {
                 IdString port_id = p.to_id(ctx);
@@ -270,6 +270,7 @@ struct FabulousImpl : ViaductAPI
             // TODO: split LC mode, LUT permutation pseudo-switchbox, LUT thru pseudo-pips
             WireId clk_wire = get_wire(tile, ctx->idf("L%s_CLK", idx.c_str(ctx)), id_LUT_CLK);
             ctx->addBelInput(bel, id_CLK, clk_wire);
+            WireId global_clk_wire = get_wire(ctx->id("X0Y0"), id_CLK, id_CLK);
             add_pseudo_pip(global_clk_wire, clk_wire, id_global_clock);
             blk_trk->set_bel_type(bel, BelFlags::BLOCK_CLB, BelFlags::FUNC_LC_COMB, loc.z);
             for (parser_view p : ports) {
@@ -303,10 +304,13 @@ struct FabulousImpl : ViaductAPI
     void init_global_clock()
     {
         // TODO: how do we extend this to more complex clocking topologies?
-        BelId global_clk_bel =
-                ctx->addBel(IdStringList::concat(ctx->id("X0Y0"), id_CLK), id_Global_Clock, Loc(0, 0, 0), true, false);
-        global_clk_wire = ctx->addWire(IdStringList::concat(ctx->id("X0Y0"), id_CLK), id_CLK, 0, 0);
-        ctx->addBelOutput(global_clk_bel, id_CLK, global_clk_wire);
+        auto found = ctx->wire_by_name.find(IdStringList::concat(ctx->id("X0Y0"), id_CLK));
+        if (found != ctx->wire_by_name.end()) {
+            BelId global_clk_bel = ctx->addBel(IdStringList::concat(ctx->id("X0Y0"), id_CLK), id_Global_Clock,
+                                               Loc(0, 0, 0), true, false);
+            WireId global_clk_wire = get_wire(ctx->id("X0Y0"), id_CLK, id_CLK);
+            ctx->addBelOutput(global_clk_bel, id_CLK, global_clk_wire);
+        }
     }
 
     // TODO: this is for legacy fabulous only, the new code path can be a lot simpler
@@ -314,7 +318,6 @@ struct FabulousImpl : ViaductAPI
     {
         std::ifstream in = open_data_rel("/npnroutput/bel.txt");
         CsvParser csv(in);
-        init_global_clock();
         while (csv.fetch_next_line()) {
             IdString tile = csv.next_field().to_id(ctx);
             int bel_x = csv.next_field().substr(1).to_int();
@@ -345,6 +348,7 @@ struct FabulousImpl : ViaductAPI
             BelId bel = ctx->addBel(IdStringList::concat(tile, bel_name), bel_type, loc, false, false);
             handle_bel_ports(bel, tile, bel_type, ports);
         }
+        init_global_clock();
         postprocess_bels();
     }
 
@@ -352,7 +356,6 @@ struct FabulousImpl : ViaductAPI
     {
         std::ifstream in = open_data_rel("/.FABulous/bel.v2.txt");
         CsvParser csv(in);
-        init_global_clock();
         BelId curr_bel;
         while (csv.fetch_next_line()) {
             IdString cmd = csv.next_field().to_id(ctx);
@@ -386,6 +389,7 @@ struct FabulousImpl : ViaductAPI
                 IdStringList bel_name = ctx->getBelName(curr_bel);
                 WireId clk_wire = get_wire(bel_name[0], ctx->idf("%s_CLK", bel_name[1].c_str(ctx)), id_REG_CLK);
                 ctx->addBelInput(curr_bel, id_CLK, clk_wire);
+                WireId global_clk_wire = get_wire(ctx->id("X0Y0"), id_CLK, id_CLK);
                 add_pseudo_pip(global_clk_wire, clk_wire, id_global_clock);
             } else if (cmd == id_CFG) {
                 // TODO...
@@ -396,6 +400,7 @@ struct FabulousImpl : ViaductAPI
                           curr_bel == BelId() ? "<none>" : ctx->nameOfBel(curr_bel));
             }
         }
+        init_global_clock();
         postprocess_bels();
     }
 
