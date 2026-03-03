@@ -334,6 +334,9 @@ void GowinPacker::pack_buffered_nets(void)
             bool has_clock_users = false;
             for (auto usr : ni->users) {
                 if (usr.port.in(id_CLKIN, id_CLK, id_CLK0, id_CLK1, id_CLK2, id_CLK3, id_CLKFB)) {
+                    // Latch gate signals drive CLK pins but are not clocks
+                    if (usr.port == id_CLK && usr.cell->attrs.count(id_LATCH))
+                        continue;
                     has_clock_users = true;
                     break;
                 }
