@@ -718,6 +718,9 @@ void GowinPacker::run(void)
     pack_ssram();
     ctx->check();
 
+    pack_latches();
+    ctx->check();
+
     constrain_lutffs();
     ctx->check();
 

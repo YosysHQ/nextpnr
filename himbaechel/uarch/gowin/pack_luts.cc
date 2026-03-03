@@ -504,6 +504,36 @@ void GowinPacker::pack_alus(void)
 }
 
 // ===================================
+// convert latches to DFFs with LATCH attribute
+// ===================================
+void GowinPacker::pack_latches(void)
+{
+    // Latch-to-DFF type mapping: latches use the same BEL as DFFs,
+    // just with REGMODE set to LATCH instead of FF.
+    const dict<IdString, IdString> latch_to_dff = {
+        {id_DL, id_DFF},       {id_DLE, id_DFFE},
+        {id_DLN, id_DFFN},     {id_DLNE, id_DFFNE},
+        {id_DLC, id_DFFC},     {id_DLCE, id_DFFCE},
+        {id_DLNC, id_DFFNC},   {id_DLNCE, id_DFFNCE},
+        {id_DLP, id_DFFP},     {id_DLPE, id_DFFPE},
+        {id_DLNP, id_DFFNP},   {id_DLNPE, id_DFFNPE},
+    };
+
+    int converted = 0;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        auto it = latch_to_dff.find(ci->type);
+        if (it != latch_to_dff.end()) {
+            ci->type = it->second;
+            ci->setAttr(id_LATCH, 1);
+            ++converted;
+        }
+    }
+    if (converted)
+        log_info("Converted %d latches to DFFs.\n", converted);
+}
+
+// ===================================
 // glue LUT and FF
 // ===================================
 void GowinPacker::constrain_lutffs(void)
@@ -514,10 +544,7 @@ void GowinPacker::constrain_lutffs(void)
                                      {id_DFFS, id_D}, {id_DFFSE, id_D}, {id_DFFNS, id_D}, {id_DFFNSE, id_D},
                                      {id_DFFR, id_D}, {id_DFFRE, id_D}, {id_DFFNR, id_D}, {id_DFFNRE, id_D},
                                      {id_DFFP, id_D}, {id_DFFPE, id_D}, {id_DFFNP, id_D}, {id_DFFNPE, id_D},
-                                     {id_DFFC, id_D}, {id_DFFCE, id_D}, {id_DFFNC, id_D}, {id_DFFNCE, id_D},
-                                     {id_DL, id_D}, {id_DLE, id_D}, {id_DLN, id_D}, {id_DLNE, id_D},
-                                     {id_DLC, id_D}, {id_DLCE, id_D}, {id_DLNC, id_D}, {id_DLNCE, id_D},
-                                     {id_DLP, id_D}, {id_DLPE, id_D}, {id_DLNP, id_D}, {id_DLNPE, id_D}};
+                                     {id_DFFC, id_D}, {id_DFFCE, id_D}, {id_DFFNC, id_D}, {id_DFFNCE, id_D}};
 
     int lutffs = h.constrain_cell_pairs(lut_outs, dff_ins, 1, 1);
     log_info("Constrained %d LUTFF pairs.\n", lutffs);

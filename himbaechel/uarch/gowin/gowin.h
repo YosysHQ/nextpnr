@@ -9,20 +9,18 @@ namespace {
 // Return true if a cell is a LUT
 inline bool type_is_lut(IdString cell_type) { return cell_type.in(id_LUT1, id_LUT2, id_LUT3, id_LUT4); }
 inline bool is_lut(const CellInfo *cell) { return type_is_lut(cell->type); }
-// Return true if a cell is a latch
-inline bool type_is_latch(IdString cell_type)
-{
-    return cell_type.in(id_DL, id_DLE, id_DLN, id_DLNE, id_DLC, id_DLCE, id_DLNC, id_DLNCE, id_DLP, id_DLPE,
-                        id_DLNP, id_DLNPE);
-}
-inline bool is_latch(const CellInfo *cell) { return type_is_latch(cell->type); }
-// Return true if a cell is a DFF (or latch, which uses the same BEL sites)
+// Return true if a cell is a DFF
 inline bool type_is_dff(IdString cell_type)
 {
     return cell_type.in(id_DFF, id_DFFE, id_DFFN, id_DFFNE, id_DFFS, id_DFFSE, id_DFFNS, id_DFFNSE, id_DFFR, id_DFFRE,
                         id_DFFNR, id_DFFNRE, id_DFFP, id_DFFPE, id_DFFNP, id_DFFNPE, id_DFFC, id_DFFCE, id_DFFNC,
-                        id_DFFNCE) ||
-           type_is_latch(cell_type);
+                        id_DFFNCE);
+}
+// Return true if a cell is a latch (before packing converts them to DFFs)
+inline bool type_is_latch(IdString cell_type)
+{
+    return cell_type.in(id_DL, id_DLE, id_DLN, id_DLNE, id_DLC, id_DLCE, id_DLNC, id_DLNCE, id_DLP, id_DLPE,
+                        id_DLNP, id_DLNPE);
 }
 inline bool is_dff(const CellInfo *cell) { return type_is_dff(cell->type); }
 // Return true if a cell is a ALU

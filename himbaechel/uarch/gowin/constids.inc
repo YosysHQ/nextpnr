@@ -907,6 +907,7 @@ X(DLP)
 X(DLPE)
 X(DLNP)
 X(DLNPE)
+X(LATCH)
 
 // Shadow RAM
 X(ROM16)
