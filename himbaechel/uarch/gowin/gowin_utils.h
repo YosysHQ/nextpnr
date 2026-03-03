@@ -240,6 +240,10 @@ struct GowinUtils
 
     // Find a maximum matching in a bipartite graph, g
     std::vector<int> kuhn_find_maximum_bipartite_matching(int n, int k, std::vector<std::vector<int>> &g);
+
+    // Get spec locations
+    int get_center_row(void) const;
+    int get_center_col(void) const;
 };
 
 NEXTPNR_NAMESPACE_END
