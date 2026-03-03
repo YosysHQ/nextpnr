@@ -27,6 +27,8 @@
 #include "util.h"
 
 #include "placer_heap.h"
+#include "placer_static.h"
+
 #include "xilinx.h"
 
 #include "himbaechel_helpers.h"
@@ -292,6 +294,85 @@ void XilinxImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
         auto tags = get_tags(ci);
         // Place memory first, because they require entire SLICEMs
         return tags->lut.is_memory ? 100 : 1;
+    };
+}
+
+void XilinxImpl::configurePlacerStatic(PlacerStaticCfg &cfg)
+{
+    cfg.hpwl_scale_x = 2;
+    cfg.hpwl_scale_y = 1;
+
+    {
+        cfg.cell_groups.emplace_back();
+        auto &comb = cfg.cell_groups.back();
+        comb.name = ctx->id("COMB");
+        comb.bel_area[id_SLICE_LUTX] = StaticRect(1.0f, 0.125f);
+        comb.bel_area[id_CARRY4] = StaticRect(0.0f, 0.0f);
+        comb.bel_area[id_SELMUX2_1] = StaticRect(0.0f, 0.0f);
+
+        comb.cell_area[id_SLICE_LUTX] = StaticRect(1.0f, 0.125f);
+        comb.cell_area[id_CARRY4] = StaticRect(1.0f, 0.5f);
+        comb.cell_area[id_SELMUX2_1] = StaticRect(1.0f, 0.125f);
+
+        comb.zero_area_cells.insert(id_CARRY4);
+        comb.zero_area_cells.insert(id_SELMUX2_1);
+
+        comb.spacer_rect = StaticRect(1.0f, 0.125f);
+    }
+
+    {
+        cfg.cell_groups.emplace_back();
+        auto &comb = cfg.cell_groups.back();
+        comb.name = ctx->id("FF");
+        comb.cell_area[id_SLICE_FFX] = StaticRect(1.0f, 0.125f);
+        comb.bel_area[id_SLICE_FFX] = StaticRect(1.0f, 0.125f);
+        comb.spacer_rect = StaticRect(1.0f, 0.125f);
+    }
+
+    {
+        cfg.cell_groups.emplace_back();
+        auto &comb = cfg.cell_groups.back();
+        comb.name = ctx->id("RAM");
+        comb.cell_area[id_RAMB18E1_RAMB18E1] = StaticRect(1.0f, 3.0f);
+        comb.bel_area[id_RAMB18E1_RAMB18E1] = StaticRect(1.0f, 3.0f);
+        comb.cell_area[id_RAMB36E1_RAMB36E1] = StaticRect(1.0f, 6.0f);
+        comb.bel_area[id_RAMB36E1_RAMB36E1] = StaticRect(0.0f, 0.0f);
+        comb.spacer_rect = StaticRect(1.0f, 3.0f);
+    }
+    {
+        cfg.cell_groups.emplace_back();
+        auto &comb = cfg.cell_groups.back();
+        comb.name = ctx->id("DSP");
+        comb.cell_area[id_DSP48E1_DSP48E1] = StaticRect(1.0f, 3.0f);
+        comb.bel_area[id_DSP48E1_DSP48E1] = StaticRect(1.0f, 3.0f);
+        comb.spacer_rect = StaticRect(1.0f, 3.0f);
+    }
+    cfg.get_cell_area_override = [this](Context *ctx, const CellInfo *ci) -> std::optional<StaticRect> {
+        if (ci->type != id_SLICE_LUTX)
+            return {};
+        auto tags = get_tags(ci);
+        if (tags->lut.is_memory ||
+            (ci->cluster != ClusterId() && ctx->getClusterRootCell(ci->cluster)->type == id_CARRY4)) {
+            // macro LUTs use either a half or whole LUT, always
+            return {(tags->lut.input_count == 6) ? StaticRect(1.0f, 0.125f) : StaticRect(1.0f, 0.0625f)};
+        } else {
+            switch (tags->lut.input_count) { // sliding scale, smaller LUTs pack better
+            case 6:
+                return {StaticRect(1.0f, 0.125f)};
+            case 5:
+                return {StaticRect(1.0f, 0.09f)};
+            case 4:
+                return {StaticRect(1.0f, 0.07f)};
+            case 3:
+                return {StaticRect(1.0f, 0.06f)};
+            case 2:
+                return {StaticRect(1.0f, 0.04f)};
+            case 1:
+                return {StaticRect(1.0f, 0.03f)};
+            default:
+                NPNR_ASSERT_FALSE("unhandled LUT input count");
+            }
+        }
     };
 }
 
