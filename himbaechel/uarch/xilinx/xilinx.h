@@ -137,6 +137,7 @@ struct XilinxImpl : HimbaechelAPI
     void write_fasm(const std::string &filename);
 
     void configurePlacerHeap(PlacerHeapCfg &cfg) override;
+    void configurePlacerStatic(PlacerStaticCfg &cfg) override;
 
     void fixup_placement();
     void fixup_routing();

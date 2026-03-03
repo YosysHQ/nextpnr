@@ -23,6 +23,8 @@
 #include "log.h"
 #include "nextpnr.h"
 
+#include <optional>
+
 NEXTPNR_NAMESPACE_BEGIN
 
 struct StaticRect
@@ -64,6 +66,11 @@ struct PlacerStaticCfg
     // groups < logic_groups are logic like LUTs and FFs, further groups for BRAM/DSP/misc
     std::vector<StaticCellGroupCfg> cell_groups;
     int logic_groups = 2;
+
+    // this is an optional callback to override the area of a cell e.g. based on configuration
+    std::function<std::optional<StaticRect>(Context *, const CellInfo *)> get_cell_area_override = [](Context *, const CellInfo *) {
+        return std::optional<StaticRect>{};
+    };
 };
 
 extern bool placer_static(Context *ctx, PlacerStaticCfg cfg);

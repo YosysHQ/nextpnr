@@ -279,13 +279,16 @@ class StaticPlacer
         }
     }
 
-    bool lookup_group(IdString type, int &group, StaticRect &rect)
+    bool lookup_group(const CellInfo *ci, int &group, StaticRect &rect)
     {
         for (size_t i = 0; i < cfg.cell_groups.size(); i++) {
             const auto &g = cfg.cell_groups.at(i);
-            if (g.cell_area.count(type)) {
+            if (g.cell_area.count(ci->type)) {
                 group = i;
-                rect = g.cell_area.at(type);
+                rect = g.cell_area.at(ci->type);
+                if (auto rect_override = cfg.get_cell_area_override(ctx, ci)) {
+                    rect = *rect_override;
+                }
                 return true;
             }
         }
@@ -320,6 +323,8 @@ class StaticPlacer
                 for (int dx = 0; dx <= int(size.w); dx++) {
                     float h = (dy == int(size.h)) ? (size.h - int(size.h)) : 1;
                     float w = (dx == int(size.w)) ? (size.w - int(size.w)) : 1;
+                    if ((loc.x + dx) >= width || (loc.y + dy) >= height)
+                        continue;
                     group.loc_area.at(loc.x + dx, loc.y + dy) += w * h;
                 }
             }
@@ -412,7 +417,7 @@ class StaticPlacer
             int cell_group;
             StaticRect rect;
             // Mismatched group case
-            if (!lookup_group(ci->type, cell_group, rect)) {
+            if (!lookup_group(ci, cell_group, rect)) {
                 if (ci->bel == BelId()) {
                     for (auto bel : ctx->getBels()) {
                         if (ctx->isValidBelForCellType(ci->type, bel) && ctx->checkBelAvail(bel)) {
