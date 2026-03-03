@@ -295,6 +295,8 @@ class SpineSelectWire(BBAStruct):
 class ChipExtraData(BBAStruct):
     strs: StringPool
     flags: int
+    center_row: int
+    center_col: int
     dcs_prefix: IdString = field(default = None)
     bottom_io: BottomIO = field(default = None)
     diff_io_types: list[IdString] = field(default_factory = list)
@@ -383,6 +385,8 @@ class ChipExtraData(BBAStruct):
     def serialise(self, context: str, bba: BBAWriter):
         bba.u32(self.flags)
         bba.u32(self.dcs_prefix.index)
+        bba.u16(self.center_row)
+        bba.u16(self.center_col)
         self.bottom_io.serialise(f"{context}_bottom_io", bba)
         bba.slice(f"{context}_diff_io_types", len(self.diff_io_types))
         bba.slice(f"{context}_dqce_bels", len(self.dqce_bels))
@@ -1550,7 +1554,19 @@ def create_packages(chip: Chip, db: chipdb):
 
 # Extra chip data
 def create_extra_data(chip: Chip, db: chipdb, chip_flags: int):
-    chip.extra_data = ChipExtraData(chip.strs, chip_flags)
+    # The coordinates of the chip center are useful when building a DSP chain
+    # because there is an area around this particular point that does not
+    # contain any DSP blocks, but there are cascade and shift wires, so the gap
+    # between adjacent DSPs is larger than usual at this point. The coordinates
+    # of this particular cell may be useful when working with 138k clock MUXs
+    # in the future.
+    center_row = 0
+    center_col = 0
+    if hasattr(db, 'center_row'):
+        center_row = db.center_row
+        center_col = db.center_col
+
+    chip.extra_data = ChipExtraData(chip.strs, chip_flags, center_row, center_col)
     if hasattr(db, "dcs_prefix"):
         chip.extra_data.set_dcs_prefix(db.dcs_prefix)
     else:

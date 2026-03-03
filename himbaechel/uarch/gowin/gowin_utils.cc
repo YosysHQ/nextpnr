@@ -510,7 +510,11 @@ Loc GowinUtils::get_dsp_next_in_chain_5a(Loc from) const
     Loc res;
     res.y = from.y;
     // next DSP
-    res.x = from.x + 3;
+    int off = 3;
+    if (from.y == get_center_row() && (from.x + 5) == get_center_col()) {
+        off = 9;
+    }
+    res.x = from.x + off;
     res.z = from.z;
     return res;
 }
@@ -739,6 +743,18 @@ void GowinUtils::find_connected_bels(const CellInfo *cell, IdString port, IdStri
                 }
         }
     }
+}
+
+// Get spec locations
+int GowinUtils::get_center_row(void) const
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->center_row;
+}
+int GowinUtils::get_center_col(void) const
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->center_col;
 }
 
 NEXTPNR_NAMESPACE_END

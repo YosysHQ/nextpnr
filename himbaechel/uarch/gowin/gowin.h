@@ -73,7 +73,8 @@ inline bool is_bsram(const CellInfo *cell) { return type_is_bsram(cell->type); }
 inline bool type_is_dsp(IdString cell_type)
 {
     return cell_type.in(id_PADD9, id_PADD18, id_MULT9X9, id_MULT18X18, id_MULT36X36, id_ALU54D, id_MULTALU18X18,
-                        id_MULTALU36X18, id_MULTADDALU18X18, id_MULT12X12, id_MULTADDALU12X12, id_MULTALU27X18);
+                        id_MULTALU36X18, id_MULTADDALU18X18, id_MULT12X12, id_MULTADDALU12X12, id_MULTALU27X18,
+                        id_MULT27X36);
 }
 inline bool is_dsp(const CellInfo *cell) { return type_is_dsp(cell->type); }
 
@@ -197,6 +198,8 @@ NPNR_PACKED_STRUCT(struct Extra_package_data_POD { RelSlice<Constraint_POD> cst;
 NPNR_PACKED_STRUCT(struct Extra_chip_data_POD {
     int32_t chip_flags;
     int32_t dcs_prefix;
+    int16_t center_row;
+    int16_t center_col;
     Bottom_io_POD bottom_io;
     RelSlice<IdString> diff_io_types;
     RelSlice<Spine_bel_POD> dqce_bels;
