@@ -12,6 +12,30 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+// Remove [ and ] from port names
+void GowinUtils::remove_brackets(CellInfo *ci)
+{
+    std::vector<IdString> orig_port_names;
+    for (auto &port : ci->ports) {
+        orig_port_names.push_back(port.first);
+    }
+
+    for (auto pname : orig_port_names) {
+        IdString new_name;
+        std::string stripped_name;
+
+        for (auto c : pname.str(ctx)) {
+            if (c != '[' && c != ']') {
+                stripped_name += c;
+            }
+        }
+        new_name = ctx->id(stripped_name);
+        if (new_name != pname) {
+            ci->renamePort(pname, new_name);
+        }
+    }
+}
+
 // clock sources
 bool GowinUtils::driver_is_clksrc(const PortRef &driver)
 {
@@ -539,7 +563,7 @@ CellInfo *GowinUtils::dsp_bus_src(const CellInfo *ci, const char *bus_prefix, in
     CellInfo *connected_to_cell = nullptr;
 
     for (int i = 0; i < wire_num; ++i) {
-        const NetInfo *net = ci->getPort(ctx->idf("%s[%d]", bus_prefix, i));
+        const NetInfo *net = ci->getPort(ctx->idf("%s%d", bus_prefix, i));
         if (connected_to_cell == nullptr) {
             if (net == nullptr || net->driver.cell == nullptr || net->name == ctx->id("$PACKER_VCC") ||
                 net->name == ctx->id("$PACKER_GND")) {
@@ -573,7 +597,7 @@ CellInfo *GowinUtils::dsp_bus_dst(const CellInfo *ci, const char *bus_prefix, in
     CellInfo *connected_to_cell = nullptr;
 
     for (int i = 0; i < wire_num; ++i) {
-        const NetInfo *net = ci->getPort(ctx->idf("%s[%d]", bus_prefix, i));
+        const NetInfo *net = ci->getPort(ctx->idf("%s%d", bus_prefix, i));
         if (connected_to_cell == nullptr) {
             if (net == nullptr || net->users.entries() == 0) {
                 disconnected = true;

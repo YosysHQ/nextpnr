@@ -48,14 +48,8 @@ void GowinPacker::pack_dsp(void)
         }
         switch (ci->type.hash()) {
         case ID_PADD9: {
+            gwu.remove_brackets(ci);
             pass_net_type(ci, id_ASEL);
-            for (int i = 0; i < 9; ++i) {
-                ci->renamePort(ctx->idf("A[%d]", i), ctx->idf("A%d", i));
-                ci->renamePort(ctx->idf("B[%d]", i), ctx->idf("B%d", i));
-            }
-            for (int i = 0; i < 9; ++i) {
-                ci->renamePort(ctx->idf("DOUT[%d]", i), ctx->idf("DOUT%d", i));
-            }
 
             // ADD_SUB wire
             IdString add_sub_net = ctx->id("$PACKER_GND");
@@ -100,8 +94,8 @@ void GowinPacker::pack_dsp(void)
             // DSP head?
             if (gwu.dsp_bus_src(ci, "SI", 9) == nullptr && gwu.dsp_bus_dst(ci, "SBO", 9) == nullptr) {
                 for (int i = 0; i < 9; ++i) {
-                    ci->disconnectPort(ctx->idf("SI[%d]", i));
-                    ci->disconnectPort(ctx->idf("SBO[%d]", i));
+                    ci->disconnectPort(ctx->idf("SI%d", i));
+                    ci->disconnectPort(ctx->idf("SBO%d", i));
                 }
                 dsp_heads.push_back(ci);
                 if (ctx->verbose) {
@@ -111,13 +105,7 @@ void GowinPacker::pack_dsp(void)
         } break;
         case ID_PADD18: {
             pass_net_type(ci, id_ASEL);
-            for (int i = 0; i < 18; ++i) {
-                ci->renamePort(ctx->idf("A[%d]", i), ctx->idf("A%d", i));
-                ci->renamePort(ctx->idf("B[%d]", i), ctx->idf("B%d", i));
-            }
-            for (int i = 0; i < 18; ++i) {
-                ci->renamePort(ctx->idf("DOUT[%d]", i), ctx->idf("DOUT%d", i));
-            }
+            gwu.remove_brackets(ci);
 
             // ADD_SUB wire
             IdString add_sub_net = ctx->id("$PACKER_GND");
@@ -171,8 +159,8 @@ void GowinPacker::pack_dsp(void)
             // DSP head?
             if (gwu.dsp_bus_src(ci, "SI", 18) == nullptr && gwu.dsp_bus_dst(ci, "SBO", 18) == nullptr) {
                 for (int i = 0; i < 18; ++i) {
-                    ci->disconnectPort(ctx->idf("SI[%d]", i));
-                    ci->disconnectPort(ctx->idf("SBO[%d]", i));
+                    ci->disconnectPort(ctx->idf("SI%d", i));
+                    ci->disconnectPort(ctx->idf("SBO%d", i));
                 }
                 dsp_heads.push_back(ci);
                 if (ctx->verbose) {
@@ -183,13 +171,8 @@ void GowinPacker::pack_dsp(void)
         case ID_MULT9X9: {
             pass_net_type(ci, id_ASEL);
             pass_net_type(ci, id_BSEL);
-            for (int i = 0; i < 9; ++i) {
-                ci->renamePort(ctx->idf("A[%d]", i), ctx->idf("A%d", i));
-                ci->renamePort(ctx->idf("B[%d]", i), ctx->idf("B%d", i));
-            }
-            for (int i = 0; i < 18; ++i) {
-                ci->renamePort(ctx->idf("DOUT[%d]", i), ctx->idf("DOUT%d", i));
-            }
+            gwu.remove_brackets(ci);
+
             // add padd9 as a child
             ci->cluster = ci->name;
             ci->constr_abs_z = false;
@@ -212,8 +195,8 @@ void GowinPacker::pack_dsp(void)
             // DSP head?
             if (gwu.dsp_bus_src(ci, "SIA", 9) == nullptr && gwu.dsp_bus_src(ci, "SIB", 9) == nullptr) {
                 for (int i = 0; i < 9; ++i) {
-                    ci->disconnectPort(ctx->idf("SIA[%d]", i));
-                    ci->disconnectPort(ctx->idf("SIB[%d]", i));
+                    ci->disconnectPort(ctx->idf("SIA%d", i));
+                    ci->disconnectPort(ctx->idf("SIB%d", i));
                 }
                 dsp_heads.push_back(ci);
                 if (ctx->verbose) {
@@ -222,29 +205,13 @@ void GowinPacker::pack_dsp(void)
             }
         } break;
         case ID_MULT12X12: {
-            for (int i = 0; i < 2; ++i) {
-                ci->renamePort(ctx->idf("CLK[%d]", i), ctx->idf("CLK%d", i));
-                ci->renamePort(ctx->idf("CE[%d]", i), ctx->idf("CE%d", i));
-                ci->renamePort(ctx->idf("RESET[%d]", i), ctx->idf("RESET%d", i));
-            }
-            for (int i = 0; i < 12; ++i) {
-                ci->renamePort(ctx->idf("A[%d]", i), ctx->idf("A%d", i));
-                ci->renamePort(ctx->idf("B[%d]", i), ctx->idf("B%d", i));
-            }
-            for (int i = 0; i < 24; ++i) {
-                ci->renamePort(ctx->idf("DOUT[%d]", i), ctx->idf("DOUT%d", i));
-            }
+            gwu.remove_brackets(ci);
         } break;
         case ID_MULT18X18: {
             pass_net_type(ci, id_ASEL);
             pass_net_type(ci, id_BSEL);
-            for (int i = 0; i < 18; ++i) {
-                ci->renamePort(ctx->idf("A[%d]", i), ctx->idf("A%d", i));
-                ci->renamePort(ctx->idf("B[%d]", i), ctx->idf("B%d", i));
-            }
-            for (int i = 0; i < 36; ++i) {
-                ci->renamePort(ctx->idf("DOUT[%d]", i), ctx->idf("DOUT%d", i));
-            }
+            gwu.remove_brackets(ci);
+
             // add padd9s and mult9s as a children
             ci->cluster = ci->name;
             ci->constr_abs_z = false;
@@ -280,8 +247,8 @@ void GowinPacker::pack_dsp(void)
             // DSP head?
             if (gwu.dsp_bus_src(ci, "SIA", 18) == nullptr && gwu.dsp_bus_src(ci, "SIB", 18) == nullptr) {
                 for (int i = 0; i < 18; ++i) {
-                    ci->disconnectPort(ctx->idf("SIA[%d]", i));
-                    ci->disconnectPort(ctx->idf("SIB[%d]", i));
+                    ci->disconnectPort(ctx->idf("SIA%d", i));
+                    ci->disconnectPort(ctx->idf("SIB%d", i));
                 }
                 dsp_heads.push_back(ci);
                 if (ctx->verbose) {
@@ -291,18 +258,13 @@ void GowinPacker::pack_dsp(void)
         } break;
         case ID_ALU54D: {
             pass_net_type(ci, id_ACCLOAD);
-            for (int i = 0; i < 54; ++i) {
-                ci->renamePort(ctx->idf("A[%d]", i), ctx->idf("A%d", i));
-                ci->renamePort(ctx->idf("B[%d]", i), ctx->idf("B%d", i));
-            }
+            gwu.remove_brackets(ci);
+
             // ACCLOAD - It looks like these wires are always connected to each other.
             ci->cell_bel_pins.at(id_ACCLOAD).clear();
             ci->cell_bel_pins.at(id_ACCLOAD).push_back(id_ACCLOAD0);
             ci->cell_bel_pins.at(id_ACCLOAD).push_back(id_ACCLOAD1);
 
-            for (int i = 0; i < 54; ++i) {
-                ci->renamePort(ctx->idf("DOUT[%d]", i), ctx->idf("DOUT%d", i));
-            }
             // add padd9s and mult9s as a children
             ci->cluster = ci->name;
             ci->constr_abs_z = false;
@@ -338,7 +300,7 @@ void GowinPacker::pack_dsp(void)
             // DSP head?
             if (gwu.dsp_bus_src(ci, "CASI", 55) == nullptr) {
                 for (int i = 0; i < 55; ++i) {
-                    ci->disconnectPort(ctx->idf("CASI[%d]", i));
+                    ci->disconnectPort(ctx->idf("CASI%d", i));
                 }
                 dsp_heads.push_back(ci);
                 if (ctx->verbose) {
@@ -367,18 +329,20 @@ void GowinPacker::pack_dsp(void)
                         ci->renamePort(ctx->idf("B[%d]", i), ctx->idf("B%d0", i));
                     }
                 }
+            }
+
+            gwu.remove_brackets(ci);
+            for (int i = 0; i < 54; ++i) {
                 switch (multalu18x18_mode) {
                 case 0:
-                    ci->renamePort(ctx->idf("C[%d]", i), ctx->idf("C%d", i));
-                    ci->disconnectPort(ctx->idf("D[%d]", i));
+                    ci->disconnectPort(ctx->idf("D%d", i));
                     break;
                 case 1:
-                    ci->disconnectPort(ctx->idf("C[%d]", i));
-                    ci->disconnectPort(ctx->idf("D[%d]", i));
+                    ci->disconnectPort(ctx->idf("C%d", i));
+                    ci->disconnectPort(ctx->idf("D%d", i));
                     break;
                 case 2:
-                    ci->disconnectPort(ctx->idf("C[%d]", i));
-                    ci->renamePort(ctx->idf("D[%d]", i), ctx->idf("D%d", i));
+                    ci->disconnectPort(ctx->idf("C%d", i));
                     break;
                 default:
                     break;
@@ -404,10 +368,6 @@ void GowinPacker::pack_dsp(void)
             ci->cell_bel_pins.at(id_ACCLOAD).clear();
             ci->cell_bel_pins.at(id_ACCLOAD).push_back(id_ACCLOAD0);
             ci->cell_bel_pins.at(id_ACCLOAD).push_back(id_ACCLOAD1);
-
-            for (int i = 0; i < 54; ++i) {
-                ci->renamePort(ctx->idf("DOUT[%d]", i), ctx->idf("DOUT%d", i));
-            }
 
             // add padd9s and mult9s as a children
             ci->cluster = ci->name;
@@ -444,7 +404,7 @@ void GowinPacker::pack_dsp(void)
             // DSP head?
             if (gwu.dsp_bus_src(ci, "CASI", 55) == nullptr) {
                 for (int i = 0; i < 55; ++i) {
-                    ci->disconnectPort(ctx->idf("CASI[%d]", i));
+                    ci->disconnectPort(ctx->idf("CASI%d", i));
                 }
                 dsp_heads.push_back(ci);
                 if (ctx->verbose) {
@@ -540,32 +500,11 @@ void GowinPacker::pack_dsp(void)
             cells_to_remove.push_back(ci->name);
         } break;
         case ID_MULTALU27X18: {
-            for (int i = 0; i < 2; ++i) {
-                ci->renamePort(ctx->idf("CLK[%d]", i), ctx->idf("CLK%d", i));
-                ci->renamePort(ctx->idf("CE[%d]", i), ctx->idf("CE%d", i));
-                ci->renamePort(ctx->idf("RESET[%d]", i), ctx->idf("RESET%d", i));
-                ci->renamePort(ctx->idf("ADDSUB[%d]", i), ctx->idf("ADDSUB%d", i));
-            }
-            for (int i = 0; i < 27; ++i) {
-                ci->renamePort(ctx->idf("A[%d]", i), ctx->idf("A%d", i));
-            }
-            for (int i = 0; i < 26; ++i) {
-                ci->renamePort(ctx->idf("D[%d]", i), ctx->idf("D%d", i));
-            }
-            for (int i = 0; i < 18; ++i) {
-                ci->renamePort(ctx->idf("B[%d]", i), ctx->idf("B%d", i));
-            }
-            for (int i = 0; i < 48; ++i) {
-                ci->renamePort(ctx->idf("C[%d]", i), ctx->idf("C%d", i));
-            }
+            gwu.remove_brackets(ci);
             pass_net_type(ci, id_ACCSEL);
             ci->cell_bel_pins[id_ACCSEL].clear();
             ci->cell_bel_pins.at(id_ACCSEL).push_back(id_ACCSEL0);
             ci->cell_bel_pins.at(id_ACCSEL).push_back(id_ACCSEL1);
-
-            for (int i = 0; i < 48; ++i) {
-                ci->renamePort(ctx->idf("DOUT[%d]", i), ctx->idf("DOUT%d", i));
-            }
 
             // mark 2 mult12x12 as parts of the cluster to prevent
             // other multipliers from being placed there
@@ -597,14 +536,14 @@ void GowinPacker::pack_dsp(void)
             bool cas_head = false;
             if (gwu.dsp_bus_src(ci, "CASI", 48) == nullptr) {
                 for (int i = 0; i < 48; ++i) {
-                    ci->disconnectPort(ctx->idf("CASI[%d]", i));
+                    ci->disconnectPort(ctx->idf("CASI%d", i));
                 }
                 cas_head = true;
             }
             bool so_head = false;
             if (gwu.dsp_bus_src(ci, "SIA", 27) == nullptr) {
                 for (int i = 0; i < 27; ++i) {
-                    ci->disconnectPort(ctx->idf("SIA[%d]", i));
+                    ci->disconnectPort(ctx->idf("SIA%d", i));
                 }
                 so_head = true;
             }
@@ -625,22 +564,19 @@ void GowinPacker::pack_dsp(void)
             }
             NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
 
+            gwu.remove_brackets(ci);
             for (int i = 0; i < 36; ++i) {
                 if (i < 18) {
                     ci->cell_bel_pins.at(ctx->idf("A[%d]", i)).clear();
-                    ci->cell_bel_pins.at(ctx->idf("A[%d]", i)).push_back(ctx->idf("A%d0", i));
-                    ci->cell_bel_pins.at(ctx->idf("A[%d]", i)).push_back(ctx->idf("A%d1", i));
+                    ci->cell_bel_pins[ctx->idf("A%d", i)].push_back(ctx->idf("A%d0", i));
+                    ci->cell_bel_pins.at(ctx->idf("A%d", i)).push_back(ctx->idf("A%d1", i));
                 }
-                ci->renamePort(ctx->idf("B[%d]", i), ctx->idf("B%d", i));
             }
             for (int i = 0; i < 54; ++i) {
                 switch (multalu36x18_mode) {
-                case 0:
-                    ci->renamePort(ctx->idf("C[%d]", i), ctx->idf("C%d", i));
-                    break;
                 case 1: /* fallthrough */
                 case 2:
-                    ci->disconnectPort(ctx->idf("C[%d]", i));
+                    ci->disconnectPort(ctx->idf("C%d", i));
                     break;
                 default:
                     break;
@@ -670,10 +606,6 @@ void GowinPacker::pack_dsp(void)
                 }
             } else {
                 ci->disconnectPort(id_ACCLOAD);
-            }
-
-            for (int i = 0; i < 54; ++i) {
-                ci->renamePort(ctx->idf("DOUT[%d]", i), ctx->idf("DOUT%d", i));
             }
 
             // add padd9s and mult9s as a children
@@ -711,7 +643,7 @@ void GowinPacker::pack_dsp(void)
             // DSP head?
             if (gwu.dsp_bus_src(ci, "CASI", 55) == nullptr) {
                 for (int i = 0; i < 55; ++i) {
-                    ci->disconnectPort(ctx->idf("CASI[%d]", i));
+                    ci->disconnectPort(ctx->idf("CASI%d", i));
                 }
                 dsp_heads.push_back(ci);
                 if (ctx->verbose) {
@@ -720,26 +652,12 @@ void GowinPacker::pack_dsp(void)
             }
         } break;
         case ID_MULTADDALU12X12: {
-            for (int i = 0; i < 2; ++i) {
-                ci->renamePort(ctx->idf("CLK[%d]", i), ctx->idf("CLK%d", i));
-                ci->renamePort(ctx->idf("CE[%d]", i), ctx->idf("CE%d", i));
-                ci->renamePort(ctx->idf("RESET[%d]", i), ctx->idf("RESET%d", i));
-                ci->renamePort(ctx->idf("ADDSUB[%d]", i), ctx->idf("ADDSUB%d", i));
-            }
-            for (int i = 0; i < 12; ++i) {
-                ci->renamePort(ctx->idf("A0[%d]", i), ctx->idf("A0%d", i));
-                ci->renamePort(ctx->idf("B0[%d]", i), ctx->idf("B0%d", i));
-                ci->renamePort(ctx->idf("A1[%d]", i), ctx->idf("A1%d", i));
-                ci->renamePort(ctx->idf("B1[%d]", i), ctx->idf("B1%d", i));
-            }
+            gwu.remove_brackets(ci);
             pass_net_type(ci, id_ACCSEL);
+
             ci->cell_bel_pins.at(id_ACCSEL).clear();
             ci->cell_bel_pins.at(id_ACCSEL).push_back(id_ACCSEL0);
             ci->cell_bel_pins.at(id_ACCSEL).push_back(id_ACCSEL1);
-
-            for (int i = 0; i < 48; ++i) {
-                ci->renamePort(ctx->idf("DOUT[%d]", i), ctx->idf("DOUT%d", i));
-            }
 
             // mark 2 mult12x12 as parts of the cluster to prevent
             // other multipliers from being placed there
@@ -766,7 +684,7 @@ void GowinPacker::pack_dsp(void)
             // DSP head?
             if (gwu.dsp_bus_src(ci, "CASI", 48) == nullptr) {
                 for (int i = 0; i < 48; ++i) {
-                    ci->disconnectPort(ctx->idf("CASI[%d]", i));
+                    ci->disconnectPort(ctx->idf("CASI%d", i));
                 }
                 dsp_heads.push_back(ci);
                 if (ctx->verbose) {
@@ -796,12 +714,7 @@ void GowinPacker::pack_dsp(void)
                     ci->disconnectPort(ctx->idf("C[%d]", i));
                 }
             }
-            for (int i = 0; i < 2; ++i) {
-                ci->renamePort(ctx->idf("ASIGN[%d]", i), ctx->idf("ASIGN%d", i));
-                ci->renamePort(ctx->idf("BSIGN[%d]", i), ctx->idf("BSIGN%d", i));
-                ci->renamePort(ctx->idf("ASEL[%d]", i), ctx->idf("ASEL%d", i));
-                ci->renamePort(ctx->idf("BSEL[%d]", i), ctx->idf("BSEL%d", i));
-            }
+            gwu.remove_brackets(ci);
 
             pass_net_type(ci, id_ASEL0);
             pass_net_type(ci, id_ASEL1);
@@ -821,10 +734,6 @@ void GowinPacker::pack_dsp(void)
                 }
             } else {
                 ci->disconnectPort(id_ACCLOAD);
-            }
-
-            for (int i = 0; i < 54; ++i) {
-                ci->renamePort(ctx->idf("DOUT[%d]", i), ctx->idf("DOUT%d", i));
             }
 
             // add padd9s and mult9s as a children
@@ -864,15 +773,15 @@ void GowinPacker::pack_dsp(void)
             bool cas_head = false;
             if (gwu.dsp_bus_src(ci, "CASI", 55) == nullptr) {
                 for (int i = 0; i < 55; ++i) {
-                    ci->disconnectPort(ctx->idf("CASI[%d]", i));
+                    ci->disconnectPort(ctx->idf("CASI%d", i));
                 }
                 cas_head = true;
             }
             bool so_head = false;
             if (gwu.dsp_bus_src(ci, "SIA", 18) == nullptr && gwu.dsp_bus_src(ci, "SIB", 18) == nullptr) {
                 for (int i = 0; i < 18; ++i) {
-                    ci->disconnectPort(ctx->idf("SIA[%d]", i));
-                    ci->disconnectPort(ctx->idf("SIB[%d]", i));
+                    ci->disconnectPort(ctx->idf("SIA%d", i));
+                    ci->disconnectPort(ctx->idf("SIB%d", i));
                 }
                 so_head = true;
             }
@@ -992,13 +901,13 @@ void GowinPacker::pack_dsp(void)
             if (next_dsp == nullptr) {
                 // End of chain
                 for (int i = 0; i < wire_num; ++i) {
-                    cur_dsp->disconnectPort(ctx->idf("CASO[%d]", i));
+                    cur_dsp->disconnectPort(ctx->idf("CASO%d", i));
                 }
                 break;
             }
             for (int i = 0; i < wire_num; ++i) {
-                cur_dsp->disconnectPort(ctx->idf("CASO[%d]", i));
-                next_dsp->disconnectPort(ctx->idf("CASI[%d]", i));
+                cur_dsp->disconnectPort(ctx->idf("CASO%d", i));
+                next_dsp->disconnectPort(ctx->idf("CASI%d", i));
             }
             cur_dsp->setAttr(id_USE_CASCADE_OUT, 1);
             cur_dsp = next_dsp;
@@ -1029,13 +938,13 @@ void GowinPacker::pack_dsp(void)
             if (next_dsp_a == nullptr) {
                 // End of CASO chain
                 for (int i = 0; i < wire_num; ++i) {
-                    cur_dsp->disconnectPort(ctx->idf("CASO[%d]", i));
+                    cur_dsp->disconnectPort(ctx->idf("CASO%d", i));
                 }
                 end_of_cas_chain = true;
             } else {
                 for (int i = 0; i < wire_num; ++i) {
-                    cur_dsp->disconnectPort(ctx->idf("CASO[%d]", i));
-                    next_dsp_a->disconnectPort(ctx->idf("CASI[%d]", i));
+                    cur_dsp->disconnectPort(ctx->idf("CASO%d", i));
+                    next_dsp_a->disconnectPort(ctx->idf("CASI%d", i));
                 }
             }
 
@@ -1050,20 +959,20 @@ void GowinPacker::pack_dsp(void)
             if (next_so_dsp_a == nullptr && (!use_sib || (use_sib && next_so_dsp_b == nullptr))) {
                 // End of SO chain
                 for (int i = 0; i < wire_num; ++i) {
-                    cur_dsp->disconnectPort(ctx->idf("SOA[%d]", i));
+                    cur_dsp->disconnectPort(ctx->idf("SOA%d", i));
                     if (use_sib) {
-                        cur_dsp->disconnectPort(ctx->idf("SOB[%d]", i));
+                        cur_dsp->disconnectPort(ctx->idf("SOB%d", i));
                     }
                 }
                 end_of_so_chain = true;
             } else {
                 next_so_dsp_a = next_so_dsp_a != nullptr ? next_so_dsp_a : next_so_dsp_b;
                 for (int i = 0; i < wire_num; ++i) {
-                    cur_dsp->disconnectPort(ctx->idf("SOA[%d]", i));
-                    next_so_dsp_a->disconnectPort(ctx->idf("SIA[%d]", i));
+                    cur_dsp->disconnectPort(ctx->idf("SOA%d", i));
+                    next_so_dsp_a->disconnectPort(ctx->idf("SIA%d", i));
                     if (use_sib) {
-                        cur_dsp->disconnectPort(ctx->idf("SOB[%d]", i));
-                        next_so_dsp_a->disconnectPort(ctx->idf("SIB[%d]", i));
+                        cur_dsp->disconnectPort(ctx->idf("SOB%d", i));
+                        next_so_dsp_a->disconnectPort(ctx->idf("SIB%d", i));
                     }
                 }
             }
@@ -1121,18 +1030,18 @@ void GowinPacker::pack_dsp(void)
                     // End of chain
                     cur_dsp->setAttr(id_LAST_IN_CHAIN, 1);
                     for (int i = 0; i < wire_num; ++i) {
-                        cur_dsp->disconnectPort(ctx->idf("SO[%d]", i));
-                        cur_dsp->disconnectPort(ctx->idf("SBI[%d]", i));
+                        cur_dsp->disconnectPort(ctx->idf("SO%d", i));
+                        cur_dsp->disconnectPort(ctx->idf("SBI%d", i));
                     }
                     break;
                 }
 
                 next_dsp_a = next_dsp_a != nullptr ? next_dsp_a : next_dsp_b;
                 for (int i = 0; i < wire_num; ++i) {
-                    cur_dsp->disconnectPort(ctx->idf("SO[%d]", i));
-                    cur_dsp->disconnectPort(ctx->idf("SBI[%d]", i));
-                    next_dsp_a->disconnectPort(ctx->idf("SI[%d]", i));
-                    next_dsp_a->disconnectPort(ctx->idf("SBO[%d]", i));
+                    cur_dsp->disconnectPort(ctx->idf("SO%d", i));
+                    cur_dsp->disconnectPort(ctx->idf("SBI%d", i));
+                    next_dsp_a->disconnectPort(ctx->idf("SI%d", i));
+                    next_dsp_a->disconnectPort(ctx->idf("SBO%d", i));
                 }
                 cur_dsp = next_dsp_a;
                 if (ctx->verbose) {
@@ -1168,18 +1077,18 @@ void GowinPacker::pack_dsp(void)
                 if (next_dsp_a == nullptr && next_dsp_b == nullptr) {
                     // End of chain
                     for (int i = 0; i < wire_num; ++i) {
-                        cur_dsp->disconnectPort(ctx->idf("SOA[%d]", i));
-                        cur_dsp->disconnectPort(ctx->idf("SOB[%d]", i));
+                        cur_dsp->disconnectPort(ctx->idf("SOA%d", i));
+                        cur_dsp->disconnectPort(ctx->idf("SOB%d", i));
                     }
                     break;
                 }
 
                 next_dsp_a = next_dsp_a != nullptr ? next_dsp_a : next_dsp_b;
                 for (int i = 0; i < wire_num; ++i) {
-                    cur_dsp->disconnectPort(ctx->idf("SOA[%d]", i));
-                    cur_dsp->disconnectPort(ctx->idf("SOB[%d]", i));
-                    next_dsp_a->disconnectPort(ctx->idf("SIA[%d]", i));
-                    next_dsp_a->disconnectPort(ctx->idf("SIB[%d]", i));
+                    cur_dsp->disconnectPort(ctx->idf("SOA%d", i));
+                    cur_dsp->disconnectPort(ctx->idf("SOB%d", i));
+                    next_dsp_a->disconnectPort(ctx->idf("SIA%d", i));
+                    next_dsp_a->disconnectPort(ctx->idf("SIB%d", i));
                 }
                 cur_dsp = next_dsp_a;
                 if (ctx->verbose) {
