@@ -788,6 +788,88 @@ void TimingAnalyser::compute_criticality()
     }
 }
 
+std::vector<ClockSkewPaths> TimingAnalyser::get_clock_skew_paths()
+{
+    // The idea of this algorithm is to assign a unique ID to each clocked startpoint
+    // per domain. We propagate the id through the topologically sorted netlist
+    // if we notice a port allready has an id we unify that id with the incoming
+    // id. Once we finish this propogation we now have a data structure
+    // where startpoints and endpoints whose timing influences eachother through
+    // clock skew have the same ID.
+    std::deque<uint64_t> supply;
+    uint64_t current = 0;
+
+    auto mk_new = [&]() {
+        supply.emplace_back(current);
+        current += 1;
+        return &supply.back();
+    };
+
+    auto unify = [&](uint64_t *lhs, uint64_t *rhs) { *lhs = *rhs; };
+
+    dict<CellPortKey, dict<domain_id_t, uint64_t *>> reachability;
+
+    for (domain_id_t dom_id = 0; dom_id < domain_id_t(domains.size()); ++dom_id) {
+        auto &dom = domains.at(dom_id);
+        for (auto &sp : dom.startpoints) {
+            auto &pd = ports.at(sp.first);
+            if (sp.second == IdString()) {
+                continue;
+            }
+            for (auto &fanin : pd.cell_arcs) {
+                if (fanin.type == CellArc::CLK_TO_Q && fanin.other_port == sp.second) {
+                    CellPortKey clock_key = CellPortKey(sp.first.cell, sp.second);
+                    auto clk_delay = ports.at(CellPortKey(sp.first.cell, fanin.other_port)).route_delay;
+                    reachability[sp.first][dom_id] = mk_new();
+                    break;
+                }
+            }
+        }
+    }
+
+    // Walk forward in topological order propagate reachability
+    for (auto p : topological_order) {
+        auto &pd = ports.at(p);
+        if (pd.type == PORT_OUT) {
+            // Output port: propagate reachability through net
+            NetInfo *net = port_info(p).net;
+            if (net == nullptr) {
+                continue;
+            }
+            auto &merge_driver = reachability[p];
+            for (auto &usr : net->users) {
+                CellPortKey usr_key(usr);
+                auto &merge_sink = reachability[usr_key];
+                for (auto &driver : merge_driver) {
+                    unify(driver.second, merge_sink[driver.first]);
+                }
+            }
+        } else if (pd.type == PORT_IN) {
+            // Input port; propagate reachability through cell
+            auto &merge_driver = reachability[p];
+
+            for (auto &fanout : pd.cell_arcs) {
+                if (fanout.type != CellArc::COMBINATIONAL)
+                    continue;
+
+                CellPortKey other_key(p.cell, fanout.other_port);
+                auto &merge_sink = reachability[other_key];
+                for (auto &driver : merge_driver) {
+                    unify(driver.second, merge_sink[driver.first]);
+                }
+            }
+        }
+    }
+
+    // TODO: Now we need to go throuch all start and endpoints grouping
+    // them by the reachability identifier, querying the clock delays and
+    // storing it in the result.
+
+    std::vector<ClockSkewPaths> result;
+
+    return result;
+}
+
 void TimingAnalyser::build_detailed_net_timing_report()
 {
     auto &net_timings = result.detailed_net_timings;
