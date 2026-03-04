@@ -72,6 +72,8 @@ struct GowinUtils
         }
         return ni->users.entries() != 0;
     }
+    // Remove [ and ] from port names
+    void remove_brackets(CellInfo *ci);
 
     // net sources
     inline bool driver_is_io(const PortRef &driver) { return CellTypePort(driver) == CellTypePort(id_IBUF, id_O); }
