@@ -647,6 +647,15 @@ delay_t XilinxImpl::estimateDelay(WireId src, WireId dst) const
     return 800 + 50 * (std::abs(dy - sy) + std::abs(dx - sx));
 }
 
+delay_t XilinxImpl::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const
+{
+    int sx, sy, dx, dy;
+    tile_xy(ctx->chip_info, src_bel.tile, sx, sy);
+    tile_xy(ctx->chip_info, dst_bel.tile, dx, dy);
+    // TODO: improve sophistication here based on old nextpnr-xilinx code
+    return 500 + 50 * (std::abs(dy - sy) + std::abs(dx - sx));
+}
+
 BoundingBox XilinxImpl::getRouteBoundingBox(WireId src, WireId dst) const
 {
     int x0, y0, x1, y1;
