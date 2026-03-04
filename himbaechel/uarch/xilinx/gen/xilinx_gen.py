@@ -125,11 +125,13 @@ def import_tiletype(ch: Chip, tile: xilinx_device.Tile):
         gnd = tt.create_bel(f"PSEUDO_GND", f"PSEUDO_GND", z=0)
         gnd.site = -1
         gnd.extra_data = BelExtraData(name_in_site=ch.strs.id("PSEUDO_GND"))
+        gnd.flags |= BEL_FLAG_GLOBAL
         tt.add_bel_pin(gnd, "Y", "GND", PinType.OUTPUT)
 
         vcc = tt.create_bel(f"PSEUDO_VCC", f"PSEUDO_VCC", z=1)
         vcc.site = -1
         vcc.extra_data = BelExtraData(name_in_site=ch.strs.id("PSEUDO_VCC"))
+        vcc.flags |= BEL_FLAG_GLOBAL
         tt.add_bel_pin(vcc, "Y", "VCC", PinType.OUTPUT)
     def add_pip(src_wire, dst_wire, pip_class=PipClass.TILE_ROUTING, timing="",
         site_key=-1, bel_name="", pip_config=0):
@@ -205,6 +207,8 @@ def import_tiletype(ch: Chip, tile: xilinx_device.Tile):
                 nb.site = variant_key
                 nb.extra_data = BelExtraData(name_in_site=ch.strs.id(bel_name))
                 if bel.bel_class() == "RBEL": nb.flags |= 2
+                if filters.is_global_bel(bel):
+                    nb.flags |= BEL_FLAG_GLOBAL
                 # TODO: extra data (site etc)
                 for pin in bel.pins():
                     tt.add_bel_pin(nb, pin.name, lookup_site_wire(pin.site_wire()), lookup_port_type(pin.dir()))
