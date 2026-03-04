@@ -302,6 +302,11 @@ void XilinxImpl::configurePlacerStatic(PlacerStaticCfg &cfg)
     cfg.hpwl_scale_x = 2;
     cfg.hpwl_scale_y = 1;
 
+    cfg.glbBufTypes.insert(id_PSEUDO_GND);
+    cfg.glbBufTypes.insert(id_PSEUDO_VCC);
+    cfg.glbBufTypes.insert(id_BUFGCTRL);
+    cfg.glbBufTypes.insert(id_BUFG_BUFG);
+
     {
         cfg.cell_groups.emplace_back();
         auto &comb = cfg.cell_groups.back();

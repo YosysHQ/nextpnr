@@ -56,6 +56,8 @@ struct PlacerStaticCfg
 
     // These cell types will be randomly locked to prevent singular matrices
     pool<IdString> ioBufTypes;
+    // Nets driven by these cell types will be ignored
+    pool<IdString> glbBufTypes;
     int hpwl_scale_x = 1;
     int hpwl_scale_y = 1;
     bool timing_driven = false;
@@ -68,9 +70,8 @@ struct PlacerStaticCfg
     int logic_groups = 2;
 
     // this is an optional callback to override the area of a cell e.g. based on configuration
-    std::function<std::optional<StaticRect>(Context *, const CellInfo *)> get_cell_area_override = [](Context *, const CellInfo *) {
-        return std::optional<StaticRect>{};
-    };
+    std::function<std::optional<StaticRect>(Context *, const CellInfo *)> get_cell_area_override =
+            [](Context *, const CellInfo *) { return std::optional<StaticRect>{}; };
 };
 
 extern bool placer_static(Context *ctx, PlacerStaticCfg cfg);

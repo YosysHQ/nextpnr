@@ -343,7 +343,7 @@ class StaticPlacer
 
             auto &nd = nets.back();
             nd.ni = ni;
-            nd.skip = (ni->driver.cell == nullptr);    // (or global buffer?)
+            nd.skip = (ni->driver.cell == nullptr || cfg.glbBufTypes.count(ni->driver.cell->type));
             nd.ports.resize(ni->users.capacity() + 1); // +1 for the driver
             nd.ports.back().ref = ni->driver;
             for (auto usr : ni->users.enumerate()) {
@@ -798,6 +798,7 @@ class StaticPlacer
                     port.max_exp.at(axis) = std::exp(emax);
                     net.max_exp.at(axis) += port.max_exp.at(axis);
                     net.x_max_exp.at(axis) += loc.at(axis) * port.max_exp.at(axis);
+                    NPNR_ASSERT(std::isfinite(net.x_max_exp.at(axis)));
                 } else {
                     port.max_exp.at(axis) = PlacerPort::invalid;
                 }
@@ -831,12 +832,14 @@ class StaticPlacer
                 d_min = (min_sum * (pd.min_exp.at(axis) * (1.0f - wl_coeff.at(axis) * loc.at(axis))) +
                          wl_coeff.at(axis) * pd.min_exp.at(axis) * x_min_sum) /
                         (min_sum * min_sum);
+                NPNR_ASSERT(std::isfinite(d_min));
             }
             if (pd.has_max_exp(axis)) {
                 double max_sum = nd.max_exp.at(axis), x_max_sum = nd.x_max_exp.at(axis);
                 d_max = (max_sum * (pd.max_exp.at(axis) * (1.0f + wl_coeff.at(axis) * loc.at(axis))) -
                          wl_coeff.at(axis) * pd.max_exp.at(axis) * x_max_sum) /
                         (max_sum * max_sum);
+                NPNR_ASSERT(std::isfinite(d_max));
             }
             float crit = 0.0;
             if (cfg.timing_driven) {
@@ -853,6 +856,7 @@ class StaticPlacer
             gradient += weight * (d_min - d_max);
         }
 
+        NPNR_ASSERT(std::isfinite(gradient));
         return gradient;
     }
 
@@ -917,6 +921,7 @@ class StaticPlacer
             }
             const float eta = 1e-1;
             float init_dens_penalty = eta * (wirelen_sum / force_sum);
+            NPNR_ASSERT(std::isfinite(init_dens_penalty));
             log_info("initial density penalty: %f\n", init_dens_penalty);
             dens_penalty.resize(groups.size(), init_dens_penalty);
             update_potentials(true); // set initial potential
