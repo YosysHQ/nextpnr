@@ -774,26 +774,88 @@ void XC7Packer::pack_iologic()
             log_info("   binding output DDR cell '%s' to bel '%s'\n", ctx->nameOf(ci), ctx->nameOfBel(oddr_bel));
             ctx->bindBel(oddr_bel, ci, STRENGTH_LOCKED);
         } else if (ci->type == id_OSERDESE2) {
-            NetInfo *q = ci->getPort(id_OQ);
-            NetInfo *ofb = ci->getPort(id_OFB);
-            bool q_disconnected = !q || q->users.empty();
-            bool ofb_disconnected = !ofb || ofb->users.empty();
-            if (q_disconnected && ofb_disconnected) {
-                log_error("%s '%s' has disconnected OQ/OFB output ports\n", ci->type.c_str(ctx), ctx->nameOf(ci));
+
+            NetInfo *shiftin1 = ci->getPort(id_SHIFTIN1), *shiftin2 = ci->getPort(id_SHIFTIN2),
+                    *tbytein = ci->getPort(id_TBYTEIN);
+
+            // If connected to ground (i.e. unused) this can't actually be routed so remove it
+            if (shiftin1 && shiftin1->name == ctx->id("$PACKER_GND_NET")) {
+                ci->disconnectPort(id_SHIFTIN1);
+                shiftin1 = nullptr;
             }
-            BelId io_bel;
-            CellInfo *ob = !q_disconnected ? find_p_outbuf(q) : find_p_outbuf(ofb);
-            if (ob != nullptr)
-                io_bel = ob->bel;
-            else
-                log_error("%s '%s' has illegal fanout on OQ or OFB output\n", ci->type.c_str(ctx), ctx->nameOf(ci));
+            if (shiftin2 && shiftin2->name == ctx->id("$PACKER_GND_NET")) {
+                ci->disconnectPort(id_SHIFTIN2);
+                shiftin2 = nullptr;
+            }
+            if (tbytein && tbytein->name == ctx->id("$PACKER_GND_NET")) {
+                ci->disconnectPort(id_TBYTEIN);
+                tbytein = nullptr;
+            }
 
-            SiteIndex ol_site = get_ologic_site(io_bel);
+            auto serdes_mode = str_or_default(ci->params, id_SERDES_MODE, "MASTER");
 
-            BelId oserdes_bel = uarch->get_site_bel(ol_site, id_OSERDESE2);
-            NPNR_ASSERT(oserdes_bel != BelId());
-            log_info("   binding output SERDES cell '%s' to bel '%s'\n", ctx->nameOf(ci), ctx->nameOfBel(oserdes_bel));
-            ctx->bindBel(oserdes_bel, ci, STRENGTH_LOCKED);
+            if (serdes_mode == "MASTER") {
+                NetInfo *q = ci->getPort(id_OQ);
+                NetInfo *ofb = ci->getPort(id_OFB);
+                bool q_disconnected = !q || q->users.empty();
+                bool ofb_disconnected = !ofb || ofb->users.empty();
+                if (q_disconnected && ofb_disconnected) {
+                    log_error("%s '%s' has disconnected OQ/OFB output ports\n", ci->type.c_str(ctx), ctx->nameOf(ci));
+                }
+                BelId io_bel;
+                CellInfo *ob = !q_disconnected ? find_p_outbuf(q) : find_p_outbuf(ofb);
+                if (ob != nullptr)
+                    io_bel = ob->bel;
+                else
+                    log_error("%s '%s' has illegal fanout on OQ or OFB output\n", ci->type.c_str(ctx), ctx->nameOf(ci));
+
+                SiteIndex ol_site = get_ologic_site(io_bel);
+
+                BelId oserdes_bel = uarch->get_site_bel(ol_site, id_OSERDESE2);
+                NPNR_ASSERT(oserdes_bel != BelId());
+                log_info("   binding output SERDES cell '%s' to bel '%s'\n", ctx->nameOf(ci),
+                         ctx->nameOfBel(oserdes_bel));
+                ctx->bindBel(oserdes_bel, ci, STRENGTH_LOCKED);
+
+                if (shiftin1 != nullptr || shiftin2 != nullptr) {
+                    CellInfo *cascaded_cell = shiftin1 ? shiftin1->driver.cell : shiftin2->driver.cell;
+                    if (!cascaded_cell || !cascaded_cell->type.in(id_OSERDESE2))
+                        log_error("OSERDESE2 cell '%s' has SHIFTIN driven by illegal cell '%s'\n", ctx->nameOf(ci),
+                                  cascaded_cell ? ctx->nameOf(cascaded_cell) : "");
+
+                    // cascaded location is one below master, so place the cascaded cell there
+                    SiteIndex cascade_site = uarch->rel_site(ol_site, 0, -1);
+                    NPNR_ASSERT(cascade_site != SiteIndex());
+                    BelId cascade_bel = uarch->get_site_bel(cascade_site, id_OSERDESE2);
+                    NPNR_ASSERT(cascade_bel != BelId());
+                    log_info("   binding cascaded output SERDES cell '%s' to bel '%s'\n", ctx->nameOf(cascaded_cell),
+                             ctx->nameOfBel(cascade_bel));
+                    ctx->bindBel(cascade_bel, cascaded_cell, STRENGTH_LOCKED);
+                }
+
+            } else if (serdes_mode == "SLAVE") {
+
+                NetInfo *shiftout1 = ci->getPort(id_SHIFTOUT1);
+                NetInfo *shiftout2 = ci->getPort(id_SHIFTOUT2);
+                if (!shiftout1 && !shiftout2)
+                    log_error("OSERDESE2 cell '%s' with SERDES_MODE SLAVE must have SHIFTOUT1/2 connected.\n",
+                              ctx->nameOf(ci));
+                for (auto net : {shiftout1, shiftout2}) {
+                    if (!net)
+                        continue;
+                    if (net->users.entries() != 1)
+                        log_error(
+                                "OSERDESE2 cell '%s' with SERDES_MODE SLAVE has multiple fanout on SHIFTOUT net '%s'\n",
+                                ctx->nameOf(ci), ctx->nameOf(net));
+                    auto usr = *(net->users.begin());
+                    if (usr.cell->type != id_OSERDESE2 || !usr.port.in(id_SHIFTIN1, id_SHIFTIN2))
+                        log_error("OSERDESE2 cell '%s' has SHIFTOUT driving illegal cell port '%s.%s'\n",
+                                  ctx->nameOf(ci), ctx->nameOf(usr.cell), ctx->nameOf(usr.port));
+                }
+            } else {
+                log_error("OSERDESE2 cell '%s' has unsupported SERDES_MODE '%s'\n", ctx->nameOf(ci),
+                          serdes_mode.c_str());
+            }
 
         } else if (ci->type == id_IDDR) {
             fold_inverter(ci, "C");

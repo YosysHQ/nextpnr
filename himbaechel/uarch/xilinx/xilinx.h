@@ -150,6 +150,7 @@ struct XilinxImpl : HimbaechelAPI
     bool is_bram_tile(BelId bel) const;
 
     SiteIndex get_bel_site(BelId bel) const;
+    SiteIndex rel_site(SiteIndex site, int dx, int dy) const;
     Loc rel_site_loc(SiteIndex site) const;
     IdString get_site_name(SiteIndex site) const;
     IdString bel_name_in_site(BelId bel) const;

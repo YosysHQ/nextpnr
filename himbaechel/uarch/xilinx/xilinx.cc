@@ -426,6 +426,18 @@ Loc XilinxImpl::rel_site_loc(SiteIndex site) const
     return Loc(site_data.rel_x, site_data.rel_y, 0);
 }
 
+SiteIndex XilinxImpl::rel_site(SiteIndex site, int dx, int dy) const
+{
+    const auto &base_site_data = tile_extra_data(site.tile)->sites[site.site];
+    for (size_t i = 0; i < tile_extra_data(site.tile)->sites.size(); i++) {
+        const auto &site_data = tile_extra_data(site.tile)->sites[i];
+        if (site_data.name_prefix == base_site_data.name_prefix && site_data.rel_x == (base_site_data.rel_x + dx) &&
+            site_data.rel_y == (base_site_data.rel_y + dy))
+            return SiteIndex(site.tile, i);
+    }
+    return SiteIndex();
+}
+
 int XilinxImpl::hclk_for_iob(BelId pad) const
 {
     std::string tile_type = bel_tile_type(pad).str(ctx);
