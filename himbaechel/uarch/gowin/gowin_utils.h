@@ -110,6 +110,7 @@ struct GowinUtils
     bool need_SP_fix(void);
     bool need_SDP_fix(void);
     bool need_BSRAM_OUTREG_fix(void);
+    bool need_BSRAM_DP_CE_fix(void);
     bool need_BSRAM_RESET_fix(void);
     bool need_BLKSEL_fix(void);
     bool has_PLL_HCLK(void);

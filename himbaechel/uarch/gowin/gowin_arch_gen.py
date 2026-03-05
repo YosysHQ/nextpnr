@@ -34,6 +34,7 @@ CHIP_NEED_SDP_FIX           = 0x800
 CHIP_NEED_CFGPINS_INVERSION = 0x1000
 CHIP_HAS_I2CCFG             = 0x2000
 CHIP_HAS_5A_DSP             = 0x4000
+CHIP_NEED_BSRAM_DP_CE_FIX   = 0x8000
 
 # Tile flags
 TILE_I3C_CAPABLE_IO        = 0x1
@@ -1768,6 +1769,8 @@ def main():
             chip_flags |= CHIP_NEED_SP_FIX;
         if "NEED_BSRAM_OUTREG_FIX" in db.chip_flags:
             chip_flags |= CHIP_NEED_BSRAM_OUTREG_FIX;
+        if "NEED_BSRAM_DP_CE_FIX" in db.chip_flags:
+            chip_flags |= CHIP_NEED_BSRAM_DP_CE_FIX;
         if "NEED_BLKSEL_FIX" in db.chip_flags:
             chip_flags |= CHIP_NEED_BLKSEL_FIX;
         if "HAS_BANDGAP" in db.chip_flags:

@@ -475,16 +475,6 @@ void GowinPacker::pack_DPB(CellInfo *ci)
         default_bw = 18;
     }
 
-    for (int i = 0; i < 14; ++i) {
-        ci->renamePort(ctx->idf("ADA[%d]", i), ctx->idf("ADA%d", i));
-        ci->renamePort(ctx->idf("ADB[%d]", i), ctx->idf("ADB%d", i));
-    }
-
-    for (int i = 0; i < 3; ++i) {
-        ci->renamePort(ctx->idf("BLKSELA[%d]", i), ctx->idf("BLKSELA%d", i));
-        ci->renamePort(ctx->idf("BLKSELB[%d]", i), ctx->idf("BLKSELB%d", i));
-    }
-
     if (!ci->params.count(id_BIT_WIDTH_0)) {
         ci->setParam(id_BIT_WIDTH_0, Property(default_bw, 32));
     }
@@ -492,12 +482,30 @@ void GowinPacker::pack_DPB(CellInfo *ci)
     bsram_rename_ports(ci, bit_width, "DIA[%d]", "DIA%d");
     bsram_rename_ports(ci, bit_width, "DOA[%d]", "DOA%d");
 
+    // In BYPASS mode, the OCE signal is dictated by CE.
+    if (gwu.need_BSRAM_DP_CE_fix()) {
+        if (bit_width <= 9) {
+            ci->disconnectPort(id_OCEA);
+            ci->copyPortTo(id_CEA, ci, id_OCEA);
+        }
+    }
+
     if (!ci->params.count(id_BIT_WIDTH_1)) {
         ci->setParam(id_BIT_WIDTH_1, Property(default_bw, 32));
     }
     bit_width = ci->params.at(id_BIT_WIDTH_1).as_int64();
     bsram_rename_ports(ci, bit_width, "DIB[%d]", "DIB%d");
     bsram_rename_ports(ci, bit_width, "DOB[%d]", "DOB%d");
+
+    // In BYPASS mode, the OCE signal is dictated by CE.
+    if (gwu.need_BSRAM_DP_CE_fix()) {
+        if (bit_width <= 9) {
+            ci->disconnectPort(id_OCEB);
+            ci->copyPortTo(id_CEB, ci, id_OCEB);
+        }
+    }
+
+    gwu.remove_brackets(ci);
 }
 
 void GowinPacker::divide_sp(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &new_cells)

@@ -449,6 +449,12 @@ bool GowinUtils::need_BSRAM_OUTREG_fix(void)
     return extra->chip_flags & Extra_chip_data_POD::NEED_BSRAM_OUTREG_FIX;
 }
 
+bool GowinUtils::need_BSRAM_DP_CE_fix(void)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->chip_flags & Extra_chip_data_POD::NEED_BSRAM_DP_CE_FIX;
+}
+
 bool GowinUtils::need_BSRAM_RESET_fix(void)
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
