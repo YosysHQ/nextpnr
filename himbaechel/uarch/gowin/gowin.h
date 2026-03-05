@@ -16,6 +16,12 @@ inline bool type_is_dff(IdString cell_type)
                         id_DFFNR, id_DFFNRE, id_DFFP, id_DFFPE, id_DFFNP, id_DFFNPE, id_DFFC, id_DFFCE, id_DFFNC,
                         id_DFFNCE);
 }
+// Return true if a cell is a latch (before packing converts them to DFFs)
+inline bool type_is_latch(IdString cell_type)
+{
+    return cell_type.in(id_DL, id_DLE, id_DLN, id_DLNE, id_DLC, id_DLCE, id_DLNC, id_DLNCE, id_DLP, id_DLPE,
+                        id_DLNP, id_DLNPE);
+}
 inline bool is_dff(const CellInfo *cell) { return type_is_dff(cell->type); }
 // Return true if a cell is a ALU
 inline bool type_is_alu(IdString cell_type) { return cell_type == id_ALU; }
