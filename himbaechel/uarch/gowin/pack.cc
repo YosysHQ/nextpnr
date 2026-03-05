@@ -197,7 +197,7 @@ void GowinPacker::pack_adc(void)
         auto &ci = *cell.second;
 
         if (is_adc(&ci)) {
-			gwu.remove_brackets(&ci);
+            gwu.remove_brackets(&ci);
         }
     }
 }
@@ -265,7 +265,7 @@ void GowinPacker::pack_dlldly(void)
             log_info("  pack %s to use clock pin at %s\n", ctx->nameOf(ci), ctx->nameOfBel(io_bel));
         }
         ctx->bindBel(dlldly_bel, ci, STRENGTH_LOCKED);
-		gwu.remove_brackets(ci);
+        gwu.remove_brackets(ci);
     }
 }
 
@@ -439,7 +439,7 @@ void GowinPacker::pack_userflash(bool have_emcu)
             ci.addInput(id_INUSEN);
             ci.connectPort(id_INUSEN, ctx->nets.at(ctx->id("$PACKER_GND")).get());
         }
-		gwu.remove_brackets(&ci);
+        gwu.remove_brackets(&ci);
 
         if (have_emcu) {
             continue;
@@ -505,7 +505,7 @@ void GowinPacker::pack_emcu_and_flash(void)
         }
         have_emcu = true;
 
-		gwu.remove_brackets(&ci);
+        gwu.remove_brackets(&ci);
 
         // The flash data bus is connected directly to the CPU so just disconnect these networks
         // also other non-switched networks
