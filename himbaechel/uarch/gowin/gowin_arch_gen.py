@@ -1480,23 +1480,29 @@ def create_pll_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc
     tt.extra_data = TileExtraData(chip.strs.id(typename))
 
     # wires
-    pll_outputs = {'CLKOUT', 'LOCK', 'CLKOUTP', 'CLKOUTD', 'CLKOUTD3'}
+    pll_outputs = {'CLKOUT', 'LOCK', 'CLKOUTP', 'CLKOUTD', 'CLKOUTD3',
+        'CLKOUT0', 'CLKOUT1', 'CLKOUT2', 'CLKOUT3', 'CLKOUT4',
+        'CLKOUT5', 'CLKOUT6'}
     if chip.name == 'GW1NS-4':
         pll_name = 'PLLVR'
         bel_type = 'PLLVR'
+    elif chip.name == 'GW5AST-138C':
+        pll_name = 'PLLA'
+        bel_type = 'PLL'
     else:
         pll_name = 'RPLLA'
         bel_type = 'rPLL'
-    portmap = db[y, x].bels[pll_name].portmap
-    pll = tt.create_bel("PLL", bel_type, z = PLL_Z)
-    pll.flags = BEL_FLAG_GLOBAL
-    for pin, wire in portmap.items():
-        if pin in pll_outputs:
-            tt.create_wire(wire, "PLL_O")
-            tt.add_bel_pin(pll, pin, wire, PinType.OUTPUT)
-        else:
-            tt.create_wire(wire, "PLL_I")
-            tt.add_bel_pin(pll, pin, wire, PinType.INPUT)
+    if pll_name in db[y, x].bels:
+        portmap = db[y, x].bels[pll_name].portmap
+        pll = tt.create_bel("PLL", bel_type, z = PLL_Z)
+        pll.flags = BEL_FLAG_GLOBAL
+        for pin, wire in portmap.items():
+            if pin in pll_outputs:
+                tt.create_wire(wire, "PLL_O")
+                tt.add_bel_pin(pll, pin, wire, PinType.OUTPUT)
+            else:
+                tt.create_wire(wire, "PLL_I")
+                tt.add_bel_pin(pll, pin, wire, PinType.INPUT)
     tdesc.tiletype = tiletype
     return tt
 
