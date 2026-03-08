@@ -1235,7 +1235,10 @@ struct NexusPacker
         base_iodelay_rules[id_DELAYB].param_xform[id_DEL_VALUE] = ctx->id("DELAY.DEL_VALUE");
         base_iodelay_rules[id_DELAYB].param_xform[id_COARSE_DELAY] = ctx->id("DELAY.COARSE_DELAY");
 
-        base_iodelay_rules[id_DELAYA] = base_iodelay_rules[id_DELAYB];
+        {
+            XFormRule delayb_copy = base_iodelay_rules.at(id_DELAYB);
+            base_iodelay_rules[id_DELAYA] = std::move(delayb_copy);
+        }
 
         base_iodelay_rules[id_DELAYA].param_xform[id_COARSE_DELAY_MODE] = ctx->id("DELAY.COARSE_DELAY_MODE");
         base_iodelay_rules[id_DELAYA].param_xform[id_EDGE_MONITOR] = ctx->id("DELAY.EDGE_MONITOR");
