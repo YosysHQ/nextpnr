@@ -221,11 +221,11 @@ struct Router2
                 auto iter = bound->wires.find(wire);
                 if (iter != bound->wires.end()) {
                     auto &nd = nets.at(bound->udata);
-                    nd.wires[wire] = std::make_pair(bound->wires.at(wire).pip, 0);
+                    nd.wires[wire] = std::make_pair(iter->second.pip, 0);
                     pwd.curr_cong = 1;
-                    if (bound->wires.at(wire).strength == STRENGTH_PLACER) {
+                    if (iter->second.strength == STRENGTH_PLACER) {
                         pwd.reserved_net = bound->udata;
-                    } else if (bound->wires.at(wire).strength > STRENGTH_PLACER) {
+                    } else if (iter->second.strength > STRENGTH_PLACER) {
                         pwd.unavailable = true;
                     }
                 }
