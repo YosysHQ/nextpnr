@@ -34,9 +34,11 @@ struct NexusFasmWriter
     std::ostream &out;
     std::vector<std::string> fasm_ctx;
     bool is_lifcl_17;
+    bool is_lifcl_33u;
 
     NexusFasmWriter(const Context *ctx, std::ostream &out)
-            : ctx(ctx), out(out), is_lifcl_17(ctx->args.device.find("LIFCL-17") != std::string::npos)
+            : ctx(ctx), out(out), is_lifcl_17(ctx->args.device.find("LIFCL-17") != std::string::npos),
+              is_lifcl_33u(ctx->args.device.find("LIFCL-33U") != std::string::npos)
     {
     }
 
@@ -1080,6 +1082,8 @@ struct NexusFasmWriter
                 pop();
             } else {
                 if (is_lifcl_17 && (i != 0) && (i != 1))
+                    continue;
+                if (is_lifcl_33u && i > 4)
                     continue;
                 auto vcco = bank_vcco.find(i);
                 if (vcco != bank_vcco.end())
