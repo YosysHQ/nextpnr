@@ -97,18 +97,15 @@ void GowinPacker::bsram_fix_blksel(CellInfo *ci, std::vector<std::unique_ptr<Cel
 // 36 bits.
 // We work around this by adding an external DFF and using BSRAM
 // as READ_MODE=1'b0 (bypass).
-void GowinPacker::bsram_fix_outreg(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &new_cells)
+void GowinPacker::bsram_fix_outreg(CellInfo *ci, int bit_width, IdString ce_pin, IdString oce_pin, IdString clk_pin,
+                                   IdString reset_pin, IdString do_pin, IdString read_mode_param,
+                                   std::vector<std::unique_ptr<CellInfo>> &new_cells)
 {
-    int bit_width = ci->params.at(id_BIT_WIDTH).as_int64();
-    if (bit_width == 32 || bit_width == 36) {
+    if (ci->params.at(read_mode_param).as_int64() == 0) {
         return;
     }
-    int read_mode = ci->params.at(id_READ_MODE).as_int64();
-    if (read_mode == 0) {
-        return;
-    }
-    NetInfo *ce_net = ci->getPort(id_CE);
-    NetInfo *oce_net = ci->getPort(id_OCE);
+    NetInfo *ce_net = ci->getPort(ce_pin);
+    NetInfo *oce_net = ci->getPort(oce_pin);
     if (ce_net == nullptr || oce_net == nullptr) {
         return;
     }
@@ -119,17 +116,17 @@ void GowinPacker::bsram_fix_outreg(CellInfo *ci, std::vector<std::unique_ptr<Cel
     if (ctx->verbose) {
         log_info("  apply the BSRAM OUTREG fix\n");
     }
-    ci->setParam(id_READ_MODE, 0);
-    ci->disconnectPort(id_OCE);
-    ci->connectPort(id_OCE, ce_net);
+    ci->setParam(read_mode_param, 0);
+    ci->disconnectPort(oce_pin);
+    ci->connectPort(oce_pin, ce_net);
 
-    NetInfo *reset_net = ci->getPort(id_RESET);
+    NetInfo *reset_net = ci->getPort(reset_pin);
     bool sync_reset = ci->params.at(id_RESET_MODE).as_string() == std::string("SYNC");
     IdString dff_type = sync_reset ? id_DFFRE : id_DFFCE;
     IdString reset_port = sync_reset ? id_RESET : id_CLEAR;
 
     for (int i = 0; i < bit_width; ++i) {
-        IdString do_name = ctx->idf("DO[%d]", i);
+        IdString do_name = ctx->idf("%s[%d]", do_pin.c_str(ctx), i);
         const NetInfo *net = ci->getPort(do_name);
         if (net != nullptr) {
             if (net->users.empty()) {
@@ -146,7 +143,7 @@ void GowinPacker::bsram_fix_outreg(CellInfo *ci, std::vector<std::unique_ptr<Cel
             cache_dff->addInput(reset_port);
             cache_dff->connectPort(reset_port, reset_net);
 
-            ci->copyPortTo(id_CLK, cache_dff, id_CLK);
+            ci->copyPortTo(clk_pin, cache_dff, id_CLK);
 
             cache_dff->addOutput(id_Q);
             ci->movePortTo(do_name, cache_dff, id_Q);
@@ -430,16 +427,6 @@ void GowinPacker::pack_SDPB(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>>
     NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
     NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
 
-    for (int i = 0; i < 14; ++i) {
-        ci->renamePort(ctx->idf("ADA[%d]", i), ctx->idf("ADA%d", i));
-        ci->renamePort(ctx->idf("ADB[%d]", i), ctx->idf("ADB%d", i));
-    }
-
-    for (int i = 0; i < 3; ++i) {
-        ci->renamePort(ctx->idf("BLKSELA[%d]", i), ctx->idf("BLKSELA%d", i));
-        ci->renamePort(ctx->idf("BLKSELB[%d]", i), ctx->idf("BLKSELB%d", i));
-    }
-
     ci->copyPortTo(id_OCE, ci, id_OCEB);
 
     // If misconnected RESET
@@ -463,9 +450,10 @@ void GowinPacker::pack_SDPB(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>>
         bsram_rename_ports(ci, bit_width, "DO[%d]", "DO%d", 18);
     }
     bsram_rename_ports(ci, bit_width, "DI[%d]", "DI%d");
+    gwu.remove_brackets(ci);
 }
 
-void GowinPacker::pack_DPB(CellInfo *ci)
+void GowinPacker::pack_DPB(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &new_cells)
 {
     int default_bw = 16;
     if (ci->type == id_DPB) {
@@ -480,8 +468,11 @@ void GowinPacker::pack_DPB(CellInfo *ci)
     }
     int bit_width = ci->params.at(id_BIT_WIDTH_0).as_int64();
     bsram_rename_ports(ci, bit_width, "DIA[%d]", "DIA%d");
-    bsram_rename_ports(ci, bit_width, "DOA[%d]", "DOA%d");
 
+    if (bit_width < 16 && gwu.need_BSRAM_OUTREG_fix()) {
+        bsram_fix_outreg(ci, bit_width, id_CEA, id_OCEA, id_CLKA, id_RESETA, id_DOA, id_READ_MODE0, new_cells);
+    }
+    bsram_rename_ports(ci, bit_width, "DOA[%d]", "DOA%d");
     // In BYPASS mode, the OCE signal is dictated by CE.
     if (gwu.need_BSRAM_DP_CE_fix()) {
         if (bit_width <= 9) {
@@ -489,12 +480,15 @@ void GowinPacker::pack_DPB(CellInfo *ci)
             ci->copyPortTo(id_CEA, ci, id_OCEA);
         }
     }
-
     if (!ci->params.count(id_BIT_WIDTH_1)) {
         ci->setParam(id_BIT_WIDTH_1, Property(default_bw, 32));
     }
     bit_width = ci->params.at(id_BIT_WIDTH_1).as_int64();
     bsram_rename_ports(ci, bit_width, "DIB[%d]", "DIB%d");
+
+    if (bit_width < 16 && gwu.need_BSRAM_OUTREG_fix()) {
+        bsram_fix_outreg(ci, bit_width, id_CEB, id_OCEB, id_CLKB, id_RESETB, id_DOB, id_READ_MODE1, new_cells);
+    }
     bsram_rename_ports(ci, bit_width, "DOB[%d]", "DOB%d");
 
     // In BYPASS mode, the OCE signal is dictated by CE.
@@ -586,14 +580,14 @@ void GowinPacker::pack_SP(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &
             bsram_fix_sp(ci, new_cells);
         }
 
-        // Some chips have faulty output registers
-        if (gwu.need_BSRAM_OUTREG_fix()) {
-            bsram_fix_outreg(ci, new_cells);
-        }
-
         // Some chips have problems with BLKSEL ports
         if (gwu.need_BLKSEL_fix()) {
             bsram_fix_blksel(ci, new_cells);
+        }
+
+        // Some chips have faulty output registers
+        if (bit_width < 32 && gwu.need_BSRAM_OUTREG_fix()) {
+            bsram_fix_outreg(ci, bit_width, id_CE, id_OCE, id_CLK, id_RESET, id_DO, id_READ_MODE, new_cells);
         }
     }
 
@@ -670,7 +664,7 @@ void GowinPacker::pack_bsram(void)
             break;
         case ID_DPX9B: /* fallthrough */
         case ID_DPB:
-            pack_DPB(ci);
+            pack_DPB(ci, new_cells);
             ci->type = id_DP;
             break;
         case ID_SPX9: /* fallthrough */
