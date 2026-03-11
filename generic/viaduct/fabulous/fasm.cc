@@ -219,7 +219,7 @@ struct FabFasmWriter
             } else {
                 // vector type parameter
                 int msb = int(param.second.str.size()) - 1;
-                out << prefix << param.first.c_str(ctx) << "[" << msb << ":0] = ";
+                out << prefix << param.first.c_str(ctx) << "[" << msb << ":0] = 'b";
                 for (auto bit : boost::adaptors::reverse(param.second.str))
                     out << bit;
                 out << std::endl;
