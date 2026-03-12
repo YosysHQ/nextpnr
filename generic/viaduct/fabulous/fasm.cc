@@ -252,7 +252,8 @@ struct FabFasmWriter
             write_logic(ci);
         else if (ci->type == id_IO_1_bidirectional_frame_config_pass)
             write_io(ci);
-        else if (ci->type.in(id_InPass4_frame_config, id_OutPass4_frame_config))
+        else if (ci->type.in(id_InPass4_frame_config, id_OutPass4_frame_config, id_InPass4_frame_config_mux,
+                             id_OutPass4_frame_config_mux))
             write_iopass(ci);
         else
             write_generic_cell(ci);
