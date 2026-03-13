@@ -530,7 +530,7 @@ void GowinPacker::pack_latches(void)
         }
     }
     if (converted)
-        log_info("Converted %d latches to DFFs.\n", converted);
+        log_info("Processed %d latches.\n", converted);
 }
 
 // ===================================
