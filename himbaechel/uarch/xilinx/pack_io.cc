@@ -474,7 +474,11 @@ void XC7Packer::check_valid_pad(CellInfo *ci, std::string type)
     // no drive strength attribute: use default
     if (drive_attr == ci->attrs.end())
         return;
-    auto drive = drive_attr->second.as_int64();
+    int64_t drive;
+    if (drive_attr->second.is_string)
+        drive = std::stoll(drive_attr->second.as_string());
+    else
+        drive = drive_attr->second.as_int64();
 
     bool is_iob33 = boost::starts_with(type, "IOB33");
     if (is_iob33) {
