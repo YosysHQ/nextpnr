@@ -104,3 +104,7 @@ def include_pip(tile_type, p):
         if "MMCM_CLK_FREQ_BB" in p.dst_wire().name():
             return False
     return True
+
+def is_global_bel(bel):
+    bt = bel.bel_type()
+    return bt in ("BUFGCTRL_BUFGCTRL", "BUFG_BUFG")

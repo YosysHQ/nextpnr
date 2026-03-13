@@ -72,6 +72,8 @@ struct GowinUtils
         }
         return ni->users.entries() != 0;
     }
+    // Remove [ and ] from port names
+    void remove_brackets(CellInfo *ci);
 
     // net sources
     inline bool driver_is_io(const PortRef &driver) { return CellTypePort(driver) == CellTypePort(id_IBUF, id_O); }
@@ -108,6 +110,7 @@ struct GowinUtils
     bool need_SP_fix(void);
     bool need_SDP_fix(void);
     bool need_BSRAM_OUTREG_fix(void);
+    bool need_BSRAM_DP_CE_fix(void);
     bool need_BSRAM_RESET_fix(void);
     bool need_BLKSEL_fix(void);
     bool has_PLL_HCLK(void);
@@ -240,6 +243,10 @@ struct GowinUtils
 
     // Find a maximum matching in a bipartite graph, g
     std::vector<int> kuhn_find_maximum_bipartite_matching(int n, int k, std::vector<std::vector<int>> &g);
+
+    // Get spec locations
+    int get_center_row(void) const;
+    int get_center_col(void) const;
 };
 
 NEXTPNR_NAMESPACE_END

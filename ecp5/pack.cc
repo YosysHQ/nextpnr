@@ -629,7 +629,8 @@ class Ecp5Packer
     }
 
     // Create a feed out and loop through from the carry chain
-    CellInfo *make_carry_feed_out(NetInfo *carry, boost::optional<PortRef> chain_next = boost::optional<PortRef>())
+    CellInfo *make_carry_feed_out(NetInfo *carry, boost::optional<PortRef> chain_next = boost::optional<PortRef>(),
+                                  bool break_chain = false)
     {
         std::unique_ptr<CellInfo> feedout = create_ecp5_cell(ctx, id_CCU2C);
 
@@ -638,26 +639,39 @@ class Ecp5Packer
         feedout->params[id_INJECT1_0] = std::string("NO");
         feedout->params[id_INJECT1_1] = std::string("NO");
 
-        PortRef carry_drv = carry->driver;
-        carry->driver.cell = nullptr;
-        feedout->connectPort(id_S0, carry);
-
-        NetInfo *new_cin = ctx->createNet(ctx->id(feedout->name.str(ctx) + "$CIN"));
-        new_cin->driver = carry_drv;
-        carry_drv.cell->ports.at(carry_drv.port).net = new_cin;
-        feedout->connectPort(id_CIN, new_cin);
-
-        if (chain_next) {
-            // Loop back into LUT4_1 for feedthrough
-            feedout->connectPort(id_A1, carry);
+        if (break_chain) {
+            // Break: use S0 as a fabric-routable carry signal to drive next CIN.
+            feedout->connectPort(id_CIN, carry);
             if (chain_next->cell && chain_next->cell->ports.at(chain_next->port).user_idx)
                 carry->users.remove(chain_next->cell->ports.at(chain_next->port).user_idx);
 
-            NetInfo *new_cout = ctx->createNet(ctx->id(feedout->name.str(ctx) + "$COUT"));
-            feedout->connectPort(id_COUT, new_cout);
+            NetInfo *new_net = ctx->createNet(ctx->id(feedout->name.str(ctx) + "$S0"));
+            feedout->connectPort(id_S0, new_net);
 
             chain_next->cell->ports[chain_next->port].net = nullptr;
-            chain_next->cell->connectPort(chain_next->port, new_cout);
+            chain_next->cell->connectPort(chain_next->port, new_net);
+        } else {
+            PortRef carry_drv = carry->driver;
+            carry->driver.cell = nullptr;
+            feedout->connectPort(id_S0, carry);
+
+            NetInfo *new_cin = ctx->createNet(ctx->id(feedout->name.str(ctx) + "$CIN"));
+            new_cin->driver = carry_drv;
+            carry_drv.cell->ports.at(carry_drv.port).net = new_cin;
+            feedout->connectPort(id_CIN, new_cin);
+
+            if (chain_next) {
+                // Loop back into LUT4_1 for feedthrough
+                feedout->connectPort(id_A1, carry);
+                if (chain_next->cell && chain_next->cell->ports.at(chain_next->port).user_idx)
+                    carry->users.remove(chain_next->cell->ports.at(chain_next->port).user_idx);
+
+                NetInfo *new_cout = ctx->createNet(ctx->id(feedout->name.str(ctx) + "$COUT"));
+                feedout->connectPort(id_COUT, new_cout);
+
+                chain_next->cell->ports[chain_next->port].net = nullptr;
+                chain_next->cell->connectPort(chain_next->port, new_cout);
+            }
         }
 
         CellInfo *feedout_ptr = feedout.get();
@@ -689,28 +703,31 @@ class Ecp5Packer
                 }
             }
             chains.back().cells.push_back(cell);
+            bool at_end = (curr_cell == carryc.cells.end() - 1);
             bool split_chain = int(chains.back().cells.size()) > max_length;
-            if (split_chain) {
-                CellInfo *passout = make_carry_feed_out(cell->ports.at(id_COUT).net);
-                chains.back().cells.back() = passout;
-                start_of_chain = true;
-            } else {
-                NetInfo *carry_net = cell->ports.at(id_COUT).net;
-                bool at_end = (curr_cell == carryc.cells.end() - 1);
-                if (carry_net != nullptr && (carry_net->users.entries() > 1 || at_end)) {
-                    boost::optional<PortRef> nextport;
-                    if (!at_end) {
-                        auto next_cell = *(curr_cell + 1);
-                        PortRef nextpr;
-                        nextpr.cell = next_cell;
-                        nextpr.port = id_CIN;
-                        nextport = nextpr;
-                    }
-                    CellInfo *passout = make_carry_feed_out(cell->ports.at(id_COUT).net, nextport);
-                    chains.back().cells.push_back(passout);
-                }
-                ++curr_cell;
+            NetInfo *carry_net = cell->ports.at(id_COUT).net;
+            boost::optional<PortRef> nextport;
+            if (!at_end) {
+                auto next_cell = *(curr_cell + 1);
+                PortRef nextpr;
+                nextpr.cell = next_cell;
+                nextpr.port = id_CIN;
+                nextport = nextpr;
             }
+            if (carry_net != nullptr) {
+                const bool need_out = split_chain || carry_net->users.entries() > 1 || at_end;
+                if (need_out) {
+                    const bool do_break = split_chain && !at_end;
+                    CellInfo *out = make_carry_feed_out(carry_net, nextport, do_break);
+                    if (split_chain && at_end)
+                        chains.back().cells.back() = out;
+                    else
+                        chains.back().cells.push_back(out);
+                }
+            }
+            if (split_chain)
+                start_of_chain = true;
+            ++curr_cell;
         }
         return chains;
     }

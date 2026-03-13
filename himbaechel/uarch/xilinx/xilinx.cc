@@ -27,6 +27,8 @@
 #include "util.h"
 
 #include "placer_heap.h"
+#include "placer_static.h"
+
 #include "xilinx.h"
 
 #include "himbaechel_helpers.h"
@@ -295,6 +297,90 @@ void XilinxImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
     };
 }
 
+void XilinxImpl::configurePlacerStatic(PlacerStaticCfg &cfg)
+{
+    cfg.hpwl_scale_x = 2;
+    cfg.hpwl_scale_y = 1;
+
+    cfg.glbBufTypes.insert(id_PSEUDO_GND);
+    cfg.glbBufTypes.insert(id_PSEUDO_VCC);
+    cfg.glbBufTypes.insert(id_BUFGCTRL);
+    cfg.glbBufTypes.insert(id_BUFG_BUFG);
+
+    {
+        cfg.cell_groups.emplace_back();
+        auto &comb = cfg.cell_groups.back();
+        comb.name = ctx->id("COMB");
+        comb.bel_area[id_SLICE_LUTX] = StaticRect(1.0f, 0.125f);
+        comb.bel_area[id_CARRY4] = StaticRect(0.0f, 0.0f);
+        comb.bel_area[id_SELMUX2_1] = StaticRect(0.0f, 0.0f);
+
+        comb.cell_area[id_SLICE_LUTX] = StaticRect(1.0f, 0.125f);
+        comb.cell_area[id_CARRY4] = StaticRect(1.0f, 0.5f);
+        comb.cell_area[id_SELMUX2_1] = StaticRect(1.0f, 0.125f);
+
+        comb.zero_area_cells.insert(id_CARRY4);
+        comb.zero_area_cells.insert(id_SELMUX2_1);
+
+        comb.spacer_rect = StaticRect(1.0f, 0.125f);
+    }
+
+    {
+        cfg.cell_groups.emplace_back();
+        auto &comb = cfg.cell_groups.back();
+        comb.name = ctx->id("FF");
+        comb.cell_area[id_SLICE_FFX] = StaticRect(1.0f, 0.125f);
+        comb.bel_area[id_SLICE_FFX] = StaticRect(1.0f, 0.125f);
+        comb.spacer_rect = StaticRect(1.0f, 0.125f);
+    }
+
+    {
+        cfg.cell_groups.emplace_back();
+        auto &comb = cfg.cell_groups.back();
+        comb.name = ctx->id("RAM");
+        comb.cell_area[id_RAMB18E1_RAMB18E1] = StaticRect(1.0f, 3.0f);
+        comb.bel_area[id_RAMB18E1_RAMB18E1] = StaticRect(1.0f, 3.0f);
+        comb.cell_area[id_RAMB36E1_RAMB36E1] = StaticRect(1.0f, 6.0f);
+        comb.bel_area[id_RAMB36E1_RAMB36E1] = StaticRect(0.0f, 0.0f);
+        comb.spacer_rect = StaticRect(1.0f, 3.0f);
+    }
+    {
+        cfg.cell_groups.emplace_back();
+        auto &comb = cfg.cell_groups.back();
+        comb.name = ctx->id("DSP");
+        comb.cell_area[id_DSP48E1_DSP48E1] = StaticRect(1.0f, 3.0f);
+        comb.bel_area[id_DSP48E1_DSP48E1] = StaticRect(1.0f, 3.0f);
+        comb.spacer_rect = StaticRect(1.0f, 3.0f);
+    }
+    cfg.get_cell_area_override = [this](Context *ctx, const CellInfo *ci) -> std::optional<StaticRect> {
+        if (ci->type != id_SLICE_LUTX)
+            return {};
+        auto tags = get_tags(ci);
+        if (tags->lut.is_memory ||
+            (ci->cluster != ClusterId() && ctx->getClusterRootCell(ci->cluster)->type == id_CARRY4)) {
+            // macro LUTs use either a half or whole LUT, always
+            return {(tags->lut.input_count == 6) ? StaticRect(1.0f, 0.125f) : StaticRect(1.0f, 0.0625f)};
+        } else {
+            switch (tags->lut.input_count) { // sliding scale, smaller LUTs pack better
+            case 6:
+                return {StaticRect(1.0f, 0.125f)};
+            case 5:
+                return {StaticRect(1.0f, 0.09f)};
+            case 4:
+                return {StaticRect(1.0f, 0.07f)};
+            case 3:
+                return {StaticRect(1.0f, 0.06f)};
+            case 2:
+                return {StaticRect(1.0f, 0.04f)};
+            case 1:
+                return {StaticRect(1.0f, 0.03f)};
+            default:
+                NPNR_ASSERT_FALSE("unhandled LUT input count");
+            }
+        }
+    };
+}
+
 void XilinxImpl::preRoute()
 {
     find_source_sink_locs();
@@ -338,6 +424,18 @@ Loc XilinxImpl::rel_site_loc(SiteIndex site) const
 {
     const auto &site_data = tile_extra_data(site.tile)->sites[site.site];
     return Loc(site_data.rel_x, site_data.rel_y, 0);
+}
+
+SiteIndex XilinxImpl::rel_site(SiteIndex site, int dx, int dy) const
+{
+    const auto &base_site_data = tile_extra_data(site.tile)->sites[site.site];
+    for (size_t i = 0; i < tile_extra_data(site.tile)->sites.size(); i++) {
+        const auto &site_data = tile_extra_data(site.tile)->sites[i];
+        if (site_data.name_prefix == base_site_data.name_prefix && site_data.rel_x == (base_site_data.rel_x + dx) &&
+            site_data.rel_y == (base_site_data.rel_y + dy))
+            return SiteIndex(site.tile, i);
+    }
+    return SiteIndex();
 }
 
 int XilinxImpl::hclk_for_iob(BelId pad) const
@@ -429,6 +527,17 @@ void XilinxImpl::assign_cell_tags()
                 ct.carry.x_sigs[i] = nullptr;
             }
             ct.carry.x_sigs[0] = ci->getPort(id_CYINIT);
+        } else if (ci->type == id_RAMB18E1_RAMB18E1 || ci->type == id_RAMB36E1_RAMB36E1) {
+            bool read_sdp = ((ci->type == id_RAMB18E1_RAMB18E1 &&
+                              int_or_default(ci->params, ctx->id("READ_WIDTH_B"), 0) == 36) ||
+                             (ci->type == id_RAMB36E1_RAMB36E1 &&
+                              int_or_default(ci->params, ctx->id("READ_WIDTH_B"), 0) == 72));
+            bool write_sdp = ((ci->type == id_RAMB18E1_RAMB18E1 &&
+                               int_or_default(ci->params, ctx->id("WRITE_WIDTH_B"), 0) == 36) ||
+                              (ci->type == id_RAMB36E1_RAMB36E1 &&
+                               int_or_default(ci->params, ctx->id("WRITE_WIDTH_B"), 0) == 72));
+            ci->timing_index = ctx->get_cell_timing_idx(
+                    ctx->idf("%s_%s_%s", ci->type.c_str(ctx), write_sdp ? "WSDP" : "WTDP", read_sdp ? "RSDP" : "RTDP"));
         }
     }
 }
@@ -548,6 +657,15 @@ delay_t XilinxImpl::estimateDelay(WireId src, WireId dst) const
     }
     // TODO: improve sophistication here based on old nextpnr-xilinx code
     return 800 + 50 * (std::abs(dy - sy) + std::abs(dx - sx));
+}
+
+delay_t XilinxImpl::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const
+{
+    int sx, sy, dx, dy;
+    tile_xy(ctx->chip_info, src_bel.tile, sx, sy);
+    tile_xy(ctx->chip_info, dst_bel.tile, dx, dy);
+    // TODO: improve sophistication here based on old nextpnr-xilinx code
+    return 500 + 50 * (std::abs(dy - sy) + std::abs(dx - sx));
 }
 
 BoundingBox XilinxImpl::getRouteBoundingBox(WireId src, WireId dst) const

@@ -12,6 +12,30 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+// Remove [ and ] from port names
+void GowinUtils::remove_brackets(CellInfo *ci)
+{
+    std::vector<IdString> orig_port_names;
+    for (auto &port : ci->ports) {
+        orig_port_names.push_back(port.first);
+    }
+
+    for (auto pname : orig_port_names) {
+        IdString new_name;
+        std::string stripped_name;
+
+        for (auto c : pname.str(ctx)) {
+            if (c != '[' && c != ']') {
+                stripped_name += c;
+            }
+        }
+        new_name = ctx->id(stripped_name);
+        if (new_name != pname) {
+            ci->renamePort(pname, new_name);
+        }
+    }
+}
+
 // clock sources
 bool GowinUtils::driver_is_clksrc(const PortRef &driver)
 {
@@ -425,6 +449,12 @@ bool GowinUtils::need_BSRAM_OUTREG_fix(void)
     return extra->chip_flags & Extra_chip_data_POD::NEED_BSRAM_OUTREG_FIX;
 }
 
+bool GowinUtils::need_BSRAM_DP_CE_fix(void)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->chip_flags & Extra_chip_data_POD::NEED_BSRAM_DP_CE_FIX;
+}
+
 bool GowinUtils::need_BSRAM_RESET_fix(void)
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
@@ -510,7 +540,11 @@ Loc GowinUtils::get_dsp_next_in_chain_5a(Loc from) const
     Loc res;
     res.y = from.y;
     // next DSP
-    res.x = from.x + 3;
+    int off = 3;
+    if (from.y == get_center_row() && (from.x + 5) == get_center_col()) {
+        off = 9;
+    }
+    res.x = from.x + off;
     res.z = from.z;
     return res;
 }
@@ -535,7 +569,7 @@ CellInfo *GowinUtils::dsp_bus_src(const CellInfo *ci, const char *bus_prefix, in
     CellInfo *connected_to_cell = nullptr;
 
     for (int i = 0; i < wire_num; ++i) {
-        const NetInfo *net = ci->getPort(ctx->idf("%s[%d]", bus_prefix, i));
+        const NetInfo *net = ci->getPort(ctx->idf("%s%d", bus_prefix, i));
         if (connected_to_cell == nullptr) {
             if (net == nullptr || net->driver.cell == nullptr || net->name == ctx->id("$PACKER_VCC") ||
                 net->name == ctx->id("$PACKER_GND")) {
@@ -569,7 +603,7 @@ CellInfo *GowinUtils::dsp_bus_dst(const CellInfo *ci, const char *bus_prefix, in
     CellInfo *connected_to_cell = nullptr;
 
     for (int i = 0; i < wire_num; ++i) {
-        const NetInfo *net = ci->getPort(ctx->idf("%s[%d]", bus_prefix, i));
+        const NetInfo *net = ci->getPort(ctx->idf("%s%d", bus_prefix, i));
         if (connected_to_cell == nullptr) {
             if (net == nullptr || net->users.entries() == 0) {
                 disconnected = true;
@@ -739,6 +773,18 @@ void GowinUtils::find_connected_bels(const CellInfo *cell, IdString port, IdStri
                 }
         }
     }
+}
+
+// Get spec locations
+int GowinUtils::get_center_row(void) const
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->center_row;
+}
+int GowinUtils::get_center_col(void) const
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->center_col;
 }
 
 NEXTPNR_NAMESPACE_END

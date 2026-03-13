@@ -55,6 +55,8 @@ struct GowinImpl : HimbaechelAPI
 
     void configurePlacerHeap(PlacerHeapCfg &cfg) override;
 
+    void drawBel(std::vector<GraphicElement> &g, GraphicElement::style_t style, IdString bel_type, Loc loc) override;
+
   private:
     HimbaechelHelpers h;
     GowinUtils gwu;
@@ -1365,6 +1367,43 @@ void GowinImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
     cfg.ioBufTypes.insert(id_GOWIN_GND);
     cfg.ioBufTypes.insert(id_PINCFG);
     cfg.ioBufTypes.insert(id_GSR);
+}
+
+void GowinImpl::drawBel(std::vector<GraphicElement> &g, GraphicElement::style_t style, IdString bel_type, Loc loc)
+{
+    GraphicElement el;
+    el.type = GraphicElement::TYPE_BOX;
+    el.style = style;
+    switch (bel_type.index) {
+    case id_LUT4.index:
+        el.x1 = loc.x + 0.75;
+        el.x2 = el.x1 + 0.08;
+        el.y1 = loc.y + 0.1 + 0.1 * (loc.z / 2);
+        el.y2 = el.y1 + 0.04;
+        g.push_back(el);
+        break;
+    case id_ALU.index:
+        el.x1 = loc.x + 0.75;
+        el.x2 = el.x1 + 0.08;
+        el.y1 = loc.y + 0.1 + 0.1 * (loc.z - BelZ::ALU0_Z);
+        el.y2 = el.y1 + 0.04;
+        g.push_back(el);
+        break;
+    case id_DFF.index:
+        el.x1 = loc.x + 0.9;
+        el.x2 = el.x1 + 0.02;
+        el.y1 = loc.y + 0.1 + 0.1 * (loc.z / 2);
+        el.y2 = el.y1 + 0.04;
+        g.push_back(el);
+        break;
+    case id_RAM16SDP4.index:
+        el.x1 = loc.x + 0.85;
+        el.x2 = el.x1 + 0.01;
+        el.y1 = loc.y + 0.1;
+        el.y2 = el.y1 + 0.65;
+        g.push_back(el);
+        break;
+    }
 }
 
 } // namespace

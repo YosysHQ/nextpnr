@@ -113,12 +113,13 @@ struct GowinPacker
     // BSRAM
     void bsram_rename_ports(CellInfo *ci, int bit_width, char const *from, char const *to, int offset = 0);
     void bsram_fix_blksel(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &new_cells);
-    void bsram_fix_outreg(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &new_cells);
+    void bsram_fix_outreg(CellInfo *ci, int, IdString, IdString, IdString, IdString, IdString, IdString read_mode_param,
+                          std::vector<std::unique_ptr<CellInfo>> &new_cells);
     void bsram_fix_sp(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &new_cells);
     void pack_ROM(CellInfo *ci);
     void divide_sdp(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &new_cells);
     void pack_SDPB(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &new_cells);
-    void pack_DPB(CellInfo *ci);
+    void pack_DPB(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &new_cells);
     void divide_sp(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &new_cells);
     void pack_SP(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &new_cells);
 

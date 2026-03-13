@@ -948,6 +948,17 @@ struct FasmBackend
                 write_bit("SSTL12_SSTL135_SSTL15.IN");
         }
 
+        // IN_TERM.NONE and IN_ONLY for TMDS_33 output, e.g. HDMI signals
+        if (is_output && is_diff) {
+            if (is_tmds33 && yLoc == 1) {
+                if (pad->attrs.count(id_IN_TERM))
+                    write_bit("IN_TERM." + pad->attrs.at(id_IN_TERM).as_string());
+                else
+                    write_bit("IN_TERM.NONE");
+                write_bit("LVCMOS12_LVCMOS15_LVCMOS18_LVCMOS25_LVCMOS33_LVDS_25_LVTTL_SSTL135_SSTL15_TMDS_33.IN_ONLY");
+            }
+        }
+
         write_bit("PULLTYPE." + pulltype);
         pop(); // IOB_YN
 
@@ -1064,7 +1075,12 @@ struct FasmBackend
             write_bit("ODDR.DDR_CLK_EDGE.SAME_EDGE");
             write_bit("ODDR.SRUSED");
             write_bit("ODDR_TDDR.IN_USE");
-            write_bit("OQUSED", ci->getPort(id_OQ) != nullptr);
+
+            auto serdes_mode = str_or_default(ci->params, id_SERDES_MODE, "MASTER");
+            bool is_cascaded = (serdes_mode == "SLAVE");
+
+            // For cascaded OSERDESE2, OQUSED must be set even though OQ is not connected
+            write_bit("OQUSED", is_cascaded || ci->getPort(id_OQ));
             write_bit("ZINV_CLK", !bool_or_default(ci->params, id_IS_CLK_INVERTED, false));
             for (std::string t : {"T1", "T2", "T3", "T4"})
                 write_bit("ZINV_" + t, (ci->getPort(ctx->id(t)) != nullptr || t == "T1") &&
@@ -1080,7 +1096,7 @@ struct FasmBackend
             push("OSERDES");
             write_bit("IN_USE");
             std::string type = str_or_default(ci->params, id_DATA_RATE_OQ, "BUF");
-            write_bit(std::string("DATA_RATE_OQ.") + ((ci->getPort(id_OQ) != nullptr) ? type : "BUF"));
+            write_bit(std::string("DATA_RATE_OQ.") + ((ci->getPort(id_OQ) != nullptr) ? type : "DDR"));
             write_bit(std::string("DATA_RATE_TQ.") +
                       ((ci->getPort(id_TQ) != nullptr) ? str_or_default(ci->params, id_DATA_RATE_TQ, "BUF") : "BUF"));
             int width = int_or_default(ci->params, id_DATA_WIDTH, 8);
@@ -1102,6 +1118,8 @@ struct FasmBackend
 #endif
             write_bit("SRTYPE.SYNC");
             write_bit("TSRTYPE.SYNC");
+            if (is_cascaded)
+                write_bit("SERDES_MODE.SLAVE");
             pop();
         } else if (ci->type == id_ISERDESE2_ISERDESE2) {
             std::string data_rate = str_or_default(ci->params, id_DATA_RATE);

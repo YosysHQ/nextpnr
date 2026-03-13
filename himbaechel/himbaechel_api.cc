@@ -102,6 +102,11 @@ TimingClockingInfo HimbaechelAPI::getPortClockingInfo(const CellInfo *cell, IdSt
     return ctx->get_port_clocking_info_default(cell, port, index);
 }
 
+void HimbaechelAPI::configurePlacerStatic(PlacerStaticCfg &)
+{
+    log_error("This uarch does not support the 'static' placer.\n");
+}
+
 HimbaechelArch *HimbaechelArch::list_head;
 HimbaechelArch::HimbaechelArch(const std::string &name) : name(name)
 {

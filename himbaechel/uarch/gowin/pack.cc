@@ -160,34 +160,8 @@ void GowinPacker::pack_pll(void)
         auto &ci = *cell.second;
 
         if (ci.type.in(id_rPLL, id_PLLVR, id_PLLA)) {
-            // pin renaming for compatibility
-            if (ci.type == id_PLLA) {
-                for (int i = 0; i < 8; ++i) {
-                    ci.renamePort(ctx->idf("MDWDI[%d]", i), ctx->idf("MDWDI%d", i));
-                    ci.renamePort(ctx->idf("MDRDO[%d]", i), ctx->idf("MDRDO%d", i));
-                    if (i < 7) {
-                        ci.renamePort(ctx->idf("SSCMDSEL[%d]", i), ctx->idf("SSCMDSEL%d", i));
-                        if (i < 3) {
-                            ci.renamePort(ctx->idf("SSCMDSEL_FRAC[%d]", i), ctx->idf("SSCMDSEL_FRAC%d", i));
-                            ci.renamePort(ctx->idf("PSSEL[%d]", i), ctx->idf("PSSEL%d", i));
-                        }
-                        if (i < 2) {
-                            ci.renamePort(ctx->idf("MDOPC[%d]", i), ctx->idf("MDOPC%d", i));
-                        }
-                    }
-                }
-            } else {
-                for (int i = 0; i < 6; ++i) {
-                    ci.renamePort(ctx->idf("FBDSEL[%d]", i), ctx->idf("FBDSEL%d", i));
-                    ci.renamePort(ctx->idf("IDSEL[%d]", i), ctx->idf("IDSEL%d", i));
-                    ci.renamePort(ctx->idf("ODSEL[%d]", i), ctx->idf("ODSEL%d", i));
-                    if (i < 4) {
-                        ci.renamePort(ctx->idf("PSDA[%d]", i), ctx->idf("PSDA%d", i));
-                        ci.renamePort(ctx->idf("DUTYDA[%d]", i), ctx->idf("DUTYDA%d", i));
-                        ci.renamePort(ctx->idf("FDLY[%d]", i), ctx->idf("FDLY%d", i));
-                    }
-                }
-            }
+            gwu.remove_brackets(&ci);
+
             // If CLKIN is connected to a special pin, then it makes sense
             // to try to place the PLL so that it uses a direct connection
             // to this pin.
@@ -223,19 +197,7 @@ void GowinPacker::pack_adc(void)
         auto &ci = *cell.second;
 
         if (is_adc(&ci)) {
-            for (int i = 0; i < 14; ++i) {
-                if (i < 2) {
-                    ci.renamePort(ctx->idf("MDRP_OPCODE[%d]", i), ctx->idf("MDRP_OPCODE%d", i));
-                }
-                if (i < 3) {
-                    ci.renamePort(ctx->idf("VSENCTL[%d]", i), ctx->idf("VSENCTL%d", i));
-                }
-                if (i < 8) {
-                    ci.renamePort(ctx->idf("MDRP_WDATA[%d]", i), ctx->idf("MDRP_WDATA%d", i));
-                    ci.renamePort(ctx->idf("MDRP_RDATA[%d]", i), ctx->idf("MDRP_RDATA%d", i));
-                }
-                ci.renamePort(ctx->idf("ADCVALUE[%d]", i), ctx->idf("ADCVALUE%d", i));
-            }
+            gwu.remove_brackets(&ci);
         }
     }
 }
@@ -303,9 +265,7 @@ void GowinPacker::pack_dlldly(void)
             log_info("  pack %s to use clock pin at %s\n", ctx->nameOf(ci), ctx->nameOfBel(io_bel));
         }
         ctx->bindBel(dlldly_bel, ci, STRENGTH_LOCKED);
-        for (int i = 0; i < 8; ++i) {
-            ci->renamePort(ctx->idf("DLLSTEP[%d]", i), ctx->idf("DLLSTEP%d", i));
-        }
+        gwu.remove_brackets(ci);
     }
 }
 
@@ -479,33 +439,7 @@ void GowinPacker::pack_userflash(bool have_emcu)
             ci.addInput(id_INUSEN);
             ci.connectPort(id_INUSEN, ctx->nets.at(ctx->id("$PACKER_GND")).get());
         }
-        // rename ports
-        for (int i = 0; i < 32; ++i) {
-            ci.renamePort(ctx->idf("DIN[%d]", i), ctx->idf("DIN%d", i));
-            ci.renamePort(ctx->idf("DOUT[%d]", i), ctx->idf("DOUT%d", i));
-        }
-        if (ci.type.in(id_FLASH96K)) {
-            for (int i = 0; i < 6; ++i) {
-                ci.renamePort(ctx->idf("RA[%d]", i), ctx->idf("RA%d", i));
-                ci.renamePort(ctx->idf("CA[%d]", i), ctx->idf("CA%d", i));
-                ci.renamePort(ctx->idf("PA[%d]", i), ctx->idf("PA%d", i));
-            }
-            for (int i = 0; i < 2; ++i) {
-                ci.renamePort(ctx->idf("MODE[%d]", i), ctx->idf("MODE%d", i));
-                ci.renamePort(ctx->idf("SEQ[%d]", i), ctx->idf("SEQ%d", i));
-                ci.renamePort(ctx->idf("RMODE[%d]", i), ctx->idf("RMODE%d", i));
-                ci.renamePort(ctx->idf("WMODE[%d]", i), ctx->idf("WMODE%d", i));
-                ci.renamePort(ctx->idf("RBYTESEL[%d]", i), ctx->idf("RBYTESEL%d", i));
-                ci.renamePort(ctx->idf("WBYTESEL[%d]", i), ctx->idf("WBYTESEL%d", i));
-            }
-        } else {
-            for (int i = 0; i < 9; ++i) {
-                ci.renamePort(ctx->idf("XADR[%d]", i), ctx->idf("XADR%d", i));
-            }
-            for (int i = 0; i < 6; ++i) {
-                ci.renamePort(ctx->idf("YADR[%d]", i), ctx->idf("YADR%d", i));
-            }
-        }
+        gwu.remove_brackets(&ci);
 
         if (have_emcu) {
             continue;
@@ -571,66 +505,8 @@ void GowinPacker::pack_emcu_and_flash(void)
         }
         have_emcu = true;
 
-        // rename ports
-        for (int i = 0; i < 2; ++i) {
-            ci.renamePort(ctx->idf("TARGFLASH0HTRANS[%d]", i), ctx->idf("TARGFLASH0HTRANS%d", i));
-            ci.renamePort(ctx->idf("TARGEXP0HTRANS[%d]", i), ctx->idf("TARGEXP0HTRANS%d", i));
-            ci.renamePort(ctx->idf("TARGEXP0MEMATTR[%d]", i), ctx->idf("TARGEXP0MEMATTR%d", i));
-            // ins
-            ci.renamePort(ctx->idf("INITEXP0HTRANS[%d]", i), ctx->idf("INITEXP0HTRANS%d", i));
-            ci.renamePort(ctx->idf("INITEXP0MEMATTR[%d]", i), ctx->idf("INITEXP0MEMATTR%d", i));
-        }
-        for (int i = 0; i < 3; ++i) {
-            ci.renamePort(ctx->idf("TARGEXP0HSIZE[%d]", i), ctx->idf("TARGEXP0HSIZE%d", i));
-            ci.renamePort(ctx->idf("TARGEXP0HBURST[%d]", i), ctx->idf("TARGEXP0HBURST%d", i));
-            ci.renamePort(ctx->idf("APBTARGEXP2PPROT[%d]", i), ctx->idf("APBTARGEXP2PPROT%d", i));
-            // ins
-            ci.renamePort(ctx->idf("TARGEXP0HRUSER[%d]", i), ctx->idf("TARGEXP0HRUSER%d", i));
-            ci.renamePort(ctx->idf("INITEXP0HSIZE[%d]", i), ctx->idf("INITEXP0HSIZE%d", i));
-            ci.renamePort(ctx->idf("INITEXP0HBURST[%d]", i), ctx->idf("INITEXP0HBURST%d", i));
-        }
-        for (int i = 0; i < 4; ++i) {
-            ci.renamePort(ctx->idf("SRAM0WREN[%d]", i), ctx->idf("SRAM0WREN%d", i));
-            ci.renamePort(ctx->idf("TARGEXP0HPROT[%d]", i), ctx->idf("TARGEXP0HPROT%d", i));
-            ci.renamePort(ctx->idf("TARGEXP0HMASTER[%d]", i), ctx->idf("TARGEXP0HMASTER%d", i));
-            ci.renamePort(ctx->idf("APBTARGEXP2PSTRB[%d]", i), ctx->idf("APBTARGEXP2PSTRB%d", i));
-            ci.renamePort(ctx->idf("TPIUTRACEDATA[%d]", i), ctx->idf("TPIUTRACEDATA%d", i));
-            // ins
-            ci.renamePort(ctx->idf("INITEXP0HPROT[%d]", i), ctx->idf("INITEXP0HPROT%d", i));
-            ci.renamePort(ctx->idf("INITEXP0HMASTER[%d]", i), ctx->idf("INITEXP0HMASTER%d", i));
-            ci.renamePort(ctx->idf("INITEXP0HWUSER[%d]", i), ctx->idf("INITEXP0HWUSER%d", i));
-        }
-        for (int i = 0; i < 16; ++i) {
-            if (i < 13) {
-                if (i < 12) {
-                    if (i < 5) {
-                        ci.renamePort(ctx->idf("GPINT[%d]", i), ctx->idf("GPINT%d", i));
-                    }
-                    ci.renamePort(ctx->idf("APBTARGEXP2PADDR[%d]", i), ctx->idf("APBTARGEXP2PADDR%d", i));
-                }
-                ci.renamePort(ctx->idf("SRAM0ADDR[%d]", i), ctx->idf("SRAM0ADDR%d", i));
-            }
-            ci.renamePort(ctx->idf("IOEXPOUTPUTO[%d]", i), ctx->idf("IOEXPOUTPUTO%d", i));
-            ci.renamePort(ctx->idf("IOEXPOUTPUTENO[%d]", i), ctx->idf("IOEXPOUTPUTENO%d", i));
-            // ins
-            ci.renamePort(ctx->idf("IOEXPINPUTI[%d]", i), ctx->idf("IOEXPINPUTI%d", i));
-        }
-        for (int i = 0; i < 32; ++i) {
-            if (i < 29) {
-                ci.renamePort(ctx->idf("TARGFLASH0HADDR[%d]", i), ctx->idf("TARGFLASH0HADDR%d", i));
-            }
-            ci.renamePort(ctx->idf("SRAM0WDATA[%d]", i), ctx->idf("SRAM0WDATA%d", i));
-            ci.renamePort(ctx->idf("TARGEXP0HADDR[%d]", i), ctx->idf("TARGEXP0HADDR%d", i));
-            ci.renamePort(ctx->idf("TARGEXP0HWDATA[%d]", i), ctx->idf("TARGEXP0HWDATA%d", i));
-            ci.renamePort(ctx->idf("INITEXP0HRDATA[%d]", i), ctx->idf("INITEXP0HRDATA%d", i));
-            ci.renamePort(ctx->idf("APBTARGEXP2PWDATA[%d]", i), ctx->idf("APBTARGEXP2PWDATA%d", i));
-            // ins
-            ci.renamePort(ctx->idf("SRAM0RDATA[%d]", i), ctx->idf("SRAM0RDATA%d", i));
-            ci.renamePort(ctx->idf("TARGEXP0HRDATA[%d]", i), ctx->idf("TARGEXP0HRDATA%d", i));
-            ci.renamePort(ctx->idf("INITEXP0HADDR[%d]", i), ctx->idf("INITEXP0HADDR%d", i));
-            ci.renamePort(ctx->idf("INITEXP0HWDATA[%d]", i), ctx->idf("INITEXP0HWDATA%d", i));
-            ci.renamePort(ctx->idf("APBTARGEXP2PRDATA[%d]", i), ctx->idf("APBTARGEXP2PRDATA%d", i));
-        }
+        gwu.remove_brackets(&ci);
+
         // The flash data bus is connected directly to the CPU so just disconnect these networks
         // also other non-switched networks
         ci.disconnectPort(ctx->id("DAPNTDOEN"));
@@ -648,17 +524,17 @@ void GowinPacker::pack_emcu_and_flash(void)
         for (int i = 0; i < 32; ++i) {
             if (i < 4) {
                 if (i < 3) {
-                    ci.disconnectPort(ctx->idf("TARGFLASH0HSIZE[%d]", i));
-                    ci.disconnectPort(ctx->idf("TARGFLASH0HBURST[%d]", i));
-                    ci.disconnectPort(ctx->idf("TARGFLASH0HRUSER[%d]", i));
-                    ci.disconnectPort(ctx->idf("INITEXP0HRUSER[%d]", i));
+                    ci.disconnectPort(ctx->idf("TARGFLASH0HSIZE%d", i));
+                    ci.disconnectPort(ctx->idf("TARGFLASH0HBURST%d", i));
+                    ci.disconnectPort(ctx->idf("TARGFLASH0HRUSER%d", i));
+                    ci.disconnectPort(ctx->idf("INITEXP0HRUSER%d", i));
                 }
-                // ci.disconnectPort(ctx->idf("TARGFLASH0HPROT[%d]", i));
-                ci.disconnectPort(ctx->idf("TARGEXP0HWUSER[%d]", i));
-                ci.disconnectPort(ctx->idf("MTXREMAP[%d]", i));
+                // ci.disconnectPort(ctx->idf("TARGFLASH0HPROT%d", i));
+                ci.disconnectPort(ctx->idf("TARGEXP0HWUSER%d", i));
+                ci.disconnectPort(ctx->idf("MTXREMAP%d", i));
             }
             // ins
-            ci.disconnectPort(ctx->idf("TARGFLASH0HRDATA[%d]", i));
+            ci.disconnectPort(ctx->idf("TARGFLASH0HRDATA%d", i));
         }
     }
     pack_userflash(have_emcu);

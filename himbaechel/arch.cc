@@ -26,6 +26,8 @@
 #include "command.h"
 #include "placer1.h"
 #include "placer_heap.h"
+#include "placer_static.h"
+
 #include "router1.h"
 #include "router2.h"
 #include "util.h"
@@ -271,6 +273,10 @@ bool Arch::place()
         uarch->configurePlacerHeap(cfg);
         cfg.ioBufTypes.insert(id("GENERIC_IOB"));
         retVal = placer_heap(getCtx(), cfg);
+    } else if (placer == "static") {
+        PlacerStaticCfg cfg(getCtx());
+        uarch->configurePlacerStatic(cfg);
+        retVal = placer_static(getCtx(), cfg);
     } else if (placer == "sa") {
         retVal = placer1(getCtx(), Placer1Cfg(getCtx()));
     } else {
@@ -403,7 +409,7 @@ void IdString::initialize_arch(const BaseCtx *ctx) {}
 
 const std::string Arch::defaultPlacer = "heap";
 
-const std::vector<std::string> Arch::availablePlacers = {"sa", "heap"};
+const std::vector<std::string> Arch::availablePlacers = {"sa", "heap", "static"};
 
 const std::string Arch::defaultRouter = "default";
 const std::vector<std::string> Arch::availableRouters = {"default", "router1", "router2"};

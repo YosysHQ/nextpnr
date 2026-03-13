@@ -34,6 +34,7 @@ CHIP_NEED_SDP_FIX           = 0x800
 CHIP_NEED_CFGPINS_INVERSION = 0x1000
 CHIP_HAS_I2CCFG             = 0x2000
 CHIP_HAS_5A_DSP             = 0x4000
+CHIP_NEED_BSRAM_DP_CE_FIX   = 0x8000
 
 # Tile flags
 TILE_I3C_CAPABLE_IO        = 0x1
@@ -295,6 +296,8 @@ class SpineSelectWire(BBAStruct):
 class ChipExtraData(BBAStruct):
     strs: StringPool
     flags: int
+    center_row: int
+    center_col: int
     dcs_prefix: IdString = field(default = None)
     bottom_io: BottomIO = field(default = None)
     diff_io_types: list[IdString] = field(default_factory = list)
@@ -383,6 +386,8 @@ class ChipExtraData(BBAStruct):
     def serialise(self, context: str, bba: BBAWriter):
         bba.u32(self.flags)
         bba.u32(self.dcs_prefix.index)
+        bba.u16(self.center_row)
+        bba.u16(self.center_col)
         self.bottom_io.serialise(f"{context}_bottom_io", bba)
         bba.slice(f"{context}_diff_io_types", len(self.diff_io_types))
         bba.slice(f"{context}_dqce_bels", len(self.dqce_bels))
@@ -1550,7 +1555,19 @@ def create_packages(chip: Chip, db: chipdb):
 
 # Extra chip data
 def create_extra_data(chip: Chip, db: chipdb, chip_flags: int):
-    chip.extra_data = ChipExtraData(chip.strs, chip_flags)
+    # The coordinates of the chip center are useful when building a DSP chain
+    # because there is an area around this particular point that does not
+    # contain any DSP blocks, but there are cascade and shift wires, so the gap
+    # between adjacent DSPs is larger than usual at this point. The coordinates
+    # of this particular cell may be useful when working with 138k clock MUXs
+    # in the future.
+    center_row = 0
+    center_col = 0
+    if hasattr(db, 'center_row'):
+        center_row = db.center_row
+        center_col = db.center_col
+
+    chip.extra_data = ChipExtraData(chip.strs, chip_flags, center_row, center_col)
     if hasattr(db, "dcs_prefix"):
         chip.extra_data.set_dcs_prefix(db.dcs_prefix)
     else:
@@ -1609,6 +1626,15 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
         rr = int(group[2] * 1000)
         rf = int(group[3] * 1000)
         return TimingValue(min(ff, fr, rf, rr), max(ff, fr, rf, rr))
+
+    def add_bram_bus_input(cell, clock, bus, width, group):
+        for i in range(width):
+            cell.add_setup_hold(clock, f"{bus}{i}", ClockEdge.RISING, group_to_timingvalue(arc[f"{group}_set"]), group_to_timingvalue(arc[f"{group}_hold"]))
+
+    def add_bram_bus_output(cell, clock, bus, width, group):
+        for i in range(width):
+            cell.add_clock_out(clock, f"{bus}{i}", ClockEdge.RISING, group_to_timingvalue(arc[group]))
+
 
     speed_grades = []
     for speed in db.timing.keys():
@@ -1692,7 +1718,50 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
                             dff.add_setup_hold("CLK", port, ClockEdge.FALLING, group_to_timingvalue(arc["lsr_clksetneg_asyn"]), group_to_timingvalue(arc["lsr_clkholdneg_asyn"]))
                             dff.add_comb_arc(port, "Q", group_to_timingvalue(arc["lsr_q"]))
             elif group == "bram":
-                pass # TODO
+                for sp_type in ("SP", "SPX9"):
+                    sp = tmg.add_cell_variant(speed, sp_type)
+                    add_bram_bus_output(sp, "CLK", "DO", 36 if sp_type == "SPX9" else 32, "clk_do_bypass")
+                    add_bram_bus_input(sp, "CLK", "DI", 36 if sp_type == "SPX9" else 32, "clk_di")
+                    add_bram_bus_input(sp, "CLK", "AD", 14, "clk_ad")
+                    add_bram_bus_input(sp, "CLK", "BLKSEL", 3, "clk_blksel")
+
+                    for sig in ["CE", "WRE", "OCE", "RESET"]:
+                        sp.add_setup_hold("CLK", sig, ClockEdge.RISING, group_to_timingvalue(arc[f"clk_{sig.lower()}_set"]), group_to_timingvalue(arc[f"clk_{sig.lower()}_hold"]))
+                for sdp_type in ("SDP", "SDPX9", "SDPB", "SDPX9B"):
+                    sdp = tmg.add_cell_variant(speed, sdp_type)
+                    add_bram_bus_output(sdp, "CLKB", "DO", 36 if sdp_type.startswith("SDPX9") else 32, "clkb_do_bypass")
+                    add_bram_bus_input(sdp, "CLKA", "DI", 36 if sdp_type.startswith("SDPX9") else 32, "clka_di")
+                    add_bram_bus_input(sdp, "CLKA", "ADA", 14, "clka_ada")
+                    add_bram_bus_input(sdp, "CLKB", "ADB", 14, "clkb_adb")
+
+                    add_bram_bus_input(sdp, "CLKA", "BLKSELA", 3, "clka_blksel")
+                    add_bram_bus_input(sdp, "CLKB", "BLKSELB", 3, "clkb_blksel")
+
+                    for sig in ["CEA", "WREA", "RESETA"]:
+                        sdp.add_setup_hold("CLKA", sig, ClockEdge.RISING, group_to_timingvalue(arc[f"clka_{sig.lower()}_set"]), group_to_timingvalue(arc[f"clka_{sig.lower()}_hold"]))
+
+                    for sig in ["CEB", "OCEB", "RESETB"]:
+                        sdp.add_setup_hold("CLKB", sig, ClockEdge.RISING, group_to_timingvalue(arc[f"clkb_{sig.lower()}_set"]), group_to_timingvalue(arc[f"clkb_{sig.lower()}_hold"]))
+
+                for dp_type in ("DP", "DPX9", "DPB", "DPX9B"):
+                    dp = tmg.add_cell_variant(speed, dp_type)
+                    add_bram_bus_output(dp, "CLKA", "DOA", 36 if dp_type.startswith("DPX9") else 32, "clka_doa_bypass")
+                    add_bram_bus_output(dp, "CLKB", "DO", 36 if dp_type.startswith("DPX9") else 32, "clkb_dob_bypass")
+                    add_bram_bus_input(dp, "CLKA", "DIA", 36 if dp_type.startswith("DPX9") else 32, "clka_dia")
+                    add_bram_bus_input(dp, "CLKB", "DIB", 36 if dp_type.startswith("DPX9") else 32, "clkb_dib")
+                    add_bram_bus_input(dp, "CLKA", "ADA", 14, "clka_ada")
+                    add_bram_bus_input(sp, "CLKB", "ADB", 14, "clkb_adb")
+
+                    add_bram_bus_input(dp, "CLKA", "BLKSELA", 3, "clka_blksel")
+                    add_bram_bus_input(dp, "CLKB", "BLKSELB", 3, "clkb_blksel")
+
+                    for sig in ["CEA", "OCEA", "WREA", "RESETA"]:
+                        dp.add_setup_hold("CLKA", sig, ClockEdge.RISING, group_to_timingvalue(arc[f"clka_{sig.lower()}_set"]), group_to_timingvalue(arc[f"clka_{sig.lower()}_hold"]))
+
+                    for sig in ["CEB", "OCEB", "WREB", "RESETB"]:
+                        dp.add_setup_hold("CLKB", sig, ClockEdge.RISING, group_to_timingvalue(arc[f"clkb_{sig.lower()}_set"]), group_to_timingvalue(arc[f"clkb_{sig.lower()}_hold"]))
+
+
             elif group == "fanout":
                 pass # handled in "wire"
             elif group == "glbsrc":
@@ -1752,6 +1821,8 @@ def main():
             chip_flags |= CHIP_NEED_SP_FIX;
         if "NEED_BSRAM_OUTREG_FIX" in db.chip_flags:
             chip_flags |= CHIP_NEED_BSRAM_OUTREG_FIX;
+        if "NEED_BSRAM_DP_CE_FIX" in db.chip_flags:
+            chip_flags |= CHIP_NEED_BSRAM_DP_CE_FIX;
         if "NEED_BLKSEL_FIX" in db.chip_flags:
             chip_flags |= CHIP_NEED_BLKSEL_FIX;
         if "HAS_BANDGAP" in db.chip_flags:
