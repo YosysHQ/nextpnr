@@ -107,6 +107,7 @@ struct GowinPacker
     std::unique_ptr<CellInfo> alu_add_cout_block(Context *ctx, CellInfo *tail, NetInfo *cout_net);
     std::unique_ptr<CellInfo> alu_add_dummy_block(Context *ctx, CellInfo *tail);
     void optimize_alu_lut(CellInfo *ci, int mode);
+    void pack_latches(void);
     void constrain_lutffs(void);
     std::unique_ptr<CellInfo> ssram_make_lut(Context *ctx, CellInfo *ci, int index);
 
