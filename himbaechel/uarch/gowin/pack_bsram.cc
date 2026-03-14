@@ -17,11 +17,15 @@ NEXTPNR_NAMESPACE_BEGIN
 // ===================================
 // Block RAM
 // ===================================
+// Memory is always 36-bit, consisting of 9-bit bytes; 8-bit primitives are
+// formed by “skipping” every 9th bit on the DI and DO buses. Here, the
+// skipping works as follows: if the primitive is 8-bit (16 or 32), then every
+// 9th bit becomes the 10th bit and so on.
 void GowinPacker::bsram_rename_ports(CellInfo *ci, int bit_width, char const *from, char const *to, int offset)
 {
     int num = (bit_width == 9 || bit_width == 18 || bit_width == 36) ? 36 : 32;
     for (int i = 0, j = offset; i < num; ++i, ++j) {
-        if (((i + 1) % 9) == 0 && (bit_width == 16 || bit_width == 32)) {
+        if (i && (i % 8) == 0 && (bit_width == 16 || bit_width == 32)) {
             ++j;
         }
         ci->renamePort(ctx->idf(from, i), ctx->idf(to, offset ? j % 36 : j));
