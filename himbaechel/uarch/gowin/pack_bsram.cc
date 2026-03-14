@@ -21,7 +21,7 @@ void GowinPacker::bsram_rename_ports(CellInfo *ci, int bit_width, char const *fr
 {
     int num = (bit_width == 9 || bit_width == 18 || bit_width == 36) ? 36 : 32;
     for (int i = 0, j = offset; i < num; ++i, ++j) {
-        if (((i + 1) % 9) == 0 && (bit_width == 16 || bit_width == 32)) {
+        if (i && (i % 8) == 0 && (bit_width == 16 || bit_width == 32)) {
             ++j;
         }
         ci->renamePort(ctx->idf(from, i), ctx->idf(to, offset ? j % 36 : j));
