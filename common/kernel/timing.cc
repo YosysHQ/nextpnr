@@ -107,6 +107,8 @@ void TimingAnalyser::get_cell_delays()
         pd.cell_arcs.clear();
         int clkInfoCount = 0;
         TimingPortClass cls = ctx->getPortTimingClass(ci, name, clkInfoCount);
+        if (pi.net->ignore_timing)
+            continue;
         if (cls == TMG_CLOCK_INPUT || cls == TMG_GEN_CLOCK || cls == TMG_IGNORE)
             continue;
         if (pi.type == PORT_IN) {
