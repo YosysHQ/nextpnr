@@ -111,6 +111,19 @@ void BaseCtx::addClock(IdString net, float freq)
     log_info("constraining clock net '%s' to %.02f MHz\n", net.c_str(this), freq);
 }
 
+void BaseCtx::ignoreTiming(IdString net)
+{
+    if (net_aliases.count(net)) {
+        getNetByAlias(net)->ignore_timing = true;
+    } else if (ports.count(net)) {
+        ports[net].net->ignore_timing = true;
+    } else {
+        log_warning("net '%s' does not exist in design, ignoring timing bypass constraint\n", net.c_str(this));
+        return;
+    }
+    log_info("ignoring timing on net '%s'\n", net.c_str(this));
+}
+
 void BaseCtx::createRectangularRegion(IdString name, int x0, int y0, int x1, int y1)
 {
     std::unique_ptr<Region> new_region(new Region());
