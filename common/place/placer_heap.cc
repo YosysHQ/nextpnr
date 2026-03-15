@@ -263,7 +263,7 @@ class HeAPPlacer
                 // Run strict legalisation to find a valid bel for all cells
                 update_all_chains();
                 spread_hpwl = total_hpwl();
-                legalise_placement_strict(true);
+                legalise_placement_strict();
                 update_all_chains();
 
                 legal_hpwl = total_hpwl();
@@ -853,308 +853,10 @@ class HeAPPlacer
     }
 
     // Strict placement legalisation, performed after the initial HeAP spreading
-    void legalise_placement_strict(bool require_validity = false)
+    void legalise_placement_strict()
     {
-        auto startt = std::chrono::high_resolution_clock::now();
-
-        // Unbind all cells placed in this solution
-        for (auto &cell : ctx->cells) {
-            CellInfo *ci = cell.second.get();
-            if (ci->bel != BelId() &&
-                (ci->udata != dont_solve ||
-                 (ci->cluster != ClusterId() && ctx->getClusterRootCell(ci->cluster)->udata != dont_solve)))
-                ctx->unbindBel(ci->bel);
-        }
-
-        // At the moment we don't follow the full HeAP algorithm using cuts for legalisation, instead using
-        // the simple greedy largest-macro-first approach.
-        std::priority_queue<std::pair<int, IdString>> remaining;
-        for (auto cell : solve_cells) {
-            remaining.emplace(chain_size[cell->name] * cfg.get_cell_legalisation_weight(ctx, cell), cell->name);
-        }
-        int ripup_radius = 2;
-        int chain_ripup_radius = std::max(max_x, max_y); // only ripup chains as last resort
-        int total_iters = 0;
-        int total_iters_noreset = 0;
-        while (!remaining.empty()) {
-            auto top = remaining.top();
-            remaining.pop();
-
-            CellInfo *ci = ctx->cells.at(top.second).get();
-            // Was now placed, ignore
-            if (ci->bel != BelId())
-                continue;
-            std::chrono::high_resolution_clock::time_point ci_startt;
-            if (ctx->verbose)
-                ci_startt = std::chrono::high_resolution_clock::now();
-
-            if (ctx->debug)
-                log_info("   Legalising %s (%s) priority=%d\n", top.second.c_str(ctx), ci->type.c_str(ctx), top.first);
-            FastBels::FastBelsData *fb;
-            fast_bels.getBelsForCellType(ci->type, &fb);
-            int radius = 0;
-            int iter = 0;
-            int iter_at_radius = 0;
-            int total_iters_for_cell = 0;
-            bool placed = false;
-            BelId bestBel;
-            int best_inp_len = std::numeric_limits<int>::max();
-
-            total_iters++;
-            total_iters_noreset++;
-            if (total_iters > int(solve_cells.size())) {
-                total_iters = 0;
-                ripup_radius = std::min(std::max(max_x, max_y), ripup_radius * 2);
-            }
-
-            if (total_iters_noreset > std::max(5000, 8 * int(ctx->cells.size()))) {
-                log_error("Unable to find legal placement for all cells, design is probably at utilisation limit.\n");
-            }
-
-            while (!placed) {
-                if (cfg.cell_placement_timeout > 0 && total_iters_for_cell > cfg.cell_placement_timeout)
-                    log_error("Unable to find legal placement for cell '%s' of type '%s' after %d attempts, check "
-                              "constraints and "
-                              "utilisation. Use `--placer-heap-cell-placement-timeout` to change the number of "
-                              "attempts.\n",
-                              ctx->nameOf(ci), ci->type.c_str(ctx), total_iters_for_cell);
-
-                // Determine a search radius around the solver location (which increases over time) that is clamped to
-                // the region constraint for the cell (if applicable)
-                int x0 = std::max(cell_locs.at(ci->name).x - radius, 0);
-                int y0 = std::max(cell_locs.at(ci->name).y - radius, 0);
-                int x1 = cell_locs.at(ci->name).x + radius;
-                int y1 = cell_locs.at(ci->name).y + radius;
-
-                if (ci->region != nullptr) {
-                    auto &r = constraint_region_bounds[ci->region->name];
-                    // Clamp search box to a region
-                    x0 = std::max(x0, r.x0);
-                    y0 = std::max(y0, r.y0);
-                    x1 = std::min(x1, r.x1);
-                    y1 = std::min(y1, r.y1);
-                    if (x0 > x1)
-                        std::swap(x0, x1);
-                    if (y0 > y1)
-                        std::swap(y0, y1);
-                }
-
-                // Pick a random X and Y location within our search radius / search box
-                int nx = ctx->rng(x1 - x0 + 1) + x0;
-                int ny = ctx->rng(y1 - y0 + 1) + y0;
-
-                iter++;
-                iter_at_radius++;
-                if (iter >= (10 * (radius + 1))) {
-                    // No luck yet, increase radius
-                    radius = std::min(std::max(max_x, max_y), radius + 1);
-                    while (radius < std::max(max_x, max_y)) {
-                        // Keep increasing the radius until it will actually increase the number of cells we are
-                        // checking (e.g. BRAM and DSP will not be in all cols/rows), so we don't waste effort
-                        for (int x = std::max(0, cell_locs.at(ci->name).x - radius);
-                             x <= std::min(max_x, cell_locs.at(ci->name).x + radius); x++) {
-                            if (x >= int(fb->size()))
-                                break;
-                            for (int y = std::max(0, cell_locs.at(ci->name).y - radius);
-                                 y <= std::min(max_y, cell_locs.at(ci->name).y + radius); y++) {
-                                if (y >= int(fb->at(x).size()))
-                                    break;
-                                if (fb->at(x).at(y).size() > 0)
-                                    goto notempty;
-                            }
-                        }
-                        radius = std::min(std::max(max_x, max_y), radius + 1);
-                    }
-                notempty:
-                    iter_at_radius = 0;
-                    iter = 0;
-                }
-                // If our randomly chosen cooridnate is out of bounds; or points to a tile with no relevant bels; ignore
-                // it
-                if (nx < 0 || nx > max_x)
-                    continue;
-                if (ny < 0 || ny > max_y)
-                    continue;
-
-                if (nx >= int(fb->size()))
-                    continue;
-                if (ny >= int(fb->at(nx).size()))
-                    continue;
-                if (fb->at(nx).at(ny).empty())
-                    continue;
-
-                // The number of attempts to find a location to try
-                int need_to_explore = 2 * radius;
-
-                // If we have found at least one legal location; and made enough attempts; assume it's good enough and
-                // finish
-                if (iter_at_radius >= need_to_explore && bestBel != BelId()) {
-                    CellInfo *bound = ctx->getBoundBelCell(bestBel);
-                    if (bound != nullptr) {
-                        ctx->unbindBel(bound->bel);
-                        remaining.emplace(chain_size[bound->name] * cfg.get_cell_legalisation_weight(ctx, bound),
-                                          bound->name);
-                    }
-                    ctx->bindBel(bestBel, ci, STRENGTH_WEAK);
-                    placed = true;
-                    Loc loc = ctx->getBelLocation(bestBel);
-                    cell_locs[ci->name].x = loc.x;
-                    cell_locs[ci->name].y = loc.y;
-                    break;
-                }
-
-                if (ci->cluster == ClusterId()) {
-                    // The case where we have no relative constraints
-                    for (auto sz : fb->at(nx).at(ny)) {
-                        // Look through all bels in this tile; checking region constraint if applicable
-                        if (!ci->testRegion(sz))
-                            continue;
-                        // Prefer available bels; unless we are dealing with a wide radius (e.g. difficult control sets)
-                        // or occasionally trigger a tiebreaker
-                        if (ctx->checkBelAvail(sz) || (radius > ripup_radius || ctx->rng(20000) < 10)) {
-                            CellInfo *bound = ctx->getBoundBelCell(sz);
-                            if (bound != nullptr) {
-                                // Only rip up cells without constraints
-                                if (bound->cluster != ClusterId() || bound->belStrength > STRENGTH_WEAK)
-                                    continue;
-                                ctx->unbindBel(bound->bel);
-                            }
-                            // Provisionally bind the bel
-                            ctx->bindBel(sz, ci, STRENGTH_WEAK);
-                            if (require_validity && !ctx->isBelLocationValid(sz)) {
-                                // New location is not legal; unbind the cell (and rebind the cell we ripped up if
-                                // applicable)
-                                ctx->unbindBel(sz);
-                                if (bound != nullptr)
-                                    ctx->bindBel(sz, bound, STRENGTH_WEAK);
-                            } else if (iter_at_radius < need_to_explore) {
-                                // It's legal, but we haven't tried enough locations yet
-                                ctx->unbindBel(sz);
-                                if (bound != nullptr)
-                                    ctx->bindBel(sz, bound, STRENGTH_WEAK);
-                                int input_len = 0;
-                                // Compute a fast input wirelength metric at this bel; and save if better than our last
-                                // try
-                                for (auto &port : ci->ports) {
-                                    auto &p = port.second;
-                                    if (p.type != PORT_IN || p.net == nullptr || p.net->driver.cell == nullptr)
-                                        continue;
-                                    CellInfo *drv = p.net->driver.cell;
-                                    auto drv_loc = cell_locs.find(drv->name);
-                                    if (drv_loc == cell_locs.end())
-                                        continue;
-                                    if (drv_loc->second.global)
-                                        continue;
-                                    input_len += std::abs(drv_loc->second.x - nx) + std::abs(drv_loc->second.y - ny);
-                                }
-                                if (input_len < best_inp_len) {
-                                    best_inp_len = input_len;
-                                    bestBel = sz;
-                                }
-                                break;
-                            } else {
-                                // It's legal, and we've tried enough. Finish.
-                                if (bound != nullptr)
-                                    remaining.emplace(chain_size[bound->name] *
-                                                              cfg.get_cell_legalisation_weight(ctx, bound),
-                                                      bound->name);
-                                Loc loc = ctx->getBelLocation(sz);
-                                cell_locs[ci->name].x = loc.x;
-                                cell_locs[ci->name].y = loc.y;
-                                placed = true;
-                                break;
-                            }
-                        }
-                    }
-                } else {
-                    // We do have relative constraints
-                    for (auto sz : fb->at(nx).at(ny)) {
-                        // List of cells and their destination
-                        std::vector<std::pair<CellInfo *, BelId>> targets;
-                        // List of bels we placed things at; and the cell that was there before if applicable
-                        dict<BelId, CellInfo *> moves_made;
-
-                        if (!ctx->getClusterPlacement(ci->cluster, sz, targets))
-                            continue;
-
-                        for (auto &target : targets) {
-                            // Check it satisfies the region constraint if applicable
-                            if (!target.first->testRegion(target.second))
-                                goto fail;
-                            CellInfo *bound = ctx->getBoundBelCell(target.second);
-                            // Chains cannot overlap; so if we have to ripup a cell make sure it isn't part of a chain
-                            if (bound != nullptr) {
-                                if (bound->belStrength > (cfg.chainRipup ? STRENGTH_STRONG : STRENGTH_WEAK))
-                                    goto fail;
-                                if (bound->cluster != ClusterId() && (!cfg.chainRipup || radius < chain_ripup_radius))
-                                    goto fail;
-                            }
-                        }
-                        // Actually perform the move; keeping track of the moves we make so we can revert them if needed
-                        for (auto &target : targets) {
-                            CellInfo *bound = ctx->getBoundBelCell(target.second);
-                            if (bound != nullptr) {
-                                if (bound->cluster != ClusterId()) {
-                                    for (auto cell : cluster2cells[bound->cluster]) {
-                                        if (cell->bel != BelId()) {
-                                            moves_made[cell->bel] = cell;
-                                            ctx->unbindBel(cell->bel);
-                                        }
-                                    }
-                                } else {
-                                    ctx->unbindBel(target.second);
-                                }
-                            }
-                            ctx->bindBel(target.second, target.first, STRENGTH_STRONG);
-                            moves_made[target.second] = bound;
-                        }
-                        // Check that the move we have made is legal
-                        for (auto &move : moves_made) {
-                            if (!ctx->isBelLocationValid(move.first))
-                                goto fail;
-                        }
-
-                        if (false) {
-                        fail:
-                            // If the move turned out to be illegal; revert all the moves we made
-                            for (auto &move : moves_made) {
-                                if (ctx->getBoundBelCell(move.first))
-                                    ctx->unbindBel(move.first);
-                                if (move.second != nullptr)
-                                    ctx->bindBel(move.first, move.second, STRENGTH_WEAK);
-                            }
-                            continue;
-                        }
-                        for (auto &target : targets) {
-                            Loc loc = ctx->getBelLocation(target.second);
-                            cell_locs[target.first->name].x = loc.x;
-                            cell_locs[target.first->name].y = loc.y;
-                            // log_info("%s %d %d %d\n", target.first->name.c_str(ctx), loc.x, loc.y, loc.z);
-                        }
-                        for (auto &move : moves_made) {
-                            // Where we have ripped up cells; add them to the queue
-                            if (move.second != nullptr &&
-                                (move.second->cluster == ClusterId() ||
-                                 ctx->getClusterRootCell(move.second->cluster) == move.second))
-                                remaining.emplace(chain_size[move.second->name] *
-                                                          cfg.get_cell_legalisation_weight(ctx, move.second),
-                                                  move.second->name);
-                        }
-
-                        placed = true;
-                        break;
-                    }
-                }
-
-                total_iters_for_cell++;
-            }
-            if (ctx->verbose) {
-                auto ci_endt = std::chrono::high_resolution_clock::now();
-                time_per_cell_type[ci->type] += std::chrono::duration<float>(ci_endt - ci_startt).count();
-            }
-        }
-        auto endt = std::chrono::high_resolution_clock::now();
-        sl_time += std::chrono::duration<float>(endt - startt).count();
+        StrictLegaliser legaliser(this);
+        legaliser.run();
     }
     // Implementation of the cut-based spreading as described in the HeAP/SimPL papers
 
@@ -1189,6 +891,353 @@ class HeAPPlacer
                 }
             }
             return false;
+        }
+    };
+
+    class StrictLegaliser
+    {
+      public:
+        StrictLegaliser(HeAPPlacer *p) : p(p), ctx(p->ctx) {};
+
+        void run()
+        {
+            auto startt = std::chrono::high_resolution_clock::now();
+
+            // Unbind all cells placed in this solution
+            for (auto &cell : ctx->cells) {
+                CellInfo *ci = cell.second.get();
+                if (ci->bel != BelId() &&
+                    (ci->udata != dont_solve ||
+                     (ci->cluster != ClusterId() && ctx->getClusterRootCell(ci->cluster)->udata != dont_solve)))
+                    ctx->unbindBel(ci->bel);
+            }
+            auto endt = std::chrono::high_resolution_clock::now();
+            p->sl_time += std::chrono::duration<float>(endt - startt).count();
+
+            // At the moment we don't follow the full HeAP algorithm using cuts for legalisation, instead using
+            // the simple greedy largest-macro-first approach.
+            for (auto cell : p->solve_cells) {
+                remaining.emplace(p->chain_size[cell->name] * p->cfg.get_cell_legalisation_weight(ctx, cell),
+                                  cell->name);
+            }
+            ripup_radius = 2;
+            chain_ripup_radius = std::max(p->max_x, p->max_y); // only ripup chains as last resort
+            total_iters = 0;
+            total_iters_noreset = 0;
+            while (!remaining.empty()) {
+                auto top = remaining.top();
+                remaining.pop();
+
+                CellInfo *ci = ctx->cells.at(top.second).get();
+                // Was now placed, ignore
+                if (ci->bel != BelId())
+                    continue;
+                std::chrono::high_resolution_clock::time_point ci_startt;
+                if (ctx->verbose)
+                    ci_startt = std::chrono::high_resolution_clock::now();
+
+                if (ctx->debug)
+                    log_info("   Legalising %s (%s) priority=%d\n", top.second.c_str(ctx), ci->type.c_str(ctx),
+                             top.first);
+
+                legalise_cell(ci);
+
+                if (ctx->verbose) {
+                    auto ci_endt = std::chrono::high_resolution_clock::now();
+                    p->time_per_cell_type[ci->type] += std::chrono::duration<float>(ci_endt - ci_startt).count();
+                }
+            }
+        }
+        void legalise_cell(CellInfo *ci)
+        {
+            p->fast_bels.getBelsForCellType(ci->type, &fb);
+            radius = 0;
+            iter = 0;
+            iter_at_radius = 0;
+            total_iters_for_cell = 0;
+            placed = false;
+            bestBel = BelId();
+            best_inp_len = std::numeric_limits<int>::max();
+
+            total_iters++;
+            total_iters_noreset++;
+            if (total_iters > int(p->solve_cells.size())) {
+                total_iters = 0;
+                ripup_radius = std::min(std::max(p->max_x, p->max_y), ripup_radius * 2);
+            }
+
+            if (total_iters_noreset > std::max(5000, 8 * int(ctx->cells.size()))) {
+                log_error("Unable to find legal placement for all cells, design is probably at utilisation limit.\n");
+            }
+
+            while (!placed) {
+                if (p->cfg.cell_placement_timeout > 0 && total_iters_for_cell > p->cfg.cell_placement_timeout)
+                    log_error("Unable to find legal placement for cell '%s' of type '%s' after %d attempts, check "
+                              "constraints and "
+                              "utilisation. Use `--placer-heap-cell-placement-timeout` to change the number of "
+                              "attempts.\n",
+                              ctx->nameOf(ci), ci->type.c_str(ctx), total_iters_for_cell);
+                int nx, ny;
+                std::tie(nx, ny) = pick_random_loc_for_cell(ci);
+
+                iter++;
+                iter_at_radius++;
+                if (iter >= (10 * (radius + 1))) {
+                    // No luck yet, increase radius
+                    radius = std::min(std::max(p->max_x, p->max_y), radius + 1);
+                    while (radius < std::max(p->max_x, p->max_y)) {
+                        // Keep increasing the radius until it will actually increase the number of cells we are
+                        // checking (e.g. BRAM and DSP will not be in all cols/rows), so we don't waste effort
+                        for (int x = std::max(0, p->cell_locs.at(ci->name).x - radius);
+                             x <= std::min(p->max_x, p->cell_locs.at(ci->name).x + radius); x++) {
+                            if (x >= int(fb->size()))
+                                break;
+                            for (int y = std::max(0, p->cell_locs.at(ci->name).y - radius);
+                                 y <= std::min(p->max_y, p->cell_locs.at(ci->name).y + radius); y++) {
+                                if (y >= int(fb->at(x).size()))
+                                    break;
+                                if (fb->at(x).at(y).size() > 0)
+                                    goto notempty;
+                            }
+                        }
+                        radius = std::min(std::max(p->max_x, p->max_y), radius + 1);
+                    }
+                notempty:
+                    iter_at_radius = 0;
+                    iter = 0;
+                }
+                // If our randomly chosen cooridnate is out of bounds; or points to a tile with no relevant bels; ignore
+                // it
+                if (nx < 0 || nx > p->max_x)
+                    continue;
+                if (ny < 0 || ny > p->max_y)
+                    continue;
+
+                if (nx >= int(fb->size()))
+                    continue;
+                if (ny >= int(fb->at(nx).size()))
+                    continue;
+                if (fb->at(nx).at(ny).empty())
+                    continue;
+
+                // The number of attempts to find a location to try
+                need_to_explore = 2 * radius;
+
+                // If we have found at least one legal location; and made enough attempts; assume it's good enough and
+                // finish
+                if (iter_at_radius >= need_to_explore && bestBel != BelId()) {
+                    CellInfo *bound = ctx->getBoundBelCell(bestBel);
+                    if (bound != nullptr) {
+                        ctx->unbindBel(bound->bel);
+                        remaining.emplace(p->chain_size[bound->name] * p->cfg.get_cell_legalisation_weight(ctx, bound),
+                                          bound->name);
+                    }
+                    ctx->bindBel(bestBel, ci, STRENGTH_WEAK);
+                    placed = true;
+                    Loc loc = ctx->getBelLocation(bestBel);
+                    p->cell_locs[ci->name].x = loc.x;
+                    p->cell_locs[ci->name].y = loc.y;
+                    break;
+                }
+
+                if (ci->cluster == ClusterId()) {
+                    try_place_cell(ci, nx, ny);
+                } else {
+                    try_place_cluster(ci, nx, ny);
+                }
+
+                total_iters_for_cell++;
+            }
+        }
+
+      private:
+        HeAPPlacer *p;
+        Context *ctx;
+
+        int ripup_radius, chain_ripup_radius, total_iters, total_iters_noreset;
+
+        FastBels::FastBelsData *fb;
+
+        int radius, iter, iter_at_radius, total_iters_for_cell, need_to_explore;
+        bool placed;
+        BelId bestBel;
+        int best_inp_len;
+
+        typedef decltype(CellInfo::udata) cell_udata_t;
+        cell_udata_t dont_solve = std::numeric_limits<cell_udata_t>::max();
+        std::priority_queue<std::pair<int, IdString>> remaining;
+
+        std::pair<int, int> pick_random_loc_for_cell(CellInfo *ci)
+        {
+            // Determine a search radius around the solver location (which increases over time) that is clamped to
+            // the region constraint for the cell (if applicable)
+            int x0 = std::max(p->cell_locs.at(ci->name).x - radius, 0);
+            int y0 = std::max(p->cell_locs.at(ci->name).y - radius, 0);
+            int x1 = p->cell_locs.at(ci->name).x + radius;
+            int y1 = p->cell_locs.at(ci->name).y + radius;
+
+            if (ci->region != nullptr) {
+                auto &r = p->constraint_region_bounds[ci->region->name];
+                // Clamp search box to a region
+                x0 = std::max(x0, r.x0);
+                y0 = std::max(y0, r.y0);
+                x1 = std::min(x1, r.x1);
+                y1 = std::min(y1, r.y1);
+                if (x0 > x1)
+                    std::swap(x0, x1);
+                if (y0 > y1)
+                    std::swap(y0, y1);
+            }
+
+            // Pick a random X and Y location within our search radius / search box
+            int nx = ctx->rng(x1 - x0 + 1) + x0;
+            int ny = ctx->rng(y1 - y0 + 1) + y0;
+            return std::make_pair(nx, ny);
+        }
+
+        void try_place_cell(CellInfo *ci, int nx, int ny)
+        {
+            for (auto sz : fb->at(nx).at(ny)) {
+                // Look through all bels in this tile; checking region constraint if applicable
+                if (!ci->testRegion(sz))
+                    continue;
+                // Prefer available bels; unless we are dealing with a wide radius (e.g. difficult control sets)
+                // or occasionally trigger a tiebreaker
+                if (ctx->checkBelAvail(sz) || (radius > ripup_radius || ctx->rng(20000) < 10)) {
+                    CellInfo *bound = ctx->getBoundBelCell(sz);
+                    if (bound != nullptr) {
+                        // Only rip up cells without constraints
+                        if (bound->cluster != ClusterId() || bound->belStrength > STRENGTH_WEAK)
+                            continue;
+                        ctx->unbindBel(bound->bel);
+                    }
+                    // Provisionally bind the bel
+                    ctx->bindBel(sz, ci, STRENGTH_WEAK);
+                    if (!ctx->isBelLocationValid(sz)) {
+                        // New location is not legal; unbind the cell (and rebind the cell we ripped up if
+                        // applicable)
+                        ctx->unbindBel(sz);
+                        if (bound != nullptr)
+                            ctx->bindBel(sz, bound, STRENGTH_WEAK);
+                    } else if (iter_at_radius < need_to_explore) {
+                        // It's legal, but we haven't tried enough locations yet
+                        ctx->unbindBel(sz);
+                        if (bound != nullptr)
+                            ctx->bindBel(sz, bound, STRENGTH_WEAK);
+                        int input_len = 0;
+                        // Compute a fast input wirelength metric at this bel; and save if better than our last
+                        // try
+                        for (auto &port : ci->ports) {
+                            auto &pi = port.second;
+                            if (pi.type != PORT_IN || pi.net == nullptr || pi.net->driver.cell == nullptr)
+                                continue;
+                            CellInfo *drv = pi.net->driver.cell;
+                            auto drv_loc = p->cell_locs.find(drv->name);
+                            if (drv_loc == p->cell_locs.end())
+                                continue;
+                            if (drv_loc->second.global)
+                                continue;
+                            input_len += std::abs(drv_loc->second.x - nx) + std::abs(drv_loc->second.y - ny);
+                        }
+                        if (input_len < best_inp_len) {
+                            best_inp_len = input_len;
+                            bestBel = sz;
+                        }
+                        break;
+                    } else {
+                        // It's legal, and we've tried enough. Finish.
+                        if (bound != nullptr)
+                            remaining.emplace(p->chain_size[bound->name] *
+                                                      p->cfg.get_cell_legalisation_weight(ctx, bound),
+                                              bound->name);
+                        Loc loc = ctx->getBelLocation(sz);
+                        p->cell_locs[ci->name].x = loc.x;
+                        p->cell_locs[ci->name].y = loc.y;
+                        placed = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        void try_place_cluster(CellInfo *ci, int nx, int ny)
+        {
+            // We do have relative constraints
+            for (auto sz : fb->at(nx).at(ny)) {
+                // List of cells and their destination
+                std::vector<std::pair<CellInfo *, BelId>> targets;
+                // List of bels we placed things at; and the cell that was there before if applicable
+                dict<BelId, CellInfo *> moves_made;
+
+                if (!ctx->getClusterPlacement(ci->cluster, sz, targets))
+                    continue;
+
+                for (auto &target : targets) {
+                    // Check it satisfies the region constraint if applicable
+                    if (!target.first->testRegion(target.second))
+                        goto fail;
+                    CellInfo *bound = ctx->getBoundBelCell(target.second);
+                    // Chains cannot overlap; so if we have to ripup a cell make sure it isn't part of a chain
+                    if (bound != nullptr) {
+                        if (bound->belStrength > (p->cfg.chainRipup ? STRENGTH_STRONG : STRENGTH_WEAK))
+                            goto fail;
+                        if (bound->cluster != ClusterId() && (!p->cfg.chainRipup || radius < chain_ripup_radius))
+                            goto fail;
+                    }
+                }
+                // Actually perform the move; keeping track of the moves we make so we can revert them if needed
+                for (auto &target : targets) {
+                    CellInfo *bound = ctx->getBoundBelCell(target.second);
+                    if (bound != nullptr) {
+                        if (bound->cluster != ClusterId()) {
+                            for (auto cell : p->cluster2cells[bound->cluster]) {
+                                if (cell->bel != BelId()) {
+                                    moves_made[cell->bel] = cell;
+                                    ctx->unbindBel(cell->bel);
+                                }
+                            }
+                        } else {
+                            ctx->unbindBel(target.second);
+                        }
+                    }
+                    ctx->bindBel(target.second, target.first, STRENGTH_STRONG);
+                    moves_made[target.second] = bound;
+                }
+                // Check that the move we have made is legal
+                for (auto &move : moves_made) {
+                    if (!ctx->isBelLocationValid(move.first))
+                        goto fail;
+                }
+
+                if (false) {
+                fail:
+                    // If the move turned out to be illegal; revert all the moves we made
+                    for (auto &move : moves_made) {
+                        if (ctx->getBoundBelCell(move.first))
+                            ctx->unbindBel(move.first);
+                        if (move.second != nullptr)
+                            ctx->bindBel(move.first, move.second, STRENGTH_WEAK);
+                    }
+                    continue;
+                }
+                for (auto &target : targets) {
+                    Loc loc = ctx->getBelLocation(target.second);
+                    p->cell_locs[target.first->name].x = loc.x;
+                    p->cell_locs[target.first->name].y = loc.y;
+                    // log_info("%s %d %d %d\n", target.first->name.c_str(ctx), loc.x, loc.y, loc.z);
+                }
+                for (auto &move : moves_made) {
+                    // Where we have ripped up cells; add them to the queue
+                    if (move.second != nullptr && (move.second->cluster == ClusterId() ||
+                                                   ctx->getClusterRootCell(move.second->cluster) == move.second))
+                        remaining.emplace(p->chain_size[move.second->name] *
+                                                  p->cfg.get_cell_legalisation_weight(ctx, move.second),
+                                          move.second->name);
+                }
+
+                placed = true;
+                break;
+            }
         }
     };
 
