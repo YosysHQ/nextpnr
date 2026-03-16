@@ -88,18 +88,20 @@ bool XilinxImpl::xc7_logic_tile_valid(IdString tile_type, const LogicTileStatus 
                         DBG();
                         return false;
                     }
-                    // If more than 5 total inputs are used, need to check number of shared input
-                    if ((lut6->lut.input_count + lut5->lut.input_count) > 5) {
-                        int shared = 0, need_shared = (lut6->lut.input_count + lut5->lut.input_count - 5);
-                        for (int j = 0; j < lut6->lut.input_count; j++) {
-                            for (int k = 0; k < lut5->lut.input_count; k++) {
-                                if (lut6->lut.input_sigs[j] == lut5->lut.input_sigs[k])
-                                    shared++;
-                                if (shared >= need_shared)
-                                    break;
-                            }
-                        }
-                        if (shared < need_shared) {
+                    // If more than 5 unique inputs are used across both LUTs, reject.
+                    // Count unique signals in each LUT and their intersection.
+                    {
+                        std::set<NetInfo *> lut6_unique, lut5_unique;
+                        for (int j = 0; j < lut6->lut.input_count; j++)
+                            lut6_unique.insert(lut6->lut.input_sigs[j]);
+                        for (int k = 0; k < lut5->lut.input_count; k++)
+                            lut5_unique.insert(lut5->lut.input_sigs[k]);
+                        int shared = 0;
+                        for (auto sig : lut6_unique)
+                            if (lut5_unique.count(sig))
+                                shared++;
+                        int total_unique = lut6_unique.size() + lut5_unique.size() - shared;
+                        if (total_unique > 5) {
                             DBG();
                             return false;
                         }
