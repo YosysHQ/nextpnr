@@ -49,6 +49,7 @@ struct XilinxCellTags
             bool is_latch, is_clkinv, is_srinv, ffsync;
             bool is_paired;
             NetInfo *clk, *sr, *ce, *d;
+            int32_t control_set;
         } ff;
         struct
         {
@@ -183,6 +184,7 @@ struct XilinxImpl : HimbaechelAPI
   private:
     HimbaechelHelpers h;
     void assign_cell_tags();
+    void index_control_sets();
 };
 
 NEXTPNR_NAMESPACE_END
