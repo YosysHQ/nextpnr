@@ -341,6 +341,24 @@ struct FasmBackend
             out << dst_name << ".";
             out << src_name << std::endl;
 
+            // When routing through the ILOGIC direct path (D, not DDLY),
+            // ZINV_D must be set to cancel the default inversion on the D input.
+            // The pseudo-PIP table handles the route-through case, but when the
+            // router uses separate PIPs through intermediate wires, the pseudo-PIP
+            // key doesn't match.  Detect the ILOGIC D path by checking the PIP
+            // destination wire name and emit ZINV_D + IDELAY defaults.
+            if (boost::contains(tile_name, "IOI")) {
+                for (int idx = 0; idx <= 1; idx++) {
+                    std::string ilogic_d = (boost::starts_with(tile_name, "RIOI") ? "RIOI" : "LIOI") +
+                                           std::string("_ILOGIC") + std::to_string(idx) + "_D";
+                    if (dst_name == ilogic_d) {
+                        std::string yi = "Y" + std::to_string(idx);
+                        out << tile_name << ".IDELAY_" << yi << ".IDELAY_TYPE_FIXED" << std::endl;
+                        out << tile_name << ".ILOGIC_" << yi << ".ZINV_D" << std::endl;
+                    }
+                }
+            }
+
             if (boost::contains(tile_name, "IOI") && boost::starts_with(dst_name, "IOI_OCLK_")) {
                 dst_name.insert(dst_name.find("OCLK") + 4, 1, 'M');
                 orig_dst_name.insert(dst_name.find("OCLK") + 4, 1, 'M');
