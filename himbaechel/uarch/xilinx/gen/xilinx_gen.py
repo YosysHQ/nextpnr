@@ -228,7 +228,9 @@ def import_tiletype(ch: Chip, tile: xilinx_device.Tile):
                     (bel_name == "BDI1MUX" and bel_pin == "DI") or \
                     (bel_name == "CDI1MUX" and bel_pin == "DI") or \
                     (bel_name.startswith("TFBUSED")) or \
-                    (bel_name == "OMUX"):
+                    (bel_name == "OMUX") or \
+                    (bel_name == "IDELMUXE3"):
+
                     continue
                 add_pip(lookup_site_wire(site_pip.src_wire()),
                     lookup_site_wire(site_pip.dst_wire()),
