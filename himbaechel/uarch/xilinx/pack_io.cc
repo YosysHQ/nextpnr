@@ -220,7 +220,7 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
         xil_iob->movePortTo(id_DCITERMDISABLE, obuf, id_DCITERMDISABLE);
     }
 
-    bool is_diff_ibuf = xil_iob->type.in(id_IBUFDS, id_IBUFDS_INTERMDISABLE, id_IBUFDS, id_IBUFGDS);
+    bool is_diff_ibuf = xil_iob->type.in(id_IBUFDS, id_IBUFDS_INTERMDISABLE, id_IBUFDS);
     bool is_diff_iobuf = xil_iob->type.in(id_IOBUFDS, id_IOBUFDS_DCIEN);
     bool is_diff_out_iobuf =
             xil_iob->type.in(id_IOBUFDS_DIFF_OUT, id_IOBUFDS_DIFF_OUT_DCIEN, id_IOBUFDS_DIFF_OUT_INTERMDISABLE);
@@ -390,8 +390,6 @@ void XC7Packer::pack_io()
     hriobuf_rules[id_IBUFDS_INTERMDISABLE_INT].port_xform[id_IB] = id_DIFFI_IN;
     hriobuf_rules[id_IBUFDS] = XFormRule(hriobuf_rules[id_IBUF]);
     hriobuf_rules[id_IBUFDS].port_xform[id_IB] = id_DIFFI_IN;
-    hriobuf_rules[id_IBUFGDS] = XFormRule(hriobuf_rules[id_IBUF]);
-    hriobuf_rules[id_IBUFGDS].port_xform[id_IB] = id_DIFFI_IN;
 
     hpiobuf_rules[id_OBUF].new_type = id_IOB18_OUTBUF_DCIEN;
     hpiobuf_rules[id_OBUF].port_xform[id_I] = id_IN;
@@ -408,8 +406,6 @@ void XC7Packer::pack_io()
     hpiobuf_rules[id_IBUFDS_INTERMDISABLE_INT].port_xform[id_IB] = id_DIFFI_IN;
     hpiobuf_rules[id_IBUFDS] = XFormRule(hpiobuf_rules[id_IBUF]);
     hpiobuf_rules[id_IBUFDS].port_xform[id_IB] = id_DIFFI_IN;
-    hpiobuf_rules[id_IBUFGDS] = XFormRule(hpiobuf_rules[id_IBUF]);
-    hpiobuf_rules[id_IBUFGDS].port_xform[id_IB] = id_DIFFI_IN;
 
     // Special xform for OBUFx and IBUFx.
     dict<IdString, XFormRule> rules;

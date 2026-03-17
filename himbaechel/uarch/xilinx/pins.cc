@@ -446,7 +446,6 @@ void get_top_level_pins(Context *ctx, dict<IdString, pool<IdString>> &toplevel_p
     toplevel_pins[id_IBUFE3] = {id_I};
 
     toplevel_pins[id_IBUFDS] = {id_I, id_IB};
-    toplevel_pins[id_IBUFGDS] = {id_I, id_IB};
     toplevel_pins[id_IBUFDS_DIFF_OUT] = {id_I, id_IB};
     toplevel_pins[id_IBUFDS_DIFF_OUT_IBUFDISABLE] = {id_I, id_IB};
     toplevel_pins[id_IBUFDS_DIFF_OUT_INTERMDISABLE] = {id_I, id_IB};
