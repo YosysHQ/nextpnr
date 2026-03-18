@@ -124,10 +124,10 @@ struct FabulousImpl : ViaductAPI
                     if (bool_or_default(ci->params, id_I0MUX))
                         ctx->addCellTimingDelay(ci->name, id_Ci, id_O, 3.0);
                 }
-            } else if (ci->type == id_OutPass4_frame_config) {
+            } else if (ci->type.in(id_OutPass4_frame_config, id_OutPass4_frame_config_mux)) {
                 for (unsigned i = 0; i < 4; i++)
                     ctx->addCellTimingSetupHold(ci->name, ctx->idf("I%d", i), id_CLK, 2.5, 0.1);
-            } else if (ci->type == id_InPass4_frame_config) {
+            } else if (ci->type.in(id_InPass4_frame_config, id_InPass4_frame_config_mux)) {
                 for (unsigned i = 0; i < 4; i++)
                     ctx->addCellTimingClockToOut(ci->name, ctx->idf("O%d", i), id_CLK, 2.5);
             }
@@ -217,7 +217,8 @@ struct FabulousImpl : ViaductAPI
                 IdString pin = p.back(1).to_id(ctx);
                 ctx->addBelPin(bel, pin, port_wire, pin.in(id_I, id_T) ? PORT_IN : PORT_OUT);
             }
-        } else if (bel_type.in(id_InPass4_frame_config, id_OutPass4_frame_config)) {
+        } else if (bel_type.in(id_InPass4_frame_config, id_OutPass4_frame_config, id_InPass4_frame_config_mux,
+                               id_OutPass4_frame_config_mux)) {
             WireId clk_wire = get_wire(tile, id_CLK, id_REG_CLK);
             if (ctx->wires.at(clk_wire.index).uphill.empty()) {
                 WireId global_clk_wire = get_wire(ctx->id("X0Y0"), id_CLK, id_CLK);
@@ -228,7 +229,8 @@ struct FabulousImpl : ViaductAPI
                 IdString port_id = p.to_id(ctx);
                 WireId port_wire = get_wire(tile, port_id, port_id);
                 IdString pin = p.back(2).to_id(ctx);
-                ctx->addBelPin(bel, pin, port_wire, bel_type == id_OutPass4_frame_config ? PORT_IN : PORT_OUT);
+                bool bel_type_is_input_port = bel_type.in(id_OutPass4_frame_config, id_OutPass4_frame_config_mux);
+                ctx->addBelPin(bel, pin, port_wire, bel_type_is_input_port ? PORT_IN : PORT_OUT);
             }
         } else if (bel_type == id_RegFile_32x4) {
             WireId clk_wire = get_wire(tile, id_CLK, id_REG_CLK);
@@ -333,7 +335,8 @@ struct FabulousImpl : ViaductAPI
                 ports.push_back(port);
             }
             IdString bel_name = bel_idx.to_id(ctx);
-            if (bel_type.in(id_InPass4_frame_config, id_OutPass4_frame_config)) {
+            if (bel_type.in(id_InPass4_frame_config, id_OutPass4_frame_config, id_InPass4_frame_config_mux,
+                            id_OutPass4_frame_config_mux)) {
                 // Assign BRAM IO a nicer name than just a letter
                 bel_name = ports.front().rsplit('_').first.to_id(ctx);
             }
