@@ -41,6 +41,7 @@
 #include <numeric>
 #include <queue>
 #include <tuple>
+#include "array2d.h"
 #include "fast_bels.h"
 #include "log.h"
 #include "nextpnr.h"
@@ -132,6 +133,29 @@ template <typename T> struct EquationSystem
     }
 };
 
+struct ControlSetState
+{
+    int32_t ctrl_set = -1;
+    int32_t count = 0;
+    void bind(int32_t ctrl_set) {
+        if (count == 0) {
+            this->ctrl_set = ctrl_set;
+        } else {
+            NPNR_ASSERT(this->ctrl_set == ctrl_set);
+        }
+        ++count;
+    }
+    void unbind() {
+        --count;
+        NPNR_ASSERT(count >= 0);
+        if (count == 0)
+            this->ctrl_set = -1;
+    }
+    bool check(int32_t ctrl_set) {
+        return count == 0 || ctrl_set == this->ctrl_set;
+    }
+};
+
 } // namespace
 
 class HeAPPlacer
@@ -156,6 +180,7 @@ class HeAPPlacer
         ScopeLock<Context> lock(ctx);
         place_constraints();
         build_fast_bels();
+        alloc_control_sets();
         seed_placement();
         update_all_chains();
         wirelen_t hpwl = total_hpwl();
@@ -425,7 +450,11 @@ class HeAPPlacer
     std::vector<CellInfo *> solve_cells;
 
     dict<ClusterId, std::vector<CellInfo *>> cluster2cells;
+    dict<IdString, int> cell_ctrl_set;
     dict<ClusterId, int> chain_size;
+    // Tracking control sets
+    array2d<std::vector<ControlSetState>> control_sets;
+    dict<int, int> z_to_ctrl_set;
     // Performance counting
     double solve_time = 0, cl_time = 0, sl_time = 0;
 
@@ -526,6 +555,152 @@ class HeAPPlacer
             }
             constraint_region_bounds[r->name] = bb;
         }
+    }
+
+    void alloc_control_sets()
+    {
+        if (cfg.ff_bel_bucket == BelBucketId())
+            return;
+        FastBels::FastBelsData *ff_bels;
+        fast_bels.getBelsForBelBucket(cfg.ff_bel_bucket, &ff_bels);
+        control_sets.reset(max_x + 1, max_y + 1);
+        for (int x = 0; x <= max_x; x++) {
+            if (x >= int(ff_bels->size()))
+                continue;
+            auto &col = ff_bels->at(x);
+            for (int y = 0; y <= max_y; y++) {
+                if(y < int(col.size()) && !col.at(y).empty())
+                    control_sets.at(x, y).resize(cfg.ff_control_set_groups.size());
+            }
+        }
+        for (int g = 0; g < int(cfg.ff_control_set_groups.size()); g++) {
+            for (int z : cfg.ff_control_set_groups.at(g)) {
+                z_to_ctrl_set[z] = g;
+            }
+        }
+        // determine cell control sets
+        for (const auto &cell : ctx->cells) {
+            const CellInfo *ci = cell.second.get();
+            if (ctx->getBelBucketForCellType(ci->type) != cfg.ff_bel_bucket)
+                continue;
+            auto ctrl_set = cfg.get_cell_control_set(ctx, ci);
+            if (ctrl_set != -1) {
+                cell_ctrl_set[ci->name] = ctrl_set;
+                if (ci->bel != BelId())
+                    bind_ctrl_set(ci->bel, ci->name);
+            }
+        }
+    }
+
+    bool test_ctrl_set(BelId bel, IdString cell) {
+        if (cfg.ff_bel_bucket == BelBucketId())
+            return true;
+        if (ctx->getBelBucketForBel(bel) != cfg.ff_bel_bucket)
+            return true;
+        auto loc = ctx->getBelLocation(bel);
+        return control_sets.at(loc.x, loc.y).at(z_to_ctrl_set.at(loc.z)).check(cell_ctrl_set.at(cell));
+    }
+
+    void bind_ctrl_set(BelId bel, IdString cell) {
+        if (cfg.ff_bel_bucket == BelBucketId())
+            return;
+        if (ctx->getBelBucketForBel(bel) != cfg.ff_bel_bucket)
+            return;
+        auto loc = ctx->getBelLocation(bel);
+        control_sets.at(loc.x, loc.y).at(z_to_ctrl_set.at(loc.z)).bind(cell_ctrl_set.at(cell));
+    }
+
+    void unbind_ctrl_set(BelId bel) {
+        if (cfg.ff_bel_bucket == BelBucketId())
+            return;
+        if (ctx->getBelBucketForBel(bel) != cfg.ff_bel_bucket)
+            return;
+        auto loc = ctx->getBelLocation(bel);
+        auto &tile = control_sets.at(loc.x, loc.y);
+        if (tile.empty())
+            return;
+        auto fnd = z_to_ctrl_set.find(loc.z);
+        if (fnd == z_to_ctrl_set.end())
+            return;
+        tile.at(fnd->second).unbind();
+    }
+
+    int32_t get_cluster_control_set(ClusterId cluster) {
+        int32_t ctrl_set = -1;
+        if (cfg.ff_bel_bucket == BelBucketId())
+            return -1;
+        for (auto cell : cluster2cells.at(cluster)) {
+            auto ofs = ctx->getClusterOffset(cell);
+            if (ofs.x != 0 || ofs.y != 0)
+                return -1; // big cluster
+            if (ctx->getBelBucketForCellType(cell->type) != cfg.ff_bel_bucket)
+                continue;
+            auto cell_ctrl_set = cfg.get_cell_control_set(ctx, cell);
+            if (cell_ctrl_set == -1)
+                continue;
+            if (ctrl_set == -1 || ctrl_set == cell_ctrl_set) {
+                ctrl_set = cell_ctrl_set;
+            } else {
+                // mismatch, complex cluster
+                return -1;
+            }
+        }
+        return ctrl_set;
+    }
+
+    std::vector<Loc> find_control_set_candidates(int cx, int cy, int32_t ctrl_set, int max_radius, int &nonempty) {
+        std::vector<Loc> result, result_match, result_empty;
+
+        int radius = 1;
+        nonempty = 0;
+        auto process_location = [&](int x, int y){
+            if (y < 0 || y > max_y)
+                return;
+            if (x < 0 || x > max_x)
+                return;
+            const auto &tile = control_sets.at(x, y);
+            if (tile.empty())
+                return;
+            ++nonempty;
+            for (int g = 0; g < int(tile.size()); g++) {
+                if (tile.at(g).count > 0 && tile.at(g).ctrl_set == ctrl_set) {
+                    result_match.emplace_back(x, y, g);
+                } else if (tile.at(g).count == 0) {
+                    // result_empty.emplace_back(x, y, g);
+                }
+            }
+        };
+        process_location(cx, cy);
+        while (radius < max_radius && int(result_match.size() + result_empty.size()) < 10) {
+            for (int y = cy-radius; y <= cy+radius; y++) {
+                process_location(cx-radius, y);
+                process_location(cx+radius, y);
+            }
+            for (int x = cx-(radius-1); x <= cx+(radius-1); x++) {
+                process_location(x, cy-radius);
+                process_location(x, cy+radius);
+            }
+            ++radius;
+        }
+
+        std::stable_sort(result_match.begin(), result_match.end(), [&](Loc a, Loc b) {
+            int d0 = std::abs(a.x - cx) + std::abs(a.y - cy);
+            int d1 = std::abs(b.y - cx) + std::abs(b.y - cy);
+            return d0 < d1;
+        });
+        std::stable_sort(result_empty.begin(), result_empty.end(), [&](Loc a, Loc b) {
+            int d0 = std::abs(a.x - cx) + std::abs(a.y - cy);
+            int d1 = std::abs(b.y - cx) + std::abs(b.y - cy);
+            return d0 < d1;
+        });
+        // prioritise packing together before filling empty
+        result.reserve(result_match.size() + result_empty.size());
+        for (auto loc : result_match)
+            result.push_back(loc);
+        for (auto loc : result_empty)
+            result.push_back(loc);
+
+        return result;
     }
 
     // Build and solve in one direction
@@ -645,12 +820,14 @@ class HeAPPlacer
                         placed = true;
                     } else {
                         ctx->bindBel(bel, ci, STRENGTH_STRONG);
+                        bind_ctrl_set(bel, ci->name);
                         if (ctx->isBelLocationValid(bel)) {
                             cell_locs[cell.first].locked = true;
                             placed = true;
                             bels_used.insert(bel);
                         } else {
                             ctx->unbindBel(bel);
+                            unbind_ctrl_set(bel);
                             available_bels.at(ci->type).push_front(bel);
                         }
                     }
@@ -908,8 +1085,11 @@ class HeAPPlacer
                 CellInfo *ci = cell.second.get();
                 if (ci->bel != BelId() &&
                     (ci->udata != dont_solve ||
-                     (ci->cluster != ClusterId() && ctx->getClusterRootCell(ci->cluster)->udata != dont_solve)))
+                     (ci->cluster != ClusterId() && ctx->getClusterRootCell(ci->cluster)->udata != dont_solve))) {
+                    p->unbind_ctrl_set(ci->bel);
                     ctx->unbindBel(ci->bel);
+                }
+
             }
 
             // At the moment we don't follow the full HeAP algorithm using cuts for legalisation, instead using
@@ -970,6 +1150,36 @@ class HeAPPlacer
                 log_error("Unable to find legal placement for all cells, design is probably at utilisation limit.\n");
             }
 
+            if (p->cfg.ff_bel_bucket != BelBucketId()) {
+                // Try placing based on same control set in window first
+                int32_t ctrl_set = -1;
+                if (ci->cluster != ClusterId()) {
+                    ctrl_set = p->get_cluster_control_set(ci->cluster);
+                } else if (ctx->getBelBucketForCellType(ci->type) == p->cfg.ff_bel_bucket) {
+                    ctrl_set = p->cfg.get_cell_control_set(ctx, ci);
+                }
+                if (ctrl_set != -1) {
+                    int nonempty = 0;
+                    auto candidates = p->find_control_set_candidates(p->cell_locs.at(ci->name).x, p->cell_locs.at(ci->name).y,
+                        ctrl_set, p->cfg.ctrl_set_max_radius, nonempty);
+                    // log_info("%s %d/%d %d (%d, %d)\n", ci->name.c_str(ctx), int(candidates.size()), nonempty, ctrl_set,
+                    //    int(p->cell_locs.at(ci->name).x), int(p->cell_locs.at(ci->name).y));
+                    for (auto loc : candidates) {
+
+                        if (ci->cluster == ClusterId()) {
+                            try_place_cell(ci, loc.x, loc.y, loc.z);
+                        } else {
+                            try_place_cluster(ci, loc.x, loc.y, loc.z);
+                        }
+
+
+                        if (placed) {
+                            return;
+                        }
+                    }
+                }
+            }
+
             while (!placed) {
                 if (p->cfg.cell_placement_timeout > 0 && total_iters_for_cell > p->cfg.cell_placement_timeout)
                     log_error("Unable to find legal placement for cell '%s' of type '%s' after %d attempts, check "
@@ -1028,10 +1238,12 @@ class HeAPPlacer
                 if (iter_at_radius >= need_to_explore && bestBel != BelId()) {
                     CellInfo *bound = ctx->getBoundBelCell(bestBel);
                     if (bound != nullptr) {
+                        p->unbind_ctrl_set(bound->bel);
                         ctx->unbindBel(bound->bel);
                         remaining.emplace(p->chain_size[bound->name] * p->cfg.get_cell_legalisation_weight(ctx, bound),
                                           bound->name);
                     }
+                    p->bind_ctrl_set(bestBel, ci->name);
                     ctx->bindBel(bestBel, ci, STRENGTH_WEAK);
                     placed = true;
                     Loc loc = ctx->getBelLocation(bestBel);
@@ -1095,15 +1307,17 @@ class HeAPPlacer
             return std::make_pair(nx, ny);
         }
 
-        void try_place_cell(CellInfo *ci, int nx, int ny)
+        void try_place_cell(CellInfo *ci, int nx, int ny, int ctrl_set_group = -1)
         {
             for (auto sz : fb->at(nx).at(ny)) {
                 // Look through all bels in this tile; checking region constraint if applicable
                 if (!ci->testRegion(sz))
                     continue;
+                if (ctrl_set_group != -1 && p->z_to_ctrl_set.at(ctx->getBelLocation(sz).z) != ctrl_set_group)
+                    continue;
                 // Prefer available bels; unless we are dealing with a wide radius (e.g. difficult control sets)
                 // or occasionally trigger a tiebreaker
-                if (ctx->checkBelAvail(sz) || (radius > ripup_radius || ctx->rng(20000) < 10)) {
+                if (ctx->checkBelAvail(sz) || (ctrl_set_group != -1 && (radius > ripup_radius || ctx->rng(20000) < 10))) {
                     CellInfo *bound = ctx->getBoundBelCell(sz);
                     if (bound != nullptr) {
                         // Only rip up cells without constraints
@@ -1117,13 +1331,15 @@ class HeAPPlacer
                         // New location is not legal; unbind the cell (and rebind the cell we ripped up if
                         // applicable)
                         ctx->unbindBel(sz);
-                        if (bound != nullptr)
+                        if (bound != nullptr) {
                             ctx->bindBel(sz, bound, STRENGTH_WEAK);
-                    } else if (iter_at_radius < need_to_explore) {
+                        }
+                    } else if (ctrl_set_group == -1 && iter_at_radius < need_to_explore) {
                         // It's legal, but we haven't tried enough locations yet
                         ctx->unbindBel(sz);
-                        if (bound != nullptr)
+                        if (bound != nullptr) {
                             ctx->bindBel(sz, bound, STRENGTH_WEAK);
+                        }
                         int input_len = 0;
                         // Compute a fast input wirelength metric at this bel; and save if better than our last
                         // try
@@ -1146,11 +1362,14 @@ class HeAPPlacer
                         break;
                     } else {
                         // It's legal, and we've tried enough. Finish.
-                        if (bound != nullptr)
+                        if (bound != nullptr) {
+                            p->unbind_ctrl_set(sz);
                             remaining.emplace(p->chain_size[bound->name] *
                                                       p->cfg.get_cell_legalisation_weight(ctx, bound),
                                               bound->name);
+                        }
                         Loc loc = ctx->getBelLocation(sz);
+                        p->bind_ctrl_set(sz, ci->name);
                         p->cell_locs[ci->name].x = loc.x;
                         p->cell_locs[ci->name].y = loc.y;
                         placed = true;
@@ -1160,7 +1379,7 @@ class HeAPPlacer
             }
         }
 
-        void try_place_cluster(CellInfo *ci, int nx, int ny)
+        void try_place_cluster(CellInfo *ci, int nx, int ny, int ctrl_set_group = -1)
         {
             // We do have relative constraints
             for (auto sz : fb->at(nx).at(ny)) {
@@ -1172,19 +1391,30 @@ class HeAPPlacer
                 if (!ctx->getClusterPlacement(ci->cluster, sz, targets))
                     continue;
 
+                bool ctrl_set_match = false;
+
                 for (auto &target : targets) {
                     // Check it satisfies the region constraint if applicable
                     if (!target.first->testRegion(target.second))
                         goto fail;
+                    if (ctrl_set_group != -1 && ctx->getBelBucketForBel(target.second) == p->cfg.ff_bel_bucket
+                        && p->z_to_ctrl_set.at(ctx->getBelLocation(target.second).z) == ctrl_set_group)
+                        ctrl_set_match = true;
                     CellInfo *bound = ctx->getBoundBelCell(target.second);
                     // Chains cannot overlap; so if we have to ripup a cell make sure it isn't part of a chain
                     if (bound != nullptr) {
+                        if (ctrl_set_group != -1)
+                            goto fail;
                         if (bound->belStrength > (p->cfg.chainRipup ? STRENGTH_STRONG : STRENGTH_WEAK))
                             goto fail;
                         if (bound->cluster != ClusterId() && (!p->cfg.chainRipup || radius < chain_ripup_radius))
                             goto fail;
                     }
                 }
+
+                if (ctrl_set_group != -1 && !ctrl_set_match)
+                    goto fail;
+
                 // Actually perform the move; keeping track of the moves we make so we can revert them if needed
                 for (auto &target : targets) {
                     CellInfo *bound = ctx->getBoundBelCell(target.second);
@@ -1213,17 +1443,24 @@ class HeAPPlacer
                 fail:
                     // If the move turned out to be illegal; revert all the moves we made
                     for (auto &move : moves_made) {
-                        if (ctx->getBoundBelCell(move.first))
+                        if (ctx->getBoundBelCell(move.first)) {
                             ctx->unbindBel(move.first);
-                        if (move.second != nullptr)
+                        }
+                        if (move.second != nullptr) {
                             ctx->bindBel(move.first, move.second, STRENGTH_WEAK);
+                        }
                     }
                     continue;
+                }
+                for (auto &move : moves_made) {
+                    if (move.second)
+                        p->unbind_ctrl_set(move.first);
                 }
                 for (auto &target : targets) {
                     Loc loc = ctx->getBelLocation(target.second);
                     p->cell_locs[target.first->name].x = loc.x;
                     p->cell_locs[target.first->name].y = loc.y;
+                    p->bind_ctrl_set(target.second, target.first->name);
                     // log_info("%s %d %d %d\n", target.first->name.c_str(ctx), loc.x, loc.y, loc.z);
                 }
                 for (auto &move : moves_made) {

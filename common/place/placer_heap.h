@@ -59,6 +59,14 @@ struct PlacerHeapCfg
 
     // this is an optional callback to prioritise certain cells/clusters for legalisation
     std::function<float(Context *, CellInfo *)> get_cell_legalisation_weight = [](Context *, CellInfo *) { return 1; };
+
+    BelBucketId ff_bel_bucket = BelBucketId();
+    std::vector<std::vector<int>> ff_control_set_groups;
+    int ctrl_set_max_radius = 10;
+
+    // TODO: control sets might have a hierarchy, like ultrascale+ CE vs CLK/SR
+    std::function<int32_t(Context *, const CellInfo *)> get_cell_control_set = [](Context *, const CellInfo *) { return -1; };
+
 };
 
 extern bool placer_heap(Context *ctx, PlacerHeapCfg cfg);

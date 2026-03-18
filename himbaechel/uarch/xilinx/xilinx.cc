@@ -319,6 +319,21 @@ void XilinxImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
         // Place memory first, because they require entire SLICEMs
         return tags->lut.is_memory ? 100 : 1;
     };
+
+    cfg.ff_bel_bucket = id_SLICE_FFX;
+    cfg.ff_control_set_groups.resize(2);
+    for (int z = 0; z < 8; z++) {
+        cfg.ff_control_set_groups.at(z / 4).push_back((z << 4) | BEL_FF);
+        cfg.ff_control_set_groups.at(z / 4).push_back((z << 4) | BEL_FF2);
+    }
+    cfg.ctrl_set_max_radius = 20;
+
+    cfg.get_cell_control_set = [this](Context *, const CellInfo *ci) {
+        if (ci->type != id_SLICE_FFX)
+            return -1;
+        auto tags = get_tags(ci);
+        return tags->ff.control_set;
+    };
 }
 
 void XilinxImpl::configurePlacerStatic(PlacerStaticCfg &cfg)
@@ -575,7 +590,7 @@ void XilinxImpl::index_control_sets() {
             FFControlSet ctrl_set;
             ctrl_set.clk = ct.ff.clk ? ct.ff.clk->name : IdString();
             ctrl_set.ce = ct.ff.ce ? ct.ff.ce->name : IdString();
-            ctrl_set.sr = ct.ff.clk ? ct.ff.sr->name : IdString();
+            ctrl_set.sr = ct.ff.sr ? ct.ff.sr->name : IdString();
             ctrl_set.flags = (ct.ff.is_clkinv ? FFControlSet::IS_CLKINV : 0) |
                  (ct.ff.is_srinv ? FFControlSet::IS_SRINV : 0) |
                  (ct.ff.is_latch ? FFControlSet::IS_LATCH : 0) |
