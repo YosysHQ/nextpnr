@@ -230,7 +230,7 @@ def set_timings(ch):
             assert k in timing, f"pip class {k} not found in timing data"
             tmg.set_pip_class(grade=speed, name=k, delay=convert_timing(timing[k]))
 
-EXPECTED_VERSION = 1.12
+EXPECTED_VERSION = 1.13
 
 RESOURCE_NAMES = {
     1 << 0:  "C_SELX",
