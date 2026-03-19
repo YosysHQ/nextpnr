@@ -911,8 +911,6 @@ class HeAPPlacer
                      (ci->cluster != ClusterId() && ctx->getClusterRootCell(ci->cluster)->udata != dont_solve)))
                     ctx->unbindBel(ci->bel);
             }
-            auto endt = std::chrono::high_resolution_clock::now();
-            p->sl_time += std::chrono::duration<float>(endt - startt).count();
 
             // At the moment we don't follow the full HeAP algorithm using cuts for legalisation, instead using
             // the simple greedy largest-macro-first approach.
@@ -947,6 +945,8 @@ class HeAPPlacer
                     p->time_per_cell_type[ci->type] += std::chrono::duration<float>(ci_endt - ci_startt).count();
                 }
             }
+            auto endt = std::chrono::high_resolution_clock::now();
+            p->sl_time += std::chrono::duration<float>(endt - startt).count();
         }
         void legalise_cell(CellInfo *ci)
         {
