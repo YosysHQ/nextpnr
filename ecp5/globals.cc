@@ -77,7 +77,8 @@ class Ecp5GlobalRouter
         if (user.cell->type == id_TRELLIS_COMB && user.port == id_WCK)
             return true;
         if (user.cell->type == id_DCUA &&
-            (user.port.in(id_CH0_FF_RXI_CLK, id_CH1_FF_RXI_CLK, id_CH0_FF_TXI_CLK, id_CH1_FF_TXI_CLK)))
+            (user.port.in(id_CH0_FF_RXI_CLK, id_CH1_FF_RXI_CLK, id_CH0_FF_TXI_CLK, id_CH1_FF_TXI_CLK,
+                id_CH0_FF_EBRD_CLK, id_CH1_FF_EBRD_CLK)))
             return true;
         if ((user.cell->type.in(id_IOLOGIC, id_SIOLOGIC)) && (user.port == id_CLK))
             return true;
