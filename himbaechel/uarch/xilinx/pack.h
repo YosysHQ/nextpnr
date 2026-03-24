@@ -159,6 +159,7 @@ struct XilinxPacker
     BelId find_bel_with_short_route(WireId source, IdString beltype, IdString belpin);
     void try_preplace(CellInfo *cell, IdString port);
     void preplace_unique(CellInfo *cell);
+    void generate_constraints();
 
     // Cell creating
     CellInfo *create_cell(IdString type, IdString name);

@@ -739,6 +739,7 @@ void XilinxImpl::pack()
     packer.pack_iologic();
     packer.pack_idelayctrl();
     packer.pack_clocking();
+    packer.generate_constraints();
     packer.pack_muxfs();
     packer.pack_carries();
     packer.pack_srls();
