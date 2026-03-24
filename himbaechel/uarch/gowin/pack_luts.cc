@@ -511,12 +511,9 @@ void GowinPacker::pack_latches(void)
     // Latch-to-DFF type mapping: latches use the same BEL as DFFs,
     // just with REGMODE set to LATCH instead of FF.
     const dict<IdString, IdString> latch_to_dff = {
-        {id_DL, id_DFF},       {id_DLE, id_DFFE},
-        {id_DLN, id_DFFN},     {id_DLNE, id_DFFNE},
-        {id_DLC, id_DFFC},     {id_DLCE, id_DFFCE},
-        {id_DLNC, id_DFFNC},   {id_DLNCE, id_DFFNCE},
-        {id_DLP, id_DFFP},     {id_DLPE, id_DFFPE},
-        {id_DLNP, id_DFFNP},   {id_DLNPE, id_DFFNPE},
+            {id_DL, id_DFF},   {id_DLE, id_DFFE},   {id_DLN, id_DFFN},   {id_DLNE, id_DFFNE},
+            {id_DLC, id_DFFC}, {id_DLCE, id_DFFCE}, {id_DLNC, id_DFFNC}, {id_DLNCE, id_DFFNCE},
+            {id_DLP, id_DFFP}, {id_DLPE, id_DFFPE}, {id_DLNP, id_DFFNP}, {id_DLNPE, id_DFFNPE},
     };
 
     int converted = 0;
