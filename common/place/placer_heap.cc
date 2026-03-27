@@ -1315,6 +1315,8 @@ class HeAPPlacer
                     continue;
                 if (ctrl_set_group != -1 && p->z_to_ctrl_set.at(ctx->getBelLocation(sz).z) != ctrl_set_group)
                     continue;
+                if (ctrl_set_group == -1 && !p->test_ctrl_set(sz, ci->name))
+                    continue;
                 // Prefer available bels; unless we are dealing with a wide radius (e.g. difficult control sets)
                 // or occasionally trigger a tiebreaker
                 if (ctx->checkBelAvail(sz) || (ctrl_set_group != -1 && (radius > ripup_radius || ctx->rng(20000) < 10))) {
