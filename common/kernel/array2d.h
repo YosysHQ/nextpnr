@@ -62,6 +62,7 @@ template <typename T> class array2d
         if ((new_width * new_height) > m_size) {
             delete[] data;
             m_size = new_width * new_height;
+            NPNR_ASSERT(m_size >= 0);
             data = new T[m_size];
         }
         m_width = new_width;
