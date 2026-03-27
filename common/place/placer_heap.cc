@@ -559,7 +559,7 @@ class HeAPPlacer
 
     void alloc_control_sets()
     {
-        if (cfg.ff_bel_bucket == BelBucketId())
+        if (cfg.ff_bel_bucket == BelBucketId() || cfg.disableCtrlSet)
             return;
         FastBels::FastBelsData *ff_bels;
         fast_bels.getBelsForBelBucket(cfg.ff_bel_bucket, &ff_bels);
@@ -593,7 +593,7 @@ class HeAPPlacer
     }
 
     bool test_ctrl_set(BelId bel, IdString cell) {
-        if (cfg.ff_bel_bucket == BelBucketId())
+        if (cfg.ff_bel_bucket == BelBucketId() || cfg.disableCtrlSet)
             return true;
         if (ctx->getBelBucketForBel(bel) != cfg.ff_bel_bucket)
             return true;
@@ -602,7 +602,7 @@ class HeAPPlacer
     }
 
     void bind_ctrl_set(BelId bel, IdString cell) {
-        if (cfg.ff_bel_bucket == BelBucketId())
+        if (cfg.ff_bel_bucket == BelBucketId() || cfg.disableCtrlSet)
             return;
         if (ctx->getBelBucketForBel(bel) != cfg.ff_bel_bucket)
             return;
@@ -611,7 +611,7 @@ class HeAPPlacer
     }
 
     void unbind_ctrl_set(BelId bel) {
-        if (cfg.ff_bel_bucket == BelBucketId())
+        if (cfg.ff_bel_bucket == BelBucketId() || cfg.disableCtrlSet)
             return;
         if (ctx->getBelBucketForBel(bel) != cfg.ff_bel_bucket)
             return;
@@ -627,7 +627,7 @@ class HeAPPlacer
 
     int32_t get_cluster_control_set(ClusterId cluster) {
         int32_t ctrl_set = -1;
-        if (cfg.ff_bel_bucket == BelBucketId())
+        if (cfg.ff_bel_bucket == BelBucketId() || cfg.disableCtrlSet)
             return -1;
         for (auto cell : cluster2cells.at(cluster)) {
             auto ofs = ctx->getClusterOffset(cell);
@@ -1150,7 +1150,7 @@ class HeAPPlacer
                 log_error("Unable to find legal placement for all cells, design is probably at utilisation limit.\n");
             }
 
-            if (p->cfg.ff_bel_bucket != BelBucketId()) {
+            if (p->cfg.ff_bel_bucket != BelBucketId() && !p->cfg.disableCtrlSet) {
                 // Try placing based on same control set in window first
                 int32_t ctrl_set = -1;
                 if (ci->cluster != ClusterId()) {
@@ -2170,6 +2170,7 @@ PlacerHeapCfg::PlacerHeapCfg(Context *ctx)
     timingWeight = ctx->setting<int>("placerHeap/timingWeight");
     parallelRefine = ctx->setting<bool>("placerHeap/parallelRefine", false);
     netShareWeight = ctx->setting<float>("placerHeap/netShareWeight", 0);
+    disableCtrlSet = ctx->setting<bool>("placerHeap/noCtrlSet", false);
 
     timing_driven = ctx->setting<bool>("timing_driven");
     solverTolerance = 1e-5;
@@ -2189,6 +2190,7 @@ PlacerHeapCfg::PlacerHeapCfg(Context *ctx)
     hpwl_scale_y = 1;
     spread_scale_x = 1;
     spread_scale_y = 1;
+
 }
 
 NEXTPNR_NAMESPACE_END

@@ -391,6 +391,8 @@ po::options_description CommandHandler::getGeneralOptions()
                           "allow placer to attempt up to max(10000, total cells^2 / N) iterations to place a cell (int "
                           "N, default: 8, 0 for no timeout)");
 
+    general.add_options()("placer-heap-no-ctrl-set", "disable control set awareness in placer heap");
+
     general.add_options()("static-dump-density", "write density csv files during placer-static flow");
 
 #if !defined(NPNR_DISABLE_THREADS)
@@ -535,6 +537,9 @@ void CommandHandler::setupContext(Context *ctx)
     if (vm.count("placer-heap-cell-placement-timeout"))
         ctx->settings[ctx->id("placerHeap/cellPlacementTimeout")] =
                 std::to_string(std::max(0, vm["placer-heap-cell-placement-timeout"].as<int>()));
+
+    if (vm.count("placer-heap-no-ctrl-set"))
+        ctx->settings[ctx->id("placerHeap/noCtrlSet")] = true;
 
     if (vm.count("parallel-refine"))
         ctx->settings[ctx->id("placerHeap/parallelRefine")] = true;

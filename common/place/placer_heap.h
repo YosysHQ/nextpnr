@@ -60,6 +60,7 @@ struct PlacerHeapCfg
     // this is an optional callback to prioritise certain cells/clusters for legalisation
     std::function<float(Context *, CellInfo *)> get_cell_legalisation_weight = [](Context *, CellInfo *) { return 1; };
 
+    bool disableCtrlSet;
     BelBucketId ff_bel_bucket = BelBucketId();
     std::vector<std::vector<int>> ff_control_set_groups;
     int ctrl_set_max_radius = 10;
