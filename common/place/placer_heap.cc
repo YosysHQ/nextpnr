@@ -1319,7 +1319,7 @@ class HeAPPlacer
                     continue;
                 // Prefer available bels; unless we are dealing with a wide radius (e.g. difficult control sets)
                 // or occasionally trigger a tiebreaker
-                if (ctx->checkBelAvail(sz) || (ctrl_set_group != -1 && (radius > ripup_radius || ctx->rng(20000) < 10))) {
+                if (ctx->checkBelAvail(sz) || (ctrl_set_group == -1 && (radius > ripup_radius || ctx->rng(20000) < 10))) {
                     CellInfo *bound = ctx->getBoundBelCell(sz);
                     if (bound != nullptr) {
                         // Only rip up cells without constraints
