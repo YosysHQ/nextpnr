@@ -42,11 +42,23 @@ if (NOT XilinxChipdb_Python3_EXECUTABLE)
 endif()
 
 foreach (device ${HIMBAECHEL_XILINX_DEVICES})
+    if (device MATCHES "^xc7a")
+        set(XRAY_SUBDIR "artix7")
+    elseif (device MATCHES "^xc7k")
+        set(XRAY_SUBDIR "kintex7")
+    elseif (device MATCHES "^xc7s")
+        set(XRAY_SUBDIR "spartan7")
+    elseif (device MATCHES "^xc7z")
+        set(XRAY_SUBDIR "zynq7")
+    else()
+        message(FATAL_ERROR "Unsupported Xilinx device family for device: ${device}. "
+                            "Expected prefix xc7a, xc7k, xc7s or xc7z.")
+    endif()
     add_bba_produce_command(
         TARGET  nextpnr-himbaechel-xilinx-bba
         COMMAND ${XilinxChipdb_Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/gen/xilinx_gen.py
-            --xray ${HIMBAECHEL_PRJXRAY_DB}/artix7
+            --xray ${HIMBAECHEL_PRJXRAY_DB}/${XRAY_SUBDIR}
             --device ${device}
             --bba ${CMAKE_CURRENT_BINARY_DIR}/chipdb-${device}.bba.new
         OUTPUT
