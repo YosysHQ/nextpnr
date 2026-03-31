@@ -39,6 +39,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <vector>
+#include "array2d.h"
 #include "fast_bels.h"
 #include "log.h"
 #include "place_common.h"
@@ -248,8 +249,8 @@ class SAPlacer
         last_wirelen_cost = curr_wirelen_cost;
         last_timing_cost = curr_timing_cost;
 
-        if (cfg.netShareWeight > 0)
-            setup_nets_by_tile();
+        if (cfg.lut_bel_bucket != BelBucketId() && cfg.lutShareWeight > 0)
+            setup_nets_by_lut();
 
         wirelen_t avg_wirelen = curr_wirelen_cost;
         wirelen_t min_wirelen = curr_wirelen_cost;
@@ -262,10 +263,15 @@ class SAPlacer
             n_move = n_accept = 0;
             improved = false;
 
-            if (iter % 5 == 0 || iter == 1)
+            if (iter % 5 == 0 || iter == 1) {
+                std::string lut_str = "";
+                if (cfg.lutShareWeight != 0)
+                    lut_str = stringf(", lut share = %d",
+                        total_lut_share);
                 log_info("  at iteration #%d: temp = %f, timing cost = "
-                         "%.0f, wirelen = %.0f\n",
-                         iter, temp, double(curr_timing_cost), double(curr_wirelen_cost));
+                         "%.0f, wirelen = %.0f%s\n",
+                         iter, temp, double(curr_timing_cost), double(curr_wirelen_cost), lut_str.c_str());
+            }
 
             for (int m = 0; m < 15; ++m) {
                 // Loop through all automatically placed cells
@@ -493,9 +499,9 @@ class SAPlacer
             return false;
         }
 
-        int net_delta_score = 0;
-        if (cfg.netShareWeight > 0)
-            net_delta_score += update_nets_by_tile(cell, ctx->getBelLocation(cell->bel), ctx->getBelLocation(newBel));
+        int lut_delta_score = 0;
+        if (cfg.lutShareWeight > 0 && ctx->getBelBucketForBel(newBel) == cfg.lut_bel_bucket)
+            lut_delta_score += update_nets_by_lut(cell, ctx->getBelLocation(cell->bel), ctx->getBelLocation(newBel));
 
         ctx->unbindBel(oldBel);
         if (other_cell != nullptr) {
@@ -506,9 +512,9 @@ class SAPlacer
 
         if (other_cell != nullptr) {
             ctx->bindBel(oldBel, other_cell, STRENGTH_WEAK);
-            if (cfg.netShareWeight > 0)
-                net_delta_score +=
-                        update_nets_by_tile(other_cell, ctx->getBelLocation(newBel), ctx->getBelLocation(oldBel));
+            if (cfg.lutShareWeight > 0 && ctx->getBelBucketForBel(oldBel) == cfg.lut_bel_bucket)
+                lut_delta_score +=
+                        update_nets_by_lut(other_cell, ctx->getBelLocation(newBel), ctx->getBelLocation(oldBel));
         }
 
         add_move_cell(moveChange, cell, oldBel);
@@ -535,8 +541,8 @@ class SAPlacer
         delta = lambda * (moveChange.timing_delta / std::max<double>(last_timing_cost, epsilon)) +
                 (1 - lambda) * (double(moveChange.wirelen_delta) / std::max<double>(last_wirelen_cost, epsilon));
         delta += (cfg.constraintWeight / temp) * (new_dist - old_dist) / last_wirelen_cost;
-        if (cfg.netShareWeight > 0)
-            delta += -cfg.netShareWeight * (net_delta_score / std::max<double>(total_net_share, epsilon));
+        if (cfg.lutShareWeight > 0)
+            delta += -cfg.lutShareWeight * (lut_delta_score / std::max<double>(total_lut_share, 1));
         n_move++;
         // SA acceptance criteria
         if (delta < 0 || (temp > 1e-8 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
@@ -556,13 +562,13 @@ class SAPlacer
         return true;
     swap_fail:
         ctx->bindBel(oldBel, cell, STRENGTH_WEAK);
+        if (cfg.lutShareWeight > 0 && ctx->getBelBucketForBel(newBel) == cfg.lut_bel_bucket)
+            update_nets_by_lut(cell, ctx->getBelLocation(newBel), ctx->getBelLocation(oldBel));
         if (other_cell != nullptr) {
             ctx->bindBel(newBel, other_cell, STRENGTH_WEAK);
-            if (cfg.netShareWeight > 0)
-                update_nets_by_tile(other_cell, ctx->getBelLocation(oldBel), ctx->getBelLocation(newBel));
+            if (cfg.lutShareWeight > 0 && ctx->getBelBucketForBel(oldBel) == cfg.lut_bel_bucket)
+                update_nets_by_lut(other_cell, ctx->getBelLocation(oldBel), ctx->getBelLocation(newBel));
         }
-        if (cfg.netShareWeight > 0)
-            update_nets_by_tile(cell, ctx->getBelLocation(newBel), ctx->getBelLocation(oldBel));
         return false;
     }
 
@@ -580,11 +586,11 @@ class SAPlacer
         ctx->bindBel(newBel, cell, (cell->cluster != ClusterId()) ? STRENGTH_STRONG : STRENGTH_WEAK);
         if (bound != nullptr) {
             ctx->bindBel(oldBel, bound, (bound->cluster != ClusterId()) ? STRENGTH_STRONG : STRENGTH_WEAK);
-            if (cfg.netShareWeight > 0)
-                update_nets_by_tile(bound, ctx->getBelLocation(newBel), ctx->getBelLocation(oldBel));
+            if (cfg.lutShareWeight > 0 && ctx->getBelBucketForBel(oldBel) == cfg.lut_bel_bucket)
+                update_nets_by_lut(bound, ctx->getBelLocation(newBel), ctx->getBelLocation(oldBel));
         }
-        if (cfg.netShareWeight > 0)
-            update_nets_by_tile(cell, ctx->getBelLocation(oldBel), ctx->getBelLocation(newBel));
+        if (cfg.lutShareWeight > 0 && ctx->getBelBucketForBel(newBel) == cfg.lut_bel_bucket)
+            update_nets_by_lut(cell, ctx->getBelLocation(oldBel), ctx->getBelLocation(newBel));
         return oldBel;
     }
 
@@ -594,7 +600,7 @@ class SAPlacer
         std::vector<std::pair<CellInfo *, Loc>> cell_rel;
         dict<IdString, BelId> moved_cells;
         double delta = 0;
-        int orig_share_cost = total_net_share;
+        int orig_share_cost = total_lut_share;
         moveChange.reset(this);
 #if CHAIN_DEBUG
         log_info("finding cells for chain swap %s\n", cell->name.c_str(ctx));
@@ -663,8 +669,14 @@ class SAPlacer
                         log_info("%d unbind %s\n", __LINE__, ctx->nameOfBel(bound->bel));
                         log_info("%d bind %s %s\n", __LINE__, ctx->nameOfBel(old_bel), ctx->nameOf(bound));
 #endif
+
+                        if (cfg.lutShareWeight > 0 && ctx->getBelBucketForBel(old_bel) == cfg.lut_bel_bucket)
+                            update_nets_by_lut(bound, ctx->getBelLocation(bound->bel),
+                                                ctx->getBelLocation(old_bel));
                         ctx->unbindBel(bound->bel);
                         ctx->bindBel(old_bel, bound, STRENGTH_WEAK);
+
+
                     }
                 } else if (!ctx->checkBelAvail(db.second)) {
                     goto swap_fail;
@@ -673,6 +685,10 @@ class SAPlacer
 #if CHAIN_DEBUG
                 log_info("%d bind %s %s\n", __LINE__, ctx->nameOfBel(db.second), ctx->nameOf(db.first));
 #endif
+                if (cfg.lutShareWeight > 0 && ctx->getBelBucketForBel(old_bel) == cfg.lut_bel_bucket)
+                    update_nets_by_lut(db.first, ctx->getBelLocation(old_bel),
+                                                ctx->getBelLocation(db.second));
+
                 ctx->bindBel(db.second, db.first, STRENGTH_WEAK);
             }
         }
@@ -680,9 +696,6 @@ class SAPlacer
         for (const auto &mm : moved_cells) {
             CellInfo *cell = ctx->cells.at(mm.first).get();
             add_move_cell(moveChange, cell, moved_cells.at(cell->name));
-            if (cfg.netShareWeight > 0)
-                update_nets_by_tile(cell, ctx->getBelLocation(moved_cells.at(cell->name)),
-                                    ctx->getBelLocation(cell->bel));
             if (!ctx->isBelLocationValid(cell->bel) || !cell->testRegion(cell->bel))
                 goto swap_fail;
         }
@@ -692,9 +705,9 @@ class SAPlacer
         compute_cost_changes(moveChange);
         delta = lambda * (moveChange.timing_delta / last_timing_cost) +
                 (1 - lambda) * (double(moveChange.wirelen_delta) / last_wirelen_cost);
-        if (cfg.netShareWeight > 0) {
+        if (cfg.lutShareWeight > 0) {
             delta +=
-                    cfg.netShareWeight * (orig_share_cost - total_net_share) / std::max<double>(total_net_share, 1e-20);
+                    cfg.lutShareWeight * (orig_share_cost - total_lut_share) / std::max<double>(total_lut_share, 1);
         }
         n_move++;
         // SA acceptance criteria
@@ -718,6 +731,10 @@ class SAPlacer
 #if CHAIN_DEBUG
                 log_info("%d unbind %s\n", __LINE__, ctx->nameOfBel(cell->bel));
 #endif
+                if (cfg.lutShareWeight > 0 && ctx->getBelBucketForBel(cell->bel) == cfg.lut_bel_bucket)
+                    update_nets_by_lut(cell, ctx->getBelLocation(cell->bel),
+                                                ctx->getBelLocation(cell_pair.second));
+
                 ctx->unbindBel(cell->bel);
             }
         }
@@ -1137,65 +1154,89 @@ class SAPlacer
         curr_timing_cost += md.timing_delta;
     }
 
-    // Simple routeability driven placement
-    const int large_cell_thresh = 50;
-    int total_net_share = 0;
-    std::vector<std::vector<dict<IdString, int>>> nets_by_tile;
-    void setup_nets_by_tile()
+    // LUT input sharing optimisation for fracturable LUTs
+    int total_lut_share = 0;
+    array2d<std::vector<dict<IdString, int>>> nets_by_lut;
+    dict<int, int> z_to_lut;
+    void setup_nets_by_lut()
     {
-        total_net_share = 0;
-        nets_by_tile.resize(max_x + 1, std::vector<dict<IdString, int>>(max_y + 1));
+        if (cfg.lut_bel_bucket == BelBucketId())
+            return;
+        total_lut_share = 0;
+        nets_by_lut.reset(max_x + 1, max_y + 1, std::vector<dict<IdString, int>>());
+
+        FastBels::FastBelsData *lut_bels;
+        fast_bels.getBelsForBelBucket(cfg.lut_bel_bucket, &lut_bels);
+
+        for (int x = 0; x <= max_x; x++) {
+            if (x >= int(lut_bels->size()))
+                continue;
+            auto &col = lut_bels->at(x);
+            for (int y = 0; y <= max_y; y++) {
+                if(y < int(col.size()) && !col.at(y).empty())
+                    nets_by_lut.at(x, y).resize(cfg.lut_groups.size());
+            }
+        }
+
+        for (int g = 0; g < int(cfg.lut_groups.size()); g++) {
+            for (int z : cfg.lut_groups.at(g)) {
+                z_to_lut[z] = g;
+            }
+        }
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
-            if (ci->isPseudo() || (int(ci->ports.size()) > large_cell_thresh))
+            if (ctx->getBelBucketForBel(ci->bel) != cfg.lut_bel_bucket)
                 continue;
             Loc loc = ctx->getBelLocation(ci->bel);
-            auto &nbt = nets_by_tile.at(loc.x).at(loc.y);
-            for (const auto &port : ci->ports) {
-                if (port.second.net == nullptr)
+            auto &nbl = nets_by_lut.at(loc.x, loc.y).at(z_to_lut.at(loc.z));
+            int input_count;
+            const NetInfo *const *lut_inputs;
+            std::tie(lut_inputs, input_count) = cfg.get_lut_inputs(ctx, ci);
+            for (int i = 0; i < input_count; i++) {
+                if (!lut_inputs[i])
                     continue;
-                if (port.second.net->driver.cell == nullptr || ctx->getBelGlobalBuf(port.second.net->driver.cell->bel))
-                    continue;
-                int &s = nbt[port.second.net->name];
+                int &s = nbl[lut_inputs[i]->name];
                 if (s > 0)
-                    ++total_net_share;
+                    ++total_lut_share;
                 ++s;
             }
         }
     }
 
-    int update_nets_by_tile(CellInfo *ci, Loc old_loc, Loc new_loc)
+    int update_nets_by_lut(CellInfo *ci, Loc old_loc, Loc new_loc)
     {
-        if (int(ci->ports.size()) > large_cell_thresh)
-            return 0;
         int loss = 0, gain = 0;
-        auto &nbt_old = nets_by_tile.at(old_loc.x).at(old_loc.y);
-        auto &nbt_new = nets_by_tile.at(new_loc.x).at(new_loc.y);
+        auto &nbl_old = nets_by_lut.at(old_loc.x, old_loc.y).at(z_to_lut.at(old_loc.z));
+        auto &nbl_new = nets_by_lut.at(new_loc.x, new_loc.y).at(z_to_lut.at(new_loc.z));
 
-        for (const auto &port : ci->ports) {
-            if (port.second.net == nullptr)
+        int input_count;
+        const NetInfo *const *lut_inputs;
+        std::tie(lut_inputs, input_count) = cfg.get_lut_inputs(ctx, ci);
+
+        for (int i = 0; i < input_count; i++) {
+            if (!lut_inputs[i])
                 continue;
-            if (port.second.net->driver.cell == nullptr || ctx->getBelGlobalBuf(port.second.net->driver.cell->bel))
-                continue;
-            int &o = nbt_old[port.second.net->name];
+            int &o = nbl_old[lut_inputs[i]->name];
             --o;
             NPNR_ASSERT(o >= 0);
             if (o > 0)
                 ++loss;
-            int &n = nbt_new[port.second.net->name];
+            if (o == 0)
+                nbl_old.erase(lut_inputs[i]->name);
+            int &n = nbl_new[lut_inputs[i]->name];
             if (n > 0)
                 ++gain;
             ++n;
         }
         int delta = gain - loss;
-        total_net_share += delta;
+        total_lut_share += delta;
         return delta;
     }
 
     // Get the combined wirelen/timing metric
     inline double curr_metric()
     {
-        return lambda * curr_timing_cost + (1 - lambda) * curr_wirelen_cost - cfg.netShareWeight * total_net_share;
+        return lambda * curr_timing_cost + (1 - lambda) * curr_wirelen_cost - cfg.lutShareWeight * total_lut_share;
     }
 
     // Map nets to their bounding box (so we can skip recompute for moves that do not exceed the bounds
@@ -1233,7 +1274,7 @@ class SAPlacer
 Placer1Cfg::Placer1Cfg(Context *ctx)
 {
     constraintWeight = ctx->setting<float>("placer1/constraintWeight", 10);
-    netShareWeight = ctx->setting<float>("placer1/netShareWeight", 0);
+    lutShareWeight = ctx->setting<float>("placer1/lutShareWeight", 0);
     minBelsForGridPick = ctx->setting<int>("placer1/minBelsForGridPick", 64);
     startTemp = ctx->setting<float>("placer1/startTemp", 1);
     timingFanoutThresh = std::numeric_limits<int>::max();

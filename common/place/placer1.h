@@ -27,13 +27,18 @@ NEXTPNR_NAMESPACE_BEGIN
 struct Placer1Cfg
 {
     Placer1Cfg(Context *ctx);
-    float constraintWeight, netShareWeight;
+    float constraintWeight, lutShareWeight;
     int minBelsForGridPick;
     float startTemp;
     int timingFanoutThresh;
     bool timing_driven;
     int slack_redist_iter;
     int hpwl_scale_x, hpwl_scale_y;
+
+    // LUT sharing optimisation
+    BelBucketId lut_bel_bucket;
+    std::vector<std::vector<int>> lut_groups;
+    std::function<std::pair<const NetInfo *const *, int>(Context *, const CellInfo *)> get_lut_inputs = [](Context *, const CellInfo *) { return std::make_pair(nullptr, 0); };
 };
 
 extern bool placer1(Context *ctx, Placer1Cfg cfg);

@@ -43,7 +43,7 @@ struct PlacerHeapCfg
     bool timing_driven;
     float solverTolerance;
     bool placeAllAtOnce;
-    float netShareWeight;
+    float lutShareWeight;
     bool parallelRefine;
     bool chainRipup;
     int cell_placement_timeout;
@@ -88,6 +88,12 @@ struct PlacerHeapCfg
     std::function<int32_t(Context *, const CellInfo *)> get_cell_control_set = [](Context *, const CellInfo *) {
         return -1;
     };
+
+    // LUT sharing optimisation
+    BelBucketId lut_bel_bucket;
+    std::vector<std::vector<int>> lut_groups;
+    std::function<std::pair<const NetInfo *const *, int>(Context *, const CellInfo *)> get_lut_inputs = [](Context *, const CellInfo *) { return std::make_pair(nullptr, 0); };
+
 };
 
 extern bool placer_heap(Context *ctx, PlacerHeapCfg cfg);

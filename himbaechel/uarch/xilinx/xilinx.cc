@@ -338,6 +338,23 @@ void XilinxImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
         auto tags = get_tags(ci);
         return tags->ff.control_set;
     };
+
+    cfg.lut_bel_bucket = id_SLICE_LUTX;
+
+    cfg.lut_groups.resize(8);
+    for (int z = 0; z < 8; z++) {
+        cfg.lut_groups.at(z).push_back((z << 4) | BEL_5LUT);
+        cfg.lut_groups.at(z).push_back((z << 4) | BEL_6LUT);
+    }
+
+    cfg.get_lut_inputs = [this](Context *, const CellInfo *ci) -> std::pair<const NetInfo* const*, int> {
+        if (ci->type != id_SLICE_LUTX)
+            return std::make_pair(nullptr, 0);
+        auto tags = get_tags(ci);
+        return std::make_pair(tags->lut.input_sigs, tags->lut.input_count);
+    };
+    cfg.lutShareWeight = 0.1;
+
 }
 
 void XilinxImpl::configurePlacerStatic(PlacerStaticCfg &cfg)

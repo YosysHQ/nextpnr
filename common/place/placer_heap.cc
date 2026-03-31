@@ -409,7 +409,10 @@ class HeAPPlacer
             auto placer1_cfg = Placer1Cfg(ctx);
             placer1_cfg.hpwl_scale_x = cfg.hpwl_scale_x;
             placer1_cfg.hpwl_scale_y = cfg.hpwl_scale_y;
-            placer1_cfg.netShareWeight = cfg.netShareWeight;
+            placer1_cfg.lutShareWeight = cfg.lutShareWeight;
+            placer1_cfg.lut_groups = cfg.lut_groups;
+            placer1_cfg.lut_bel_bucket = cfg.lut_bel_bucket;
+            placer1_cfg.get_lut_inputs = cfg.get_lut_inputs;
             if (!placer1_refine(ctx, placer1_cfg)) {
                 return false;
             }
@@ -2166,7 +2169,7 @@ PlacerHeapCfg::PlacerHeapCfg(Context *ctx)
     criticalityExponent = ctx->setting<int>("placerHeap/criticalityExponent");
     timingWeight = ctx->setting<int>("placerHeap/timingWeight");
     parallelRefine = ctx->setting<bool>("placerHeap/parallelRefine", false);
-    netShareWeight = ctx->setting<float>("placerHeap/netShareWeight", 0);
+    lutShareWeight = ctx->setting<float>("placerHeap/lutShareWeight", 0);
     disableCtrlSet = ctx->setting<bool>("placerHeap/noCtrlSet", false);
 
     timing_driven = ctx->setting<bool>("timing_driven");
