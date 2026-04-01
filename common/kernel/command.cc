@@ -611,7 +611,7 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
                 if (vm.count("sdc")) {
                     std::string sdc_filename = vm["sdc"].as<std::string>();
                     std::ifstream sdc_stream(sdc_filename);
-                    ctx->read_sdc(sdc_stream);
+                    w.getContext()->read_sdc(sdc_stream);
                 }
 
                 customAfterLoad(w.getContext());
