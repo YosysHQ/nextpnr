@@ -130,16 +130,18 @@ void BlockTracker::update_bel(BelId bel, CellInfo *old_cell, CellInfo *new_cell)
     }
 }
 
-bool CLBState::check_validity(const LogicConfig &cfg, const CellTagger &cell_data)
+bool CLBState::check_validity(const LogicConfig &cfg, const CellTagger &cell_data, bool explain_invalid)
 {
     SSOArray<ControlSig, 2> used_clk(cfg.clk.routing.size()), used_sr(cfg.sr.routing.size()),
             used_en(cfg.en.routing.size());
+
     auto check_ctrlsig = [&](unsigned idx, ControlSig actual, const ControlSetConfig &ctrl,
                              SSOArray<ControlSig, 2> &used) {
-        if (ctrl.can_mask != -1) {
+        if (ctrl.can_mask != ControlSetConfig::MaskType::MASK_NONE) {
             // Using the per-entry control signal masking
-            if (actual.net == id___disconnected || (actual.net == id__CONST0 && ctrl.can_mask == 0) ||
-                (actual.net == id__CONST1 && ctrl.can_mask == 0)) {
+            if (actual.net == id___disconnected ||
+                (actual.net == id__CONST0 && ctrl.can_mask == ControlSetConfig::MaskType::MASK_ZERO) ||
+                (actual.net == id__CONST1 && ctrl.can_mask == ControlSetConfig::MaskType::MASK_ONE)) {
                 return true;
             }
         }
@@ -164,6 +166,7 @@ bool CLBState::check_validity(const LogicConfig &cfg, const CellTagger &cell_dat
         // no option available
         return false;
     };
+
     for (unsigned z = 0; z < cfg.lc_per_clb; z++) {
         // flipflop control set checking
         if (cfg.split_lc) {
@@ -176,15 +179,28 @@ bool CLBState::check_validity(const LogicConfig &cfg, const CellTagger &cell_dat
             auto &lct = cell_data.get(lc);
             if (lct.ff.ff_used) {
                 // check shared control signals
-                if (!check_ctrlsig(z, lct.ff.clk, cfg.clk, used_clk))
+                if (!check_ctrlsig(z, lct.ff.clk, cfg.clk, used_clk)) {
+                    if (explain_invalid) {
+                        log_nonfatal_error("CLK control signal invalid.\n");
+                    }
                     return false;
-                if (cfg.en.have_signal && !check_ctrlsig(z, lct.ff.en, cfg.en, used_en))
+                }
+                if (cfg.en.have_signal && !check_ctrlsig(z, lct.ff.en, cfg.en, used_en)) {
+                    if (explain_invalid) {
+                        log_nonfatal_error("EN control signal invalid.\n");
+                    }
                     return false;
-                if (cfg.sr.have_signal && !check_ctrlsig(z, lct.ff.sr, cfg.sr, used_sr))
+                }
+                if (cfg.sr.have_signal && !check_ctrlsig(z, lct.ff.sr, cfg.sr, used_sr)) {
+                    if (explain_invalid) {
+                        log_nonfatal_error("SR control signal invalid.\n");
+                    }
                     return false;
+                }
             }
         }
     }
+
     // don't allow mixed MUX types in the classic fabulous arch where ctrl sigs are shared
     int tile_mux_type = 0;
     for (unsigned z = 0; z < cfg.lc_per_clb; z++) {
@@ -202,14 +218,19 @@ bool CLBState::check_validity(const LogicConfig &cfg, const CellTagger &cell_dat
             NPNR_ASSERT_FALSE("unknown mux type");
         if (tile_mux_type == 0)
             tile_mux_type = this_mux;
-        else if (tile_mux_type != this_mux)
+        else if (tile_mux_type != this_mux) {
+            if (explain_invalid) {
+                log_nonfatal_error("Invalid mux type.\n");
+            }
             return false;
+        }
     }
     // TODO: other checks...
+
     return true;
 }
 
-bool BlockTracker::check_validity(BelId bel, const FabricConfig &cfg, const CellTagger &cell_data)
+bool BlockTracker::check_validity(BelId bel, const FabricConfig &cfg, const CellTagger &cell_data, bool explain_invalid)
 {
     if (bel.index >= int(bel_data.size()))
         return true; // some kind of bel not being tracked
@@ -224,7 +245,7 @@ bool BlockTracker::check_validity(BelId bel, const FabricConfig &cfg, const Cell
         return true; // some kind of bel not being tracked
     const auto &entry = row.at(loc.x);
     if (flags.block == BelFlags::BLOCK_CLB) {
-        return entry.clb->check_validity(cfg.clb, cell_data);
+        return entry.clb->check_validity(cfg.clb, cell_data, explain_invalid);
     } else {
         return true;
     }

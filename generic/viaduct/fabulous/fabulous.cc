@@ -87,16 +87,16 @@ struct FabulousImpl : ViaductAPI
     {
         // TODO: loading from file or something
         uint64_t default_routing = (1ULL << (cfg.clb.lc_per_clb * cfg.clb.ff_per_lc)) - 1;
-        auto setup_cfg = [&](ControlSetConfig &ctrl, int mask) {
+        auto setup_cfg = [&](ControlSetConfig &ctrl, ControlSetConfig::MaskType mask) {
             ctrl.routing.clear();
             ctrl.routing.push_back(default_routing);
             ctrl.can_mask = mask;
             ctrl.can_invert = false;
         };
 
-        setup_cfg(cfg.clb.clk, -1);
-        setup_cfg(cfg.clb.en, 1);
-        setup_cfg(cfg.clb.sr, 0);
+        setup_cfg(cfg.clb.clk, ControlSetConfig::MaskType::MASK_NONE); // clk can not be masked
+        setup_cfg(cfg.clb.en, ControlSetConfig::MaskType::MASK_ONE);   // en can be masked with 1
+        setup_cfg(cfg.clb.sr, ControlSetConfig::MaskType::MASK_ZERO);  // sr can be masked with 0
     }
 
     void update_cell_timing(Context *ctx)
@@ -154,9 +154,38 @@ struct FabulousImpl : ViaductAPI
         assign_cell_info();
         update_cell_timing(ctx);
     }
+
+    void postPlace() override
+    {
+        if (ctx->debug) {
+            log_info("================== Final Placement ==================\n");
+            for (auto &cell : ctx->cells) {
+                auto ci = cell.second.get();
+                if (ci->bel != BelId()) {
+                    log_info("%s: %s\n", ctx->nameOfBel(ci->bel), ctx->nameOf(ci));
+                    if (ctx->getBelType(ci->bel).in(id_FABULOUS_LC)) {
+                        for (IdString port : {id_CLK, id_SR, id_EN}) {
+                            if (ci->ports.count(port)) {
+                                WireId wire = ctx->getBelPinWire(ci->bel, port);
+                                PortInfo pi = ci->ports[port];
+                                if (pi.net) {
+                                    log_info("- %s/%s: %s\n", ctx->getWireName(wire)[0].c_str(ctx),
+                                             ctx->getWireName(wire)[1].c_str(ctx), pi.net->name.c_str(ctx));
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    log_info("unknown: %s\n", ctx->nameOf(ci));
+                }
+            }
+            log_break();
+        }
+    }
+
     bool isBelLocationValid(BelId bel, bool explain_invalid) const override
     {
-        return blk_trk->check_validity(bel, cfg, cell_tags);
+        return blk_trk->check_validity(bel, cfg, cell_tags, explain_invalid);
     }
 
   private:
@@ -382,6 +411,11 @@ struct FabulousImpl : ViaductAPI
                 Loc loc = tile_loc(tile);
                 curr_bel = ctx->addBel(IdStringList::concat(tile, bel_name), bel_type, Loc(loc.x, loc.y, bel_z), false,
                                        false);
+
+                // add FABULOUS_LC to the block tracker to check the control set
+                if (bel_type.in(id_FABULOUS_LC)) {
+                    blk_trk->set_bel_type(curr_bel, BelFlags::BLOCK_CLB, BelFlags::FUNC_LC_COMB, bel_z);
+                }
             } else if (cmd.in(id_I, id_O)) {
                 IdString port = csv.next_field().to_id(ctx);
                 auto wire_name = csv.next_field().split('.');

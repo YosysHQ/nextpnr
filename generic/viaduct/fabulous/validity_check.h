@@ -101,7 +101,7 @@ struct CLBState
     std::unique_ptr<CellInfo *[]> ff;
     // If there is (a) separate mux bel(s), map them to cells
     std::unique_ptr<CellInfo *[]> mux;
-    bool check_validity(const LogicConfig &cfg, const CellTagger &cell_data);
+    bool check_validity(const LogicConfig &cfg, const CellTagger &cell_data, bool explain_invalid = false);
 };
 
 struct BlockTracker
@@ -119,7 +119,7 @@ struct BlockTracker
         // ...
     };
     std::vector<std::vector<TileData>> tiles;
-    bool check_validity(BelId bel, const FabricConfig &cfg, const CellTagger &cell_data);
+    bool check_validity(BelId bel, const FabricConfig &cfg, const CellTagger &cell_data, bool explain_invalid);
 };
 
 struct PseudoPipTags
