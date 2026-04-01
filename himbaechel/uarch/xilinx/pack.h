@@ -120,6 +120,7 @@ struct XilinxPacker
     void pack_inverters();
     void pack_luts();
     void pack_ffs();
+    bool can_add_ff_to_cluster(const CellInfo *lut, const CellInfo *ff);
     void pack_lutffs();
 
     bool is_constrained(const CellInfo *cell);
