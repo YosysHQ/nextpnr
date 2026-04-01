@@ -81,7 +81,9 @@ struct PlacerHeapCfg
 
     BelBucketId ff_bel_bucket = BelBucketId();
     std::vector<std::vector<int>> ff_control_set_groups;
-    int ctrl_set_max_radius = 10;
+
+    // ctrl_set_max_radius is specified as a schedule per iteration, in general this should decrease over time
+    std::vector<int> ctrl_set_max_radius;
 
     // TODO: control sets might have a hierarchy, like ultrascale+ CE vs CLK/SR
     std::function<int32_t(Context *, const CellInfo *)> get_cell_control_set = [](Context *, const CellInfo *) { return -1; };

@@ -326,7 +326,7 @@ void XilinxImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
         cfg.ff_control_set_groups.at(z / 4).push_back((z << 4) | BEL_FF);
         cfg.ff_control_set_groups.at(z / 4).push_back((z << 4) | BEL_FF2);
     }
-    cfg.ctrl_set_max_radius = 12;
+    cfg.ctrl_set_max_radius = std::vector<int>{18, 15, 12, 9, 6, 3};
 
     cfg.get_cell_control_set = [this](Context *, const CellInfo *ci) {
         if (ci->type != id_SLICE_FFX)

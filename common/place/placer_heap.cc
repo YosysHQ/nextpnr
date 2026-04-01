@@ -207,7 +207,8 @@ class HeAPPlacer
         }
 
         wirelen_t solved_hpwl = 0, spread_hpwl = 0, legal_hpwl = 0, best_hpwl = std::numeric_limits<wirelen_t>::max();
-        int iter = 0, stalled = 0;
+        iter = 0;
+        int stalled = 0;
 
         std::vector<std::tuple<CellInfo *, BelId, PlaceStrength>> solution;
 
@@ -457,6 +458,7 @@ class HeAPPlacer
     dict<int, int> z_to_ctrl_set;
     // Performance counting
     double solve_time = 0, cl_time = 0, sl_time = 0;
+    int iter = 0;
 
     // Place cells with the BEL attribute set to constrain them
     void place_constraints()
@@ -1160,8 +1162,9 @@ class HeAPPlacer
                 }
                 if (ctrl_set != -1) {
                     int nonempty = 0;
+                    int ctrl_set_radius = p->cfg.ctrl_set_max_radius.at(std::min(p->iter, int(p->cfg.ctrl_set_max_radius.size()) - 1));
                     auto candidates = p->find_control_set_candidates(p->cell_locs.at(ci->name).x, p->cell_locs.at(ci->name).y,
-                        ctrl_set, p->cfg.ctrl_set_max_radius, nonempty);
+                        ctrl_set, ctrl_set_radius, nonempty);
                     // log_info("%s %d/%d %d (%d, %d)\n", ci->name.c_str(ctx), int(candidates.size()), nonempty, ctrl_set,
                     //    int(p->cell_locs.at(ci->name).x), int(p->cell_locs.at(ci->name).y));
                     for (auto loc : candidates) {
