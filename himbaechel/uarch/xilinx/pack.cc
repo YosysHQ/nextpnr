@@ -222,6 +222,66 @@ void XilinxPacker::pack_ffs()
     generic_xform(ff_rules, true);
 }
 
+bool XilinxPacker::can_add_ff_to_cluster(const CellInfo *lut, const CellInfo *ff)
+{
+    bool found_wclk = false;
+    bool found_ff = false;
+    const NetInfo *clk = nullptr, *ce = nullptr, *sr = nullptr;
+    bool is_clkinv = false, is_srinv = false, is_latch = false, is_ffsync = false;
+    CellInfo *base = ctx->cells.at(lut->cluster).get();
+
+    auto process_cell = [&](const CellInfo *cell) {
+        if (cell->constr_x != lut->constr_x || cell->constr_y != lut->constr_y)
+            return;
+        if (cell->type == id_SLICE_LUTX && cell->getPort(id_CLK)) {
+            found_wclk = true;
+            clk = cell->getPort(id_CLK);
+        }
+        if (cell->type == id_SLICE_FFX) {
+            found_ff = true;
+            clk = cell->getPort(id_CK);
+            ce = cell->getPort(id_CE);
+            sr = cell->getPort(id_SR);
+            is_clkinv = bool_or_default(cell->params, id_IS_CLK_INVERTED, false);
+            is_srinv = bool_or_default(cell->params, id_IS_R_INVERTED, false) ||
+                       bool_or_default(cell->params, id_IS_S_INVERTED, false) ||
+                       bool_or_default(cell->params, id_IS_CLR_INVERTED, false) ||
+                       bool_or_default(cell->params, id_IS_PRE_INVERTED, false);
+            is_latch = cell->attrs.count(id_X_FF_AS_LATCH);
+            is_ffsync = cell->attrs.count(id_X_FFSYNC);
+        }
+    };
+
+    process_cell(base);
+    for (auto child : base->constr_children)
+        process_cell(child);
+
+    if (!found_wclk && !found_ff)
+        return true;
+    if (ff->getPort(id_CK) != clk)
+        return false;
+    if (!found_ff)
+        return true;
+    if (ff->getPort(id_CE) != ce)
+        return false;
+    if (ff->getPort(id_SR) != sr)
+        return false;
+
+    if (bool_or_default(ff->params, id_IS_CLK_INVERTED, false) != is_clkinv)
+        return false;
+
+    if ((bool_or_default(ff->params, id_IS_R_INVERTED, false) || bool_or_default(ff->params, id_IS_S_INVERTED, false) ||
+         bool_or_default(ff->params, id_IS_CLR_INVERTED, false) ||
+         bool_or_default(ff->params, id_IS_PRE_INVERTED, false)) != is_srinv)
+        return false;
+
+    if (ff->attrs.count(id_X_FF_AS_LATCH) != is_latch)
+        return false;
+    if (ff->attrs.count(id_X_FFSYNC) != is_ffsync)
+        return false;
+    return true;
+}
+
 void XilinxPacker::pack_lutffs()
 {
     int pairs = 0;
@@ -232,18 +292,53 @@ void XilinxPacker::pack_lutffs()
         if (ci->type != id_SLICE_FFX)
             continue;
         NetInfo *d = ci->getPort(id_D);
-        if (d->driver.cell == nullptr || d->driver.cell->type != id_SLICE_LUTX || d->driver.port != id_O6)
+        if (d->driver.cell == nullptr)
             continue;
-        CellInfo *lut = d->driver.cell;
-        if (lut->cluster != ClusterId() || !lut->constr_children.empty())
-            continue;
-        lut->constr_children.push_back(ci);
-        lut->cluster = lut->name;
-        ci->cluster = lut->name;
-        ci->constr_x = 0;
-        ci->constr_y = 0;
-        ci->constr_z = (BEL_FF - BEL_6LUT);
-        ++pairs;
+        if (d->driver.cell->type == id_SLICE_LUTX && d->driver.port == id_O6) {
+            CellInfo *lut = d->driver.cell;
+            if (lut->cluster != ClusterId() || !lut->constr_children.empty()) {
+                if (d->users.entries() != 1)
+                    continue; // fanout might not be packable
+                if (!can_add_ff_to_cluster(lut, ci))
+                    continue;
+                CellInfo *base = ctx->cells.at(lut->cluster).get();
+                base->constr_children.push_back(ci);
+                ci->cluster = lut->cluster;
+                ci->constr_x = lut->constr_x;
+                ci->constr_y = lut->constr_y;
+                ci->constr_abs_z = lut->constr_abs_z;
+                ci->constr_z = lut->constr_z + (BEL_FF - BEL_6LUT);
+                ++pairs;
+            } else {
+                lut->constr_children.push_back(ci);
+                lut->cluster = lut->name;
+                ci->cluster = lut->name;
+                ci->constr_x = 0;
+                ci->constr_y = 0;
+                ci->constr_z = (BEL_FF - BEL_6LUT);
+                ++pairs;
+            }
+        } else if (d->driver.cell->type == id_CARRY4) {
+            CellInfo *carry = d->driver.cell;
+            if (carry->cluster != ClusterId() || !carry->constr_children.empty()) {
+                auto port = d->driver.port.str(ctx);
+                if (port.size() != 2 || port[0] != 'O')
+                    continue;
+                int z = std::stoi(port.substr(1));
+                if (d->users.entries() != 1)
+                    continue; // fanout might not be packable
+                if (!can_add_ff_to_cluster(carry, ci))
+                    continue;
+                CellInfo *base = ctx->cells.at(carry->cluster).get();
+                base->constr_children.push_back(ci);
+                ci->cluster = carry->cluster;
+                ci->constr_x = carry->constr_x;
+                ci->constr_y = carry->constr_y;
+                ci->constr_abs_z = carry->constr_abs_z;
+                ci->constr_z = carry->constr_z + ((BEL_FF | (z << 4)) - BEL_CARRY4);
+                ++pairs;
+            }
+        }
     }
     log_info("Constrained %d LUTFF pairs.\n", pairs);
 }

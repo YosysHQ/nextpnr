@@ -173,7 +173,9 @@ bool XilinxImpl::xc7_logic_tile_valid(IdString tile_type, const LogicTileStatus 
             if (ff1 != nullptr && ff1->ff.d != nullptr && ff1->ff.d->driver.cell != nullptr) {
                 auto &drv = ff1->ff.d->driver;
                 if ((drv.cell == lts.cells[(i << 4) | BEL_6LUT] && drv.port != id_MC31) ||
-                    drv.cell == lts.cells[(i << 4) | BEL_5LUT] || drv.cell == out_fmux_cell) {
+                    drv.cell == lts.cells[(i << 4) | BEL_5LUT] || drv.cell == out_fmux_cell ||
+                    ((carry4 && drv.cell == lts.cells[((i / 4) << 6) | BEL_CARRY4] &&
+                      carry4->carry.out_sigs[i % 4] == ff1->ff.d))) {
                     // Direct, OK
                 } else {
                     // Indirect, must use X input
@@ -230,12 +232,14 @@ bool XilinxImpl::xc7_logic_tile_valid(IdString tile_type, const LogicTileStatus 
             }
 
             if (carry4 != nullptr && carry4->carry.out_sigs[i % 4] != nullptr) {
-                // FIXME: direct connections to FF
-                if (mux_output_used) {
-                    DBG();
-                    return false; // Memory and SRLs only valid in SLICEMs
+                NetInfo *o = carry4->carry.out_sigs[i % 4];
+                if (o->users.entries() > 1 || (ff1 == nullptr || o != ff1->ff.d)) {
+                    if (mux_output_used) {
+                        DBG();
+                        return false; // Memory and SRLs only valid in SLICEMs
+                    }
+                    mux_output_used = true;
                 }
-                mux_output_used = true;
             }
             if (out_fmux_cell != nullptr) {
                 auto out_fmux = get_tags(out_fmux_cell);
