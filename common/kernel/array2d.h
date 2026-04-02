@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "nextpnr_assertions.h"
+#include "nextpnr_base_types.h"
 #include "nextpnr_namespaces.h"
 
 NEXTPNR_NAMESPACE_BEGIN
