@@ -39,29 +39,29 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-
 struct FFControlSet
 {
     unsigned flags = 0;
-    enum {
+    enum
+    {
         IS_LATCH = 1,
         IS_CLKINV = 2,
         IS_SRINV = 4,
         FFSYNC = 8,
     };
     IdString clk, sr, ce;
-    bool operator==(const FFControlSet &other) const {
-        return flags == other.flags && clk == other.clk
-            && ce == other.ce && sr == other.sr;
+    bool operator==(const FFControlSet &other) const
+    {
+        return flags == other.flags && clk == other.clk && ce == other.ce && sr == other.sr;
     };
-    unsigned hash() const {
+    unsigned hash() const
+    {
         unsigned hash = mkhash(clk.hash(), sr.hash());
         hash = mkhash(hash, ce.hash());
         hash = mkhash(hash, flags);
         return hash;
     }
 };
-
 
 XilinxImpl::~XilinxImpl() {};
 
@@ -298,7 +298,11 @@ bool XilinxImpl::is_pip_unavail(PipId pip) const
     return false;
 }
 
-void XilinxImpl::prePlace() { assign_cell_tags(); index_control_sets(); }
+void XilinxImpl::prePlace()
+{
+    assign_cell_tags();
+    index_control_sets();
+}
 
 void XilinxImpl::postPlace()
 {
@@ -581,7 +585,8 @@ void XilinxImpl::assign_cell_tags()
     }
 }
 
-void XilinxImpl::index_control_sets() {
+void XilinxImpl::index_control_sets()
+{
     idict<FFControlSet> control_sets;
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
@@ -592,9 +597,8 @@ void XilinxImpl::index_control_sets() {
             ctrl_set.ce = ct.ff.ce ? ct.ff.ce->name : IdString();
             ctrl_set.sr = ct.ff.sr ? ct.ff.sr->name : IdString();
             ctrl_set.flags = (ct.ff.is_clkinv ? FFControlSet::IS_CLKINV : 0) |
-                 (ct.ff.is_srinv ? FFControlSet::IS_SRINV : 0) |
-                 (ct.ff.is_latch ? FFControlSet::IS_LATCH : 0) |
-                 (ct.ff.ffsync ? FFControlSet::FFSYNC : 0);
+                             (ct.ff.is_srinv ? FFControlSet::IS_SRINV : 0) |
+                             (ct.ff.is_latch ? FFControlSet::IS_LATCH : 0) | (ct.ff.ffsync ? FFControlSet::FFSYNC : 0);
             ct.ff.control_set = control_sets(ctrl_set);
         }
     }
