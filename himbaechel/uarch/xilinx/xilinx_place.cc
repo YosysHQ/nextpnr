@@ -389,6 +389,7 @@ bool XilinxImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
 void XilinxImpl::fixup_placement()
 {
     log_info("Running post-placement legalisation...\n");
+    int shared_lut_inputs = 0;
     for (auto &ts : tile_status) {
         if (!ts.lts)
             continue;
@@ -410,6 +411,16 @@ void XilinxImpl::fixup_placement()
                     if (l6_tags->lut.input_sigs[i])
                         lut6Inputs[l6_tags->lut.input_sigs[i]->name].push_back(i);
             }
+
+            std::set<IdString> uniqueInputs;
+            for (auto i5 : lut5Inputs)
+                uniqueInputs.insert(i5.first);
+            for (auto i6 : lut6Inputs)
+                uniqueInputs.insert(i6.first);
+            if (lut6) {
+                shared_lut_inputs += int(lut5Inputs.size() + lut6Inputs.size()) - int(uniqueInputs.size());
+            }
+
             if (l5_tags->lut.is_memory || l5_tags->lut.is_srl) {
                 if (lut6) {
                     if (!lut6->ports.count(id_A6)) {
@@ -419,11 +430,6 @@ void XilinxImpl::fixup_placement()
                 }
                 continue;
             }
-            std::set<IdString> uniqueInputs;
-            for (auto i5 : lut5Inputs)
-                uniqueInputs.insert(i5.first);
-            for (auto i6 : lut6Inputs)
-                uniqueInputs.insert(i6.first);
             // Disconnect LUT inputs, and re-connect them to not overlap
             IdString ports[6] = {id_A1, id_A2, id_A3, id_A4, id_A5, id_A6};
             for (auto p : ports) {
@@ -479,6 +485,7 @@ void XilinxImpl::fixup_placement()
             }
         }
     }
+    log_info("Found %d shared LUT5/LUT6 inputs\n", shared_lut_inputs);
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
         if (ci->type == id_PS7_PS7) {

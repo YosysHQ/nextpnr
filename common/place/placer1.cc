@@ -542,7 +542,7 @@ class SAPlacer
                 (1 - lambda) * (double(moveChange.wirelen_delta) / std::max<double>(last_wirelen_cost, epsilon));
         delta += (cfg.constraintWeight / temp) * (new_dist - old_dist) / last_wirelen_cost;
         if (cfg.lutShareWeight > 0)
-            delta += -cfg.lutShareWeight * (lut_delta_score / std::max<double>(total_lut_share, 1));
+            delta += -cfg.lutShareWeight * (lut_delta_score / std::max<double>(last_wirelen_cost, 1));
         n_move++;
         // SA acceptance criteria
         if (delta < 0 || (temp > 1e-8 && (ctx->rng() / float(0x3fffffff)) <= std::exp(-delta / temp))) {
@@ -707,7 +707,7 @@ class SAPlacer
                 (1 - lambda) * (double(moveChange.wirelen_delta) / last_wirelen_cost);
         if (cfg.lutShareWeight > 0) {
             delta +=
-                    cfg.lutShareWeight * (orig_share_cost - total_lut_share) / std::max<double>(total_lut_share, 1);
+                    cfg.lutShareWeight * (orig_share_cost - total_lut_share) / std::max<double>(last_wirelen_cost, 1);
         }
         n_move++;
         // SA acceptance criteria
