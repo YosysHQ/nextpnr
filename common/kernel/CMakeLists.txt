@@ -11,23 +11,16 @@ target_sources(nextpnr_kernel PUBLIC
     base_clusterinfo.h
     basectx.cc
     basectx.h
-    bits.cc
-    bits.h
     chain_utils.h
     command.cc
     command.h
-    constraints.h
-    constraints.impl.h
     context.cc
     context.h
     design_utils.cc
     design_utils.h
     deterministic_rng.h
-    dynamic_bitarray.h
     embed.cc
     embed.h
-    exclusive_state_groups.h
-    exclusive_state_groups.impl.h
     handle_error.cc
     hashlib.h
     idstring.cc
