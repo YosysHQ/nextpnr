@@ -492,15 +492,15 @@ void GowinImpl::place_5a_hclks(void)
         // Any user can be used to determine hclk_idx because we connected them
         // to copies of CLKDIV2 based precisely on the fact that hclk_idx is
         // the same
-        PortRef *user = &*hclk_net->users.begin();
-        Loc user_loc = ctx->getBelLocation(user->cell->bel);
+        PortRef &user = *hclk_net->users.begin();
+        Loc user_loc = ctx->getBelLocation(user.cell->bel);
         int hclk_idx = gwu.get_hclk_for_io(user_loc);
 
         BelId bel = ctx->getBelByLocation(alloc_clkdiv2(hclk_idx, ci));
         ctx->bindBel(bel, ci, PlaceStrength::STRENGTH_LOCKED);
         if (ctx->debug) {
             log_info("  @%s\n", ctx->nameOfBel(bel));
-            log_info("    hclk:%d - %s %s\n", hclk_idx, ctx->nameOfBel(user->cell->bel), ctx->nameOf(user->cell));
+            log_info("    hclk:%d - %s %s\n", hclk_idx, ctx->nameOfBel(user.cell->bel), ctx->nameOf(user.cell));
         }
 
         ctx->cells[ncell->name] = std::move(ncell);
