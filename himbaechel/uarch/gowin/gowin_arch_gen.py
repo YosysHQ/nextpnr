@@ -35,6 +35,7 @@ CHIP_NEED_CFGPINS_INVERSION = 0x1000
 CHIP_HAS_I2CCFG             = 0x2000
 CHIP_HAS_5A_DSP             = 0x4000
 CHIP_NEED_BSRAM_DP_CE_FIX   = 0x8000
+CHIP_HAS_5A_HCLK            = 0x10000
 
 # Tile flags
 TILE_I3C_CAPABLE_IO        = 0x1
@@ -293,6 +294,35 @@ class SpineSelectWire(BBAStruct):
         bba.u32(self.vcc_gnd)
 
 @dataclass
+class Io2Hclk(BBAStruct):
+    x: int
+    y: int
+    hclk_idx: int
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.u16(self.x)
+        bba.u16(self.y)
+        bba.u32(self.hclk_idx)
+
+@dataclass
+class HclkDiv2(BBAStruct):
+    hclk_idx: int
+    # CLKDIV2 location
+    x: int
+    y: int
+    z: int
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.u16(self.hclk_idx)
+        bba.u16(self.x)
+        bba.u16(self.y)
+        bba.u16(self.z)
+
+@dataclass
 class ChipExtraData(BBAStruct):
     strs: StringPool
     flags: int
@@ -308,6 +338,8 @@ class ChipExtraData(BBAStruct):
     segments: list[Segment] = field(default_factory = list)
     spine_select_wires_top: list[SpineSelectWire] = field(default_factory = list)
     spine_select_wires_bottom: list[SpineSelectWire] = field(default_factory = list)
+    io_to_hclk: list[Io2Hclk] = field(default_factory = list)
+    hclk_div2: list[HclkDiv2] = field(default_factory = list)
 
     def set_dcs_prefix(self, prefix: str):
         self.dcs_prefix = self.strs.id(prefix)
@@ -354,6 +386,12 @@ class ChipExtraData(BBAStruct):
     def add_spine_select_wire_bottom(self, spine: str, x: int, y: int, wire: str, vcc_gnd: int):
         self.spine_select_wires_bottom.append(SpineSelectWire(self.strs.id(spine), x, y, self.strs.id(wire), vcc_gnd))
 
+    def add_io2hclk(self, hclk_idx: int, x: int, y: int):
+        self.io_to_hclk.append(Io2Hclk(x, y, hclk_idx))
+
+    def add_hclkdiv2(self, hclk_idx: int, x: int, y: int, z: int):
+        self.hclk_div2.append(HclkDiv2(hclk_idx, x, y, z))
+
     def serialise_lists(self, context: str, bba: BBAWriter):
         self.bottom_io.serialise_lists(f"{context}_bottom_io", bba)
         for i, t in enumerate(self.segments):
@@ -382,6 +420,12 @@ class ChipExtraData(BBAStruct):
         bba.label(f"{context}_spine_select_wires_bottom")
         for i, t in enumerate(self.spine_select_wires_bottom):
             t.serialise(f"{context}_spine_select_wire_bottom{i}", bba)
+        bba.label(f"{context}_io_to_hclk")
+        for i, t in enumerate(self.io_to_hclk):
+            t.serialise(f"{context}_io_to_hclk{i}", bba)
+        bba.label(f"{context}_hclk_div2")
+        for i, t in enumerate(self.hclk_div2):
+            t.serialise(f"{context}_hclk_div2{i}", bba)
 
     def serialise(self, context: str, bba: BBAWriter):
         bba.u32(self.flags)
@@ -397,6 +441,8 @@ class ChipExtraData(BBAStruct):
         bba.slice(f"{context}_segments", len(self.segments))
         bba.slice(f"{context}_spine_select_wires_top", len(self.spine_select_wires_top))
         bba.slice(f"{context}_spine_select_wires_bottom", len(self.spine_select_wires_bottom))
+        bba.slice(f"{context}_io_to_hclk", len(self.io_to_hclk))
+        bba.slice(f"{context}_hclk_div2", len(self.hclk_div2))
 
 @dataclass
 class PackageExtraData(BBAStruct):
@@ -859,6 +905,18 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                 tt.create_wire('VCC', 'VCC', const_value = 'VCC')
                 gnd = tt.create_bel('VCC', 'VCC', z = VCC_Z)
                 tt.add_bel_pin(gnd, "V", "VCC", PinType.OUTPUT)
+        elif func == 'clkdiv2':
+            for i, pins in desc['bels'].items():
+                clkdiv2 = tt.create_bel(f"CLKDIV2_{i}", "CLKDIV2", z = CLKDIV2_0_Z + i)
+                for pin, wire in pins['outputs'].items():
+                    tt.create_wire(wire, "HCLK")
+                    tt.add_bel_pin(clkdiv2, pin, wire, PinType.OUTPUT)
+                for pin, wire in pins['inputs'].items():
+                    if pin == 'RESETN':
+                        tt.create_wire(wire, "")
+                    else:
+                        tt.create_wire(wire, "HCLK")
+                    tt.add_bel_pin(clkdiv2, pin, wire, PinType.INPUT)
 
 
 def set_wire_flags(tt: TileType, tdesc: TypeDesc):
@@ -1617,6 +1675,14 @@ def create_extra_data(chip: Chip, db: chipdb, chip_flags: int):
             for spine, wire_desc in db.spine_select_wires['bottom'].items():
                 for y, x, wire, vcc_gnd in wire_desc:
                     chip.extra_data.add_spine_select_wire_bottom(spine, x, y, wire, vcc_gnd)
+    # create HCLK<->IO and HCLK<->CLKDIV2
+    if hasattr(db, "io2hclk"):
+        for hclk_idx, ios in db.io2hclk.items():
+            for row_col in ios:
+                chip.extra_data.add_io2hclk(hclk_idx, row_col[1], row_col[0])
+        for hclk_idx, div2 in db.hclk_div2.items():
+            for row_col_idx in div2:
+                chip.extra_data.add_hclkdiv2(hclk_idx, row_col_idx[1], row_col_idx[0], row_col_idx[2] + CLKDIV2_0_Z)
 
 def create_timing_info(chip: Chip, db: chipdb.Device):
     def group_to_timingvalue(group):
@@ -1847,6 +1913,8 @@ def main():
             chip_flags |= CHIP_HAS_I2CCFG;
         if "HAS_5A_DSP" in db.chip_flags:
             chip_flags |= CHIP_HAS_5A_DSP;
+        if "HAS_5A_HCLK" in db.chip_flags:
+            chip_flags |= CHIP_HAS_5A_HCLK;
 
     X = db.cols;
     Y = db.rows;

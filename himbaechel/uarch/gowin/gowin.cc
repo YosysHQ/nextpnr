@@ -110,6 +110,7 @@ struct GowinImpl : HimbaechelAPI
     // Place explicityl constrained or implicitly constrained (by IOLOGIC) CLKDIV and CLKDIV2 cells
     // to avoid routing conflicts and maximize utilization
     void place_constrained_hclk_cells();
+    void place_5a_hclks(void);
 
     // bel placement validation
     bool slice_valid(int x, int y, int z) const;
@@ -333,6 +334,179 @@ void GowinImpl::adjust_dsp_pin_mapping(void)
     }
 }
 
+// GW5A HCLK
+// Each serializer/deserializer can use one of several HCLK wire from a block
+// (hclk_idx), but only from the specific block assigned to that
+// serializer/deserializer.
+// Each HCLK line can be routed through a CLKDIV2 primitive, which halves the signal frequency.
+//
+// Thus, if the SERDES uses CLKDIV2, the latter must be placed in the specific
+// HCLK block corresponding to the SERDES (since the SERDES is part of the I/O,
+// and we do not allow unconstrained I/O, the placement of the SERDES is always
+// known).
+//
+// Since users typically do not track which pins belong to which HCLK block,
+// situations may arise where a single CLKDIV2 divider in the design serves as
+// the signal source for SERDES located in different HCLK blocks, making it
+// impossible to connect them. Alternatively, some SERDES in one block may
+// receive the signal directly, while others receive it from the CLKDIV2.
+//
+// Here, we solve this by duplicating the CLKDIV2 cells and placing them
+// exactly where they serve specific HCLK blocks.
+//
+// Information regarding which IO corresponds to a specific HCLK, as well as
+// the placement of CLKDIV2 for that specific HCLK, is retrieved from the
+// chip's database.
+//
+void GowinImpl::place_5a_hclks(void)
+{
+    std::vector<std::unique_ptr<CellInfo>> new_cells;
+    // Cloned CLKDIV2 cells
+    dict<int, CellInfo *> clkdiv2_clones;
+    // Which users need to be reconnected, and to where.
+    std::vector<std::pair<PortRef, CellInfo *>> users_to_reconect;
+    // CLKDIV2 allocator
+    dict<int, std::vector<Loc>> free_clkdiv2;
+
+    // SERDES can use any wire from the HCLK block; here, we select a wire from
+    // the unused ones and return the CLKDIV2 location that serves that wire.
+    auto alloc_clkdiv2 = [&](int hclk_idx, CellInfo *ci) -> Loc {
+        // first allocation for hclk_idx
+        if (!free_clkdiv2.count(hclk_idx)) {
+            std::vector<Loc> locs;
+            gwu.get_clkdiv2_locs(hclk_idx, locs);
+            free_clkdiv2[hclk_idx] = locs;
+        }
+
+        if (!free_clkdiv2.at(hclk_idx).size()) {
+            log_error("Can't place %s CLKDIV2.\n", ctx->nameOf(ci));
+        }
+        Loc loc = free_clkdiv2.at(hclk_idx).back();
+        free_clkdiv2.at(hclk_idx).pop_back();
+        return loc;
+    };
+
+    for (auto &cell : ctx->cells) {
+        auto ci = cell.second.get();
+
+        // The CLKDIV2s described in the design
+        if (is_clkdiv2(ci)) {
+            NetInfo *hclk_net = ci->getPort(id_CLKOUT);
+            if (!hclk_net || !ci->getPort(id_HCLKIN)) {
+                continue;
+            }
+            if (ctx->debug) {
+                log_info("  CLKDIV2 cell:%s, HCLKIN:%s, CLKOUT:%s\n", ctx->nameOf(ci),
+                         ctx->nameOf(ci->getPort(id_HCLKIN)), ctx->nameOf(hclk_net));
+            }
+
+            clkdiv2_clones.clear();
+            users_to_reconect.clear();
+            int cur_clkdiv2_hclk_idx = -1;
+
+            // SERDES only
+            for (auto user : hclk_net->users) {
+                if (!is_iologico(user.cell) && !is_iologici(user.cell)) {
+                    continue;
+                }
+                // checking users' hclk index
+                NPNR_ASSERT(user.cell->bel != BelId());
+                Loc user_loc = ctx->getBelLocation(user.cell->bel);
+                int hclk_idx = gwu.get_hclk_for_io(user_loc);
+                if (hclk_idx == -1) {
+                    log_error("%s can't use HCLK with %s.\n", ctx->nameOf(user.cell), ctx->nameOf(ci));
+                }
+
+                if (cur_clkdiv2_hclk_idx == -1) {
+                    // Place CLKDIV2
+                    cur_clkdiv2_hclk_idx = hclk_idx;
+                    BelId bel = ctx->getBelByLocation(alloc_clkdiv2(hclk_idx, ci));
+                    ctx->bindBel(bel, ci, PlaceStrength::STRENGTH_LOCKED);
+                    if (ctx->debug) {
+                        log_info("  @%s\n", ctx->nameOfBel(bel));
+                    }
+                    if (ctx->debug) {
+                        log_info("    hclk:%d - %s %s\n", hclk_idx, ctx->nameOfBel(user.cell->bel),
+                                 ctx->nameOf(user.cell));
+                    }
+                    continue;
+                }
+
+                // If the SERDES is in the current HCLK block, it remains there
+                if (cur_clkdiv2_hclk_idx == hclk_idx) {
+                    if (ctx->debug) {
+                        log_info("    hclk:%d - %s %s\n", hclk_idx, ctx->nameOfBel(user.cell->bel),
+                                 ctx->nameOf(user.cell));
+                    }
+                    continue;
+                }
+
+                // Since the SERDES is located in a different HCLK block, we
+                // need to create a copy of CLKDIV2 and save the SERDES
+                // for later connection to the copy.
+                CellInfo *new_clkdiv2;
+                if (clkdiv2_clones.count(hclk_idx)) {
+                    // already have clone
+                    new_clkdiv2 = clkdiv2_clones.at(hclk_idx);
+                } else {
+                    // create clone
+                    new_cells.push_back(gwu.create_cell(gwu.create_aux_name(ci->name, hclk_idx), id_CLKDIV2));
+                    new_clkdiv2 = new_cells.back().get();
+                    new_clkdiv2->addInput(id_HCLKIN);
+                    new_clkdiv2->addOutput(id_CLKOUT);
+                    clkdiv2_clones[hclk_idx] = new_clkdiv2;
+                    if (ctx->debug) {
+                        log_info("    create clone for hclk:%d - %s\n", hclk_idx, ctx->nameOf(new_clkdiv2));
+                    }
+                }
+                users_to_reconect.push_back(std::make_pair(user, new_clkdiv2));
+            }
+            // move the SERDES by connecting it to a copy of CLKDIV2
+            for (auto us_ci : users_to_reconect) {
+                PortRef user = us_ci.first;
+                CellInfo *new_clkdiv2 = us_ci.second;
+                if (ctx->debug) {
+                    log_info("   reconnect %s.%s to %s\n", ctx->nameOf(user.cell), user.port.c_str(ctx),
+                             ctx->nameOf(new_clkdiv2));
+                }
+                // input is same
+                if (!new_clkdiv2->getPort(id_HCLKIN)) {
+                    ci->copyPortTo(id_HCLKIN, new_clkdiv2, id_HCLKIN);
+                }
+                // move user
+                user.cell->disconnectPort(user.port);
+                new_clkdiv2->connectPorts(id_CLKOUT, user.cell, user.port);
+            }
+        }
+    }
+
+    // Place new CLKDIV2
+    for (auto &ncell : new_cells) {
+        CellInfo *ci = ncell.get();
+        NetInfo *hclk_net = ci->getPort(id_CLKOUT);
+        if (ctx->debug) {
+            log_info("  CLKDIV2 cell:%s, HCLKIN:%s, CLKOUT:%s\n", ctx->nameOf(ci), ctx->nameOf(ci->getPort(id_HCLKIN)),
+                     ctx->nameOf(hclk_net));
+        }
+
+        // Any user can be used to determine hclk_idx because we connected them
+        // to copies of CLKDIV2 based precisely on the fact that hclk_idx is
+        // the same
+        PortRef &user = *hclk_net->users.begin();
+        Loc user_loc = ctx->getBelLocation(user.cell->bel);
+        int hclk_idx = gwu.get_hclk_for_io(user_loc);
+
+        BelId bel = ctx->getBelByLocation(alloc_clkdiv2(hclk_idx, ci));
+        ctx->bindBel(bel, ci, PlaceStrength::STRENGTH_LOCKED);
+        if (ctx->debug) {
+            log_info("  @%s\n", ctx->nameOfBel(bel));
+            log_info("    hclk:%d - %s %s\n", hclk_idx, ctx->nameOfBel(user.cell->bel), ctx->nameOf(user.cell));
+        }
+
+        ctx->cells[ncell->name] = std::move(ncell);
+    }
+}
+
 /*
    Each HCLK section can serve one of three purposes:
        1. A simple routing path to IOLOGIC FCLK or PLL inputs
@@ -348,6 +522,11 @@ void GowinImpl::adjust_dsp_pin_mapping(void)
 void GowinImpl::place_constrained_hclk_cells()
 {
     log_info("Running custom HCLK placer...\n");
+    if (gwu.has_5A_HCLK()) {
+        place_5a_hclks();
+        return;
+    }
+
     std::map<IdStringList, IdString> constrained_clkdivs;
     std::map<BelId, std::set<std::pair<IdString, int>>> bel_cell_map;
     std::vector<std::pair<IdString, int>> alias_cells;
@@ -620,6 +799,7 @@ void GowinImpl::place_constrained_hclk_cells()
 void GowinImpl::prePlace()
 {
     place_constrained_hclk_cells();
+    ctx->assignArchInfo();
     assign_cell_info();
     fast_logic_cell.reset(ctx->getGridDimX(), ctx->getGridDimY());
     for (auto bel : ctx->getBels()) {
@@ -632,7 +812,6 @@ void GowinImpl::prePlace()
 
 void GowinImpl::postPlace()
 {
-    gwu.has_SP32();
     if (ctx->debug) {
         log_info("================== Final Placement ===================\n");
         for (auto &cell : ctx->cells) {
@@ -673,11 +852,21 @@ void GowinImpl::postRoute()
                         visited_hclk_users.insert(user.cell->name);
                         PipId up_pip = h_net->wires.at(ctx->getNetinfoSinkWire(h_net, user, 0)).pip;
                         IdString up_wire_name = ctx->getWireName(ctx->getPipSrcWire(up_pip))[1];
-                        if (up_wire_name.in(id_HCLK_OUT0, id_HCLK_OUT1, id_HCLK_OUT2, id_HCLK_OUT3)) {
-                            user.cell->setAttr(id_IOLOGIC_FCLK, Property(up_wire_name.str(ctx)));
-                            if (ctx->debug) {
-                                log_info("set IOLOGIC_FCLK to %s\n", up_wire_name.c_str(ctx));
+                        if (!gwu.has_5A_HCLK()) {
+                            if (up_wire_name.in(id_HCLK_OUT0, id_HCLK_OUT1, id_HCLK_OUT2, id_HCLK_OUT3)) {
+                                user.cell->setAttr(id_IOLOGIC_FCLK, Property(up_wire_name.str(ctx)));
+                                if (ctx->debug) {
+                                    log_info("set IOLOGIC_FCLK to %s\n", up_wire_name.c_str(ctx));
+                                }
                             }
+                        } else if (up_wire_name.in(id_HCLK00, id_HCLK10, id_HCLK20, id_HCLK30)) {
+                            user.cell->setAttr(id_IOLOGIC_FCLK, Property("HCLK_OUT0"));
+                        } else if (up_wire_name.in(id_HCLK01, id_HCLK11, id_HCLK21, id_HCLK31)) {
+                            user.cell->setAttr(id_IOLOGIC_FCLK, Property("HCLK_OUT1"));
+                        } else if (up_wire_name.in(id_HCLK02, id_HCLK12, id_HCLK22, id_HCLK32)) {
+                            user.cell->setAttr(id_IOLOGIC_FCLK, Property("HCLK_OUT2"));
+                        } else if (up_wire_name.in(id_HCLK03, id_HCLK13, id_HCLK23, id_HCLK33)) {
+                            user.cell->setAttr(id_IOLOGIC_FCLK, Property("HCLK_OUT3"));
                         }
                         if (ctx->debug) {
                             log_info("HCLK user cell:%s, port:%s, wire:%s, pip:%s, up wire:%s\n",

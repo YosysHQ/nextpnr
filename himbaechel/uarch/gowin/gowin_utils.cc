@@ -368,7 +368,7 @@ IdString GowinUtils::get_bottom_io_wire_b_net(int8_t condition)
     return IdString(extra->bottom_io.conditions[condition].wire_b_net);
 }
 
-bool GowinUtils::has_BANDGAP(void)
+bool GowinUtils::has_BANDGAP(void) const
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
     return extra->chip_flags & Extra_chip_data_POD::HAS_BANDGAP;
@@ -425,58 +425,64 @@ bool GowinUtils::has_CIN_MUX(void) const
     return extra->chip_flags & Extra_chip_data_POD::HAS_CIN_MUX;
 }
 
-bool GowinUtils::has_SP32(void)
+bool GowinUtils::has_SP32(void) const
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
     return extra->chip_flags & Extra_chip_data_POD::HAS_SP32;
 }
 
-bool GowinUtils::need_SP_fix(void)
+bool GowinUtils::need_SP_fix(void) const
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
     return extra->chip_flags & Extra_chip_data_POD::NEED_SP_FIX;
 }
 
-bool GowinUtils::need_SDP_fix(void)
+bool GowinUtils::need_SDP_fix(void) const
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
     return extra->chip_flags & Extra_chip_data_POD::NEED_SDP_FIX;
 }
 
-bool GowinUtils::need_BSRAM_OUTREG_fix(void)
+bool GowinUtils::need_BSRAM_OUTREG_fix(void) const
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
     return extra->chip_flags & Extra_chip_data_POD::NEED_BSRAM_OUTREG_FIX;
 }
 
-bool GowinUtils::need_BSRAM_DP_CE_fix(void)
+bool GowinUtils::need_BSRAM_DP_CE_fix(void) const
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
     return extra->chip_flags & Extra_chip_data_POD::NEED_BSRAM_DP_CE_FIX;
 }
 
-bool GowinUtils::need_BSRAM_RESET_fix(void)
+bool GowinUtils::need_BSRAM_RESET_fix(void) const
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
     return extra->chip_flags & Extra_chip_data_POD::NEED_BSRAM_RESET_FIX;
 }
 
-bool GowinUtils::need_BLKSEL_fix(void)
+bool GowinUtils::need_BLKSEL_fix(void) const
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
     return extra->chip_flags & Extra_chip_data_POD::NEED_BLKSEL_FIX;
 }
 
-bool GowinUtils::has_PLL_HCLK(void)
+bool GowinUtils::has_PLL_HCLK(void) const
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
     return extra->chip_flags & Extra_chip_data_POD::HAS_PLL_HCLK;
 }
 
-bool GowinUtils::has_CLKDIV_HCLK(void)
+bool GowinUtils::has_CLKDIV_HCLK(void) const
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
     return extra->chip_flags & Extra_chip_data_POD::HAS_CLKDIV_HCLK;
+}
+
+bool GowinUtils::has_5A_HCLK(void) const
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->chip_flags & Extra_chip_data_POD::HAS_5A_HCLK;
 }
 
 IdString GowinUtils::create_aux_name(IdString main_name, int idx, const char *str_suffix)
@@ -632,6 +638,29 @@ CellInfo *GowinUtils::dsp_bus_dst(const CellInfo *ci, const char *bus_prefix, in
         return nullptr;
     }
     return connected_to_cell;
+}
+
+int GowinUtils::get_hclk_for_io(Loc io_loc) const
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    for (auto &io_hclk : extra->io_to_hclk) {
+        if (io_hclk.x == io_loc.x && io_hclk.y == io_loc.y) {
+            return io_hclk.hclk_idx;
+        }
+    }
+    return -1;
+}
+
+// Location of clkdiv2 for HCLK
+void GowinUtils::get_clkdiv2_locs(int hclk_idx, std::vector<Loc> &locs)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    locs.clear();
+    for (auto &hclk_div2 : extra->hclk_div2) {
+        if (hclk_div2.hclk_idx == hclk_idx) {
+            locs.push_back(Loc(hclk_div2.x, hclk_div2.y, hclk_div2.z));
+        }
+    }
 }
 
 // Use the upper CLKDIV as the id for a hclk section

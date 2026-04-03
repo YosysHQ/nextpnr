@@ -199,6 +199,19 @@ NPNR_PACKED_STRUCT(struct Constraint_POD {
     int32_t iostd;
 });
 
+NPNR_PACKED_STRUCT(struct Io2Hclk_POD {
+    int16_t x;
+    int16_t y;
+    int32_t hclk_idx;
+});
+
+NPNR_PACKED_STRUCT(struct HclkDiv2_POD {
+    int16_t hclk_idx;
+    int16_t x;
+    int16_t y;
+    int16_t z;
+});
+
 NPNR_PACKED_STRUCT(struct Extra_package_data_POD { RelSlice<Constraint_POD> cst; });
 
 NPNR_PACKED_STRUCT(struct Extra_chip_data_POD {
@@ -215,6 +228,8 @@ NPNR_PACKED_STRUCT(struct Extra_chip_data_POD {
     RelSlice<Segment_POD> segments;
     RelSlice<SpineSelectWire_POD> spine_select_wires_top;
     RelSlice<SpineSelectWire_POD> spine_select_wires_bottom;
+    RelSlice<Io2Hclk_POD> io_to_hclk;
+    RelSlice<HclkDiv2_POD> hclk_div2;
 
     // chip flags
     static constexpr int32_t HAS_SP32 = 1;
@@ -233,6 +248,7 @@ NPNR_PACKED_STRUCT(struct Extra_chip_data_POD {
     static constexpr int32_t HAS_I2CCFG = 8192;
     static constexpr int32_t HAS_5A_DSP = 16384;
     static constexpr int32_t NEED_BSRAM_DP_CE_FIX = 32768;
+    static constexpr int32_t HAS_5A_HCLK = 65536;
 });
 
 } // namespace

@@ -203,7 +203,7 @@ void GowinPacker::pack_single_output_iol(CellInfo &ci, std::vector<IdString> &ne
         out_mode = "EMPTY";
         break;
     case ID_OVIDEO:
-        out_mode = "VIDEORX";
+        out_mode = "VIDEOTX";
         break;
     case ID_OSER10:
         out_mode = "ODDRX5";
