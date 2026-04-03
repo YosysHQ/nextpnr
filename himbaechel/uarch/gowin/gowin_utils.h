@@ -106,18 +106,19 @@ struct GowinUtils
     bool get_spine_select_wire(WireId spine, std::vector<std::pair<WireId, int>> &);
 
     // BSRAM
-    bool has_SP32(void);
-    bool need_SP_fix(void);
-    bool need_SDP_fix(void);
-    bool need_BSRAM_OUTREG_fix(void);
-    bool need_BSRAM_DP_CE_fix(void);
-    bool need_BSRAM_RESET_fix(void);
-    bool need_BLKSEL_fix(void);
-    bool has_PLL_HCLK(void);
-    bool has_CLKDIV_HCLK(void);
+    bool has_SP32(void) const;
+    bool need_SP_fix(void) const;
+    bool need_SDP_fix(void) const;
+    bool need_BSRAM_OUTREG_fix(void) const;
+    bool need_BSRAM_DP_CE_fix(void) const;
+    bool need_BSRAM_RESET_fix(void) const;
+    bool need_BLKSEL_fix(void) const;
+    bool has_PLL_HCLK(void) const;
+    bool has_CLKDIV_HCLK(void) const;
+    bool has_5A_HCLK(void) const;
 
     // Power saving
-    bool has_BANDGAP(void);
+    bool has_BANDGAP(void) const;
 
     // Pin function configuration via wires
     bool has_PINCFG(void) const;
@@ -192,6 +193,8 @@ struct GowinUtils
     std::unique_ptr<CellInfo> create_cell(IdString name, IdString type);
 
     // HCLK
+    void get_clkdiv2_locs(int hclk_idx, std::vector<Loc> &locs);
+    int get_hclk_for_io(Loc io_loc) const;
     BelId get_clkdiv_for_clkdiv2(BelId clkdiv2_bel) const;
     BelId get_other_hclk_clkdiv2(BelId clkdiv2_bel) const;
     BelId get_other_hclk_clkdiv(BelId clkdiv_bel) const;
