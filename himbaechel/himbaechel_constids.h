@@ -19,6 +19,7 @@
 
 #ifndef HIMBAECHEL_CONSTIDS_H
 #define HIMBAECHEL_CONSTIDS_H
+#ifdef HIMBAECHEL_CONSTIDS
 
 /*
 This enables use of 'constids' similar to a 'true' nextpnr arch in a HIMBAECHEL uarch.
@@ -32,9 +33,7 @@ init
 
 #include "nextpnr_namespaces.h"
 
-#ifdef HIMBAECHEL_MAIN
 #include "idstring.h"
-#endif
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -71,4 +70,5 @@ void init_uarch_constids(Arch *arch)
 
 NEXTPNR_NAMESPACE_END
 
+#endif
 #endif

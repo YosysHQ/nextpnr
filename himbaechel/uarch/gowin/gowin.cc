@@ -4,7 +4,6 @@
 #include "himbaechel_api.h"
 #include "himbaechel_helpers.h"
 #include "log.h"
-#include "nextpnr.h"
 
 #define GEN_INIT_CONSTIDS
 #define HIMBAECHEL_CONSTIDS "uarch/gowin/constids.inc"

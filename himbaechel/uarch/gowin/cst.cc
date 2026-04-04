@@ -3,12 +3,9 @@
 #include <utility>
 
 #include "log.h"
-#include "nextpnr.h"
-#include "util.h"
 
 #define HIMBAECHEL_CONSTIDS "uarch/gowin/constids.inc"
 #include "himbaechel_constids.h"
-#include "himbaechel_helpers.h"
 
 #include "cst.h"
 #include "gowin.h"

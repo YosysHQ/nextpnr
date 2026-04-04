@@ -1,6 +1,13 @@
 #ifndef GOWIN_UTILS_H
 #define GOWIN_UTILS_H
 
+
+#define HIMBAECHEL_CONSTIDS "uarch/gowin/constids.inc"
+#include "himbaechel_constids.h"
+#include "himbaechel_helpers.h"
+
+#include "gowin.h"
+
 #include "design_utils.h"
 #include "idstringlist.h"
 #include "nextpnr_namespaces.h"

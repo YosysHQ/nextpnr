@@ -1,6 +1,5 @@
 #include "design_utils.h"
 #include "log.h"
-#include "nextpnr.h"
 
 #define HIMBAECHEL_CONSTIDS "uarch/gowin/constids.inc"
 #include "himbaechel_constids.h"
@@ -9,8 +8,6 @@
 #include "gowin.h"
 #include "gowin_utils.h"
 #include "pack.h"
-
-#include <cinttypes>
 
 NEXTPNR_NAMESPACE_BEGIN
 

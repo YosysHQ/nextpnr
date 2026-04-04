@@ -1,6 +1,9 @@
 #ifndef GOWIN_H
 #define GOWIN_H
 
+#define HIMBAECHEL_CONSTIDS "uarch/gowin/constids.inc"
+#include "himbaechel_constids.h"
+
 #include "nextpnr.h"
 
 NEXTPNR_NAMESPACE_BEGIN

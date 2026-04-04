@@ -1,7 +1,9 @@
 #ifndef GOWIN_PACK_H
 #define GOWIN_PACK_H
 
-#include "nextpnr.h"
+#include "himbaechel_helpers.h"
+
+#include "gowin_utils.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
