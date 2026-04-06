@@ -209,6 +209,11 @@ void GowinPacker::pack_hclk(void)
 {
     log_info("Pack HCLK cells...\n");
 
+    // In the GW5A series, the CLKDIV2 can simultaneously transmit a signal to
+    // both IOLOGIC and CLKDIV.
+    if (gwu.has_5A_HCLK()) {
+        return;
+    }
     for (auto &cell : ctx->cells) {
         auto ci = cell.second.get();
         if (ci->type != id_CLKDIV)
