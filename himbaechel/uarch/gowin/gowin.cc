@@ -358,11 +358,18 @@ void GowinImpl::adjust_dsp_pin_mapping(void)
 // the placement of CLKDIV2 for that specific HCLK, is retrieved from the
 // chip's database.
 //
+// CLKDIV can be used either on its own or in conjunction with CLKDIV2;
+// however, in the latter case, there is only one CLKDIV2->CLKDIV connection,
+// and it is non-switchable. This makes it necessary to clone CLKDIV2 when
+// using it with multiple CLKDIVs.
+//
 void GowinImpl::place_5a_hclks(void)
 {
     std::vector<std::unique_ptr<CellInfo>> new_cells;
     // Cloned CLKDIV2 cells
     dict<int, CellInfo *> clkdiv2_clones;
+    // CLKDIV cells
+    std::vector<CellInfo *> clkdiv_list;
     // Which users need to be reconnected, and to where.
     std::vector<std::pair<PortRef, CellInfo *>> users_to_reconect;
     // CLKDIV2 allocator
@@ -386,6 +393,23 @@ void GowinImpl::place_5a_hclks(void)
         return loc;
     };
 
+    // If CLKDIV is used together with CLKDIV2, we should place them together.
+    auto make_clkdiv2_clkdiv_cluster = [&](CellInfo *ci, CellInfo *clkdiv) -> void {
+        if (ctx->debug) {
+            log_info("  Make cluster from %s and %s.\n", ctx->nameOf(ci), ctx->nameOf(clkdiv));
+        }
+
+        ci->cluster = ci->name;
+        ci->constr_abs_z = false;
+        ci->constr_children.push_back(clkdiv);
+
+        clkdiv->cluster = ci->name;
+        clkdiv->constr_abs_z = false;
+        clkdiv->constr_x = 0;
+        clkdiv->constr_y = 0;
+        clkdiv->constr_z = BelZ::CLKDIV_0_Z - BelZ::CLKDIV2_0_Z;
+    };
+
     for (auto &cell : ctx->cells) {
         auto ci = cell.second.get();
 
@@ -401,11 +425,15 @@ void GowinImpl::place_5a_hclks(void)
             }
 
             clkdiv2_clones.clear();
+            clkdiv_list.clear();
             users_to_reconect.clear();
             int cur_clkdiv2_hclk_idx = -1;
 
-            // SERDES only
+            // CLKDIV and SERDES only
             for (auto user : hclk_net->users) {
+                if (is_clkdiv(user.cell)) {
+                    clkdiv_list.push_back(user.cell);
+                }
                 if (!is_iologico(user.cell) && !is_iologici(user.cell)) {
                     continue;
                 }
@@ -477,6 +505,46 @@ void GowinImpl::place_5a_hclks(void)
                 user.cell->disconnectPort(user.port);
                 new_clkdiv2->connectPorts(id_CLKOUT, user.cell, user.port);
             }
+
+            // Place CLKDIV
+            if (clkdiv_list.size()) {
+                // First, the most common configuration: a single CLKDIV connected to former CLKDIV2
+                CellInfo *clkdiv = clkdiv_list.back();
+                clkdiv_list.pop_back();
+
+                // Place CLKDIV only if CLKDIV2 is placed
+                if (ci->bel != BelId()) {
+                    Loc loc = ctx->getBelLocation(ci->bel);
+                    loc.z = loc.z - BelZ::CLKDIV2_0_Z + BelZ::CLKDIV_0_Z;
+                    BelId bel = ctx->getBelByLocation(loc);
+                    ctx->bindBel(bel, clkdiv, PlaceStrength::STRENGTH_LOCKED);
+                } else {
+                    make_clkdiv2_clkdiv_cluster(ci, clkdiv);
+                }
+
+                // Connect the remaining CLKDIVs to the clones
+                int name_sfx = 0;
+                for (auto clkdiv : clkdiv_list) {
+                    CellInfo *clone;
+                    // If we have free clones
+                    if (clkdiv2_clones.size()) {
+                        clone = clkdiv2_clones.begin()->second;
+                        clkdiv2_clones.erase(clkdiv2_clones.begin());
+                    } else {
+                        // create clone
+                        ++name_sfx;
+                        new_cells.push_back(
+                                gwu.create_cell(gwu.create_aux_name(ci->name, name_sfx, "$for_clkdiv"), id_CLKDIV2));
+                        clone = new_cells.back().get();
+                        clone->addInput(id_HCLKIN);
+                        clone->addOutput(id_CLKOUT);
+                        // input is same
+                        ci->copyPortTo(id_HCLKIN, clone, id_HCLKIN);
+                    }
+                    clkdiv->disconnectPort(id_HCLKIN);
+                    clone->connectPorts(id_CLKOUT, clkdiv, id_HCLKIN);
+                }
+            }
         }
     }
 
@@ -489,20 +557,35 @@ void GowinImpl::place_5a_hclks(void)
                      ctx->nameOf(hclk_net));
         }
 
-        // Any user can be used to determine hclk_idx because we connected them
-        // to copies of CLKDIV2 based precisely on the fact that hclk_idx is
-        // the same
-        PortRef &user = *hclk_net->users.begin();
-        Loc user_loc = ctx->getBelLocation(user.cell->bel);
-        int hclk_idx = gwu.get_hclk_for_io(user_loc);
+        // If we have only one user, and that user is CLKDIV, then there are no
+        // strict restrictions on location; the only requirement is that they
+        // be co-located — so we create a cluster.
+        if (hclk_net->users.entries() == 1 && is_clkdiv((*hclk_net->users.begin()).cell)) {
+            make_clkdiv2_clkdiv_cluster(ci, (*hclk_net->users.begin()).cell);
+        } else {
+            // Any user can be used to determine hclk_idx because we connected them
+            // to copies of CLKDIV2 based precisely on the fact that hclk_idx is
+            // the same
+            PortRef &user = *hclk_net->users.begin();
+            Loc user_loc = ctx->getBelLocation(user.cell->bel);
+            int hclk_idx = gwu.get_hclk_for_io(user_loc);
 
-        BelId bel = ctx->getBelByLocation(alloc_clkdiv2(hclk_idx, ci));
-        ctx->bindBel(bel, ci, PlaceStrength::STRENGTH_LOCKED);
-        if (ctx->debug) {
-            log_info("  @%s\n", ctx->nameOfBel(bel));
-            log_info("    hclk:%d - %s %s\n", hclk_idx, ctx->nameOfBel(user.cell->bel), ctx->nameOf(user.cell));
+            BelId bel = ctx->getBelByLocation(alloc_clkdiv2(hclk_idx, ci));
+            ctx->bindBel(bel, ci, PlaceStrength::STRENGTH_LOCKED);
+            if (ctx->debug) {
+                log_info("  @%s\n", ctx->nameOfBel(bel));
+                log_info("    hclk:%d - %s %s\n", hclk_idx, ctx->nameOfBel(user.cell->bel), ctx->nameOf(user.cell));
+            }
+            // Place CLKDIV if any
+            for (auto user : hclk_net->users) {
+                if (is_clkdiv(user.cell)) {
+                    Loc loc = ctx->getBelLocation(ci->bel);
+                    loc.z = loc.z - BelZ::CLKDIV2_0_Z + BelZ::CLKDIV_0_Z;
+                    BelId bel = ctx->getBelByLocation(loc);
+                    ctx->bindBel(bel, user.cell, PlaceStrength::STRENGTH_LOCKED);
+                }
+            }
         }
-
         ctx->cells[ncell->name] = std::move(ncell);
     }
 }
@@ -963,6 +1046,9 @@ bool GowinImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
         return dsp_valid(l, bel_type, explain_invalid);
     case ID_CLKDIV2: /* fall-through */
     case ID_CLKDIV:
+        if (gwu.has_5A_HCLK()) {
+            return true;
+        }
         return hclk_valid(bel, bel_type);
     }
     return true;

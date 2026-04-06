@@ -917,7 +917,18 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                     else:
                         tt.create_wire(wire, "HCLK")
                     tt.add_bel_pin(clkdiv2, pin, wire, PinType.INPUT)
-
+        elif func == 'clkdiv':
+            for i, pins in desc['bels'].items():
+                clkdiv = tt.create_bel(f"CLKDIV_{i}", "CLKDIV", z = CLKDIV_0_Z + i)
+                for pin, wire in pins['outputs'].items():
+                    tt.create_wire(wire, "HCLK")
+                    tt.add_bel_pin(clkdiv, pin, wire, PinType.OUTPUT)
+                for pin, wire in pins['inputs'].items():
+                    if pin in {'RESETN', 'CALIB'}:
+                        tt.create_wire(wire, "")
+                    else:
+                        tt.create_wire(wire, "HCLK")
+                    tt.add_bel_pin(clkdiv, pin, wire, PinType.INPUT)
 
 def set_wire_flags(tt: TileType, tdesc: TypeDesc):
     if tdesc.extra_func and 'clock_gates' in tdesc.extra_func:
