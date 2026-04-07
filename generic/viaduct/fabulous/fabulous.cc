@@ -53,6 +53,8 @@ struct FabulousImpl : ViaductAPI
                 cfg.clb.lut_k = std::stoi(a.second);
             else if (a.first == "pcf")
                 pcf_file = a.second;
+            else if (a.first == "corner")
+                corner = a.second;
             else
                 log_error("unrecognised fabulous option '%s'\n", a.first.c_str());
         }
@@ -195,6 +197,8 @@ struct FabulousImpl : ViaductAPI
     std::string fasm_file;
 
     std::string pcf_file;
+
+    std::string corner;
 
     std::unique_ptr<BlockTracker> blk_trk;
 
@@ -347,6 +351,7 @@ struct FabulousImpl : ViaductAPI
     // TODO: this is for legacy fabulous only, the new code path can be a lot simpler
     void init_bels_v1()
     {
+        log_info("Reading BELs file: /npnroutput/bel.txt\n");
         std::ifstream in = open_data_rel("/npnroutput/bel.txt");
         CsvParser csv(in);
         while (csv.fetch_next_line()) {
@@ -386,6 +391,7 @@ struct FabulousImpl : ViaductAPI
 
     void init_bels_v2()
     {
+        log_info("Reading BELs file: /.FABulous/bel.v2.txt\n");
         std::ifstream in = open_data_rel("/.FABulous/bel.v2.txt");
         CsvParser csv(in);
         BelId curr_bel;
@@ -510,7 +516,18 @@ struct FabulousImpl : ViaductAPI
     int max_x = 0, max_y = 0;
     void init_pips()
     {
-        std::ifstream in = open_data_rel(is_new_fab ? "/.FABulous/pips.txt" : "/npnroutput/pips.txt");
+        // PIP file selection
+        std::string pips_file = "/npnroutput/pips.txt";
+        if (is_new_fab) {
+            if (!corner.empty()) {
+                pips_file = stringf("/.FABulous/pips.%s.txt", corner.c_str());
+            } else {
+                pips_file = "/.FABulous/pips.txt";
+            }
+        }
+
+        log_info("Reading PIPs file: %s\n", pips_file.c_str());
+        std::ifstream in = open_data_rel(pips_file);
         CsvParser csv(in);
         while (csv.fetch_next_line()) {
             IdString src_tile = csv.next_field().to_id(ctx);
