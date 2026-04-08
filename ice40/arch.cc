@@ -361,6 +361,18 @@ bool Arch::is_bel_locked(BelId bel) const
     return false;
 }
 
+bool Arch::getBelHidden(BelId bel) const
+{
+    IdString bel_type = getBelType(bel);
+    if (bel_type == id_SB_IO) {
+        return get_bel_package_pin(bel).empty();
+    } else if (bel_type == id_ICESTORM_PLL) {
+        return is_bel_locked(bel);
+    } else {
+        return false;
+    }
+}
+
 // -----------------------------------------------------------------------
 
 WireId Arch::getWireByName(IdStringList name) const
