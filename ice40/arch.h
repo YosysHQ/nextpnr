@@ -523,6 +523,8 @@ struct Arch : BaseArch<ArchRanges>
     PortType getBelPinType(BelId bel, IdString pin) const override;
     std::vector<IdString> getBelPins(BelId bel) const override;
 
+    bool getBelHidden(BelId bel) const override;
+
     bool is_bel_locked(BelId bel) const;
 
     // -------------------------------------------------
