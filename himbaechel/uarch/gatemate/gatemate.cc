@@ -425,62 +425,75 @@ void GateMateImpl::preRoute()
     }
 }
 
-void GateMateImpl::reassign_bridges(NetInfo *ni, const dict<WireId, PipMap> &net_wires, WireId wire,
-                                    dict<WireId, IdString> &wire_to_net, int &num)
+void GateMateImpl::reassign_bridges(NetInfo *start_nfo, const dict<WireId, PipMap> &net_wires,
+                                    WireId start_wire, dict<WireId, IdString> &wire_to_net, int &num)
 {
-    wire_to_net.insert({wire, ni->name});
+    // processing list, implements the equivalent of recursive calls
+    struct record { NetInfo *nfo; WireId wire; };
+    std::vector<record> to_process;
+    // start record
+    to_process.push_back({start_nfo, start_wire});
+    // for as long as there are pending records
+    while (!to_process.empty()) {
 
-    for (auto pip : ctx->getPipsDownhill(wire)) {
-        auto dst = ctx->getPipDstWire(pip);
+        record cur = to_process.back();
+        to_process.pop_back();
 
-        // Ignore wires not part of the net
-        auto it = net_wires.find(dst);
-        if (it == net_wires.end())
-            continue;
-        // Ignore pips if the wire is driven by another pip.
-        if (pip != it->second.pip)
-            continue;
-        // Ignore wires already visited.
-        if (wire_to_net.count(dst))
-            continue;
+        wire_to_net.insert({cur.wire, cur.nfo->name});
 
-        const auto &extra_data = *pip_extra_data(pip);
-        // If not a bridge, just recurse.
-        if (extra_data.type != PipExtra::PIP_EXTRA_MUX || !(extra_data.flags & MUX_ROUTING)) {
-            reassign_bridges(ni, net_wires, dst, wire_to_net, num);
-            continue;
+        for (auto pip : ctx->getPipsDownhill(cur.wire)) {
+            auto dst = ctx->getPipDstWire(pip);
+
+            // Ignore wires not part of the net
+            auto it = net_wires.find(dst);
+            if (it == net_wires.end())
+                continue;
+            // Ignore pips if the wire is driven by another pip.
+            if (pip != it->second.pip)
+                continue;
+            // Ignore wires already visited.
+            if (wire_to_net.count(dst))
+                continue;
+
+            const auto &extra_data = *pip_extra_data(pip);
+            // If not a bridge, just recurse.
+            if (extra_data.type != PipExtra::PIP_EXTRA_MUX || !(extra_data.flags & MUX_ROUTING)) {
+                // recurse
+                to_process.push_back({cur.nfo, dst});
+                continue;
+            }
+
+            // We have a bridge that needs to be translated to a bel.
+            IdString name = ctx->idf("%s$bridge%d", cur.nfo->name.c_str(ctx), num);
+
+            IdStringList id = ctx->getPipName(pip);
+            Loc loc = ctx->getPipLocation(pip);
+            BelId bel = ctx->getBelByLocation({loc.x, loc.y, CPE_BRIDGE_Z});
+            CellInfo *cell = ctx->createCell(name, id_CPE_BRIDGE);
+            ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
+            cell->params[id_C_BR] = Property(Property::State::S1, 1);
+            cell->params[id_C_SN] = Property(extra_data.value, 3);
+
+            NetInfo *new_net = ctx->createNet(ctx->idf("%s$muxout", name.c_str(ctx)));
+            IdString in_port = ctx->idf("IN%d", extra_data.value + 1);
+
+            auto add_port = [&](const IdString id, PortType dir) {
+                cell->ports[id].name = id;
+                cell->ports[id].type = dir;
+                cell->cell_bel_pins[id] = std::vector{id};
+            };
+
+            add_port(in_port, PORT_IN);
+            add_port(id_MUXOUT, PORT_OUT);
+
+            cell->connectPort(in_port, cur.nfo);
+            cell->connectPort(id_MUXOUT, new_net);
+            pass_backtrace[cell->name][id_MUXOUT] = in_port;
+
+            num++;
+            // recurse
+            to_process.push_back({new_net,dst});
         }
-
-        // We have a bridge that needs to be translated to a bel.
-        IdString name = ctx->idf("%s$bridge%d", ni->name.c_str(ctx), num);
-
-        IdStringList id = ctx->getPipName(pip);
-        Loc loc = ctx->getPipLocation(pip);
-        BelId bel = ctx->getBelByLocation({loc.x, loc.y, CPE_BRIDGE_Z});
-        CellInfo *cell = ctx->createCell(name, id_CPE_BRIDGE);
-        ctx->bindBel(bel, cell, PlaceStrength::STRENGTH_FIXED);
-        cell->params[id_C_BR] = Property(Property::State::S1, 1);
-        cell->params[id_C_SN] = Property(extra_data.value, 3);
-
-        NetInfo *new_net = ctx->createNet(ctx->idf("%s$muxout", name.c_str(ctx)));
-        IdString in_port = ctx->idf("IN%d", extra_data.value + 1);
-
-        auto add_port = [&](const IdString id, PortType dir) {
-            cell->ports[id].name = id;
-            cell->ports[id].type = dir;
-            cell->cell_bel_pins[id] = std::vector{id};
-        };
-
-        add_port(in_port, PORT_IN);
-        add_port(id_MUXOUT, PORT_OUT);
-
-        cell->connectPort(in_port, ni);
-        cell->connectPort(id_MUXOUT, new_net);
-        pass_backtrace[cell->name][id_MUXOUT] = in_port;
-
-        num++;
-
-        reassign_bridges(new_net, net_wires, dst, wire_to_net, num);
     }
 }
 
