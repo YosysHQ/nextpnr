@@ -231,10 +231,12 @@ void XilinxImpl::route_clocks()
         if ((clk_net->driver.cell->type.in(id_BUFGCTRL, id_BUFCE_BUFG_PS, id_BUFCE_BUFCE, id_BUFGCE_DIV_BUFGCE_DIV)) &&
             clk_net->driver.port == id_O)
             is_global = true;
-        else if (clk_net->driver.cell->type == id_PLLE2_ADV_PLLE2_ADV && clk_net->users.entries() == 1 &&
+        else if (clk_net->driver.cell->type.in(id_PLLE2_ADV_PLLE2_ADV, id_MMCME2_ADV_MMCME2_ADV) &&
+                 clk_net->users.entries() == 1 &&
                  ((*clk_net->users.begin()).cell->type.in(id_BUFGCTRL, id_BUFCE_BUFCE, id_BUFGCE_DIV_BUFGCE_DIV)))
             is_global = true;
-        else if (clk_net->users.entries() == 1 && (*clk_net->users.begin()).cell->type == id_PLLE2_ADV_PLLE2_ADV &&
+        else if (clk_net->users.entries() == 1 &&
+                 (*clk_net->users.begin()).cell->type.in(id_PLLE2_ADV_PLLE2_ADV, id_MMCME2_ADV_MMCME2_ADV) &&
                  (*clk_net->users.begin()).port == id_CLKIN1)
             is_global = true;
         if (!is_global)
