@@ -428,14 +428,14 @@ void GateMateImpl::preRoute()
 void GateMateImpl::reassign_bridges(NetInfo *start_nfo, const dict<WireId, PipMap> &net_wires,
                                     WireId start_wire, dict<WireId, IdString> &wire_to_net, int &num)
 {
-    // processing list, implements the equivalent of recursive calls
+    // Processing list, holds parameters to implement the equivalent of recursive calls.
     struct record { NetInfo *nfo; WireId wire; };
     std::vector<record> to_process;
-    // start record
+    // Insert start record.
     to_process.push_back({start_nfo, start_wire});
-    // for as long as there are pending records
+    // For as long as there are pending records, process them.
     while (!to_process.empty()) {
-
+	// Get the next record to process.
         record cur = to_process.back();
         to_process.pop_back();
 
@@ -458,7 +458,7 @@ void GateMateImpl::reassign_bridges(NetInfo *start_nfo, const dict<WireId, PipMa
             const auto &extra_data = *pip_extra_data(pip);
             // If not a bridge, just recurse.
             if (extra_data.type != PipExtra::PIP_EXTRA_MUX || !(extra_data.flags & MUX_ROUTING)) {
-                // recurse
+                // Insert in processing list (recurse).
                 to_process.push_back({cur.nfo, dst});
                 continue;
             }
@@ -491,8 +491,8 @@ void GateMateImpl::reassign_bridges(NetInfo *start_nfo, const dict<WireId, PipMa
             pass_backtrace[cell->name][id_MUXOUT] = in_port;
 
             num++;
-            // recurse
-            to_process.push_back({new_net,dst});
+            // Insert in processing list (recurse).
+            to_process.push_back({new_net, dst});
         }
     }
 }
