@@ -468,7 +468,7 @@ class Ecp5GlobalRouter
             dcc->ports[id_CLKO].net = glbptr;
             std::vector<PortRef> keep_users;
             for (auto user : net->users) {
-                if (dcs_cell != nullptr && user.cell != dcs_cell) {
+                if (dcs_cell != nullptr && user.cell->type != id_DCSC) {
                     // DCS DCC insertion mode
                     keep_users.push_back(user);
                 } else if (user.port == id_CLKFB) {
