@@ -45,7 +45,12 @@ struct ControlSetConfig
     */
     std::vector<route_mask_t> routing; // default 1 shared between all
     bool have_signal = true;
-    int can_mask = -1;
+    enum MaskType
+    {
+        MASK_NONE = -1,
+        MASK_ZERO = 0,
+        MASK_ONE = 1
+    } can_mask = MaskType::MASK_NONE;
     bool can_invert = false;
 };
 

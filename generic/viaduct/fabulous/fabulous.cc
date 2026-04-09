@@ -53,6 +53,8 @@ struct FabulousImpl : ViaductAPI
                 cfg.clb.lut_k = std::stoi(a.second);
             else if (a.first == "pcf")
                 pcf_file = a.second;
+            else if (a.first == "corner")
+                corner = a.second;
             else
                 log_error("unrecognised fabulous option '%s'\n", a.first.c_str());
         }
@@ -87,16 +89,16 @@ struct FabulousImpl : ViaductAPI
     {
         // TODO: loading from file or something
         uint64_t default_routing = (1ULL << (cfg.clb.lc_per_clb * cfg.clb.ff_per_lc)) - 1;
-        auto setup_cfg = [&](ControlSetConfig &ctrl, int mask) {
+        auto setup_cfg = [&](ControlSetConfig &ctrl, ControlSetConfig::MaskType mask) {
             ctrl.routing.clear();
             ctrl.routing.push_back(default_routing);
             ctrl.can_mask = mask;
             ctrl.can_invert = false;
         };
 
-        setup_cfg(cfg.clb.clk, -1);
-        setup_cfg(cfg.clb.en, 1);
-        setup_cfg(cfg.clb.sr, 0);
+        setup_cfg(cfg.clb.clk, ControlSetConfig::MaskType::MASK_NONE); // clk can not be masked
+        setup_cfg(cfg.clb.en, ControlSetConfig::MaskType::MASK_ONE);   // en can be masked with 1
+        setup_cfg(cfg.clb.sr, ControlSetConfig::MaskType::MASK_ZERO);  // sr can be masked with 0
     }
 
     void update_cell_timing(Context *ctx)
@@ -154,9 +156,38 @@ struct FabulousImpl : ViaductAPI
         assign_cell_info();
         update_cell_timing(ctx);
     }
+
+    void postPlace() override
+    {
+        if (ctx->debug) {
+            log_info("================== Final Placement ==================\n");
+            for (auto &cell : ctx->cells) {
+                auto ci = cell.second.get();
+                if (ci->bel != BelId()) {
+                    log_info("%s: %s\n", ctx->nameOfBel(ci->bel), ctx->nameOf(ci));
+                    if (ctx->getBelType(ci->bel).in(id_FABULOUS_LC)) {
+                        for (IdString port : {id_CLK, id_SR, id_EN}) {
+                            if (ci->ports.count(port)) {
+                                WireId wire = ctx->getBelPinWire(ci->bel, port);
+                                PortInfo pi = ci->ports[port];
+                                if (pi.net) {
+                                    log_info("- %s/%s: %s\n", ctx->getWireName(wire)[0].c_str(ctx),
+                                             ctx->getWireName(wire)[1].c_str(ctx), pi.net->name.c_str(ctx));
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    log_info("unknown: %s\n", ctx->nameOf(ci));
+                }
+            }
+            log_break();
+        }
+    }
+
     bool isBelLocationValid(BelId bel, bool explain_invalid) const override
     {
-        return blk_trk->check_validity(bel, cfg, cell_tags);
+        return blk_trk->check_validity(bel, cfg, cell_tags, explain_invalid);
     }
 
   private:
@@ -166,6 +197,8 @@ struct FabulousImpl : ViaductAPI
     std::string fasm_file;
 
     std::string pcf_file;
+
+    std::string corner;
 
     std::unique_ptr<BlockTracker> blk_trk;
 
@@ -318,6 +351,7 @@ struct FabulousImpl : ViaductAPI
     // TODO: this is for legacy fabulous only, the new code path can be a lot simpler
     void init_bels_v1()
     {
+        log_info("Reading BELs file: /npnroutput/bel.txt\n");
         std::ifstream in = open_data_rel("/npnroutput/bel.txt");
         CsvParser csv(in);
         while (csv.fetch_next_line()) {
@@ -357,6 +391,7 @@ struct FabulousImpl : ViaductAPI
 
     void init_bels_v2()
     {
+        log_info("Reading BELs file: /.FABulous/bel.v2.txt\n");
         std::ifstream in = open_data_rel("/.FABulous/bel.v2.txt");
         CsvParser csv(in);
         BelId curr_bel;
@@ -382,6 +417,11 @@ struct FabulousImpl : ViaductAPI
                 Loc loc = tile_loc(tile);
                 curr_bel = ctx->addBel(IdStringList::concat(tile, bel_name), bel_type, Loc(loc.x, loc.y, bel_z), false,
                                        false);
+
+                // add FABULOUS_LC to the block tracker to check the control set
+                if (bel_type.in(id_FABULOUS_LC)) {
+                    blk_trk->set_bel_type(curr_bel, BelFlags::BLOCK_CLB, BelFlags::FUNC_LC_COMB, bel_z);
+                }
             } else if (cmd.in(id_I, id_O)) {
                 IdString port = csv.next_field().to_id(ctx);
                 auto wire_name = csv.next_field().split('.');
@@ -476,7 +516,18 @@ struct FabulousImpl : ViaductAPI
     int max_x = 0, max_y = 0;
     void init_pips()
     {
-        std::ifstream in = open_data_rel(is_new_fab ? "/.FABulous/pips.txt" : "/npnroutput/pips.txt");
+        // PIP file selection
+        std::string pips_file = "/npnroutput/pips.txt";
+        if (is_new_fab) {
+            if (!corner.empty()) {
+                pips_file = stringf("/.FABulous/pips.%s.txt", corner.c_str());
+            } else {
+                pips_file = "/.FABulous/pips.txt";
+            }
+        }
+
+        log_info("Reading PIPs file: %s\n", pips_file.c_str());
+        std::ifstream in = open_data_rel(pips_file);
         CsvParser csv(in);
         while (csv.fetch_next_line()) {
             IdString src_tile = csv.next_field().to_id(ctx);
