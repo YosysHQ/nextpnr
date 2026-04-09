@@ -18,6 +18,7 @@
  */
 
 #include <boost/algorithm/string.hpp>
+#include <iomanip>
 
 #include "pack.h"
 
