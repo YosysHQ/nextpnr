@@ -39,7 +39,7 @@ BelId XilinxPacker::find_bel_with_short_route(WireId source, IdString beltype, I
 {
     if (source == WireId())
         return BelId();
-    const size_t max_visit = 50000; // effort/runtime tradeoff
+    const size_t max_visit = 1000000; // effort/runtime tradeoff
     pool<WireId> visited;
     std::queue<WireId> visit;
     visit.push(source);
@@ -51,6 +51,14 @@ BelId XilinxPacker::find_bel_with_short_route(WireId source, IdString beltype, I
                 return bp.bel;
         for (auto pip : ctx->getPipsDownhill(cursor)) {
             WireId dst = ctx->getPipDstWire(pip);
+
+            IdString intent = ctx->getWireType(dst);
+            // log_info("%s %s\n", ctx->nameOfWire(dst), ctx->nameOf(intent));
+            if (intent.in(id_NODE_DOUBLE, id_NODE_HLONG, id_NODE_HQUAD, id_NODE_VLONG, id_NODE_VQUAD, id_NODE_SINGLE,
+                          id_NODE_CLE_OUTPUT, id_NODE_OPTDELAY, id_BENTQUAD, id_DOUBLE, id_HLONG, id_HQUAD, id_OPTDELAY,
+                          id_SINGLE, id_VLONG, id_VLONG12, id_VQUAD))
+                continue;
+
             if (visited.count(dst))
                 continue;
             visit.push(dst);
@@ -60,25 +68,28 @@ BelId XilinxPacker::find_bel_with_short_route(WireId source, IdString beltype, I
     return BelId();
 }
 
-void XilinxPacker::try_preplace(CellInfo *cell, IdString port)
+bool XilinxPacker::try_preplace(CellInfo *cell, IdString port)
 {
     if (cell->attrs.count(id_BEL) || cell->bel != BelId())
-        return;
+        return false;
     NetInfo *n = cell->getPort(port);
     if (n == nullptr || n->driver.cell == nullptr)
-        return;
+        return false;
     CellInfo *drv = n->driver.cell;
     BelId drv_bel = drv->bel;
     if (drv_bel == BelId())
-        return;
+        return false;
     WireId drv_wire = ctx->getBelPinWire(drv_bel, n->driver.port);
     if (drv_wire == WireId())
-        return;
+        return false;
     BelId tgt = find_bel_with_short_route(drv_wire, cell->type, port);
     if (tgt != BelId()) {
         ctx->bindBel(tgt, cell, STRENGTH_LOCKED);
         log_info("    Constrained %s '%s' to bel '%s' based on dedicated routing\n", cell->type.c_str(ctx),
                  ctx->nameOf(cell), ctx->nameOfBel(tgt));
+        return true;
+    } else {
+        return false;
     }
 }
 
@@ -139,9 +150,6 @@ void XC7Packer::pack_plls()
     generic_xform(pll_rules);
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
-        // Preplace PLLs to make use of dedicated/short routing paths
-        if (ci->type.in(id_MMCM_MMCM_TOP, id_PLL_PLL_TOP))
-            try_preplace(ci, id_CLKIN1);
         if (ci->type == id_MMCM_MMCM_TOP) {
             // Fixup parameters
             for (int i = 1; i <= 2; i++)
@@ -181,21 +189,32 @@ void XC7Packer::pack_gbs()
         if (ci->type.in(id_PSEUDO_GND, id_PSEUDO_VCC))
             preplace_unique(ci);
     }
+}
 
-    // Preplace global buffers to make use of dedicated/short routing
-    for (auto &cell : ctx->cells) {
-        CellInfo *ci = cell.second.get();
-        if (ci->type == id_BUFGCTRL)
-            try_preplace(ci, id_I0);
-        if (ci->type == id_BUFG_BUFG)
-            try_preplace(ci, id_I);
-    }
+void XC7Packer::preplace_clocking()
+{
+    bool did_something = false;
+    do {
+        did_something = false;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->bel != BelId())
+                continue;
+            if (ci->type == id_BUFGCTRL)
+                did_something |= try_preplace(ci, id_I0);
+            else if (ci->type == id_BUFG_BUFG)
+                did_something |= try_preplace(ci, id_I);
+            else if (ci->type.in(id_MMCM_MMCM_TOP, id_PLL_PLL_TOP, id_PLLE2_ADV_PLLE2_ADV, id_MMCME2_ADV_MMCME2_ADV))
+                did_something |= try_preplace(ci, id_CLKIN1);
+        }
+    } while (did_something);
 }
 
 void XC7Packer::pack_clocking()
 {
     pack_plls();
     pack_gbs();
+    preplace_clocking();
 }
 
 void XilinxImpl::route_clocks()

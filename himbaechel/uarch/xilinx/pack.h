@@ -158,7 +158,7 @@ struct XilinxPacker
 
     // Clocking
     BelId find_bel_with_short_route(WireId source, IdString beltype, IdString belpin);
-    void try_preplace(CellInfo *cell, IdString port);
+    bool try_preplace(CellInfo *cell, IdString port);
     void preplace_unique(CellInfo *cell);
     void generate_constraints();
 
@@ -203,6 +203,7 @@ struct XC7Packer : public XilinxPacker
     void prepare_clocking();
     void pack_plls();
     void pack_gbs();
+    void preplace_clocking();
     void pack_clocking();
 
     // BRAM
