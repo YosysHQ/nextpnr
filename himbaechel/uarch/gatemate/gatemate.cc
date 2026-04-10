@@ -425,21 +425,23 @@ void GateMateImpl::preRoute()
     }
 }
 
-void GateMateImpl::reassign_bridges(NetInfo *start_nfo, const dict<WireId, PipMap> &net_wires,
+void GateMateImpl::reassign_bridges(NetInfo *start_net, const dict<WireId, PipMap> &net_wires,
                                     WireId start_wire, dict<WireId, IdString> &wire_to_net, int &num)
 {
     // Processing list, holds parameters to implement the equivalent of recursive calls.
-    struct record { NetInfo *nfo; WireId wire; };
+    // This avoids a stack overflow when recursion becomes deep, as the function
+    // has a relatively large stack footprint.
+    struct record { NetInfo *net; WireId wire; };
     std::vector<record> to_process;
     // Insert start record.
-    to_process.push_back({start_nfo, start_wire});
+    to_process.push_back({start_net, start_wire});
     // For as long as there are pending records, process them.
     while (!to_process.empty()) {
-	// Get the next record to process.
+        // Get the next record to process.
         record cur = to_process.back();
         to_process.pop_back();
 
-        wire_to_net.insert({cur.wire, cur.nfo->name});
+        wire_to_net.insert({cur.wire, cur.net->name});
 
         for (auto pip : ctx->getPipsDownhill(cur.wire)) {
             auto dst = ctx->getPipDstWire(pip);
@@ -459,12 +461,12 @@ void GateMateImpl::reassign_bridges(NetInfo *start_nfo, const dict<WireId, PipMa
             // If not a bridge, just recurse.
             if (extra_data.type != PipExtra::PIP_EXTRA_MUX || !(extra_data.flags & MUX_ROUTING)) {
                 // Insert in processing list (recurse).
-                to_process.push_back({cur.nfo, dst});
+                to_process.push_back({cur.net, dst});
                 continue;
             }
 
             // We have a bridge that needs to be translated to a bel.
-            IdString name = ctx->idf("%s$bridge%d", cur.nfo->name.c_str(ctx), num);
+            IdString name = ctx->idf("%s$bridge%d", cur.net->name.c_str(ctx), num);
 
             IdStringList id = ctx->getPipName(pip);
             Loc loc = ctx->getPipLocation(pip);
@@ -486,7 +488,7 @@ void GateMateImpl::reassign_bridges(NetInfo *start_nfo, const dict<WireId, PipMa
             add_port(in_port, PORT_IN);
             add_port(id_MUXOUT, PORT_OUT);
 
-            cell->connectPort(in_port, cur.nfo);
+            cell->connectPort(in_port, cur.net);
             cell->connectPort(id_MUXOUT, new_net);
             pass_backtrace[cell->name][id_MUXOUT] = in_port;
 
