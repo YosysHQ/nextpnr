@@ -34,6 +34,7 @@
 #include <deque>
 #include <fstream>
 #include <limits>
+#include <mutex>
 #include <queue>
 #include <set>
 
@@ -41,7 +42,6 @@
 #include "nextpnr.h"
 #include "nextpnr_assertions.h"
 #include "router1.h"
-#include "scope_lock.h"
 #include "timing.h"
 #include "util.h"
 
@@ -1680,7 +1680,7 @@ struct Router2
         ThreadContext st;
         int iter = 1;
 
-        ScopeLock<Context> lock(ctx);
+        std::lock_guard<Context> lock{*ctx};
 
         for (size_t i = 0; i < nets_by_udata.size(); i++)
             route_queue.push_back(i);

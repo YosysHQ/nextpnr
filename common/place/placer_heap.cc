@@ -38,6 +38,7 @@
 #include <chrono>
 #include <deque>
 #include <fstream>
+#include <mutex>
 #include <numeric>
 #include <queue>
 #include <tuple>
@@ -48,7 +49,6 @@
 #include "parallel_refine.h"
 #include "place_common.h"
 #include "placer1.h"
-#include "scope_lock.h"
 #include "timing.h"
 #include "util.h"
 
@@ -177,7 +177,7 @@ class HeAPPlacer
     {
         auto startt = std::chrono::high_resolution_clock::now();
 
-        ScopeLock<Context> lock(ctx);
+        std::lock_guard<Context> lock{*ctx};
         place_constraints();
         build_fast_bels();
         alloc_control_sets();
