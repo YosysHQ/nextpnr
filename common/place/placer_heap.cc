@@ -177,7 +177,7 @@ class HeAPPlacer
     {
         auto startt = std::chrono::high_resolution_clock::now();
 
-        std::lock_guard<Context> lock{*ctx};
+        std::unique_lock<Context> lock{*ctx};
         place_constraints();
         build_fast_bels();
         alloc_control_sets();
@@ -396,7 +396,7 @@ class HeAPPlacer
         }
 
         ctx->check();
-        lock.unlock_early();
+        lock.unlock();
 
 #if !defined(NPNR_DISABLE_THREADS)
         if (cfg.parallelRefine) {

@@ -1680,7 +1680,7 @@ struct Router2
         ThreadContext st;
         int iter = 1;
 
-        std::lock_guard<Context> lock{*ctx};
+        std::unique_lock<Context> lock{*ctx};
 
         for (size_t i = 0; i < nets_by_udata.size(); i++)
             route_queue.push_back(i);
@@ -1797,7 +1797,7 @@ struct Router2
 
         log_info("Running router1 to check that route is legal...\n");
 
-        lock.unlock_early();
+        lock.unlock();
 
         router1(ctx, Router1Cfg(ctx));
     }
