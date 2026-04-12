@@ -131,7 +131,7 @@ struct GateMateImpl : HimbaechelAPI
     void assign_cell_info();
     void route_clock();
     void route_mult();
-    void reassign_bridges(NetInfo *net, const dict<WireId, PipMap> &net_wires, WireId wire,
+    void reassign_bridges(NetInfo *start_net, const dict<WireId, PipMap> &net_wires, WireId start_wire,
                           dict<WireId, IdString> &wire_to_net, int &num);
     void reassign_cplines(NetInfo *net, const dict<WireId, PipMap> &net_wires, WireId wire,
                           dict<WireId, IdString> &wire_to_net, int &num, IdString in_port);
