@@ -797,7 +797,7 @@ void write_bitstream(Context *ctx, std::string text_config_file)
 
     // Configure chip
     if (!text_config_file.empty()) {
-        std::ofstream out_config(text_config_file);
+        auto out_config = open_ofstream_and_log_error(text_config_file, "text config file");
         out_config << bitgen.cc;
     }
 }

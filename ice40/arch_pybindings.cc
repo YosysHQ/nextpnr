@@ -32,9 +32,8 @@ NEXTPNR_NAMESPACE_BEGIN
 
 static void write_bitstream(const Context *ctx, std::string asc_file)
 {
-    std::ofstream out(asc_file);
-    if (!out)
-        log_error("Failed to open output file %s\n", asc_file.c_str());
+    auto out = open_ofstream_and_log_error(asc_file, "output file");
+
     write_asc(ctx, out);
 }
 

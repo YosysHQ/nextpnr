@@ -537,10 +537,7 @@ struct FABulousDesignConstraints
 
     void apply_constraints()
     {
-        std::ifstream in(filename);
-        if (!in) {
-            log_error("failed to open constraint file\n");
-        }
+        auto in = open_ifstream_and_log_error(filename, "constraint file");
 
         std::string line;
         std::string accumulated_line;

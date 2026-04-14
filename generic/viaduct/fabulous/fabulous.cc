@@ -213,10 +213,7 @@ struct FabulousImpl : ViaductAPI
     std::ifstream open_data_rel(const std::string &postfix)
     {
         const std::string filename(fab_root + postfix);
-        std::ifstream in(filename);
-        if (!in)
-            log_error("failed to open data file '%s' (is FAB_ROOT set correctly?)\n", filename.c_str());
-        return in;
+        return open_ifstream_and_log_error(filename, "data file (is FAB_ROOT set correctly?)");
     }
 
     std::string fab_root;

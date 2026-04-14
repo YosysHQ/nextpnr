@@ -266,11 +266,9 @@ void ECP5CommandHandler::customAfterLoad(Context *ctx)
     if (vm.count("lpf")) {
         std::vector<std::string> files = vm["lpf"].as<std::vector<std::string>>();
         for (const auto &filename : files) {
-            std::ifstream in(filename);
-            if (!in)
-                log_error("failed to open LPF file '%s'\n", filename.c_str());
+            auto in = open_ifstream_and_log_error(filename, "LPF file");
             if (!ctx->apply_lpf(filename, in))
-                log_error("failed to parse LPF file '%s'\n", filename.c_str());
+                log_error("Failed to parse LPF file '%s'\n", filename.c_str());
         }
 
         for (auto &cell : ctx->cells) {

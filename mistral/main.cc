@@ -17,6 +17,7 @@
  *
  */
 
+#include <cerrno>
 #include <fstream>
 #include "command.h"
 #include "design_utils.h"
@@ -62,8 +63,10 @@ void MistralCommandHandler::customBitstream(Context *ctx)
         ctx->cyclonev->rbf_save(data);
 
         std::ofstream out(filename, std::ios::binary);
-        if (!out)
-            log_error("Failed to open output RBF file %s.\n", filename.c_str());
+        if (!out.is_open()) {
+            log_error("Failed to open RBF file '%s' for writing: %s.\n", filename.c_str(),
+                      std::error_code(errno, std::generic_category()).message().c_str());
+        }
         out.write(reinterpret_cast<const char *>(data.data()), data.size());
     }
 }
@@ -85,9 +88,7 @@ void MistralCommandHandler::customAfterLoad(Context *ctx)
 {
     if (vm.count("qsf")) {
         std::string filename = vm["qsf"].as<std::string>();
-        std::ifstream in(filename);
-        if (!in)
-            log_error("Failed to open input QSF file %s.\n", filename.c_str());
+        auto in = open_ifstream_and_log_error(filename, "input QSF file");
         ctx->read_qsf(in);
     }
 }

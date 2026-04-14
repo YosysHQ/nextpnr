@@ -62,9 +62,7 @@ void NexusCommandHandler::customBitstream(Context *ctx)
 {
     if (vm.count("fasm")) {
         std::string filename = vm["fasm"].as<std::string>();
-        std::ofstream out(filename);
-        if (!out)
-            log_error("Failed to open output FASM file %s.\n", filename.c_str());
+        auto out = open_ofstream_and_log_error(filename, "output FASM file");
         ctx->write_fasm(out);
     }
 }
@@ -101,9 +99,7 @@ void NexusCommandHandler::customAfterLoad(Context *ctx)
 {
     if (vm.count("pdc")) {
         std::string filename = vm["pdc"].as<std::string>();
-        std::ifstream in(filename);
-        if (!in)
-            log_error("Failed to open input PDC file %s.\n", filename.c_str());
+        auto in = open_ifstream_and_log_error(filename, "input PDC file");
         ctx->read_pdc(in);
     }
 }

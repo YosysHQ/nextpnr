@@ -519,9 +519,7 @@ struct BitstreamBackend
 
 void GateMateImpl::write_bitstream(const std::string &device, const std::string &filename)
 {
-    std::ofstream out(filename);
-    if (!out)
-        log_error("Failed to open file '%s' for writing (%s).\n", filename.c_str(), strerror(errno));
+    auto out = open_ofstream_and_log_error(filename, "bitstream file");
 
     BitstreamBackend be(ctx, this, device, out);
     be.write_bitstream();

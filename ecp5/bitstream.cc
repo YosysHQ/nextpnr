@@ -1364,10 +1364,7 @@ struct ECP5Bitgen
     void run(const std::string &base_config_file)
     {
         if (!base_config_file.empty()) {
-            std::ifstream config_file(base_config_file);
-            if (!config_file) {
-                log_error("failed to open base config file '%s'\n", base_config_file.c_str());
-            }
+            auto config_file = open_ifstream_and_log_error(base_config_file, "base config file");
             config_file >> cc;
         } else {
             switch (ctx->args.type) {
@@ -1599,7 +1596,7 @@ void write_bitstream(Context *ctx, std::string base_config_file, std::string tex
 
     // Configure chip
     if (!text_config_file.empty()) {
-        std::ofstream out_config(text_config_file);
+        auto out_config = open_ofstream_and_log_error(text_config_file, "text config file");
         out_config << bitgen.cc;
     }
 }

@@ -694,9 +694,7 @@ struct BitstreamJsonBackend
 
 void NgUltraImpl::write_bitstream_json(const std::string &filename)
 {
-    std::ofstream out(filename);
-    if (!out)
-        log_error("failed to open file %s for writing (%s)\n", filename.c_str(), strerror(errno));
+    auto out = open_ofstream_and_log_error(filename, "bitstream json file");
 
     BitstreamJsonBackend be(ctx, this, out);
     be.write_json();
