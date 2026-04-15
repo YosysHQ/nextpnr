@@ -95,8 +95,8 @@ void gfxTileBel(std::vector<GraphicElement> &g, int x, int y, int z, int w, int 
         // LUT permutation switchbox
         el.x1 = x + slice_x1 - wire_length_lut;
         el.x2 = x + slice_x1 - wire_length;
-        int start_wire = (TILE_WIRE_D7 + 24 * (lc / 2) + 4 * (lc % 2));
-        el.y2 = y + slice_y2 - wire_distance * (start_wire - TILE_WIRE_FCO + 1 + (lc / 2) * 2) + 3 * slice_pitch +
+        int start_wire = (TILE_WIRE_D7 + 24 * ((7 - lc) / 2) + 4 * ((7 - lc) % 2));
+        el.y2 = y + slice_y2 - wire_distance * (start_wire - TILE_WIRE_FCO + 1 + ((7 - lc) / 2) * 2) + 3 * slice_pitch +
                 0.25 * wire_distance;
         el.y1 = el.y2 - 3.5 * wire_distance;
         g.push_back(el);
