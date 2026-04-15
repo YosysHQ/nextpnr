@@ -23,7 +23,6 @@
 #if !defined(NPNR_DISABLE_THREADS)
 
 #include "detail_place_core.h"
-#include "scope_lock.h"
 
 #include <chrono>
 #include <mutex>
@@ -450,7 +449,7 @@ struct ParallelRefine
     void run()
     {
 
-        ScopeLock<Context> lock(ctx);
+        std::lock_guard<Context> lock{*ctx};
         auto refine_start = std::chrono::high_resolution_clock::now();
 
         g.tmg.setup_only = true;

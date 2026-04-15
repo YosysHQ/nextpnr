@@ -34,7 +34,6 @@
 #include "parallel_refine.h"
 #include "place_common.h"
 #include "placer1.h"
-#include "scope_lock.h"
 #include "timing.h"
 #include "util.h"
 

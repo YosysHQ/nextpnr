@@ -47,7 +47,6 @@ target_sources(nextpnr_kernel PUBLIC
     pywrappers.h
     relptr.h
     report.cc
-    scope_lock.h
     sdc.cc
     sdf.cc
     sso_array.h

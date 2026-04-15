@@ -31,6 +31,7 @@
 #include <limits>
 #include <list>
 #include <map>
+#include <mutex>
 #include <ostream>
 #include <queue>
 #include <set>
@@ -42,7 +43,6 @@
 #include "fast_bels.h"
 #include "log.h"
 #include "place_common.h"
-#include "scope_lock.h"
 #include "timing.h"
 #include "util.h"
 
@@ -138,7 +138,7 @@ class SAPlacer
     {
         log_break();
 
-        ScopeLock<Context> lock(ctx);
+        std::lock_guard<Context> lock{*ctx};
 
         size_t placed_cells = 0;
         std::vector<CellInfo *> autoplaced;
