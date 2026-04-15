@@ -1015,6 +1015,8 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
     } else if (cell->type.in(id_DCUA, id_EXTREFB, id_PCSCLKDIV)) {
         if (port.in(id_CH0_FF_TXI_CLK, id_CH0_FF_RXI_CLK, id_CH1_FF_TXI_CLK, id_CH1_FF_RXI_CLK))
             return TMG_CLOCK_INPUT;
+        if (port.in(id_CH0_FF_TX_PCLK, id_CH0_FF_RX_PCLK, id_CH1_FF_TX_PCLK, id_CH1_FF_RX_PCLK))
+            return TMG_GEN_CLOCK;
         std::string prefix = port.str(this).substr(0, 9);
         if (prefix == "CH0_FF_TX" || prefix == "CH0_FF_RX" || prefix == "CH1_FF_TX" || prefix == "CH1_FF_RX") {
             clockInfoCount = 1;
