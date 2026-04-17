@@ -172,6 +172,8 @@ struct XilinxImpl : HimbaechelAPI
 
     std::vector<TileStatus> tile_status;
 
+    bool cell_tags_set = false;
+
     // Improved delay predictions where sites are located far from their associated interconnect
     dict<WireId, Loc> source_locs, sink_locs;
     bool is_general_routing(WireId wire) const;

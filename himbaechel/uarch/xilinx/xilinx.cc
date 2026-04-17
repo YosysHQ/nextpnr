@@ -160,6 +160,13 @@ void XilinxImpl::notifyBelChange(BelId bel, CellInfo *cell)
     if (cell && cell->type != id_PAD && site_key.site >= 0 && site_key.site < int(ts.site_variant.size())) {
         ts.site_variant.at(site_key.site) = site_key.site_variant;
     }
+
+    if (!cell_tags_set) {
+        // This will happen when loading a pre-placed design, at the time the frontend calls attributesToArchInfo cell
+        // tags aren't set and this will fail. We resolve it in preRoute
+        return;
+    }
+
     if (is_logic_tile(bel))
         update_logic_bel(bel, cell);
     if (is_bram_tile(bel))
@@ -302,6 +309,7 @@ void XilinxImpl::prePlace()
 {
     assign_cell_tags();
     index_control_sets();
+    cell_tags_set = true;
 }
 
 void XilinxImpl::postPlace()
@@ -426,6 +434,22 @@ void XilinxImpl::configurePlacerStatic(PlacerStaticCfg &cfg)
 
 void XilinxImpl::preRoute()
 {
+    if (!cell_tags_set) {
+        // We loaded a pre-placed design. Need to set tags and update bel-cell map
+        assign_cell_tags();
+        index_control_sets();
+        cell_tags_set = true;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            notifyBelChange(ci->bel, ci);
+        }
+        if (ctx->nets.count(ctx->id("$PACKER_GND_NET"))) {
+            ctx->nets.at(ctx->id("$PACKER_GND_NET"))->constant_value = id_GND;
+        }
+        if (ctx->nets.count(ctx->id("$PACKER_VCC_NET"))) {
+            ctx->nets.at(ctx->id("$PACKER_VCC_NET"))->constant_value = id_VCC;
+        }
+    }
     find_source_sink_locs();
     route_clocks();
 }
