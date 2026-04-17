@@ -712,12 +712,29 @@ delay_t XilinxImpl::estimateDelay(WireId src, WireId dst) const
     if (fnd_src != source_locs.end()) {
         sx = fnd_src->second.x;
         sy = fnd_src->second.y;
+    } else {
+        auto src_type = ctx->getWireType(src);
+        if (src_type.in(id_DOUBLE, id_BENTQUAD, id_HQUAD, id_VQUAD)) {
+            for (auto pip : ctx->getPipsDownhill(src)) {
+                tile_xy(ctx->chip_info, pip.tile, sx, sy);
+                break;
+            }
+        }
     }
     auto fnd_snk = sink_locs.find(dst);
     if (fnd_snk != sink_locs.end()) {
         dx = fnd_snk->second.x;
         dy = fnd_snk->second.y;
+    } else {
+        auto dst_type = ctx->getWireType(dst);
+        if (dst_type.in(id_DOUBLE, id_BENTQUAD, id_HQUAD, id_VQUAD)) {
+            for (auto pip : ctx->getPipsUphill(dst)) {
+                tile_xy(ctx->chip_info, pip.tile, dx, dy);
+                break;
+            }
+        }
     }
+
     // TODO: improve sophistication here based on old nextpnr-xilinx code
     return 800 + 50 * (std::abs(dy - sy) + std::abs(dx - sx));
 }
