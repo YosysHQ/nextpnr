@@ -50,9 +50,7 @@ bool operator==(const PortRef &a, const PortRef &b) { return (a.cell == b.cell) 
 // Load a JSON file into a design
 void parse_json_shim(std::string filename, Context &d)
 {
-    std::ifstream inf(filename);
-    if (!inf)
-        throw std::runtime_error("failed to open file " + filename);
+    auto inf = open_ifstream_and_log_error(filename, "JSON file");
     parse_json(inf, filename, &d);
 }
 

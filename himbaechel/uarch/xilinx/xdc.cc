@@ -36,9 +36,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 void XilinxImpl::parse_xdc(const std::string &filename)
 {
-    std::ifstream in(filename);
-    if (!in)
-        log_error("failed to open XDC file '%s'\n", filename.c_str());
+    auto in = open_ifstream_and_log_error(filename, "XDC file");
     log_info("Parsing XDC file...\n");
     std::string line;
     std::string linebuf;

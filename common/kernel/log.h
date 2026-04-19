@@ -20,8 +20,8 @@
 #ifndef LOG_H
 #define LOG_H
 
+#include <fstream>
 #include <functional>
-#include <ostream>
 #include <set>
 #include <stdarg.h>
 #include <stdio.h>
@@ -29,6 +29,8 @@
 #include <vector>
 #include "hashlib.h"
 #include "nextpnr_namespaces.h"
+
+#include <fstream>
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -87,6 +89,12 @@ static inline void log_assert_worker(bool cond, const char *expr, const char *fi
     NEXTPNR_NAMESPACE_PREFIX log_assert_worker(_assert_expr_, #_assert_expr_, __FILE__, __LINE__)
 
 #define log_abort() log_error("Abort in %s:%d.\n", __FILE__, __LINE__)
+
+/// open `filename`, if error log "Failed to open {file_description} '{filename}'" with cause
+std::ifstream open_ifstream_and_log_error(std::string filename, const char *file_description);
+
+/// open `filename`, if error log "Failed to open {file_description} '{filename}' for writing" with cause
+std::ofstream open_ofstream_and_log_error(std::string filename, const char *file_description);
 
 NEXTPNR_NAMESPACE_END
 

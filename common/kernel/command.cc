@@ -609,13 +609,13 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
         try {
             if (vm.count("json")) {
                 std::string filename = vm["json"].as<std::string>();
-                std::ifstream f(filename);
+                auto f = open_ifstream_and_log_error(filename, "JSON file");
                 if (!parse_json(f, filename, w.getContext()))
                     log_error("Loading design failed.\n");
 
                 if (vm.count("sdc")) {
                     std::string sdc_filename = vm["sdc"].as<std::string>();
-                    std::ifstream sdc_stream(sdc_filename);
+                    auto sdc_stream = open_ifstream_and_log_error(sdc_filename, "SDC file");
                     w.getContext()->read_sdc(sdc_stream);
                 }
 
@@ -635,13 +635,14 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
 #endif
     if (vm.count("json")) {
         std::string filename = vm["json"].as<std::string>();
-        std::ifstream f(filename);
+        auto f = open_ifstream_and_log_error(filename, "'--json' file");
+
         if (!parse_json(f, filename, ctx.get()))
             log_error("Loading design failed.\n");
 
         if (vm.count("sdc")) {
             std::string sdc_filename = vm["sdc"].as<std::string>();
-            std::ifstream sdc_stream(sdc_filename);
+            auto sdc_stream = open_ifstream_and_log_error(sdc_filename, "SDC file");
             ctx->read_sdc(sdc_stream);
         }
 
@@ -703,24 +704,20 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
 
     if (vm.count("write")) {
         std::string filename = vm["write"].as<std::string>();
-        std::ofstream f(filename);
+        auto f = open_ofstream_and_log_error(filename, "JSON '--write' file");
         if (!write_json_file(f, filename, ctx.get()))
             log_error("Saving design failed.\n");
     }
 
     if (vm.count("sdf")) {
         std::string filename = vm["sdf"].as<std::string>();
-        std::ofstream f(filename);
-        if (!f)
-            log_error("Failed to open SDF file '%s' for writing.\n", filename.c_str());
+        auto f = open_ofstream_and_log_error(filename, "SDF file");
         ctx->writeSDF(f, vm.count("sdf-cvc"));
     }
 
     if (vm.count("report")) {
         std::string filename = vm["report"].as<std::string>();
-        std::ofstream f(filename);
-        if (!f)
-            log_error("Failed to open report file '%s' for writing.\n", filename.c_str());
+        auto f = open_ofstream_and_log_error(filename, "report file");
         ctx->writeJsonReport(f);
     }
 
@@ -778,7 +775,7 @@ void CommandHandler::load_json(Context *ctx, std::string filename)
     setupContext(ctx);
     setupArchContext(ctx);
     {
-        std::ifstream f(filename);
+        auto f = open_ifstream_and_log_error(filename, "JSON file");
         if (!parse_json(f, filename, ctx))
             log_error("Loading design failed.\n");
     }

@@ -1718,26 +1718,19 @@ struct Router2
             if (!cfg.heatmap.empty()) {
                 {
                     std::string filename(cfg.heatmap + "_congestion_by_wiretype_" + std::to_string(iter) + ".csv");
-                    std::ofstream cong_map(filename);
-                    if (!cong_map)
-                        log_error("Failed to open congestion-by-wiretype heatmap %s for writing.\n", filename.c_str());
+                    auto cong_map = open_ofstream_and_log_error(filename, "congestion-by-wiretype heatmap");
                     write_congestion_by_wiretype_heatmap(cong_map);
                     log_info("        wrote congestion-by-wiretype heatmap to %s.\n", filename.c_str());
                 }
                 {
                     std::string filename(cfg.heatmap + "_utilisation_by_wiretype_" + std::to_string(iter) + ".csv");
-                    std::ofstream cong_map(filename);
-                    if (!cong_map)
-                        log_error("Failed to open utilisation-by-wiretype heatmap %s for writing.\n", filename.c_str());
+                    auto cong_map = open_ofstream_and_log_error(filename, "utilisation-by-wiretype heatmap");
                     write_utilisation_by_wiretype_heatmap(cong_map);
                     log_info("        wrote utilisation-by-wiretype heatmap to %s.\n", filename.c_str());
                 }
                 {
                     std::string filename(cfg.heatmap + "_congestion_by_coordinate_" + std::to_string(iter) + ".csv");
-                    std::ofstream cong_map(filename);
-                    if (!cong_map)
-                        log_error("Failed to open congestion-by-coordinate heatmap %s for writing.\n",
-                                  filename.c_str());
+                    auto cong_map = open_ofstream_and_log_error(filename, "congestion-by-coordinate heatmap");
                     write_congestion_by_coordinate_heatmap(cong_map);
                     log_info("        wrote congestion-by-coordinate heatmap to %s.\n", filename.c_str());
                 }

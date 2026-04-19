@@ -411,9 +411,7 @@ struct GateMateCCFReader
 
 void GateMateImpl::parse_ccf(const std::string &filename)
 {
-    std::ifstream in(filename);
-    if (!in)
-        log_error("Failed to open CCF file '%s'.\n", filename.c_str());
+    auto in = open_ifstream_and_log_error(filename, "CCF file");
     GateMateCCFReader reader(ctx, this, in);
     reader.run();
 }

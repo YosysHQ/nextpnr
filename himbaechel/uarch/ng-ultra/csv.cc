@@ -37,9 +37,7 @@ NEXTPNR_NAMESPACE_BEGIN
 
 void NgUltraImpl::parse_csv(const std::string &filename)
 {
-    std::ifstream in(filename);
-    if (!in)
-        log_error("failed to open CSV file '%s'\n", filename.c_str());
+    auto in = open_ifstream_and_log_error(filename, "CSV file");
     log_info("Parsing CSV file..\n");
     std::string line;
     std::string linebuf;

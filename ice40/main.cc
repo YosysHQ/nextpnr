@@ -98,7 +98,7 @@ void Ice40CommandHandler::customAfterLoad(Context *ctx)
 {
     if (vm.count("pcf")) {
         std::string filename = vm["pcf"].as<std::string>();
-        std::ifstream pcf(filename);
+        auto pcf = open_ifstream_and_log_error(filename, "PCF file");
         if (!apply_pcf(ctx, filename, pcf))
             log_error("Loading PCF failed.\n");
     } else {
@@ -109,7 +109,7 @@ void Ice40CommandHandler::customBitstream(Context *ctx)
 {
     if (vm.count("asc")) {
         std::string filename = vm["asc"].as<std::string>();
-        std::ofstream f(filename);
+        auto f = open_ofstream_and_log_error(filename, "ASC file");
         write_asc(ctx, f);
     }
 }
@@ -121,7 +121,7 @@ void Ice40CommandHandler::setupArchContext(Context *ctx)
 
     if (vm.count("read")) {
         std::string filename = vm["read"].as<std::string>();
-        std::ifstream f(filename);
+        auto f = open_ifstream_and_log_error(filename, "ASC file");
         if (!read_asc(ctx, f))
             log_error("Loading ASC failed.\n");
     }

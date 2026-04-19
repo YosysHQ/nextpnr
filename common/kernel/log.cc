@@ -17,6 +17,7 @@
  *
  */
 
+#include <cerrno>
 #include <list>
 #include <map>
 #include <set>
@@ -185,6 +186,28 @@ void log_error(const char *format, ...)
     va_list ap;
     va_start(ap, format);
     logv_error(format, ap);
+}
+
+std::ifstream open_ifstream_and_log_error(std::string filename, const char *file_description)
+{
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        log_error("Failed to open %s '%s': %s.\n", file_description, filename.c_str(),
+                  std::error_code(errno, std::generic_category()).message().c_str());
+    }
+
+    return file;
+}
+
+std::ofstream open_ofstream_and_log_error(std::string filename, const char *file_description)
+{
+    std::ofstream file(filename);
+    if (!file.is_open()) {
+        log_error("Failed to open %s '%s' for writing: %s.\n", file_description, filename.c_str(),
+                  std::error_code(errno, std::generic_category()).message().c_str());
+    }
+
+    return file;
 }
 
 void log_break()

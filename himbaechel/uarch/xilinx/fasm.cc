@@ -264,8 +264,7 @@ struct FasmBackend
                     boost::erase_all(loc, "_T1");
                     boost::replace_all(loc, "IOI_OLOGIC", "OLOGIC_Y");
                     // the replacements transformed it into : LIOI3_X0Y73.OLOGIC_Y1
-                    out << loc << "."
-                        << "ZINV_T1" << std::endl;
+                    out << loc << "." << "ZINV_T1" << std::endl;
                 }
             }
             return;
@@ -1822,9 +1821,7 @@ struct FasmBackend
 
 void XilinxImpl::write_fasm(const std::string &filename)
 {
-    std::ofstream out(filename);
-    if (!out)
-        log_error("failed to open file %s for writing (%s)\n", filename.c_str(), strerror(errno));
+    auto out = open_ofstream_and_log_error(filename, "FASM file");
 
     FasmBackend be(this->ctx, this, out);
     be.write_fasm();

@@ -145,7 +145,7 @@ struct SVGWriter
 
 void Context::writeSVG(const std::string &filename, const std::string &flags) const
 {
-    std::ofstream out(filename);
+    auto out = open_ofstream_and_log_error(filename, "SVG file");
     SVGWriter(this, out)(flags);
 }
 

@@ -21,6 +21,7 @@
 #define STATIC_UTIL_H
 
 #include <fstream>
+#include "log.h"
 #include "nextpnr_assertions.h"
 #include "nextpnr_namespaces.h"
 
@@ -105,6 +106,10 @@ struct FFTArray
     void write_csv(const std::string &filename) const
     {
         std::ofstream out(filename);
+        if (!out.is_open()) {
+            log_error("Failed to open CSV file for writing '%s': %s.\n", filename.c_str(),
+                      std::error_code(errno, std::generic_category()).message().c_str());
+        }
         NPNR_ASSERT(out);
         for (int y = 0; y < m_height; y++) {
             for (int x = 0; x < m_width; x++) {

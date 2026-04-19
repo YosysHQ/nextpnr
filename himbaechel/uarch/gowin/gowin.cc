@@ -267,10 +267,8 @@ void GowinImpl::pack()
 {
     if (ctx->settings.count(ctx->id("cst.filename"))) {
         std::string filename = ctx->settings[ctx->id("cst.filename")].as_string();
-        std::ifstream in(filename);
-        if (!in) {
-            log_error("failed to open CST file '%s'\n", filename.c_str());
-        }
+        auto in = open_ifstream_and_log_error(filename, "CST file");
+
         if (!gowin_apply_constraints(ctx, in)) {
             log_error("failed to parse CST file '%s'\n", filename.c_str());
         }
