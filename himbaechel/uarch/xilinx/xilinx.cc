@@ -761,8 +761,8 @@ delay_t XilinxImpl::estimateDelay(WireId src, WireId dst) const
 
     // TODO: improve sophistication here based on old nextpnr-xilinx code
     int dist_x = std::abs(dx - sx), dist_y = std::abs(dy - sy);
-    return 500 + 12 * (2 * std::max(dist_y - 6, 0) + 4 * std::min(dist_y, 6)
-        + std::max(dist_x - 12, 0) + 2 * std::min(dist_x, 12));
+    return 500 + 12 * (2 * std::max(dist_y - 6, 0) + 4 * std::min(dist_y, 6) + std::max(dist_x - 12, 0) +
+                       2 * std::min(dist_x, 12));
 }
 
 delay_t XilinxImpl::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const

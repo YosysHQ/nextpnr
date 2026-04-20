@@ -425,13 +425,17 @@ void GateMateImpl::preRoute()
     }
 }
 
-void GateMateImpl::reassign_bridges(NetInfo *start_net, const dict<WireId, PipMap> &net_wires,
-                                    WireId start_wire, dict<WireId, IdString> &wire_to_net, int &num)
+void GateMateImpl::reassign_bridges(NetInfo *start_net, const dict<WireId, PipMap> &net_wires, WireId start_wire,
+                                    dict<WireId, IdString> &wire_to_net, int &num)
 {
     // Processing list, holds parameters to implement the equivalent of recursive calls.
     // This avoids a stack overflow when recursion becomes deep, as the function
     // has a relatively large stack footprint.
-    struct record { NetInfo *net; WireId wire; };
+    struct record
+    {
+        NetInfo *net;
+        WireId wire;
+    };
     std::vector<record> to_process;
     // Insert start record.
     to_process.push_back({start_net, start_wire});

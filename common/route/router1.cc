@@ -19,8 +19,8 @@
 
 #include <chrono>
 #include <cmath>
-#include <queue>
 #include <mutex>
+#include <queue>
 
 #include "log.h"
 #include "router1.h"

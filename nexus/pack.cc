@@ -1235,7 +1235,7 @@ struct NexusPacker
         XFormRule delay_rule;
         delay_rule.param_xform[id_DEL_VALUE] = ctx->id("DELAY.DEL_VALUE");
         delay_rule.param_xform[id_COARSE_DELAY] = ctx->id("DELAY.COARSE_DELAY");
-        
+
         base_iodelay_rules[id_DELAYB] = delay_rule;
         base_iodelay_rules[id_DELAYA] = delay_rule;
 
