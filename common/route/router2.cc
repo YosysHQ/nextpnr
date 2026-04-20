@@ -1456,6 +1456,22 @@ struct Router2
         }
     }
 
+    void write_congestion_by_net_heatmap(std::ostream &out)
+    {
+        dict<IdString, int> congestion_by_net;
+        for (size_t i = 0; i < nets_by_udata.size(); i++) {
+            IdString name = nets_by_udata.at(i)->name;
+            for (const auto &wire : nets.at(i).wires) {
+                const auto &wd = flat_wires.at(wire_to_idx.at(wire.first));
+                if (wd.curr_cong > 1)
+                    congestion_by_net[name] += (wd.curr_cong - 1);
+            }
+        }
+        // Write csv
+        for (auto &u : congestion_by_net)
+            out << u.first.c_str(ctx) << "," << u.second << std::endl;
+    }
+
     int mid_x = 0, mid_y = 0;
 
     void partition_nets()
@@ -1733,6 +1749,12 @@ struct Router2
                     auto cong_map = open_ofstream_and_log_error(filename, "congestion-by-coordinate heatmap");
                     write_congestion_by_coordinate_heatmap(cong_map);
                     log_info("        wrote congestion-by-coordinate heatmap to %s.\n", filename.c_str());
+                }
+                {
+                    std::string filename(cfg.heatmap + "_congestion_by_net_" + std::to_string(iter) + ".csv");
+                    auto cong_map = open_ofstream_and_log_error(filename, "congestion-by-net heatmap");
+                    write_congestion_by_net_heatmap(cong_map);
+                    log_info("        wrote congestion-by-net heatmap to %s.\n", filename.c_str());
                 }
             }
             int tmgfail = 0;
