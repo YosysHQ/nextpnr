@@ -1238,7 +1238,6 @@ Placer1Cfg::Placer1Cfg(Context *ctx)
     startTemp = ctx->setting<float>("placer1/startTemp", 1);
     timingFanoutThresh = std::numeric_limits<int>::max();
     timing_driven = ctx->setting<bool>("timing_driven");
-    slack_redist_iter = ctx->setting<int>("slack_redist_iter");
     hpwl_scale_x = 1;
     hpwl_scale_y = 1;
 }

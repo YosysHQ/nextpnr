@@ -32,7 +32,6 @@ struct Placer1Cfg
     float startTemp;
     int timingFanoutThresh;
     bool timing_driven;
-    int slack_redist_iter;
     int hpwl_scale_x, hpwl_scale_y;
 };
 
