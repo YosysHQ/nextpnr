@@ -183,7 +183,20 @@ def import_tiletype(ch: Chip, tile: xilinx_device.Tile):
                             site_key=(s.index << 8),
                             timing="SITE_NULL"
                         )
+                    # Add LUT route-through pseudo-pip
+                    rt_config = ("ABCDEFGH".index(swn[0]) << 8)
+                    if s.rel_xy()[0] == 1:
+                        rt_config |= (4 << 8)
+                    rt_config |= ((i - 1) << 1)
+                    add_pip(pin.tile_wire().name(), s.pin(f"{swn[0]}").tile_wire().name(),
+                            pip_class=PipClass.LUT_ROUTETHRU,
+                            pip_config=rt_config,
+                            site_key=(s.index << 8),
+                            timing="SITE_NULL"
+                        )
+
                     return
+
             add_pip(pin.tile_wire().name(), lookup_site_wire(pin.site_wire()),
                 pip_class=PipClass.SITE_ENTRANCE, timing="SITE_NULL")
 

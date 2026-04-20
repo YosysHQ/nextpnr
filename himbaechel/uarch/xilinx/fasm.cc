@@ -55,6 +55,8 @@ struct FasmBackend
     std::vector<std::string> fasm_ctx;
     dict<int, std::vector<PipId>> pips_by_tile;
 
+    dict<std::pair<int, int>, unsigned> lut_route_throughs;
+
     dict<IdString, pool<IdString>> invertible_pins;
 
     FasmBackend(Context *ctx, XilinxImpl *uarch, std::ostream &out) : ctx(ctx), uarch(uarch), out(out) {};
@@ -616,59 +618,75 @@ struct FasmBackend
         bool is_slicem = is_mtile && (half == 0);
 
         const auto &lts = uarch->tile_status.at(tile).lts;
-        if (!lts)
-            return;
 
         push(tname);
         push(get_half_name(half, is_mtile));
 
-        BelId bel_in_half =
-                ctx->getBelByLocation(Loc(tile % ctx->chip_info->width, tile / ctx->chip_info->width, half << 6));
-
+        // Write route through pips
         for (int i = 0; i < 4; i++) {
-            CellInfo *lut6 = lts->cells[(half << 6) | (i << 4) | BEL_6LUT];
-            CellInfo *lut5 = lts->cells[(half << 6) | (i << 4) | BEL_5LUT];
-            // Write LUT initialisation
-            if (lut6 != nullptr || lut5 != nullptr) {
+            auto found_rt = lut_route_throughs.find(std::make_pair(tile, half * 4 + i));
+            if (found_rt != lut_route_throughs.end()) {
                 std::string lutname = stringf("%cLUT", "ABCD"[i]);
                 push(lutname);
-                write_vector("INIT[63:0]", get_lut_init(lut6, lut5));
-
-                // Write LUT mode config
-                bool is_small = false, is_ram = false, is_srl = false;
-                for (int j = 0; j < 2; j++) {
-                    CellInfo *lut = (j == 1) ? lut5 : lut6;
-                    if (lut == nullptr)
-                        continue;
-                    std::string type = str_or_default(lut->attrs, id_X_ORIG_TYPE);
-                    if (type == "RAMD64E" || type == "RAMS64E") {
-                        is_ram = true;
-                    } else if (type == "RAMD32" || type == "RAMS32") {
-                        is_ram = true;
-                        is_small = true;
-                    } else if (type == "SRL16E") {
-                        is_srl = true;
-                        is_small = true;
-                    } else if (type == "SRLC32E") {
-                        is_srl = true;
-                    }
-                    wa7_used |= (lut->getPort(id_WA7) != nullptr);
-                    wa8_used |= (lut->getPort(id_WA8) != nullptr);
+                std::vector<bool> rt_init(64, false);
+                for (unsigned b = 0; b < 64; b++) {
+                    if (b & (1U << found_rt->second))
+                        rt_init[b] = true;
                 }
-                if (is_slicem && i != 3) {
-                    write_routing_bel(get_site_wire(bel_in_half, stringf("%cDI1MUX_OUT", "ABCD"[i])));
-                }
-                write_bit("SMALL", is_small);
-                write_bit("RAM", is_ram);
-                write_bit("SRL", is_srl);
+                write_vector("INIT[63:0]", rt_init);
                 pop();
             }
-            write_routing_bel(get_site_wire(bel_in_half, stringf("%cMUX", "ABCD"[i])));
         }
-        write_bit("WA7USED", wa7_used);
-        write_bit("WA8USED", wa8_used);
-        if (is_slicem)
-            write_routing_bel(get_site_wire(bel_in_half, "WEMUX_OUT"));
+        if (lts) {
+            // Write logic
+            BelId bel_in_half =
+                    ctx->getBelByLocation(Loc(tile % ctx->chip_info->width, tile / ctx->chip_info->width, half << 6));
+
+            for (int i = 0; i < 4; i++) {
+                CellInfo *lut6 = lts->cells[(half << 6) | (i << 4) | BEL_6LUT];
+                CellInfo *lut5 = lts->cells[(half << 6) | (i << 4) | BEL_5LUT];
+                // Write LUT initialisation
+                if (lut6 != nullptr || lut5 != nullptr) {
+                    std::string lutname = stringf("%cLUT", "ABCD"[i]);
+                    push(lutname);
+                    write_vector("INIT[63:0]", get_lut_init(lut6, lut5));
+
+                    // Write LUT mode config
+                    bool is_small = false, is_ram = false, is_srl = false;
+                    for (int j = 0; j < 2; j++) {
+                        CellInfo *lut = (j == 1) ? lut5 : lut6;
+                        if (lut == nullptr)
+                            continue;
+                        std::string type = str_or_default(lut->attrs, id_X_ORIG_TYPE);
+                        if (type == "RAMD64E" || type == "RAMS64E") {
+                            is_ram = true;
+                        } else if (type == "RAMD32" || type == "RAMS32") {
+                            is_ram = true;
+                            is_small = true;
+                        } else if (type == "SRL16E") {
+                            is_srl = true;
+                            is_small = true;
+                        } else if (type == "SRLC32E") {
+                            is_srl = true;
+                        }
+                        wa7_used |= (lut->getPort(id_WA7) != nullptr);
+                        wa8_used |= (lut->getPort(id_WA8) != nullptr);
+                    }
+                    if (is_slicem && i != 3) {
+                        write_routing_bel(get_site_wire(bel_in_half, stringf("%cDI1MUX_OUT", "ABCD"[i])));
+                    }
+                    write_bit("SMALL", is_small);
+                    write_bit("RAM", is_ram);
+                    write_bit("SRL", is_srl);
+                    pop();
+                }
+                write_routing_bel(get_site_wire(bel_in_half, stringf("%cMUX", "ABCD"[i])));
+            }
+            write_bit("WA7USED", wa7_used);
+            write_bit("WA8USED", wa8_used);
+            if (is_slicem)
+                write_routing_bel(get_site_wire(bel_in_half, "WEMUX_OUT"));
+        }
 
         pop(2);
     }
@@ -704,6 +722,22 @@ struct FasmBackend
         for (auto &cell : ctx->cells) {
             if (uarch->is_logic_tile(cell.second->bel))
                 used_logic_tiles.insert(cell.second->bel.tile);
+        }
+        for (auto &net : ctx->nets) {
+            for (const auto &wire_pair : net.second->wires) {
+                PipId pip = wire_pair.second.pip;
+                if (pip == PipId())
+                    continue;
+                const auto &pip_data = chip_pip_info(ctx->chip_info, pip);
+                const auto &extra_data = *reinterpret_cast<const XlnxPipExtraDataPOD *>(pip_data.extra_data.get());
+                unsigned pip_type = pip_data.flags;
+                if (pip_type != PIP_LUT_ROUTETHRU)
+                    continue;
+                unsigned lut_idx = (extra_data.pip_config >> 8);
+                unsigned lut_input = (extra_data.pip_config >> 1) & 0x7;
+                lut_route_throughs[std::make_pair(pip.tile, lut_idx)] = lut_input;
+                used_logic_tiles.insert(pip.tile);
+            }
         }
         for (int tile : used_logic_tiles) {
             write_luts_config(tile, 0);
