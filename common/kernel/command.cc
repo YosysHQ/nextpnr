@@ -358,7 +358,6 @@ po::options_description CommandHandler::getGeneralOptions()
                         "; default: " + Arch::defaultRouter)
                     .c_str());
 
-    general.add_options()("slack_redist_iter", po::value<int>(), "number of iterations between slack redistribution");
     general.add_options()("cstrweight", po::value<float>(), "placer weighting for relative constraint satisfaction");
     general.add_options()("starttemp", po::value<float>(), "placer SA start temperature");
 
@@ -465,17 +464,6 @@ void CommandHandler::setupContext(Context *ctx)
         log_info("Generated random seed: %" PRIu64 "\n", seed);
     }
 
-    if (vm.count("slack_redist_iter")) {
-        ctx->settings[ctx->id("slack_redist_iter")] = vm["slack_redist_iter"].as<int>();
-        if (vm.count("freq") && vm["freq"].as<double>() == 0) {
-            ctx->settings[ctx->id("auto_freq")] = true;
-#ifndef NO_GUI
-            if (!vm.count("gui"))
-#endif
-                log_warning("Target frequency not specified. Will optimise for max frequency.\n");
-        }
-    }
-
     if (vm.count("ignore-loops")) {
         ctx->settings[ctx->id("timing/ignoreLoops")] = true;
     }
@@ -560,8 +548,6 @@ void CommandHandler::setupContext(Context *ctx)
         ctx->settings[ctx->id("target_freq")] = std::to_string(12e6);
     if (ctx->settings.find(ctx->id("timing_driven")) == ctx->settings.end())
         ctx->settings[ctx->id("timing_driven")] = true;
-    if (ctx->settings.find(ctx->id("slack_redist_iter")) == ctx->settings.end())
-        ctx->settings[ctx->id("slack_redist_iter")] = 0;
     if (ctx->settings.find(ctx->id("auto_freq")) == ctx->settings.end())
         ctx->settings[ctx->id("auto_freq")] = false;
     if (ctx->settings.find(ctx->id("placer")) == ctx->settings.end())
