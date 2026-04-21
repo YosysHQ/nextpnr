@@ -27,17 +27,10 @@ set(GUI_SOURCES
     ${family}/mainwindow.h
 )
 
-if (Qt6_FOUND)
-    qt6_add_resources(GUI_QT_RESOURCES
-        base.qrc
-        ${family}/nextpnr.qrc
-    )
-else()
-    qt5_add_resources(GUI_QT_RESOURCES
-        base.qrc
-        ${family}/nextpnr.qrc
-    )
-endif()
+qt6_add_resources(GUI_QT_RESOURCES
+	base.qrc
+	${family}/nextpnr.qrc
+)
 
 add_library(nextpnr-${target}-gui OBJECT
     ${GUI_SOURCES}

@@ -227,14 +227,7 @@ else()
 endif()
 
 if (BUILD_GUI)
-    # Find the Qt6/5 libraries
     find_package(Qt6 COMPONENTS Core Widgets OpenGL OpenGLWidgets QUIET)
-    if (Qt6_FOUND)
-        message(STATUS "Using Qt6")
-    else()
-        message(STATUS "Using Qt5")
-        find_package(Qt5 COMPONENTS Core Widgets OpenGL REQUIRED)
-    endif()
 
     # For higher quality backtraces
     set(CMAKE_ENABLE_EXPORTS ON)
