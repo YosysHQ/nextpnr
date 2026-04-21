@@ -527,7 +527,8 @@ struct Router2
             }
             cursor = ctx->getPipSrcWire(uh);
         }
-        return (cursor == src_wire);
+        return (cursor == src_wire) ||
+               (net->constant_value != IdString() && ctx->getWireConstantValue(cursor) == net->constant_value);
     }
 
     void record_prerouted_net(NetInfo *net, store_index<PortRef> usr, size_t phys_pin)
