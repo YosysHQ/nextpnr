@@ -534,6 +534,15 @@ void Arch::update_alm_input_count(uint32_t lab, uint8_t alm)
     alm_data.unique_input_count = total_inputs;
 }
 
+const std::array<int, 6> tdmux_set = {
+    0, // A
+    1, // B
+    0, // C
+    1, // D
+    2, // E
+    3, // F
+};
+
 bool Arch::check_lab_input_count(uint32_t lab) const
 {
     // There are only 46 TD signals available to route signals from general routing to the ALM input. Currently, we
@@ -544,10 +553,75 @@ bool Arch::check_lab_input_count(uint32_t lab) const
     // currently perfunctory place and route algorithms to achieve satisfactory runtimes.
     int count = 0;
     auto &lab_data = labs.at(lab);
-    for (int i = 0; i < 10; i++) {
-        count += lab_data.alms.at(i).unique_input_count;
+    pool<std::pair<IdString, int>> unique_inputs;
+
+    for (int alm = 0; alm < 10; alm++) {
+        // TODO: duplication with above
+        auto &alm_data = labs.at(lab).alms.at(alm);
+        // Get cells into an array for fast access
+        std::array<const CellInfo *, 2> luts{getBoundBelCell(alm_data.lut_bels[0]), getBoundBelCell(alm_data.lut_bels[1])};
+        std::array<const CellInfo *, 4> ffs{getBoundBelCell(alm_data.ff_bels[0]), getBoundBelCell(alm_data.ff_bels[1]),
+                                            getBoundBelCell(alm_data.ff_bels[2]), getBoundBelCell(alm_data.ff_bels[3])};
+        for (int i = 0; i < 2; i++) {
+            if (!luts[i])
+                continue;
+            
+            for (int j = 0; j < luts[i]->combInfo.lut_input_count; j++)
+                if (luts[i]->combInfo.lut_in[j]) {
+                    // LD routing outputs
+
+                    const pool<int> ld_set_c = {1, 2, 4, 7};
+
+                    const pool<int> ld_inputs_a = {2, 3, 4, 5, 10, 13, 14};
+                    const pool<int> ld_inputs_b = {0, 1, 7, 9, 12, 18};
+                    const pool<int> ld_inputs_c = {6, 8, 11, 16, 17};
+                    const pool<int> ld_inputs_d = {15, 19};
+
+                    // could this be driven by LD?
+                    if (luts[i]->combInfo.lut_in[j]->driver.cell->bel.pos == alm_data.lut_bels[i].pos) {
+                        auto dst_lut = 2 * alm + i;
+                        auto& data = bel_data(luts[i]->combInfo.lut_in[j]->driver.cell->bel);
+                        auto& src_alm_data = labs.at(data.lab_data.lab).alms.at(data.lab_data.alm);
+                        bool ok = false;
+                        int src_lut = 2 * data.lab_data.alm;
+                        if (data.type == id_MISTRAL_MCOMB || data.type == id_MISTRAL_COMB) {
+                            src_lut += data.lab_data.idx;
+                            ok = true;
+                        }
+                        if (data.type == id_MISTRAL_FF && data.lab_data.idx & 1 == 1) {
+                            src_lut += (data.lab_data.idx - 1) / 2;
+                            ok = true;
+                        }
+                        if (ok && dst_lut & 1 == 0 && ld_inputs_a.count(src_lut))
+                            continue;
+                        if (ok && dst_lut & 1 == 1 && ld_inputs_b.count(src_lut))
+                            continue;
+                        if (ok && ld_set_c.count(dst_lut) && ld_inputs_c.count(src_lut))
+                            continue;
+                        if (ok && !ld_set_c.count(dst_lut) && ld_inputs_d.count(src_lut))
+                            continue;
+                    }
+
+                    unique_inputs.insert(std::make_pair(luts[i]->combInfo.lut_in[j]->name, tdmux_set.at(j)));
+                }
+        }
+        for (int i = 0; i < 4; i++) {
+            const CellInfo *ff = ffs[i];
+            if (!ff)
+                continue;
+            if (ff->ffInfo.sdata) {
+                unique_inputs.insert(std::make_pair(ff->ffInfo.sdata->name, tdmux_set.at(4)));
+                unique_inputs.insert(std::make_pair(ff->ffInfo.sdata->name, tdmux_set.at(5)));
+            }
+            // FF input doesn't consume routing resources if driven by associated LUT
+            if (ff->ffInfo.datain && (!luts[i / 2] || ff->ffInfo.datain != luts[i / 2]->combInfo.comb_out)) {
+                unique_inputs.insert(std::make_pair(ff->ffInfo.datain->name, tdmux_set.at(4)));
+                unique_inputs.insert(std::make_pair(ff->ffInfo.datain->name, tdmux_set.at(5)));
+            }
+        }
     }
-    return (count <= 42);
+
+    return (unique_inputs.size() <= 42);
 }
 
 bool Arch::check_mlab_groups(uint32_t lab) const
@@ -690,12 +764,18 @@ bool Arch::is_lab_ctrlset_legal(uint32_t lab) const
 void Arch::lab_pre_route()
 {
     log_info("Preparing LABs for routing...\n");
+    int labs_used = 0;
     for (uint32_t lab = 0; lab < labs.size(); lab++) {
+        bool lab_used = false;
         assign_control_sets(lab);
         for (uint8_t alm = 0; alm < 10; alm++) {
             reassign_alm_inputs(lab, alm);
+            lab_used |= labs.at(lab).alms.at(alm).unique_input_count > 0;
         }
+        if (lab_used)
+            labs_used++;
     }
+    log_info("  %d LABs used\n", labs_used);
 }
 
 void Arch::assign_control_sets(uint32_t lab)
