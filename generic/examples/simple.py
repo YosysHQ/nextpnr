@@ -3,6 +3,8 @@ from simple_config import *
 def is_io(x, y):
 	return x == 0 or x == X-1 or y == 0 or y == Y-1
 
+ctx.setLutK(K)
+
 for x in range(X):
 	for y in range(Y):
 		# Bel port wires
