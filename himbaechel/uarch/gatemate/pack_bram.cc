@@ -584,10 +584,14 @@ void GateMatePacker::repack_ram()
         for (int i = 63; i >= 0; i--) {
             std::vector<bool> orig_first;
             if (ram.second.first)
-                orig_first = ram.second.first->params.at(ctx->idf("INIT_%02X", i)).extract(0, 320).as_bits();
+                orig_first = get_or_default(ram.second.first->params, ctx->idf("INIT_%02X", i), Property())
+                                     .extract(0, 320)
+                                     .as_bits();
             std::vector<bool> orig_second;
             if (ram.second.second)
-                orig_second = ram.second.second->params.at(ctx->idf("INIT_%02X", i)).extract(0, 320).as_bits();
+                orig_second = get_or_default(ram.second.second->params, ctx->idf("INIT_%02X", i), Property())
+                                      .extract(0, 320)
+                                      .as_bits();
             std::string init[2];
 
             for (int j = 0; j < 2; j++) {
