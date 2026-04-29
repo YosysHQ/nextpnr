@@ -39,6 +39,8 @@ struct GowinImpl : HimbaechelAPI
     bool isBelLocationValid(BelId bel, bool explain_invalid) const override;
     void notifyBelChange(BelId bel, CellInfo *cell) override;
 
+    delay_t estimateDelay(WireId src, WireId dst) const override;
+
     // Bel bucket functions
     IdString getBelBucketForCellType(IdString cell_type) const override;
 
@@ -118,6 +120,8 @@ struct GowinImpl : HimbaechelAPI
     bool hclk_valid(BelId bel, IdString bel_type) const;
 
     array2d<std::vector<CellInfo *>> fast_logic_cell;
+
+    delay_t delay_m, delay_c;
 };
 
 struct GowinArch : HimbaechelArch
@@ -247,6 +251,17 @@ void GowinImpl::init(Context *ctx)
     // smart clock routing
     if (args.options.count("disable_gp_clock_routing")) {
         ctx->settings[id_NO_GP_CLOCK_ROUTING] = Property(1);
+    }
+
+    // configure delay estimates for A*
+    if (args.device.rfind("GW2A", 0) == 0 || args.device.rfind("GW5A", 0) == 0) {
+        delay_c = 300;
+        delay_m = 60;
+        ctx->ripup_penalty = 400;
+    } else {
+        delay_c = 600;
+        delay_m = 120;
+        ctx->ripup_penalty = 800;
     }
 }
 
@@ -1677,6 +1692,16 @@ void GowinImpl::drawBel(std::vector<GraphicElement> &g, GraphicElement::style_t 
         g.push_back(el);
         break;
     }
+}
+
+delay_t GowinImpl::estimateDelay(WireId src, WireId dst) const
+{
+    int sx, sy, dx, dy;
+    tile_xy(ctx->chip_info, src.tile, sx, sy);
+    tile_xy(ctx->chip_info, dst.tile, dx, dy);
+    int dist_x = std::abs(dx - sx), dist_y = std::abs(dy - sy);
+    return delay_c + delay_m * (std::max(dist_x - 4, 0) + std::max(dist_y - 4, 0) +
+                                2 * (std::min(dist_x, 4) + std::min(dist_y, 4)));
 }
 
 } // namespace
