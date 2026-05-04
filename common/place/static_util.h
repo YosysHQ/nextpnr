@@ -35,34 +35,38 @@ enum class Axis
     Y
 };
 
-struct RealPair
+template <typename T>
+struct RealPairTempl
 {
-    RealPair() : x(0), y(0) {};
-    RealPair(float x, float y) : x(x), y(y) {};
-    explicit RealPair(Loc l, float bias = 0.0f) : x(l.x + bias), y(l.y + bias) {};
-    float x, y;
-    RealPair &operator+=(const RealPair &other)
+    RealPairTempl() : x(0), y(0) {};
+    RealPairTempl(T x, T y) : x(x), y(y) {};
+    explicit RealPairTempl(Loc l, T bias = 0.0f) : x(l.x + bias), y(l.y + bias) {};
+    T x, y;
+    RealPairTempl &operator+=(const RealPairTempl &other)
     {
         x += other.x;
         y += other.y;
         return *this;
     }
-    RealPair &operator/=(float factor)
+    RealPairTempl &operator/=(T factor)
     {
         x /= factor;
         y /= factor;
         return *this;
     }
-    friend RealPair operator+(RealPair a, RealPair b);
-    friend RealPair operator-(RealPair a, RealPair b);
-    RealPair operator*(float factor) const { return RealPair(x * factor, y * factor); }
-    RealPair operator/(float factor) const { return RealPair(x / factor, y / factor); }
+    template <typename Tf> friend RealPairTempl<Tf> operator+(RealPairTempl<Tf> a, RealPairTempl<Tf> b);
+    template <typename Tf> friend RealPairTempl<Tf> operator-(RealPairTempl<Tf> a, RealPairTempl<Tf> b);
+    RealPairTempl operator*(T factor) const { return RealPairTempl(x * factor, y * factor); }
+    RealPairTempl operator/(T factor) const { return RealPairTempl(x / factor, y / factor); }
     // to simplify axis-generic code
-    inline float &at(Axis axis) { return (axis == Axis::Y) ? y : x; }
-    inline const float &at(Axis axis) const { return (axis == Axis::Y) ? y : x; }
+    inline T &at(Axis axis) { return (axis == Axis::Y) ? y : x; }
+    inline const T &at(Axis axis) const { return (axis == Axis::Y) ? y : x; }
 };
-inline RealPair operator+(RealPair a, RealPair b) { return RealPair(a.x + b.x, a.y + b.y); }
-inline RealPair operator-(RealPair a, RealPair b) { return RealPair(a.x - b.x, a.y - b.y); }
+template <typename T> inline RealPairTempl<T> operator+(RealPairTempl<T> a, RealPairTempl<T> b) { return RealPairTempl(a.x + b.x, a.y + b.y); }
+template <typename T> inline RealPairTempl<T> operator-(RealPairTempl<T> a, RealPairTempl<T> b) { return RealPairTempl(a.x - b.x, a.y - b.y); }
+
+using RealPair = RealPairTempl<float>;
+using DoublePair = RealPairTempl<double>;
 
 // array2d; but as ourafft wants it
 struct FFTArray

@@ -129,11 +129,11 @@ struct PlacerBin
 struct PlacerPort
 {
     // for wirelength data
-    static constexpr float invalid = std::numeric_limits<float>::lowest();
+    static constexpr double invalid = std::numeric_limits<double>::lowest();
 
     PortRef ref;
-    RealPair max_exp{invalid, invalid};
-    RealPair min_exp{invalid, invalid};
+    DoublePair max_exp{invalid, invalid};
+    DoublePair min_exp{invalid, invalid};
     bool has_max_exp(Axis axis) const { return max_exp.at(axis) != invalid; }
     bool has_min_exp(Axis axis) const { return min_exp.at(axis) != invalid; }
 };
@@ -143,8 +143,8 @@ struct PlacerNet
     NetInfo *ni;
     bool skip = false;
     RealPair b1, b0; // real bounding box
-    RealPair min_exp, x_min_exp;
-    RealPair max_exp, x_max_exp;
+    DoublePair min_exp, x_min_exp;
+    DoublePair max_exp, x_max_exp;
     RealPair wa_wl;
     // lines up with user indexes; plus one for driver
     std::vector<PlacerPort> ports;
