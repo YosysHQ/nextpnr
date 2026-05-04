@@ -981,8 +981,8 @@ class StaticPlacer
             // update bounding box
             compute_bounds(net, Axis::X, false);
             compute_bounds(net, Axis::Y, false);
-            hpwl += net.b1.x - net.b0.x;
-            hpwl += net.b1.y - net.b0.y;
+            hpwl += cfg.hpwl_scale_x * (net.b1.x - net.b0.x);
+            hpwl += cfg.hpwl_scale_y * (net.b1.y - net.b0.y);
         }
         return hpwl;
     }
