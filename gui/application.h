@@ -31,6 +31,8 @@ class Application : public QApplication
   public:
     Application(int &argc, char **argv, bool noantialiasing);
     bool notify(QObject *receiver, QEvent *event);
+  protected Q_SLOTS:
+    void show_pass_error();
 };
 
 NEXTPNR_NAMESPACE_END

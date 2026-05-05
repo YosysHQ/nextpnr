@@ -147,12 +147,14 @@ Application::Application(int &argc, char **argv, bool noantialiasing) : QApplica
     std::set_terminate(do_error);
 }
 
+void Application::show_pass_error() { QMessageBox::critical(0, "Error", "Pass failed, see log for details!"); }
+
 bool Application::notify(QObject *receiver, QEvent *event)
 {
     try {
         return QApplication::notify(receiver, event);
     } catch (log_execution_error_exception) {
-        QMessageBox::critical(0, "Error", "Pass failed, see log for details!");
+        QMetaObject::invokeMethod(this, &Application::show_pass_error, Qt::QueuedConnection);
         return true;
     }
 }
