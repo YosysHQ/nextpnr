@@ -602,8 +602,11 @@ void GateMatePacker::pack_io_sel()
         Loc root_loc = ctx->getBelLocation(ci.bel);
         for (int i = 0; i < 4; i++) {
             CellInfo *cpe = move_ram_o_fixed(&ci, ctx->idf("OUT%d", i + 1), root_loc).first;
-            if (cpe && is_inverted[i])
-                cpe->params[id_INIT_L10] = Property(LUT_INV_D0, 4);
+            if (cpe && is_inverted[i]) {
+                uint8_t existing = int_or_default(cpe->params, id_INIT_L10, 0);
+                uint8_t inverted = (existing ^ 0xF);
+                cpe->params[id_INIT_L10] = Property(inverted, 4);
+            }
         }
     }
     flush_cells();
