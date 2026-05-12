@@ -294,20 +294,55 @@ void GateMatePacker::pack_cpe()
             }
         }
     }
-    for (auto ci : l2t5_list) {
-        CellInfo *upper = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$upper", ci->name.c_str(ctx)));
-        upper->cluster = ci->name;
-        upper->region = ci->region;
-        upper->constr_abs_z = true;
-        upper->constr_z = CPE_LT_U_Z;
-        ci->movePortTo(id_I4, upper, id_D0_10);
-        upper->params[id_INIT_L10] = Property(LUT_D0, 4);
-        ci->constr_children.push_back(upper);
 
-        NetInfo *ci_out_conn = ctx->createNet(ctx->idf("%s$combin", ci->name.c_str(ctx)));
-        upper->connectPort(id_OUT, ci_out_conn);
-        ci->addInput(id_COMBIN);
-        ci->connectPort(id_COMBIN, ci_out_conn);
+    std::sort(l2t5_list.begin(), l2t5_list.end());
+    for (auto ci : l2t5_list) {
+        NetInfo *upperNet = ci->getPort(id_I4);
+
+        bool merge = false;
+        if (upperNet && 
+            upperNet->driver.cell && 
+            upperNet->driver.cell->type == id_CPE_L2T4 &&
+            upperNet->driver.cell->cluster.empty()) {
+            auto it = std::lower_bound(l2t5_list.begin(), l2t5_list.end(), upperNet->driver.cell);
+            merge = it == l2t5_list.end() || *it != upperNet->driver.cell;
+        }
+
+        if (merge) {
+            CellInfo *upper = upperNet->driver.cell;
+
+            // rename cell
+            IdString newName = ctx->idf("%s$upper", ci->name.c_str(ctx));
+            auto itOld = ctx->cells.find(upper->name);
+            ctx->cells.insert(std::pair{newName, move(itOld->second)});
+            ctx->cells.erase(itOld);
+            upper->name = newName;
+
+            // cluster into single CPE
+            upper->cluster = ci->name;
+            upper->region = ci->region;
+            upper->constr_abs_z = true;
+            upper->constr_z = CPE_LT_U_Z;
+            ci->constr_children.push_back(upper);
+
+            // rename internal net and port
+            ctx->renameNet(upperNet->name, ctx->idf("%s$combin", ci->name.c_str(ctx)));
+            ci->renamePort(id_I4, id_COMBIN);
+        } else {
+            CellInfo* upper = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$upper", ci->name.c_str(ctx)));
+            upper->cluster = ci->name;
+            upper->region = ci->region;
+            upper->constr_abs_z = true;
+            upper->constr_z = CPE_LT_U_Z;
+            ci->movePortTo(id_I4, upper, id_D0_10);
+            upper->params[id_INIT_L10] = Property(LUT_D0, 4);
+            ci->constr_children.push_back(upper);
+
+            NetInfo *ci_out_conn = ctx->createNet(ctx->idf("%s$combin", ci->name.c_str(ctx)));
+            upper->connectPort(id_OUT, ci_out_conn);
+            ci->addInput(id_COMBIN);
+            ci->connectPort(id_COMBIN, ci_out_conn);
+        }
     }
     l2t5_list.clear();
     flush_cells();
