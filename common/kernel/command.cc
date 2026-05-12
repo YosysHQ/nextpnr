@@ -191,36 +191,21 @@ void init_share_dirname() { npnr_share_dirname = "/share/"; }
 void init_share_dirname()
 {
     std::string proc_self_path = proc_self_dirname();
-#if defined(_WIN32) && !defined(nextpnr_WIN32_UNIX_DIR)
-    std::string proc_share_path = proc_self_path + "share\\";
-    if (check_file_exists(proc_share_path, true)) {
-        npnr_share_dirname = proc_share_path;
-        return;
-    }
-    proc_share_path = proc_self_path + "..\\share\\" + "nextpnr\\";
-    if (check_file_exists(proc_share_path, true)) {
-        npnr_share_dirname = proc_share_path;
-        return;
-    }
-#else
-    std::string proc_share_path = proc_self_path + "share/";
-    if (check_file_exists(proc_share_path, true)) {
-        npnr_share_dirname = proc_share_path;
-        return;
-    }
-    proc_share_path = proc_self_path + "../share/" + "nextpnr/";
-    if (check_file_exists(proc_share_path, true)) {
-        npnr_share_dirname = proc_share_path;
-        return;
-    }
+
+    for (const std::string &proc_share_path : {
+        proc_self_path + "share/",
+        proc_self_path + "../share/nextpnr/",
+        proc_self_path + "../share/",
 #ifdef nextpnr_DATDIR
-    proc_share_path = nextpnr_DATDIR "/";
-    if (check_file_exists(proc_share_path, true)) {
-        npnr_share_dirname = proc_share_path;
-        return;
+          nextpnr_DATDIR "/",
+#endif
+        })
+    {
+        if (check_file_exists(proc_share_path, true)) {
+            npnr_share_dirname = proc_share_path;
+            return;
+        }
     }
-#endif
-#endif
 }
 #endif
 

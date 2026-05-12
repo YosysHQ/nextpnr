@@ -39,7 +39,9 @@ add_library(${TARGET_NAME} STATIC
   ${_QRC_SRCS}
   )
 
-target_compile_options(${TARGET_NAME} PRIVATE -Wno-deprecated-declarations)
+if (!MSVC)
+  target_compile_options(${TARGET_NAME} PRIVATE -Wno-deprecated-declarations)
+endif()
 
 if (MSVC)
   target_compile_options(${TARGET_NAME} PRIVATE /wd4457 /wd4718)

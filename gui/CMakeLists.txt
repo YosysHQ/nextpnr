@@ -59,6 +59,7 @@ target_include_directories(nextpnr-${target}-gui PRIVATE
     ${CMAKE_SOURCE_DIR}/3rdparty/QtPropertyBrowser/src
     ${CMAKE_SOURCE_DIR}/3rdparty/imgui
     ${CMAKE_SOURCE_DIR}/3rdparty/qtimgui
+    Boost::headers
 )
 
 if (Qt6_FOUND)
@@ -74,6 +75,7 @@ target_link_libraries(nextpnr-${target}-gui PRIVATE
     nextpnr_version
     QtPropertyBrowser
     pybind11::headers
+    ${Boost_LIBRARIES}
 )
 
 # Currently always the case when the GUI is built.
