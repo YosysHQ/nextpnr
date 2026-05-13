@@ -181,7 +181,7 @@ void GateMatePacker::override_region(CellInfo *first, CellInfo *second)
 void GateMatePacker::pack_cpe()
 {
     log_info("Packing CPEs..\n");
-    std::vector<CellInfo *> l2t5_list;
+    pool<IdString> l2t5_list;
 
     auto merge_dff = [&](CellInfo &ci, CellInfo *dff) {
         dff->cluster = ci.name;
@@ -203,7 +203,7 @@ void GateMatePacker::pack_cpe()
             continue;
         bool is_l2t5 = false;
         if (ci.type == id_CC_L2T5) {
-            l2t5_list.push_back(&ci);
+            l2t5_list.insert(ci.name);
             ci.renamePort(id_I0, id_D0_00);
             ci.renamePort(id_I1, id_D1_00);
             ci.renamePort(id_I2, id_D0_01);
@@ -295,28 +295,17 @@ void GateMatePacker::pack_cpe()
         }
     }
 
-    std::sort(l2t5_list.begin(), l2t5_list.end());
-    for (auto ci : l2t5_list) {
+    for (auto& it : l2t5_list) {
+        CellInfo *ci = ctx->cells.at(it).get();
         NetInfo *upperNet = ci->getPort(id_I4);
 
-        bool merge = false;
         if (upperNet && 
             upperNet->driver.cell && 
             upperNet->driver.cell->type == id_CPE_L2T4 &&
-            upperNet->driver.cell->cluster.empty()) {
-            auto it = std::lower_bound(l2t5_list.begin(), l2t5_list.end(), upperNet->driver.cell);
-            merge = it == l2t5_list.end() || *it != upperNet->driver.cell;
-        }
+            upperNet->driver.cell->cluster.empty() &&
+            !l2t5_list.count(upperNet->driver.cell->name)) {
 
-        if (merge) {
             CellInfo *upper = upperNet->driver.cell;
-
-            // rename cell
-            IdString newName = ctx->idf("%s$upper", ci->name.c_str(ctx));
-            auto itOld = ctx->cells.find(upper->name);
-            ctx->cells.insert(std::pair{newName, move(itOld->second)});
-            ctx->cells.erase(itOld);
-            upper->name = newName;
 
             // cluster into single CPE
             upper->cluster = ci->name;
@@ -325,8 +314,6 @@ void GateMatePacker::pack_cpe()
             upper->constr_z = CPE_LT_U_Z;
             ci->constr_children.push_back(upper);
 
-            // rename internal net and port
-            ctx->renameNet(upperNet->name, ctx->idf("%s$combin", ci->name.c_str(ctx)));
             ci->renamePort(id_I4, id_COMBIN);
         } else {
             CellInfo* upper = create_cell_ptr(id_CPE_L2T4, ctx->idf("%s$upper", ci->name.c_str(ctx)));
