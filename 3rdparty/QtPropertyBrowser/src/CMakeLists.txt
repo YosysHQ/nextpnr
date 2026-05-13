@@ -39,7 +39,7 @@ add_library(${TARGET_NAME} STATIC
   ${_QRC_SRCS}
   )
 
-if (!MSVC)
+if (NOT MSVC)
   target_compile_options(${TARGET_NAME} PRIVATE -Wno-deprecated-declarations)
 endif()
 
