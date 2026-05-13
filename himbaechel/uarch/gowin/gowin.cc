@@ -1424,7 +1424,7 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
             } else {
                 src = fast_cell_info.at(alu->flat_index).alu_sum;
             }
-            if (ff_data.ff_d != src) {
+            if (ff_data.ff_d != src && bels.at(mux_z.at(z)) != nullptr) {
                 return false;
             }
         }

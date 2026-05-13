@@ -1120,10 +1120,9 @@ def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tde
         tt.add_bel_pin(lut, "F", f"F{i}", PinType.OUTPUT)
         if i < 6 or "HAS_DFF67" in db.chip_flags:
             tt.create_pip(f"F{i}", f"XD{i}", get_tm_class(db, f"F{i}"))
-            # also experimental input for FF using SEL wire - this theory will
+            # also experimental input for FF using SEL wire - this will
             # allow to place unrelated LUT and FF next to each other
-            # don't create for now
-            #tt.create_pip(f"SEL{i}", f"XD{i}", get_tm_class(db, f"SEL{i}"))
+            tt.create_pip(f"SEL{i}", f"XD{i}", get_tm_class(db, f"SEL{i}"))
 
             # FF
             ff = tt.create_bel(f"DFF{i}", "DFF", z =(i * 2 + 1))
