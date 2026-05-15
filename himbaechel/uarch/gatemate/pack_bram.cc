@@ -88,26 +88,19 @@ uint8_t GateMatePacker::ram_clk_signal(CellInfo *cell, IdString port)
 
 int width_to_config(int width)
 {
-    switch (width) {
-    case 0:
-        return 0;
-    case 1:
-        return 1;
-    case 2:
-        return 2;
-    case 3 ... 5:
+    if (width < 3)
+        return width;
+    if (width < 6)
         return 3;
-    case 6 ... 10:
+    if (width < 11)
         return 4;
-    case 11 ... 20:
+    if (width < 21)
         return 5;
-    case 21 ... 40:
+    if (width < 41)
         return 6;
-    case 41 ... 80:
+    if (width < 81)
         return 7;
-    default:
-        log_error("Unsupported width '%d'.\n", width);
-    }
+    log_error("Unsupported width '%d'.\n", width);
 }
 
 static void rename_or_move(CellInfo *main, CellInfo *other, IdString port, IdString other_port)
