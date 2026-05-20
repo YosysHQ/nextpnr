@@ -706,20 +706,39 @@ bool Arch::place()
         {
             cfg.cell_groups.emplace_back();
             auto &comb = cfg.cell_groups.back();
-            comb.name = getCtx()->id("WARMBOOT");
-            comb.cell_area[id_SB_WARMBOOT] = StaticRect(0.5f, 1.0f);
-            comb.bel_area[id_SB_WARMBOOT] = StaticRect(0.5f, 1.0f);
-            comb.spacer_rect = StaticRect(0.5f, 1.0f);
-        }
-
-        {
-            cfg.cell_groups.emplace_back();
-            auto &comb = cfg.cell_groups.back();
             comb.name = getCtx()->id("IO");
             comb.cell_area[id_SB_IO] = StaticRect(0.5f, 0.5f);
             comb.bel_area[id_SB_IO] = StaticRect(0.5f, 0.5f);
             comb.spacer_rect = StaticRect(0.5f, 0.5f);
         }
+
+        if (args.type == ArchArgs::HX1K || args.type == ArchArgs::HX4K || args.type == ArchArgs::HX8K) {
+            cfg.timing_c = 1000;
+            cfg.timing_mx = 60;
+            cfg.timing_my = 60;
+        } else if (args.type == ArchArgs::LP384 || args.type == ArchArgs::LP1K || args.type == ArchArgs::LP4K ||
+                   args.type == ArchArgs::LP8K) {
+            cfg.timing_c = 1600;
+            cfg.timing_mx = 90;
+            cfg.timing_my = 90;
+        } else if (args.type == ArchArgs::UP3K || args.type == ArchArgs::UP5K || args.type == ArchArgs::U1K ||
+                   args.type == ArchArgs::U2K || args.type == ArchArgs::U4K) {
+            cfg.timing_c = 2400;
+            cfg.timing_mx = 130;
+            cfg.timing_my = 130;
+        }
+
+        cfg.get_cell_area_override = [](Context *ctx, const CellInfo *ci) -> std::optional<StaticRect> {
+            if (ci->type != id_ICESTORM_LC)
+                return {};
+            // FFs have control sets, so don't pack quite as well. model this with a slightly bigger area
+            if (ci->lcInfo.dffEnable && ci->cluster == ClusterId()) {
+                return {StaticRect(1.0f, 0.2f)};
+            } else {
+                return {StaticRect(1.0f, 0.125f)};
+            }
+        };
+
         if (!placer_static(getCtx(), cfg))
             return false;
     } else {

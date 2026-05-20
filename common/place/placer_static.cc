@@ -1237,14 +1237,13 @@ class StaticPlacer
 
     void legalise_step(bool dsp_bram)
     {
-        // assume DSP and BRAM are all groups 2+ for now
         for (int i = 0; i < int(ccells.size()); i++) {
             auto &mc = mcells.at(i);
             auto &cc = ccells.at(i);
             mc.solver_pos = mc.pos;
-            if (dsp_bram && mc.group < 2)
+            if (dsp_bram && mc.group < cfg.logic_groups)
                 continue;
-            if (!dsp_bram && mc.group >= 2)
+            if (!dsp_bram && mc.group >= cfg.logic_groups)
                 continue;
             if (cc.macro_idx != -1 && i != macros.at(cc.macro_idx).root->udata)
                 continue;      // not macro root
