@@ -1568,45 +1568,49 @@ class StaticPlacer
         insert_spacer();
 
         prepare_density_bins();
-        initialise();
-        bool legalised_ip = false;
-        float best_overlap = 1.0;
-        int best_overlap_iter = 0;
-        while (true) {
-            step();
-            for (auto &p : dens_penalty)
-                if (p < 50.0)
-                    p *= 1.025;
-                else
-                    p += 1.0;
-            // wl_coeff.at(Axis::X) = std::max(0.005, 0.995 * wl_coeff.at(Axis::X));
-            // wl_coeff.at(Axis::Y) = std::max(0.005, 0.995 * wl_coeff.at(Axis::Y));
+        if (ccells.empty()) {
+            log_info("No cells available for static to place\n");
+        } else {
+            initialise();
+            bool legalised_ip = false;
+            float best_overlap = 1.0;
+            int best_overlap_iter = 0;
+            while (true) {
+                step();
+                for (auto &p : dens_penalty)
+                    if (p < 50.0)
+                        p *= 1.025;
+                    else
+                        p += 1.0;
+                // wl_coeff.at(Axis::X) = std::max(0.005, 0.995 * wl_coeff.at(Axis::X));
+                // wl_coeff.at(Axis::Y) = std::max(0.005, 0.995 * wl_coeff.at(Axis::Y));
 
-            // update_penalties();
-            if (!legalised_ip) {
-                float ip_overlap = 0;
-                for (int i = cfg.logic_groups; i < int(groups.size()); i++)
-                    ip_overlap = std::max(ip_overlap, groups.at(i).overlap);
-                if (ip_overlap < 0.15) {
-                    legalise_step(true);
-                    legalised_ip = true;
+                // update_penalties();
+                if (!legalised_ip) {
+                    float ip_overlap = 0;
                     for (int i = cfg.logic_groups; i < int(groups.size()); i++)
-                        groups.at(i).enabled = false;
+                        ip_overlap = std::max(ip_overlap, groups.at(i).overlap);
+                    if (ip_overlap < 0.15) {
+                        legalise_step(true);
+                        legalised_ip = true;
+                        for (int i = cfg.logic_groups; i < int(groups.size()); i++)
+                            groups.at(i).enabled = false;
+                    }
+                } else {
+                    float logic_overlap = 0;
+                    for (int i = 0; i < cfg.logic_groups; i++)
+                        logic_overlap = std::max(logic_overlap, groups.at(i).overlap);
+                    if (logic_overlap < best_overlap) {
+                        best_overlap = logic_overlap;
+                        best_overlap_iter = iter;
+                    }
+                    if (logic_overlap < 0.1 || (logic_overlap < 0.2 && iter > (best_overlap_iter + 50))) {
+                        legalise_step(false);
+                        break;
+                    }
                 }
-            } else {
-                float logic_overlap = 0;
-                for (int i = 0; i < cfg.logic_groups; i++)
-                    logic_overlap = std::max(logic_overlap, groups.at(i).overlap);
-                if (logic_overlap < best_overlap) {
-                    best_overlap = logic_overlap;
-                    best_overlap_iter = iter;
-                }
-                if (logic_overlap < 0.1 || (logic_overlap < 0.2 && iter > (best_overlap_iter + 50))) {
-                    legalise_step(false);
-                    break;
-                }
+                ++iter;
             }
-            ++iter;
         }
         {
             auto placer1_cfg = Placer1Cfg(ctx);
