@@ -35,8 +35,6 @@
 #endif
 #endif
 
-NEXTPNR_NAMESPACE_BEGIN
-
 #ifdef _WIN32
 #define NOMINMAX
 #include <windows.h>
@@ -47,6 +45,8 @@ BOOL WINAPI WinHandler(DWORD dwCtrlType)
     return TRUE;
 }
 #endif
+
+NEXTPNR_NAMESPACE_BEGIN
 
 namespace {
 #ifdef __linux__
