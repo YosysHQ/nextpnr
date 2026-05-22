@@ -138,10 +138,10 @@ std::string proc_self_dirname()
     WCHAR longpath[MAX_PATH + 1];
     TCHAR shortpath[MAX_PATH + 1];
 #endif
-    if (!GetModuleFileName(0, longpath, MAX_PATH + 1))
-        log_error("GetModuleFileName() failed.\n");
-    if (!GetShortPathName(longpath, shortpath, MAX_PATH + 1))
-        log_error("GetShortPathName() failed.\n");
+    if (!GetModuleFileNameA(0, longpath, MAX_PATH + 1))
+        log_error("GetModuleFileNameA() failed.\n");
+    if (!GetShortPathNameA(longpath, shortpath, MAX_PATH + 1))
+        log_error("GetShortPathNameA() failed.\n");
     while (shortpath[i] != 0)
         i++;
     while (i > 0 && shortpath[i - 1] != '/' && shortpath[i - 1] != '\\')
