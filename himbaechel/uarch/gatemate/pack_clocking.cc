@@ -686,6 +686,8 @@ void GateMatePacker::copy_clocks()
         return;
     switch (uarch->strategy) {
     case MultiDieStrategy::REUSE_CLK1:
+        if (uarch->global_signals.empty())
+            log_error("Unable to use REUSE CLK1 strategy when there is no clock/PLL.\n");
         if (uarch->global_signals.size() > 1 || uarch->pll.size() > 1)
             log_error("Unable to use REUSE CLK1 strategy when there is more than one clock/PLL.\n");
         strategy_clk1();
