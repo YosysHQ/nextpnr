@@ -470,24 +470,6 @@ TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdStr
             else
                 get_setuphold_from_tmg_db(id_timing_RAM_NOECC_SETUPHOLD_10, info.setup, info.hold);
         }
-        bool is_clk_b = false;
-        for (auto c : boost::adaptors::reverse(name)) {
-            if (std::isdigit(c) || c == 'X' || c == '[' || c == ']')
-                continue;
-            if (c == 'A')
-                is_clk_b = false;
-            else if (c == 'B')
-                is_clk_b = true;
-            else
-                NPNR_ASSERT_FALSE_STR("bad ram port");
-            break;
-        }
-
-        bool inverted = int_or_default(cell->params, id_A_CLK_INV, 0);
-        if (is_clk_b)
-            inverted = int_or_default(cell->params, id_B_CLK_INV, 0);
-
-        info.edge = inverted ? FALLING_EDGE : RISING_EDGE;
         uint8_t a0_clk_val = int_or_default(cell->params, id_RAM_cfg_forward_a0_clk, 0);
         uint8_t a1_clk_val = int_or_default(cell->params, id_RAM_cfg_forward_a1_clk, 0);
         uint8_t b0_clk_val = int_or_default(cell->params, id_RAM_cfg_forward_b0_clk, 0);
@@ -501,20 +483,28 @@ TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdStr
         IdString b1_clk =
                 clock(b1_clk_val, ctx->id("CLKB[2]"), ctx->id("CLKB[3]"), ctx->id("CLKA[2]"), ctx->id("CLKA[3]"));
         if (ram_signal_clk.count(port)) {
+            IdString edge_param;
             switch (ram_signal_clk.at(port)) {
             case 0:
+                edge_param = id_RAM_cfg_inversion_a0;
                 info.clock_port = a0_clk;
                 break;
             case 1:
+                edge_param = id_RAM_cfg_inversion_a1;
                 info.clock_port = a1_clk;
                 break;
             case 2:
+                edge_param = id_RAM_cfg_inversion_b0;
                 info.clock_port = b0_clk;
                 break;
             case 3:
+                edge_param = id_RAM_cfg_inversion_b1;
                 info.clock_port = b1_clk;
                 break;
+            default:
+                NPNR_ASSERT_FALSE_STR("bad ram clock index");
             }
+            info.edge = (int_or_default(cell->params, edge_param, 0) & 0b100) ? FALLING_EDGE : RISING_EDGE;
         } else {
             log_error("Unknown clock signal for %s.\n", name.c_str());
         }
