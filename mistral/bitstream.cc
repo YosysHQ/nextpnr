@@ -60,7 +60,15 @@ struct MistralBitgen
 
     void options()
     {
-        if (!ctx->setting<bool>("compress_rbf", false)) {
+        // Cyclone V bitstreams may be emitted compressed or uncompressed.
+        // We default to COMPRESSED. An uncompressed bitstream still
+        // configures the device (the FPGA manager reports "operating"),
+        // but on the socfpga FPGA-manager load path (verified on a
+        // DE10-Nano / MiSTer) it leaves user IO non-functional; the
+        // compressed encoding matches Quartus output and works on
+        // silicon. OPT_B carries the compression-format flag in the
+        // header and must track the chosen encoding.
+        if (ctx->setting<bool>("uncompressed_rbf", false)) {
             cv->opt_b_set(CycloneV::COMPRESSION_DIS, true);
             cv->opt_r_set(CycloneV::OPT_B, 0xffffff40adffffffULL);
         } else

@@ -49,7 +49,10 @@ po::options_description MistralCommandHandler::getArchOptions()
     specific.add_options()("device", po::value<std::string>(), "device name (e.g. 5CSEBA6U23I7)");
     specific.add_options()("qsf", po::value<std::string>(), "path to QSF constraints file");
     specific.add_options()("rbf", po::value<std::string>(), "RBF bitstream to write");
-    specific.add_options()("compress-rbf", "generate compressed bitstream");
+    specific.add_options()("uncompressed-rbf",
+                           "emit an uncompressed bitstream (default is compressed; uncompressed "
+                           "configures the device but may leave IO non-functional on some loaders)");
+    specific.add_options()("compress-rbf", "deprecated, no-op: compressed output is now the default");
 
     return specific;
 }
@@ -79,8 +82,11 @@ std::unique_ptr<Context> MistralCommandHandler::createContext(dict<std::string, 
     }
     chipArgs.device = vm["device"].as<std::string>();
     auto ctx = std::unique_ptr<Context>(new Context(chipArgs));
+    if (vm.count("uncompressed-rbf"))
+        ctx->settings[id_uncompressed_rbf] = Property::State::S1;
     if (vm.count("compress-rbf"))
-        ctx->settings[id_compress_rbf] = Property::State::S1;
+        log_warning("--compress-rbf is deprecated and has no effect; compressed output is now the "
+                    "default (pass --uncompressed-rbf to opt out).\n");
     return ctx;
 }
 
