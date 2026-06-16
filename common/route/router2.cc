@@ -1710,6 +1710,15 @@ struct Router2
         log_info("Running main router loop...\n");
         if (timing_driven)
             tmg.run(true);
+
+        // Stall-detection / hard-limit state for the main router loop.
+        // Configurable via cfg.stall_iter_limit / cfg.max_router_iters /
+        // cfg.bind_check_interval below.
+        int stall_count = 0;
+        int prev_overused = -1;
+        int prev_overuse = -1;
+        bool did_cong_reset = false;
+
         do {
             ctx->sorted_shuffle(route_queue);
 
@@ -1772,9 +1781,16 @@ struct Router2
                     }
                 }
             }
+            // Periodic bind check to detect arch failures early instead
+            // of hiding them under "archfail=NA" until convergence.
             if (overused_wires == 0 && overused_resources == 0 && tmgfail == 0) {
-                // Try and actually bind nextpnr Arch API wires
                 bind_and_check_all();
+            } else if (cfg.bind_check_interval > 0 && (iter % cfg.bind_check_interval) == 0) {
+                bind_and_check_all();
+                if (arch_fail > 0)
+                    log_warning("    iter=%d: %d arch failures detected with %d overused wires still "
+                                "remaining\n",
+                                iter, arch_fail, overused_wires);
             }
             for (auto cn : failed_nets)
                 route_queue.push_back(cn);
@@ -1791,6 +1807,50 @@ struct Router2
                 log_info("    iter=%d wires=%d overused=%d overuse=%d %sarchfail=%s\n", iter, total_wire_use,
                          overused_wires, total_wire_overuse, resource_str.c_str(),
                          (overused_wires > 0 || tmgfail > 0) ? "NA" : std::to_string(arch_fail).c_str());
+
+            // Stall detection: track when (overused_wires, total_overuse)
+            // stops decreasing.
+            if (overused_wires == prev_overused && total_wire_overuse == prev_overuse) {
+                ++stall_count;
+            } else {
+                stall_count = 0;
+            }
+            prev_overused = overused_wires;
+            prev_overuse = total_wire_overuse;
+
+            // On first stall, reset curr_cong_weight to escape a local
+            // minimum where the negotiated-congestion gradient is too
+            // shallow to converge.
+            if (cfg.stall_iter_limit > 0 && stall_count == cfg.stall_iter_limit && !did_cong_reset) {
+                log_warning("    Routing stalled for %d iterations with %d overused wires -- resetting "
+                            "congestion weight\n",
+                            stall_count, overused_wires);
+                curr_cong_weight = cfg.init_curr_cong_weight;
+                stall_count = 0;
+                did_cong_reset = true;
+            }
+
+            // Persistent stall after reset: bind best-effort and break,
+            // rather than spinning forever.
+            if (cfg.stall_iter_limit > 0 && stall_count >= cfg.stall_iter_limit && did_cong_reset) {
+                log_warning("    Routing stalled after congestion reset -- giving up after %d iterations "
+                            "(%d overused wires, %d total overuse)\n",
+                            iter, overused_wires, total_wire_overuse);
+                bind_and_check_all();
+                break;
+            }
+
+            // Hard iteration ceiling.  Designs that genuinely cannot
+            // converge (e.g. architecturally impossible bindings) get a
+            // best-effort routing and a clear log line instead of an
+            // infinite loop.
+            if (cfg.max_router_iters > 0 && iter >= cfg.max_router_iters) {
+                log_warning("    Hit maximum router iterations (%d) with %d overused wires remaining\n",
+                            cfg.max_router_iters, overused_wires);
+                bind_and_check_all();
+                break;
+            }
+
             ++iter;
             if (curr_cong_weight < 1e9)
                 curr_cong_weight += cfg.curr_cong_mult;
@@ -1846,6 +1906,9 @@ Router2Cfg::Router2Cfg(Context *ctx)
         curr_cong_mult = ctx->setting<float>("router2/currCongWeightMult", 2.0f);
         estimate_weight = ctx->setting<float>("router2/estimateWeight", 1.25f);
     }
+    max_router_iters = ctx->setting<int>("router2/maxRouterIters", 2000);
+    stall_iter_limit = ctx->setting<int>("router2/stallIterLimit", 50);
+    bind_check_interval = ctx->setting<int>("router2/bindCheckInterval", 100);
     perf_profile = ctx->setting<bool>("router2/perfProfile", false);
     if (ctx->settings.count(ctx->id("router2/heatmap")))
         heatmap = ctx->settings.at(ctx->id("router2/heatmap")).as_string();
