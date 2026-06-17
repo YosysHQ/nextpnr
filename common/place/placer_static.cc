@@ -262,6 +262,8 @@ class StaticPlacer
     bool fft_debug = false;
     bool dump_density = false;
 
+    dict<IdString, BoundingBox> constraint_region_bounds_bel, constraint_region_bounds_place;
+
     // legalisation queue
     std::priority_queue<std::pair<int, IdString>> to_legalise;
 
@@ -281,6 +283,49 @@ class StaticPlacer
                 NPNR_ASSERT(ctx->checkBelAvail(bel));
                 ctx->bindBel(bel, ci, STRENGTH_USER);
             }
+        }
+
+        // Determine bounding boxes of region constraints in both bel and placer coordinates
+        for (auto &region : ctx->region) {
+            Region *r = region.second.get();
+            BoundingBox bel_bb, place_bb;
+            if (r->constr_bels) {
+                bel_bb.x0 = std::numeric_limits<int>::max();
+                bel_bb.x1 = std::numeric_limits<int>::min();
+                bel_bb.y0 = std::numeric_limits<int>::max();
+                bel_bb.y1 = std::numeric_limits<int>::min();
+
+                place_bb.x0 = std::numeric_limits<int>::max();
+                place_bb.x1 = std::numeric_limits<int>::min();
+                place_bb.y0 = std::numeric_limits<int>::max();
+                place_bb.y1 = std::numeric_limits<int>::min();
+
+                for (auto bel : r->bels) {
+                    Loc loc = ctx->getBelLocation(bel);
+                    bel_bb.x0 = std::min(bel_bb.x0, loc.x);
+                    bel_bb.x1 = std::max(bel_bb.x1, loc.x);
+                    bel_bb.y0 = std::min(bel_bb.y0, loc.y);
+                    bel_bb.y1 = std::max(bel_bb.y1, loc.y);
+
+                    Loc place_loc = get_place_loc(loc);
+                    place_bb.x0 = std::min(place_bb.x0, place_loc.x);
+                    place_bb.x1 = std::max(place_bb.x1, place_loc.x);
+                    place_bb.y0 = std::min(place_bb.y0, place_loc.y);
+                    place_bb.y1 = std::max(place_bb.y1, place_loc.y);
+                }
+            } else {
+                bel_bb.x0 = 0;
+                bel_bb.y0 = 0;
+                bel_bb.x1 = bel_width - 1;
+                bel_bb.y1 = bel_height - 1;
+
+                place_bb.x0 = 0;
+                place_bb.y0 = 0;
+                place_bb.x1 = width - 1;
+                place_bb.y1 = height - 1;
+            }
+            constraint_region_bounds_bel[r->name] = bel_bb;
+            constraint_region_bounds_place[r->name] = place_bb;
         }
     }
 
@@ -422,7 +467,7 @@ class StaticPlacer
 
     const float pi = 3.141592653589793f;
 
-    RealPair rand_loc()
+    RealPair rand_loc(Region *region = nullptr)
     {
         // Box-muller
         float u1 = ctx->rngf(1.0f);
@@ -432,8 +477,16 @@ class StaticPlacer
         float m = std::sqrt(-2.f * std::log(u1));
         float z0 = m * std::cos(2.f * pi * u2);
         float z1 = m * std::sin(2.f * pi * u2);
-        float x = (width / 2.f) + (width / 250.f) * z0;
-        float y = (height / 2.f) + (height / 250.f) * z1;
+
+        float cx = (width / 2.f), cy = (height / 2.f);
+        if (region) {
+            const auto &bounds = constraint_region_bounds_place.at(region->name);
+            cx = (bounds.x0 + bounds.x1) / 2.f;
+            cy = (bounds.y0 + bounds.y1) / 2.f;
+        }
+
+        float x = cx + (width / 250.f) * z0;
+        float y = cy + (height / 250.f) * z1;
         x = std::min<float>(width - 1.f, std::max<float>(x, 0));
         y = std::min<float>(height - 1.f, std::max<float>(y, 0));
         return RealPair(x, y);
@@ -450,6 +503,15 @@ class StaticPlacer
         } else {
             return ref ? mcells.at(ci->udata).ref_pos : mcells.at(ci->udata).pos;
         }
+    }
+
+    RealPair limit_to_reg(Region *reg, RealPair val)
+    {
+        if (reg == nullptr)
+            return val;
+        const auto &b = constraint_region_bounds_place[reg->name];
+        return RealPair(std::max<float>(std::min<float>(val.x, b.x1), b.x0),
+                        std::max<float>(std::min<float>(val.y, b.y1), b.y0));
     }
 
     void init_cells()
@@ -490,7 +552,7 @@ class StaticPlacer
                 m.cells[ClusterGroupKey(delta.x, delta.y, cell_group)].push_back(ci);
             } else {
                 // Non-clustered cells can be processed already
-                int idx = add_cell(rect, cell_group, rand_loc(), ci);
+                int idx = add_cell(rect, cell_group, rand_loc(ci->region), ci);
                 ci->udata = idx;
                 auto &mc = mcells.at(idx);
                 mc.pin_count += int(ci->ports.size());
@@ -540,7 +602,8 @@ class StaticPlacer
                 }
                 // Now add the moveable cell
                 if (cluster_size.area() > 0) {
-                    int idx = add_cell(cluster_size, kv.first.group, rand_loc(), kv.second.front());
+                    int idx = add_cell(cluster_size, kv.first.group, rand_loc(kv.second.front()->region),
+                                       kv.second.front());
                     auto &mc = mcells.at(idx);
                     if (kv.second.front()->bel != BelId()) {
                         // Currently; treat all ready-placed cells as fixed (eventually we might do incremental ripups
@@ -1188,7 +1251,8 @@ class StaticPlacer
         log_info("iter=%d steplen=%f a=%f penalty=[%s]\n", iter, steplen, nesterov_a, penalty_str.c_str());
         float a_next = (1.0f + std::sqrt(4.0f * nesterov_a * nesterov_a + 1)) / 2.0f;
         // Update positions using Nesterov's
-        for (auto &cell : mcells) {
+        for (int idx = 0; idx < int(mcells.size()); idx++) {
+            auto &cell = mcells.at(idx);
             if (cell.is_fixed || cell.is_dark)
                 continue;
             // save current position in last_pos
@@ -1198,6 +1262,10 @@ class StaticPlacer
             cell.pos = clamp_loc(cell.ref_pos - cell.ref_total_grad * steplen);
             // compute reference position
             cell.ref_pos = clamp_loc(cell.pos + (cell.pos - cell.last_pos) * ((nesterov_a - 1) / a_next));
+            if (idx < int(ccells.size()) && ccells.at(idx).base_cell->region != nullptr) {
+                cell.pos = limit_to_reg(ccells.at(idx).base_cell->region, cell.pos);
+                cell.ref_pos = limit_to_reg(ccells.at(idx).base_cell->region, cell.ref_pos);
+            }
         }
         nesterov_a = a_next;
         update_chains();
@@ -1354,8 +1422,27 @@ class StaticPlacer
                     cx = place_x_to_bel_x.at(std::max(0, std::min(cx, width - 1)));
                     cy = place_y_to_bel_y.at(std::max(0, std::min(cy, height - 1)));
                 }
-                int nx = ctx->rng(2 * rx + 1) + std::max(cx - rx, 0);
-                int ny = ctx->rng(2 * ry + 1) + std::max(cy - ry, 0);
+
+                int x0 = std::max(cx - rx, 0);
+                int y0 = std::max(cy - ry, 0);
+                int x1 = cx + rx;
+                int y1 = cy + ry;
+
+                if (ci->region != nullptr) {
+                    auto &r = constraint_region_bounds_bel[ci->region->name];
+                    // Clamp search box to a region
+                    x0 = std::max(x0, r.x0);
+                    y0 = std::max(y0, r.y0);
+                    x1 = std::min(x1, r.x1);
+                    y1 = std::min(y1, r.y1);
+                    if (x0 > x1)
+                        std::swap(x0, x1);
+                    if (y0 > y1)
+                        std::swap(y0, y1);
+                }
+
+                int nx = ctx->rng(x1 - x0 + 1) + x0;
+                int ny = ctx->rng(y1 - y0 + 1) + y0;
 
                 iter++;
                 iter_at_radius++;
