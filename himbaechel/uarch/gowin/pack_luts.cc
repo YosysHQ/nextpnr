@@ -270,13 +270,6 @@ std::unique_ptr<CellInfo> GowinPacker::alu_add_dummy_block(Context *ctx, CellInf
 // 0110 -> 0011
 void GowinPacker::optimize_alu_lut(CellInfo *ci, int mode)
 {
-    auto uni_shift = [&](unsigned int val, int amount) {
-        if (amount < 0) {
-            return val >> -amount;
-        }
-        return val << amount;
-    };
-
     IdString vcc_net_name = ctx->id("$PACKER_VCC");
     IdString gnd_net_name = ctx->id("$PACKER_GND");
     bool optimized = false;
@@ -288,57 +281,37 @@ void GowinPacker::optimize_alu_lut(CellInfo *ci, int mode)
         // representation.
         // If ADDSUB dynamically switches between + and -,
         // optimization is not possible.
-        int possible_carry = 0b1100U;
         IdString inp_net_name = ci->getPort(id_I3)->name;
         if (inp_net_name != vcc_net_name && inp_net_name != gnd_net_name) {
             break;
         }
-        if (inp_net_name == gnd_net_name) {
-            possible_carry = 0b0011U;
-        }
-        unsigned int alu_lut = 0b0110000010011010U;
-        for (int i = 0; i < 3; ++i) {
-            if (i == 2) {
-                break;
-            }
+
+        bool addition = inp_net_name == vcc_net_name;
+        unsigned int alu_lut;
+
+        for (int i = 0; i < 2; ++i) {
             IdString inp_name = ctx->idf("I%d", i);
             inp_net_name = ci->getPort(inp_name)->name;
             if (inp_net_name == vcc_net_name || inp_net_name == gnd_net_name) {
                 ci->disconnectPort(inp_name);
+                // disconnect +/- selector
+                ci->disconnectPort(id_I3);
                 optimized = true;
 
-                // fix the carry
                 if (i == 0) {
                     if (inp_net_name == vcc_net_name) {
-                        alu_lut |= 0xfU;
+                        alu_lut = addition ? 0x303fU : 0xc0cfU;
                     } else {
-                        alu_lut &= ~0xfU;
-                        alu_lut |= possible_carry;
+                        alu_lut = addition ? 0xc0c0U : 0x3030U;
+                    }
+                } else {
+                    if (inp_net_name == vcc_net_name) {
+                        alu_lut = addition ? 0x505aU : 0xa0aaU;
+                    } else {
+                        alu_lut = addition ? 0xa0aaU : 0x505aU;
                     }
                 }
-
-                // We rearrange bits to account for constant networks
-                int bit_n = 4;
-                int copy_dist = 1 << i;
-                if (inp_net_name == vcc_net_name) {
-                    bit_n += copy_dist;
-                    copy_dist = -copy_dist;
-                }
-                for (int j = 0; j < 4; ++j) {
-                    alu_lut &= ~(1 << (bit_n + copy_dist));
-                    alu_lut |= uni_shift(alu_lut & (1 << bit_n), copy_dist);
-                    switch (i) {
-                    case 0: // skip the service bits
-                        bit_n += j == 1 ? 5 : 1;
-                        break;
-                    case 1: // skip the service bits
-                        bit_n += j == 1 ? 6 : 0;
-                        break;
-                    default:
-                        break;
-                    }
-                    ++bit_n;
-                }
+                break;
             }
         }
         if (optimized) {
