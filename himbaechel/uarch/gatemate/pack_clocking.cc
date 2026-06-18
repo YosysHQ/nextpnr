@@ -319,7 +319,12 @@ void GateMatePacker::pll_out(CellInfo *cell, IdString origPort, Loc fixed)
     }
     if (bufg) {
         if (net->users.entries() != 1) {
-            log_error("Not handled BUFG.\n");
+            std::string msg = stringf("A PLL output (here %s of %s) connected to a BUFG could only connect to it, not %d ports:\n",
+                                      origPort.c_str(ctx), ctx->nameOf(cell), net->users.entries());
+            for (auto &usr : net->users) {
+                msg += stringf("    %s.%s\n", ctx->nameOf(usr.cell), ctx->nameOf(usr.port));
+            }
+            log_error("%s", msg.c_str());
         }
     } else {
         move_ram_i_fixed(cell, origPort, fixed);
