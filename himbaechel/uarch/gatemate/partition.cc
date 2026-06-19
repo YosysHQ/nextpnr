@@ -699,13 +699,13 @@ int partition_recursive(Context *ctx, Hypergraph &g, const std::vector<Partition
 {
     int non_fixed_nodes = 0;
     for (auto &n : g.nodes)
-        if (!n.fixed && !n.edges.empty() > 0)
+        if (!n.fixed && !n.edges.empty())
             ++non_fixed_nodes;
     FMPartitioner fm(ctx, g, partitions);
     fm.init();
     if (ctx->verbose)
         log_info("enter level=%d, N=%d, A=%f\n", level, non_fixed_nodes, fm.total_area());
-    if (non_fixed_nodes <= 200) {
+    if (non_fixed_nodes <= 20) {
         // Final level in the hierarchy
         // Initial random partioning as our seed
         fm.random_part();
@@ -749,6 +749,103 @@ int partition_recursive(Context *ctx, Hypergraph &g, const std::vector<Partition
     fm.assert_area();
     return fm.compute_cost();
 }
+
+float get_cell_area(Context *ctx, const CellInfo *ci)
+{
+    if (ci->type == id_CC_BRAM_20K) {
+        return 100.0f;
+    } else if (ci->type == id_CC_BRAM_40K) {
+        return 200.0f;
+    }
+    return 1.0f;
+}
+
+template <typename Tfunc> void recursive_visit_children(const CellInfo *ci, Tfunc func) {
+    for (auto child : ci->constr_children) {
+        func(child);
+        recursive_visit_children(child, func);
+    }
+}
+
 } // namespace
+
+void GateMateImpl::partition_design()
+{
+    if (dies != 2) {
+        log_error("Partitioning is currently only supported for the CCGM1A2 device.\n");
+    }
+    log_info("Partitioning design across dies...\n");
+    // Build the hypergraph
+    dict<IdString, int> cell2node;
+    Hypergraph g;
+    double total_area = 0;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->cluster != ClusterId() && ci->name != ci->cluster)
+            continue; // not cluster root
+
+        int node_idx = g.nodes.size();
+        cell2node[ci->name] = node_idx;
+        g.nodes.emplace_back();
+        auto &n = g.nodes.back();
+        n.area = get_cell_area(ctx, ci);
+
+        recursive_visit_children(ci, [&](CellInfo *child) {
+            n.area += get_cell_area(ctx, child);
+            cell2node[child->name] = node_idx;
+        });
+
+        total_area += n.area;
+        if (ci->bel != BelId()) {
+            // constrained bels
+            auto tile_data = tile_extra_data(ci->bel.tile);
+            n.fixed = true;
+            n.partition = tile_data->die;
+        }
+    }
+    // Import edges
+    for (auto &net : ctx->nets) {
+        NetInfo *ni = net.second.get();
+        if (!ni->driver.cell || ni->driver.cell->type.in(id_CC_BUFG, id_CC_PLL, id_CC_PLL_ADV))
+            continue; // undriven or global nets
+        int edge_idx = int(g.edges.size());
+        g.edges.emplace_back();
+        auto &e = g.edges.back();
+        auto import_port = [&](const PortRef &pr) {
+            auto node_idx = cell2node.at(pr.cell->name);
+            e.nodes.push_back(node_idx);
+            g.nodes.at(node_idx).edges.push_back(edge_idx);
+        };
+        import_port(ni->driver);
+        for (auto &usr : ni->users)
+            import_port(usr);
+    }
+    // Run the partitioner
+    std::vector<PartitionConstraint> partitions;
+    for (int i = 0; i < dies; i++) {
+        // TODO: better partition constraints (35000 for a target per-die utilisation of ~75% max)
+        partitions.emplace_back();
+        partitions.back().min_nodes = 0;
+        partitions.back().max_nodes = std::max<double>(35000, total_area * 0.6);
+    }
+
+    int cost = partition_recursive(ctx, g, partitions, 0);
+    log_info("Hypergraph partitioning complete, final cost: %d\n", cost);
+
+    std::vector<double> partition_area(dies);
+    for (const auto &c2n : cell2node) {
+        CellInfo *ci = ctx->cells.at(c2n.first).get();
+        if (ci->cluster != ClusterId() && ci->cluster != ci->name)
+            continue; // not cluster root
+        auto &n = g.nodes.at(c2n.second);
+        partition_area.at(n.partition) += n.area;
+        if (!n.fixed) {
+            ctx->constrainCellToRegion(c2n.first, index_to_die.at(n.partition));
+        }
+    }
+    for (int i = 0; i < dies; i++) {
+        log_info("   die %s area: %f\n", index_to_die.at(i).c_str(ctx), partition_area.at(i));
+    }
+}
 
 NEXTPNR_NAMESPACE_END
