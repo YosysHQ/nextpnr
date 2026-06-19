@@ -193,14 +193,13 @@ void init_share_dirname()
     std::string proc_self_path = proc_self_dirname();
 
     for (const std::string &proc_share_path : {
-        proc_self_path + "share/",
-        proc_self_path + "../share/nextpnr/",
-        proc_self_path + "../share/",
+                 proc_self_path + "share/",
+                 proc_self_path + "../share/nextpnr/",
+                 proc_self_path + "../share/",
 #ifdef nextpnr_DATDIR
-          nextpnr_DATDIR "/",
+                 nextpnr_DATDIR "/",
 #endif
-        })
-    {
+         }) {
         if (check_file_exists(proc_share_path, true)) {
             npnr_share_dirname = proc_share_path;
             return;

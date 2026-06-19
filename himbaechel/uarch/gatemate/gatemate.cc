@@ -40,7 +40,8 @@ po::options_description GateMateImpl::getUArchOptions()
     specific.add_options()("out", po::value<std::string>(), "textual configuration bitstream output file");
     specific.add_options()("ccf", po::value<std::string>(), "name of constraints file");
     specific.add_options()("allow-unconstrained", "allow unconstrained IOs");
-    specific.add_options()("fpga_mode", po::value<std::string>(), "performance mode (1:lowpower, 2:economy, 3:speed (default))");
+    specific.add_options()("fpga_mode", po::value<std::string>(),
+                           "performance mode (1:lowpower, 2:economy, 3:speed (default))");
     specific.add_options()("time_mode", po::value<std::string>(), "timing mode (1:best, 2:typical, 3:worst (default))");
     specific.add_options()("strategy", po::value<std::string>(),
                            "multi-die clock placement strategy (mirror (default), full or clk1)");
