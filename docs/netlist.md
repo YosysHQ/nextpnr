@@ -52,6 +52,7 @@ It also implements functions for getting timing data, mirroring that of the Arch
     - Manipulation of this structure is done automatically by `Arch::bindWire`, `Arch::unbindWire`, `Arch::bindPip` and `Arch::unbindPip`; which should almost always be used in lieu of manual manipulation
  - `attrs` stores metadata about the wire (which may come from the JSON or be added by passes)
  - `clkconstr` contains the period constraint if the wire is a constrained clock; or is empty otherwise
+ - `ignore_timing` is true if the net should be excluded from timing analysis
  - `region` is a reference to a `Region` if the net is constrained to a device region or `nullptr` otherwise (_N.B. not supported by the current router_).
 
 ## BaseCtx/Context
