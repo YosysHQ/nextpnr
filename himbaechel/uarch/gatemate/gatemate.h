@@ -142,6 +142,8 @@ struct GateMateImpl : HimbaechelAPI
     void get_setuphold_from_tmg_db(IdString id_setup, IdString id_hold, DelayPair &setup, DelayPair &hold) const;
     void get_setuphold_from_tmg_db(IdString id_setuphold, DelayPair &setup, DelayPair &hold) const;
 
+    void partition_design();
+
     struct GateMateCellInfo
     {
         // slice info
@@ -158,6 +160,7 @@ struct GateMateImpl : HimbaechelAPI
     bool use_cp_for_clk;
     bool use_cp_for_cpe;
     bool use_bridges;
+    bool auto_part;
 };
 
 NEXTPNR_NAMESPACE_END

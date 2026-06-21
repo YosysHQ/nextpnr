@@ -505,13 +505,33 @@ class StaticPlacer
         }
     }
 
-    RealPair limit_to_reg(Region *reg, RealPair val)
+    RealPair get_region_gradient(Region *reg, RealPair pos)
     {
+        RealPair val(0, 0);
         if (reg == nullptr)
             return val;
         const auto &b = constraint_region_bounds_place[reg->name];
-        return RealPair(std::max<float>(std::min<float>(val.x, b.x1), b.x0),
-                        std::max<float>(std::min<float>(val.y, b.y1), b.y0));
+
+        float cx = (b.x0 + b.x1) / 2.f, w = (b.x1 - b.x0);
+        float cy = (b.y0 + b.y1) / 2.f, h = (b.y1 - b.y0);
+        const float thresh = 0.9f / 2.f;
+
+        if (pos.x < (cx - w * thresh)) {
+            val.x = ((cx - w * thresh) - pos.x);
+        } else if (pos.x > (cx + w * thresh)) {
+            val.x = ((cx + w * thresh) - pos.x);
+        }
+        if (pos.y < (cy - h * thresh)) {
+            val.y = ((cy - h * thresh) - pos.y);
+        } else if (pos.y > (cy + h * thresh)) {
+            val.y = ((cy + h * thresh) - pos.y);
+        }
+        // if ((iter % 20) == 0 && !b.contains(int(pos.x + 0.5f), int(pos.y + 0.5f))) {
+        //     log("  %s (%.1f, %.1f) (%d, %d, %d, %d) gx=%.2f gy=%.2f %s\n",
+        //         ctx->nameOf(reg), pos.x, pos.y, b.x0, b.y0, b.x1, b.y1,
+        //         val.x, val.y, b.contains(int(pos.x + 0.5f), int(pos.y + 0.5f)) ? "" : "***");
+        // }
+        return val;
     }
 
     void init_cells()
@@ -1045,7 +1065,7 @@ class StaticPlacer
         }
         // Third loop: compute total gradient, and precondition
         // TODO: ALM as well as simple penalty
-        for (auto &cell : mcells) {
+        for (int idx = 0; idx < int(mcells.size()); idx++) {
 #if 0
             if (!cell.is_spacer) {
                 printf("%d (%f, %f) wirelen_grad: (%f,%f) density_grad: (%f,%f)\n", iter, cell.ref_pos.x,
@@ -1054,13 +1074,24 @@ class StaticPlacer
             }
 #endif
             // Preconditioner from replace for now
-
+            auto &cell = mcells.at(idx);
             float precond = std::max(1.0f, float(cell.pin_count) + dens_penalty[cell.group] * cell.rect.area());
+
+            // Extra gradient to pull cells towards their region constraint bounds
+            RealPair region_constr_grad(0.f, 0.f);
+            if (idx < int(ccells.size()) && ccells.at(idx).base_cell->region != nullptr) {
+                region_constr_grad =
+                        get_region_gradient(ccells.at(idx).base_cell->region, ref ? cell.ref_pos : cell.pos);
+            }
+
             if (ref) {
-                cell.ref_total_grad =
-                        ((cell.ref_wl_grad * -1) - cell.ref_dens_grad * dens_penalty[cell.group]) / precond;
+                cell.ref_total_grad = ((cell.ref_wl_grad * -1) -
+                                        cell.ref_dens_grad * dens_penalty[cell.group] - region_constr_grad) /
+                                      precond;
             } else {
-                cell.total_grad = ((cell.wl_grad * -1) - cell.dens_grad * dens_penalty[cell.group]) / precond;
+                cell.total_grad =
+                        ((cell.wl_grad * -1) - cell.dens_grad * dens_penalty[cell.group] - region_constr_grad) /
+                        precond;
             }
         }
     }
@@ -1262,10 +1293,6 @@ class StaticPlacer
             cell.pos = clamp_loc(cell.ref_pos - cell.ref_total_grad * steplen);
             // compute reference position
             cell.ref_pos = clamp_loc(cell.pos + (cell.pos - cell.last_pos) * ((nesterov_a - 1) / a_next));
-            if (idx < int(ccells.size()) && ccells.at(idx).base_cell->region != nullptr) {
-                cell.pos = limit_to_reg(ccells.at(idx).base_cell->region, cell.pos);
-                cell.ref_pos = limit_to_reg(ccells.at(idx).base_cell->region, cell.ref_pos);
-            }
         }
         nesterov_a = a_next;
         update_chains();
