@@ -390,7 +390,7 @@ void GateMatePacker::pack_io_sel()
                 cell->disconnectPort(id_CLK);
             } else {
                 if (!uarch->global_signals.count(clk_net)) {
-                    cell->movePortTo(id_CLK, target, id_OUT4);
+                    cell->copyPortTo(id_CLK, target, id_OUT4);
                     target->params[id_SEL_OUT_CLOCK] = Property(Property::State::S1);
                     return true;
                 } else {
@@ -401,7 +401,7 @@ void GateMatePacker::pack_io_sel()
                             log_error("Not able to connected different CLK signal to cell '%s'.\n",
                                       cell->name.c_str(ctx));
                     } else {
-                        cell->movePortTo(id_CLK, target, ctx->idf("CLOCK%d", index + 1));
+                        cell->copyPortTo(id_CLK, target, ctx->idf("CLOCK%d", index + 1));
                     }
                     target->params[id_OUT_CLOCK] = Property(index, 2);
                 }
@@ -438,7 +438,7 @@ void GateMatePacker::pack_io_sel()
 
     auto merge_ibf = [&](NetInfo *di_net, CellInfo &ci, bool use_custom_clock) -> bool {
         CellInfo *dff = (*di_net->users.begin()).cell;
-        if (is_gpio_valid_dff(dff)) {
+        if (is_gpio_in_valid_dff(dff)) {
             if (!uarch->global_signals.count(ci.getPort(id_CLK)) && use_custom_clock) {
                 log_warning("Found DFF %s cell, but not enough CLK signals.\n", dff->name.c_str(ctx));
                 return false;
@@ -516,25 +516,51 @@ void GateMatePacker::pack_io_sel()
             } else {
                 ci.params[id_OUT_SIGNAL] = Property(Property::State::S1);
                 bool ff_obf_merged = false;
-                if (ff_obf && do_net->driver.cell && do_net->driver.cell->type == id_CC_DFF &&
-                    do_net->users.entries() == 1) {
+                if (ff_obf && do_net->driver.cell && do_net->driver.cell->type == id_CC_DFF) {
                     CellInfo *dff = do_net->driver.cell;
-                    if (is_gpio_valid_dff(dff)) {
+                    if (is_gpio_out_valid_dff(dff)) {
                         ci.params[id_OUT1_FF] = Property(Property::State::S1);
-                        packed_cells.emplace(dff->name);
                         ci.disconnectPort(id_A);
-                        dff->movePortTo(id_D, &ci, id_OUT1);
+                        dff->copyPortTo(id_D, &ci, id_OUT1);
                         use_custom_clock = set_out_clk(dff, &ci);
                         bool invert = bool_or_default(dff->params, id_CLK_INV, 0);
                         if (invert) {
                             ci.params[id_INV_OUT1_CLOCK] = Property(Property::State::S1);
                             ci.params[id_INV_OUT2_CLOCK] = Property(Property::State::S1);
                         }
+
+                        NetInfo *en_net = dff->getPort(id_EN);
+                        bool en_invert = bool_or_default(dff->params, id_EN_INV, 0);
+                        if ((en_net == net_PACKER_GND && en_invert) || (en_net == net_PACKER_VCC && !en_invert)) {
+                            dff->disconnectPort(id_EN);
+                            dff->unsetParam(id_EN_INV);
+                            en_net = nullptr;
+                        }
+                        if (en_net) {
+                            // enable not supprted -> build external enable logic
+                            CellInfo *enmux = create_cell_ptr(id_CC_MX2, ctx->idf("%s$enmux", ci.name.c_str(ctx)));
+                            if (!en_invert) {
+                                enmux->connectPort(id_D0, do_net);
+                                dff->copyPortTo(id_D, enmux, id_D1);
+                            } else {
+                                dff->copyPortTo(id_D, enmux, id_D0);
+                                enmux->connectPort(id_D1, do_net);
+                            }
+                            enmux->connectPort(id_S0, en_net);
+                            ci.disconnectPort(id_OUT1);
+                            enmux->connectPorts(id_Y, &ci, id_OUT1);
+                        }
+
                         ff_obf_merged = true;
+                        if (do_net->users.empty()) { 
+                            packed_cells.emplace(dff->name); 
+                        }
                     } else {
                         log_warning("DFF '%s' cell for IO '%s', but unable to merge.\n", dff->name.c_str(ctx),
                                     ci.name.c_str(ctx));
                     }
+                } else if (ff_obf && do_net->driver.cell && do_net->driver.cell->type != id_CC_ODDR) {
+                    log_warning("FF_OBF set for IO '%s', but not driven by DFF.\n", ci.name.c_str(ctx));
                 }
                 bool oddr_merged = false;
                 if (do_net->driver.cell && do_net->driver.cell->type == id_CC_LUT1 && do_net->users.entries() == 1) {
@@ -612,27 +638,10 @@ void GateMatePacker::pack_io_sel()
     flush_cells();
 }
 
-bool GateMatePacker::is_gpio_valid_dff(CellInfo *dff)
+bool GateMatePacker::is_gpio_out_valid_dff(CellInfo *dff)
 {
-    NetInfo *en_net = dff->getPort(id_EN);
-    bool invert = bool_or_default(dff->params, id_EN_INV, 0);
-    if (en_net) {
-        if (en_net == net_PACKER_GND) {
-            if (!invert)
-                return false;
-            dff->disconnectPort(id_EN);
-        } else if (en_net == net_PACKER_VCC) {
-            if (invert)
-                return false;
-            dff->disconnectPort(id_EN);
-        } else {
-            return false;
-        }
-    }
-    dff->unsetParam(id_EN_INV);
-
     NetInfo *sr_net = dff->getPort(id_SR);
-    invert = bool_or_default(dff->params, id_SR_INV, 0);
+    bool invert = bool_or_default(dff->params, id_SR_INV, 0);
     if (sr_net) {
         if ((sr_net == net_PACKER_GND) || (sr_net == net_PACKER_VCC)) {
             bool sr_signal = sr_net == net_PACKER_VCC;
@@ -659,6 +668,28 @@ bool GateMatePacker::is_gpio_valid_dff(CellInfo *dff)
     }
 
     return true;
+}
+
+bool GateMatePacker::is_gpio_in_valid_dff(CellInfo *dff)
+{
+    NetInfo *en_net = dff->getPort(id_EN);
+    bool invert = bool_or_default(dff->params, id_EN_INV, 0);
+    if (en_net) {
+        if (en_net == net_PACKER_GND) {
+            if (!invert)
+                return false;
+            dff->disconnectPort(id_EN);
+        } else if (en_net == net_PACKER_VCC) {
+            if (invert)
+                return false;
+            dff->disconnectPort(id_EN);
+        } else {
+            return false;
+        }
+    }
+    dff->unsetParam(id_EN_INV);
+
+    return is_gpio_out_valid_dff(dff);
 }
 
 NEXTPNR_NAMESPACE_END
