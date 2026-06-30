@@ -15,6 +15,10 @@ set(HIMBAECHEL_SOURCES
     himbaechel_helpers.h
 )
 
+set(HIMBAECHEL_TEST_SOURCES
+  test_main.cc
+)
+
 if (HIMBAECHEL_SPLIT)
 
     function(add_nextpnr_himbaechel_microarchitecture microtarget)
@@ -22,6 +26,9 @@ if (HIMBAECHEL_SPLIT)
 
         list(TRANSFORM arg_CORE_SOURCES PREPEND ${CMAKE_CURRENT_SOURCE_DIR}/)
         list(TRANSFORM arg_TEST_SOURCES PREPEND ${CMAKE_CURRENT_SOURCE_DIR}/)
+
+        list(TRANSFORM HIMBAECHEL_TEST_SOURCES PREPEND ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/)
+        list(APPEND arg_TEST_SOURCES ${HIMBAECHEL_TEST_SOURCES})
 
         add_nextpnr_architecture(himbaechel-${microtarget}
             CORE_SOURCES ${HIMBAECHEL_SOURCES}
@@ -46,6 +53,9 @@ else()
 
     function(add_nextpnr_himbaechel_microarchitecture microtarget)
         cmake_parse_arguments(arg "" "" "CORE_SOURCES;TEST_SOURCES" ${ARGN})
+
+        list(TRANSFORM HIMBAECHEL_TEST_SOURCES PREPEND ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/)
+        list(APPEND arg_TEST_SOURCES ${HIMBAECHEL_TEST_SOURCES})
 
         target_sources(nextpnr-himbaechel-core INTERFACE ${arg_CORE_SOURCES})
 
