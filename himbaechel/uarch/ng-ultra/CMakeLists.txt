@@ -14,7 +14,6 @@ set(SOURCES
 
 set(TEST_SOURCES
     tests/lut_dff.cc
-    tests/main.cc
 )
 
 add_nextpnr_himbaechel_microarchitecture(${uarch}
