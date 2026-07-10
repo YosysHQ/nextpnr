@@ -39,6 +39,22 @@ void find_and_bind_downhill_pip(Context *ctx, WireId from, WireId to, NetInfo *n
 {
     NPNR_ASSERT(from != WireId());
     NPNR_ASSERT(to != WireId());
+
+    // Multiplier routes are hand-bound with STRENGTH_LOCKED. If this exact
+    // destination wire is already part of THIS net's route, re-binding it would
+    // trip the bindPip double-bind assertion (base_arch.h) -- it is just a
+    // revisit of a shared start wire, so treat it as a no-op.
+    if (ctx->getBoundWireNet(to) == net)
+        return;
+    // If the wire is held by a DIFFERENT net, two multiplier clusters were placed
+    // close enough that their dedicated (locked, hand-picked) routing overlaps.
+    // Fail with an actionable message instead of the opaque bindPip assertion, and
+    // never silently drop the connection (that would mis-route the product).
+    if (ctx->getBoundWireNet(to) != nullptr)
+        log_error("Multiplier routing conflict on wire %s: needed by net '%s' but already held by "
+                  "net '%s' -- two multiplier clusters are placed too close.\n",
+                  ctx->nameOfWire(to), net->name.c_str(ctx), ctx->getBoundWireNet(to)->name.c_str(ctx));
+
     for (auto pip : ctx->getPipsDownhill(from)) {
         if (ctx->getPipDstWire(pip) == to) {
             if (ctx->debug)
