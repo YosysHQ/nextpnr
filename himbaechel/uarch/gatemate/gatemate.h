@@ -102,6 +102,10 @@ struct GateMateImpl : HimbaechelAPI
     pool<IdString> multiplier_a_passthru_lowers;
     pool<IdString> multiplier_a_passthru_uppers;
     pool<IdString> multiplier_zero_drivers;
+    // Cached root cells of every multiplier cluster, populated once at placement
+    // start (assign_cell_info). Used by isBelLocationValid to keep two multiplier
+    // clusters' route_mult halos from overlapping.
+    std::vector<CellInfo *> mult_cluster_roots;
     std::vector<bool> used_cpes;
     std::vector<uint32_t> pip_data;
     std::vector<uint32_t> pip_mask;
@@ -124,6 +128,11 @@ struct GateMateImpl : HimbaechelAPI
   private:
     bool getChildPlacement(const BaseClusterInfo *cluster, Loc root_loc,
                            std::vector<std::pair<CellInfo *, BelId>> &placement) const;
+
+    // Bounding box (in tile coords) of a multiplier cluster's currently-placed
+    // cells, expanded by a margin covering the route_mult routing halo. Returns
+    // false if none of the cluster's cells are placed yet.
+    bool get_mult_cluster_halo(CellInfo *root, int &x0, int &y0, int &x1, int &y1) const;
 
     void write_bitstream(const std::string &device, const std::string &filename);
 

@@ -208,6 +208,47 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
         return true;
     }
 
+    // Multiplier clusters lay down dedicated, hand-picked LOCKED routing in
+    // preRoute (route_mult) that reaches into a halo of tiles around the placed
+    // cluster body. Nothing reserves those wires during placement and there is no
+    // spacing rule between clusters, so if two multiplier clusters are packed close
+    // enough their halos overlap and route_mult double-binds a shared wire (the
+    // base_arch.h bindPip assertion). Forbid any placement where the halo of this
+    // cell's multiplier cluster would overlap another placed multiplier cluster's
+    // halo. Placed first so it triggers for every cluster cell type (incl. the
+    // packed P-register FFs), not just the CPE_LT/L2T4 cells below.
+    if (!mult_cluster_roots.empty() && cell->cluster != ClusterId()) {
+        CellInfo *root = get_cluster_root(ctx, cell->cluster);
+        bool is_mult_cluster = false;
+        for (auto *r : mult_cluster_roots) {
+            if (r == root) {
+                is_mult_cluster = true;
+                break;
+            }
+        }
+        if (is_mult_cluster) {
+            int ax0, ay0, ax1, ay1;
+            if (get_mult_cluster_halo(root, ax0, ay0, ax1, ay1)) {
+                for (auto *other : mult_cluster_roots) {
+                    if (other == root)
+                        continue;
+                    int bx0, by0, bx1, by1;
+                    // Skip clusters not (fully) placed yet.
+                    if (!get_mult_cluster_halo(other, bx0, by0, bx1, by1))
+                        continue;
+                    bool disjoint = ax1 < bx0 || bx1 < ax0 || ay1 < by0 || by1 < ay0;
+                    if (!disjoint) {
+                        if (explain_invalid)
+                            log_info("Bel '%s' invalid: multiplier cluster halo overlaps another "
+                                     "multiplier cluster.\n",
+                                     ctx->nameOfBel(bel));
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+
     if (getBelBucketForBel(bel) == id_CPE_FF) {
         Loc loc = ctx->getBelLocation(bel);
         const CellInfo *adj_half = ctx->getBoundBelCell(
@@ -312,6 +353,51 @@ bool GateMateImpl::getClusterPlacement(ClusterId cluster, BelId root_bel,
     }
     placement.emplace_back(root_cell, root_bel);
     return getChildPlacement(root_cell, root_loc, placement);
+}
+
+bool GateMateImpl::get_mult_cluster_halo(CellInfo *root, int &x0, int &y0, int &x1, int &y1) const
+{
+    // Walk root + constr_children (recursively, like getChildPlacement) and take
+    // the bounding box of every placed cell. This naturally includes the zero
+    // driver and A passthrough cells, which are ordinary constr_children.
+    bool found = false;
+    std::vector<CellInfo *> stack;
+    stack.push_back(root);
+    while (!stack.empty()) {
+        CellInfo *c = stack.back();
+        stack.pop_back();
+        if (c->bel != BelId()) {
+            Loc loc = ctx->getBelLocation(c->bel);
+            if (!found) {
+                x0 = x1 = loc.x;
+                y0 = y1 = loc.y;
+                found = true;
+            } else {
+                x0 = std::min(x0, loc.x);
+                x1 = std::max(x1, loc.x);
+                y0 = std::min(y0, loc.y);
+                y1 = std::max(y1, loc.y);
+            }
+        }
+        for (auto child : c->constr_children)
+            stack.push_back(child);
+    }
+    if (!found)
+        return false;
+
+    // route_mult originates its dedicated routing from the A passthrough cells
+    // (at root.x - 1) and the zero driver, reaching wires at loc.x-1..loc.x+3 and
+    // loc.y-1..loc.y+1 (plus diagonal hops that terminate on in-cluster mult
+    // cells), and the SB switchboxes it uses can span a further tile. Relative to
+    // the all-cells bounding box the excess is ~1-2 tiles per side; a margin of 3
+    // covers that with cushion. A slightly generous margin only costs fabric
+    // spacing; too tight lets the double-bind crash persist.
+    const int margin = 3;
+    x0 -= margin;
+    y0 -= margin;
+    x1 += margin;
+    y1 += margin;
+    return true;
 }
 
 void GateMateImpl::prePlace() { assign_cell_info(); }
@@ -1125,6 +1211,32 @@ void GateMateImpl::assign_cell_info()
             fc.used = true;
         }
     }
+
+    // Cache the root cell of every multiplier cluster so isBelLocationValid can
+    // check halo overlap without an O(all cells) scan per call. Each multiplier
+    // cluster has exactly one zero driver, and its members (zero driver, A
+    // passthroughs) all point at the same cluster root; dedup by root name.
+    mult_cluster_roots.clear();
+    pool<IdString> seen_roots;
+    auto record_root = [&](IdString member_name) {
+        auto it = ctx->cells.find(member_name);
+        if (it == ctx->cells.end())
+            return;
+        CellInfo *member = it->second.get();
+        if (member->cluster == ClusterId())
+            return;
+        CellInfo *root = get_cluster_root(ctx, member->cluster);
+        if (root == nullptr || seen_roots.count(root->name))
+            return;
+        seen_roots.insert(root->name);
+        mult_cluster_roots.push_back(root);
+    };
+    for (auto &n : multiplier_zero_drivers)
+        record_root(n);
+    for (auto &n : multiplier_a_passthru_lowers)
+        record_root(n);
+    for (auto &n : multiplier_a_passthru_uppers)
+        record_root(n);
 }
 
 // Bel bucket functions
