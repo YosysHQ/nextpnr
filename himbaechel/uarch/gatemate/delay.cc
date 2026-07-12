@@ -355,6 +355,31 @@ IdString clock(uint8_t val, IdString clk1, IdString clk2, IdString clk3, IdStrin
     }
 }
 
+int GateMateImpl::ram_clock_index(const CellInfo *cell, const RamPinInfo &pin) const
+{
+    int mode = int_or_default(cell->params, id_RAM_cfg_sram_mode, 0);
+    bool split = mode & 0b01;
+    bool sdp = mode & 0b10;
+
+    bool domain_b = pin.port_b;
+    if (sdp) {
+        switch (pin.kind) {
+        case RamPinKind::DATA_IN:
+        case RamPinKind::BITMASK:
+            domain_b = false;
+            break;
+        case RamPinKind::DATA_OUT:
+        case RamPinKind::ECC_STATUS:
+            domain_b = true;
+            break;
+        default:
+            break;
+        }
+    }
+    // Native 40K blocks only use the a0/b0 control sets
+    return (domain_b ? 2 : 0) + (split ? pin.half : 0);
+}
+
 TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
 {
     TimingClockingInfo info;
@@ -484,7 +509,7 @@ TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdStr
                 clock(b1_clk_val, ctx->id("CLKB[2]"), ctx->id("CLKB[3]"), ctx->id("CLKA[2]"), ctx->id("CLKA[3]"));
         if (ram_signal_clk.count(port)) {
             IdString edge_param;
-            switch (ram_signal_clk.at(port)) {
+            switch (ram_clock_index(cell, ram_signal_clk.at(port))) {
             case 0:
                 edge_param = id_RAM_cfg_inversion_a0;
                 info.clock_port = a0_clk;

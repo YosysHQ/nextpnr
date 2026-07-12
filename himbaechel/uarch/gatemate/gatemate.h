@@ -153,7 +153,26 @@ struct GateMateImpl : HimbaechelAPI
     std::vector<GateMateCellInfo> fast_cell_info;
     std::map<BelId, std::map<IdString, const GateMateBelPinConstraintPOD *>> pin_to_constr;
     std::map<IdString, const GateMateTimingExtraDataPOD *> timing;
-    dict<IdString, int> ram_signal_clk;
+
+    enum class RamPinKind
+    {
+        DATA_IN,
+        DATA_OUT,
+        BITMASK,
+        ADDR,
+        CTRL,
+        ECC_STATUS,
+    };
+    struct RamPinInfo
+    {
+        RamPinKind kind;
+        bool port_b; // physical A/B pin side
+        int half;    // 0 or 1 (bit index / 20, resp. control set 0/1)
+    };
+    // Resolve the clock domain (0=a0, 1=a1, 2=b0, 3=b1) a RAM pin is timed
+    // against, depending on the cell mode.
+    int ram_clock_index(const CellInfo *cell, const RamPinInfo &pin) const;
+    dict<IdString, RamPinInfo> ram_signal_clk;
     IdString forced_die;
     bool use_cp_for_clk;
     bool use_cp_for_cpe;

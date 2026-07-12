@@ -152,29 +152,29 @@ void GateMateImpl::init(Context *ctx)
     }
     for (int num = 0; num < 2; num++) {
         int index = (num == 0) ? 0 : 2;
-        ram_signal_clk.emplace(ctx->idf("ENA[%d]", index), num);
-        ram_signal_clk.emplace(ctx->idf("ENB[%d]", index), num + 2);
-        ram_signal_clk.emplace(ctx->idf("GLWEA[%d]", index), num);
-        ram_signal_clk.emplace(ctx->idf("GLWEB[%d]", index), num + 2);
-        ram_signal_clk.emplace(ctx->idf("ECC1B_ERRA[%d]", index), num);
-        ram_signal_clk.emplace(ctx->idf("ECC1B_ERRB[%d]", index), num + 2);
-        ram_signal_clk.emplace(ctx->idf("ECC2B_ERRA[%d]", index), num);
-        ram_signal_clk.emplace(ctx->idf("ECC2B_ERRB[%d]", index), num + 2);
+        ram_signal_clk.emplace(ctx->idf("ENA[%d]", index), RamPinInfo{RamPinKind::CTRL, false, num});
+        ram_signal_clk.emplace(ctx->idf("ENB[%d]", index), RamPinInfo{RamPinKind::CTRL, true, num});
+        ram_signal_clk.emplace(ctx->idf("GLWEA[%d]", index), RamPinInfo{RamPinKind::CTRL, false, num});
+        ram_signal_clk.emplace(ctx->idf("GLWEB[%d]", index), RamPinInfo{RamPinKind::CTRL, true, num});
+        ram_signal_clk.emplace(ctx->idf("ECC1B_ERRA[%d]", index), RamPinInfo{RamPinKind::ECC_STATUS, false, num});
+        ram_signal_clk.emplace(ctx->idf("ECC1B_ERRB[%d]", index), RamPinInfo{RamPinKind::ECC_STATUS, true, num});
+        ram_signal_clk.emplace(ctx->idf("ECC2B_ERRA[%d]", index), RamPinInfo{RamPinKind::ECC_STATUS, false, num});
+        ram_signal_clk.emplace(ctx->idf("ECC2B_ERRB[%d]", index), RamPinInfo{RamPinKind::ECC_STATUS, true, num});
         for (int i = 0; i < 20; i++) {
-            ram_signal_clk.emplace(ctx->idf("WEA[%d]", i + num * 20), num);
-            ram_signal_clk.emplace(ctx->idf("WEB[%d]", i + num * 20), num + 2);
+            ram_signal_clk.emplace(ctx->idf("WEA[%d]", i + num * 20), RamPinInfo{RamPinKind::BITMASK, false, num});
+            ram_signal_clk.emplace(ctx->idf("WEB[%d]", i + num * 20), RamPinInfo{RamPinKind::BITMASK, true, num});
         }
 
         for (int i = 0; i < 16; i++) {
-            ram_signal_clk.emplace(ctx->idf("ADDRA%d[%d]", num, i), num);
-            ram_signal_clk.emplace(ctx->idf("ADDRB%d[%d]", num, i), num + 2);
+            ram_signal_clk.emplace(ctx->idf("ADDRA%d[%d]", num, i), RamPinInfo{RamPinKind::ADDR, false, num});
+            ram_signal_clk.emplace(ctx->idf("ADDRB%d[%d]", num, i), RamPinInfo{RamPinKind::ADDR, true, num});
         }
 
         for (int i = 0; i < 20; i++) {
-            ram_signal_clk.emplace(ctx->idf("DIA[%d]", i + num * 20), num);
-            ram_signal_clk.emplace(ctx->idf("DOA[%d]", i + num * 20), num);
-            ram_signal_clk.emplace(ctx->idf("DIB[%d]", i + num * 20), num + 2);
-            ram_signal_clk.emplace(ctx->idf("DOB[%d]", i + num * 20), num + 2);
+            ram_signal_clk.emplace(ctx->idf("DIA[%d]", i + num * 20), RamPinInfo{RamPinKind::DATA_IN, false, num});
+            ram_signal_clk.emplace(ctx->idf("DOA[%d]", i + num * 20), RamPinInfo{RamPinKind::DATA_OUT, false, num});
+            ram_signal_clk.emplace(ctx->idf("DIB[%d]", i + num * 20), RamPinInfo{RamPinKind::DATA_IN, true, num});
+            ram_signal_clk.emplace(ctx->idf("DOB[%d]", i + num * 20), RamPinInfo{RamPinKind::DATA_OUT, true, num});
         }
     }
 
