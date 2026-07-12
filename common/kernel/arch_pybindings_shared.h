@@ -28,7 +28,7 @@ fn_wrapper_2a_v<Context, decltype(&Context::constrainCellToRegion), &Context::co
                 conv_from_str<IdString>, conv_from_str<IdString>>::def_wrap(ctx_cls, "constrainCellToRegion");
 
 fn_wrapper_2a<Context, decltype(&Context::getNetinfoRouteDelay), &Context::getNetinfoRouteDelay, pass_through<delay_t>,
-              addr_and_unwrap<NetInfo>, unwrap_context<PortRef &>>::def_wrap(ctx_cls, "getNetinfoRouteDelay");
+              addr_and_unwrap<NetInfo>, unwrap_context<PortRef>>::def_wrap(ctx_cls, "getNetinfoRouteDelay");
 
 fn_wrapper_1a<Context, decltype(&Context::createNet), &Context::createNet, deref_and_wrap<NetInfo>,
               conv_from_str<IdString>>::def_wrap(ctx_cls, "createNet");
