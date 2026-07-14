@@ -186,6 +186,7 @@ Arch::Arch(ArchArgs args) : args(args)
             // some tweaks to accomodate properly
             if (getBelType(bel) != id_DCC)
                 continue;
+            disabled_bels.insert(bel);
             WireId w = getBelPinWire(bel, id_CLKI);
             for (auto pip : getPipsUphill(w))
                 disabled_pips.insert(pip);

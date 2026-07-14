@@ -105,6 +105,10 @@ bool Arch::isBelLocationValid(BelId bel, bool explain_invalid) const
         else
             return nexus_logic_tile_valid(*lts);
     } else {
+        if (getBelType(bel) == id_DCC) {
+            if (getBoundBelCell(bel) != nullptr && disabled_bels.count(bel))
+                return false;
+        }
         return true;
     }
 }
