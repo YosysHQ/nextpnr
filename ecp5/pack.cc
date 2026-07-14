@@ -2152,6 +2152,7 @@ class Ecp5Packer
                 set_iologic_sclk(iol, ci, id_SCLK, true);
                 set_iologic_eclk(iol, ci, id_ECLK);
                 set_iologic_lsr(iol, ci, id_RST, true);
+                ci->movePortTo(id_ALIGNWD, iol, id_SLIP);
                 ci->movePortTo(id_Q0, iol, id_RXDATA0);
                 ci->movePortTo(id_Q1, iol, id_RXDATA1);
                 ci->movePortTo(id_Q2, iol, id_RXDATA2);
@@ -2163,7 +2164,6 @@ class Ecp5Packer
                     ci->movePortTo(id_Q4, iol, id_RXDATA4);
                     ci->movePortTo(id_Q5, iol, id_RXDATA5);
                     ci->movePortTo(id_Q6, iol, id_RXDATA6);
-                    ci->movePortTo(id_ALIGNWD, iol, id_SLIP);
                     iol->params[ctx->id("IDDRXN.MODE")] = std::string("IDDR71");
                 } else {
                     iol->params[ctx->id("IDDRXN.MODE")] = std::string("IDDRX2");
