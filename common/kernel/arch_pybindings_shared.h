@@ -19,6 +19,8 @@ fn_wrapper_1a<Context, decltype(&Context::getNetByAlias), &Context::getNetByAlia
               conv_from_str<IdString>>::def_wrap(ctx_cls, "getNetByAlias");
 fn_wrapper_2a_v<Context, decltype(&Context::addClock), &Context::addClock, conv_from_str<IdString>,
                 pass_through<float>>::def_wrap(ctx_cls, "addClock");
+fn_wrapper_1a_v<Context, decltype(&Context::ignoreTiming), &Context::ignoreTiming, conv_from_str<IdString>>::def_wrap(
+        ctx_cls, "ignoreTiming");
 fn_wrapper_5a_v<Context, decltype(&Context::createRectangularRegion), &Context::createRectangularRegion,
                 conv_from_str<IdString>, pass_through<int>, pass_through<int>, pass_through<int>,
                 pass_through<int>>::def_wrap(ctx_cls, "createRectangularRegion");
