@@ -1501,6 +1501,38 @@ class Ecp5Packer
         }
     }
 
+    int find_eclk_user_x(NetInfo *net)
+    {
+        if (!net)
+            return -1;
+        for (auto &user : net->users) {
+            CellInfo *ci = user.cell;
+            if (ci->type == id_ECLKSYNCB && user.port == id_ECLKI) {
+                int result = find_eclk_user_x(ci->getPort(id_ECLKO));
+                if (result != -1)
+                    return result;
+            } else if (ci->type.in(id_IOLOGIC, id_DQSBUFM) && user.port == id_ECLK) {
+                if (!ci->attrs.count(id_BEL))
+                    continue;
+                BelId usrbel = ctx->getBelByNameStr(ci->attrs.at(id_BEL).as_string());
+                Loc usrloc = ctx->getBelLocation(usrbel);
+                return usrloc.x;
+            }
+        }
+        return -1;
+    }
+
+    int get_pll_eclk_x(CellInfo *pll)
+    {
+        for (auto port : {id_CLKOP, id_CLKOS, id_CLKOS2, id_CLKOS3}) {
+            int result = find_eclk_user_x(pll->getPort(port));
+            if (result != -1)
+                return result;
+        }
+
+        return -1;
+    }
+
     // Preplace PLL
     void preplace_plls()
     {
@@ -1514,13 +1546,27 @@ class Ecp5Packer
             if (ci->type == id_EHXPLLL && ci->attrs.count(id_BEL))
                 available_plls.erase(ctx->getBelByNameStr(ci->attrs.at(id_BEL).as_string()));
         }
+
+        // Prioritise PLLs with ECLKs
+        std::vector<std::pair<CellInfo *, int>> ordered_plls;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->type == id_EHXPLLL && !ci->attrs.count(id_BEL)) {
+                ordered_plls.emplace_back(ci, get_pll_eclk_x(ci));
+            }
+        }
+        std::stable_sort(ordered_plls.begin(), ordered_plls.end(),
+                         [](const std::pair<CellInfo *, int> &a, const std::pair<CellInfo *, int> &b) {
+                             return a.second > b.second; // -1 -> no ECLK -> bottom of list
+                         });
+
         // Place PLL connected to fixed drivers such as IO close to their source
         bool did_something = false;
         do {
             did_something = false;
-            for (auto &cell : ctx->cells) {
-                CellInfo *ci = cell.second.get();
-                if (ci->type == id_EHXPLLL && !ci->attrs.count(id_BEL)) {
+            for (auto pair : ordered_plls) {
+                CellInfo *ci = pair.first;
+                if (!ci->attrs.count(id_BEL)) {
                     const NetInfo *drivernet = ci->getPort(id_CLKI);
                     if (drivernet == nullptr || drivernet->driver.cell == nullptr)
                         continue;
@@ -1534,6 +1580,10 @@ class Ecp5Packer
                     for (auto bel : available_plls) {
                         Loc pllloc = ctx->getBelLocation(bel);
                         int distance = 2 * std::abs(drvloc.x - pllloc.x) + std::abs(drvloc.y - pllloc.y);
+                        if (pair.second != -1) {
+                            // Prioritise placing the PLL such that dedicated ECLK routing can be used.
+                            distance += 20 * std::abs(pair.second - pllloc.x);
+                        }
                         if (distance < closest_distance) {
                             closest_pll = bel;
                             closest_distance = distance;
@@ -1543,19 +1593,34 @@ class Ecp5Packer
                         log_error("failed to place PLL '%s'\n", ci->name.c_str(ctx));
                     available_plls.erase(closest_pll);
                     ci->attrs[id_BEL] = ctx->getBelName(closest_pll).str(ctx);
+                    log_info("placed PLL '%s' at bel '%s'\n", ctx->nameOf(ci),
+                             ci->attrs.at(id_BEL).as_string().c_str());
                     did_something = true;
                 }
             }
         } while (did_something);
-        // Place PLLs driven by logic, etc, randomly
-        for (auto &cell : ctx->cells) {
-            CellInfo *ci = cell.second.get();
-            if (ci->type == id_EHXPLLL && !ci->attrs.count(id_BEL)) {
+        // Place PLLs driven by logic, etc, based on ECLK and then randomly
+        for (auto pair : ordered_plls) {
+            CellInfo *ci = pair.first;
+            if (!ci->attrs.count(id_BEL)) {
                 if (available_plls.empty())
                     log_error("failed to place PLL '%s'\n", ci->name.c_str(ctx));
                 BelId next_pll = *(available_plls.begin());
+                if (pair.second != -1) {
+                    // Prioritise placing the PLL such that dedicated ECLK routing can be used.
+                    int closest_distance = std::numeric_limits<int>::max();
+                    for (auto bel : available_plls) {
+                        Loc pllloc = ctx->getBelLocation(bel);
+                        int distance = std::abs(pair.second - pllloc.x);
+                        if (distance < closest_distance) {
+                            next_pll = bel;
+                            closest_distance = distance;
+                        }
+                    }
+                }
                 available_plls.erase(next_pll);
                 ci->attrs[id_BEL] = ctx->getBelName(next_pll).str(ctx);
+                log_info("placed PLL '%s' at bel '%s'\n", ctx->nameOf(ci), ci->attrs.at(id_BEL).as_string().c_str());
             }
         }
     }
@@ -2413,6 +2478,10 @@ class Ecp5Packer
             }
         }
         flush_cells();
+    };
+
+    void pack_eclk()
+    {
         // Constrain ECLK-related cells
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
@@ -2696,7 +2765,7 @@ class Ecp5Packer
         }
 
         flush_cells();
-    };
+    }
 
     void generate_constraints()
     {
@@ -2988,8 +3057,9 @@ class Ecp5Packer
         print_logic_usage();
         pack_io();
         pack_dqsbuf();
-        preplace_plls();
         pack_iologic();
+        preplace_plls();
+        pack_eclk();
         pack_ebr();
         pack_dsps();
         pack_dcus();
