@@ -671,7 +671,14 @@ class Ecp5GlobalRouter
                             cursor = ctx->getPipDstWire(pip);
                         }
                     } else {
-                        log_info("        no route found, general routing will be used.\n");
+                        if (bool_or_default(ctx->settings, ctx->id("arch.fabric_eclk"))) {
+                            log_info("        no route found, general routing will be used.\n");
+                        } else {
+                            log_error("Unable to route edge clock source '%s' to pin '%s.%s' using dedicated routing.\n"
+                                      "Use --allow-fabric-eclk to use fabric routing with indeterminate skew, or "
+                                      "consider using an ECLKBRIDGECS to cross the device.\n",
+                                      ctx->nameOf(ni), ctx->nameOf(ci), ctx->nameOf(pin));
+                        }
                     }
                 }
             }
