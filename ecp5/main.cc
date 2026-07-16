@@ -86,6 +86,8 @@ po::options_description ECP5CommandHandler::getArchOptions()
             "disable IO buffer insertion and global promotion/routing, for building pre-routed blocks (experimental)");
     specific.add_options()("disable-router-lutperm", "don't allow the router to permute LUT inputs");
 
+    specific.add_options()("allow-fabric-eclk", "allow fabric routing of ECLKs");
+
     return specific;
 }
 void ECP5CommandHandler::validate()
@@ -258,6 +260,8 @@ std::unique_ptr<Context> ECP5CommandHandler::createContext(dict<std::string, Pro
         ctx->settings[ctx->id("arch.ooc")] = 1;
     if (vm.count("disable-router-lutperm"))
         ctx->settings[ctx->id("arch.disable_router_lutperm")] = 1;
+    if (vm.count("allow-fabric-eclk"))
+        ctx->settings[ctx->id("arch.fabric_eclk")] = 1;
     return ctx;
 }
 
