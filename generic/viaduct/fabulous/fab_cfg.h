@@ -58,8 +58,9 @@ struct LogicConfig
 {
     // ** Core CLB config
     unsigned lc_per_clb = 8; // number of logic cells per clb
-    bool split_lc = false; // whether to represent SLICE as a single bel or separate lut+ff (latter important if ff and
-                           // lut can be used separately)
+    bool split_lc = false;   // represent SLICE as one bel or separate lut+ff (latter matters if ff and lut are used
+                             // separately). Never enabled today, so the FABULOUS_COMB path (pack.cc) is unused and
+                             // cells are always packed as FABULOUS_LC.
 
     // ** LUT config
     unsigned lut_k = 4; // base number of inputs for lookup table
