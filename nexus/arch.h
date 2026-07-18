@@ -108,6 +108,7 @@ enum RelLocType : uint8_t
     REL_LOC_SPINE = 5,
     REL_LOC_HROW = 6,
     REL_LOC_VCC = 7,
+    REL_LOC_DQS = 8,
 };
 
 enum ArcFlags
@@ -240,6 +241,7 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<GlobalInfoPOD> globals;
     RelSlice<PadInfoPOD> pads;
     RelSlice<PackageInfoPOD> packages;
+    RelSlice<int16_t> col_dqs_group;
 });
 
 NPNR_PACKED_STRUCT(struct IdStringDBPOD {
@@ -434,6 +436,13 @@ inline bool chip_rel_loc_tile(const ChipInfoPOD *chip, int32_t base, const RelWi
     case REL_LOC_VCC:
         next = 0;
         return true;
+    case REL_LOC_DQS: {
+        int16_t dqs_group = chip->col_dqs_group[curr_x];
+        if (dqs_group == -1)
+            return false;
+        next = chip_tile_from_xy(chip, dqs_group, curr_y);
+        return true;
+    }
     default:
         return false;
     }
