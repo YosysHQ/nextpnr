@@ -681,6 +681,13 @@ struct NexusFasmWriter
         write_enum(cell, "INMUX");
         write_enum(cell, "OUTMUX");
 
+        if (cell->type == id_IOLOGIC) {
+            write_enum(cell, "IDDRXN.DDRMODE");
+            write_enum(cell, "ODDRXN.DDRMODE");
+            write_enum(cell, "MODDRXN.DDRMODE");
+            write_enum(cell, "MTDDRXN.DDRMODE");
+        }
+
         write_cell_muxes(cell);
         pop();
     }
