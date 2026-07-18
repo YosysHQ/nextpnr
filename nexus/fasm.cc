@@ -577,6 +577,15 @@ struct NexusFasmWriter
         write_enum(cell, "DCSMODE", "VCC");
         pop(2);
     }
+    // Write config for ECLKDIV
+    void write_eclkdiv(const CellInfo *cell)
+    {
+        BelId bel = cell->bel;
+        push_bel(bel);
+        write_enum(cell, "ECLK_DIV", "DISABLE");
+        write_enum(cell, "GSR", "DISABLED");
+        pop();
+    }
     // Write config for an OXIDE_EBR cell
     void write_bram(const CellInfo *cell)
     {
@@ -1142,6 +1151,8 @@ struct NexusFasmWriter
                 write_lmmi(ci);
             else if (ci->type == id_CONFIG_CLKRST_CORE)
                 write_cfg_clkrst(ci);
+            else if (ci->type == id_ECLKDIV_CORE)
+                write_eclkdiv(ci);
             blank();
         }
         // Handle DCC route-throughs

@@ -257,7 +257,18 @@ static const dict<IdString, Arch::CellPinsData> base_cell_pin_data = {
          {
                  {{}, PINSTYLE_DEDI},
          }},
-
+        {id_ECLKDIV_CORE,
+         {
+                 {{id_ECLKIN}, PINSTYLE_DEDI},
+                 {{id_DIVOUT}, PINSTYLE_DEDI},
+                 {{}, PINSTYLE_CIB},
+         }},
+        {id_ECLKSYNC_CORE,
+         {
+                 {{id_ECLKIN}, PINSTYLE_DEDI},
+                 {{id_ECLKOUT}, PINSTYLE_DEDI},
+                 {{}, PINSTYLE_CIB},
+         }},
 };
 } // namespace
 
