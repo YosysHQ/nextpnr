@@ -230,16 +230,15 @@ static const dict<IdString, Arch::CellPinsData> base_cell_pin_data = {
 
          }},
         {id_IOLOGIC,
-         {
-                 {id_SCLKIN, PINSTYLE_IOL_CLK},   {id_SCLKOUT, PINSTYLE_IOL_CLK}, {id_LSRIN, PINSTYLE_IOL_CELSR},
-                 {id_LSROUT, PINSTYLE_IOL_CELSR}, {id_CEIN, PINSTYLE_IOL_CELSR},  {id_CEOUT, PINSTYLE_IOL_CELSR},
-                 {id_TXDATA0, PINSTYLE_CIB},      {id_TXDATA1, PINSTYLE_CIB},     {id_TXDATA2, PINSTYLE_CIB},
-                 {id_TXDATA3, PINSTYLE_CIB},      {id_TXDATA4, PINSTYLE_CIB},     {id_TXDATA5, PINSTYLE_CIB},
-                 {id_TXDATA6, PINSTYLE_CIB},      {id_TXDATA7, PINSTYLE_CIB},     {id_TXDATA8, PINSTYLE_CIB},
-                 {id_TXDATA9, PINSTYLE_CIB},
+         {{id_SCLKIN, PINSTYLE_IOL_CLK},   {id_SCLKOUT, PINSTYLE_IOL_CLK}, {id_LSRIN, PINSTYLE_IOL_CELSR},
+          {id_LSROUT, PINSTYLE_IOL_CELSR}, {id_CEIN, PINSTYLE_IOL_CELSR},  {id_CEOUT, PINSTYLE_IOL_CELSR},
+          {id_TXDATA0, PINSTYLE_CIB},      {id_TXDATA1, PINSTYLE_CIB},     {id_TXDATA2, PINSTYLE_CIB},
+          {id_TXDATA3, PINSTYLE_CIB},      {id_TXDATA4, PINSTYLE_CIB},     {id_TXDATA5, PINSTYLE_CIB},
+          {id_TXDATA6, PINSTYLE_CIB},      {id_TXDATA7, PINSTYLE_CIB},     {id_TXDATA8, PINSTYLE_CIB},
+          {id_TXDATA9, PINSTYLE_CIB},
 
-                 {id_TSDATA0, PINSTYLE_CIB},      {id_TSDATA1, PINSTYLE_CIB},     {id_TSDATA2, PINSTYLE_CIB},
-                 {id_TSDATA3, PINSTYLE_CIB},
+          {id_TSDATA0, PINSTYLE_CIB},      {id_TSDATA1, PINSTYLE_CIB},     {id_TSDATA2, PINSTYLE_CIB},
+          {id_TSDATA3, PINSTYLE_CIB},      {id_WORDALIGN, PINSTYLE_CIB}
 
          }},
         {id_CONFIG_MULTIBOOT_CORE,

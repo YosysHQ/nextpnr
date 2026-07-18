@@ -1315,6 +1315,19 @@ struct NexusPacker
         iol_rules[id_ODDRX2].port_xform[id_D2] = id_TXDATA2;
         iol_rules[id_ODDRX2].port_xform[id_D3] = id_TXDATA3;
 
+        iol_rules[id_IDDRX2].new_type = id_IOLOGIC;
+        iol_rules[id_IDDRX2].set_params.emplace_back(id_MODE, std::string("IDDRXN"));
+        iol_rules[id_IDDRX2].set_params.emplace_back(ctx->id("IDDRXN.DDRMODE"), std::string("IDDRX2"));
+        iol_rules[id_IDDRX2].port_xform[id_ECLK] = id_ECLK;
+        iol_rules[id_IDDRX2].port_xform[id_SCLK] = id_SCLKIN;
+        iol_rules[id_IDDRX2].port_xform[id_RST] = id_LSRIN;
+        iol_rules[id_IDDRX2].port_xform[id_ALIGNWD] = id_WORDALIGN;
+        iol_rules[id_IDDRX2].port_xform[id_D] = id_DI;
+        iol_rules[id_IDDRX2].port_xform[id_Q0] = id_RXDATA6;
+        iol_rules[id_IDDRX2].port_xform[id_Q1] = id_RXDATA7;
+        iol_rules[id_IDDRX2].port_xform[id_Q2] = id_RXDATA8;
+        iol_rules[id_IDDRX2].port_xform[id_Q3] = id_RXDATA9;
+
         generic_xform(iol_rules, true);
     }
 
