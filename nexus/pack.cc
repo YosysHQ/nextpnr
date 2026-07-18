@@ -1303,30 +1303,30 @@ struct NexusPacker
         iol_rules[id_ODDRX1].port_xform[id_D0] = id_TXDATA0;
         iol_rules[id_ODDRX1].port_xform[id_D1] = id_TXDATA1;
 
-        iol_rules[id_ODDRX2].new_type = id_IOLOGIC;
-        iol_rules[id_ODDRX2].set_params.emplace_back(id_MODE, std::string("ODDRXN"));
-        iol_rules[id_ODDRX2].set_params.emplace_back(ctx->id("ODDRXN.DDRMODE"), std::string("ODDRX2"));
-        iol_rules[id_ODDRX2].port_xform[id_ECLK] = id_ECLK;
-        iol_rules[id_ODDRX2].port_xform[id_SCLK] = id_SCLKOUT;
-        iol_rules[id_ODDRX2].port_xform[id_RST] = id_LSROUT;
-        iol_rules[id_ODDRX2].port_xform[id_Q] = id_DOUT;
-        iol_rules[id_ODDRX2].port_xform[id_D0] = id_TXDATA0;
-        iol_rules[id_ODDRX2].port_xform[id_D1] = id_TXDATA1;
-        iol_rules[id_ODDRX2].port_xform[id_D2] = id_TXDATA2;
-        iol_rules[id_ODDRX2].port_xform[id_D3] = id_TXDATA3;
+        for (int gear : {2, 4, 5}) {
+            IdString otype = ctx->idf("ODDRX%d", gear);
+            iol_rules[otype].new_type = id_IOLOGIC;
+            iol_rules[otype].set_params.emplace_back(id_MODE, std::string("ODDRXN"));
+            iol_rules[otype].set_params.emplace_back(ctx->id("ODDRXN.DDRMODE"), otype.str(ctx));
+            iol_rules[otype].port_xform[id_ECLK] = id_ECLK;
+            iol_rules[otype].port_xform[id_SCLK] = id_SCLKOUT;
+            iol_rules[otype].port_xform[id_RST] = id_LSROUT;
+            iol_rules[otype].port_xform[id_Q] = id_DOUT;
+            for (int i = 0; i < 2 * gear; i++)
+                iol_rules[otype].port_xform[ctx->idf("D%d", i)] = ctx->idf("TXDATA%d", i);
 
-        iol_rules[id_IDDRX2].new_type = id_IOLOGIC;
-        iol_rules[id_IDDRX2].set_params.emplace_back(id_MODE, std::string("IDDRXN"));
-        iol_rules[id_IDDRX2].set_params.emplace_back(ctx->id("IDDRXN.DDRMODE"), std::string("IDDRX2"));
-        iol_rules[id_IDDRX2].port_xform[id_ECLK] = id_ECLK;
-        iol_rules[id_IDDRX2].port_xform[id_SCLK] = id_SCLKIN;
-        iol_rules[id_IDDRX2].port_xform[id_RST] = id_LSRIN;
-        iol_rules[id_IDDRX2].port_xform[id_ALIGNWD] = id_WORDALIGN;
-        iol_rules[id_IDDRX2].port_xform[id_D] = id_DI;
-        iol_rules[id_IDDRX2].port_xform[id_Q0] = id_RXDATA6;
-        iol_rules[id_IDDRX2].port_xform[id_Q1] = id_RXDATA7;
-        iol_rules[id_IDDRX2].port_xform[id_Q2] = id_RXDATA8;
-        iol_rules[id_IDDRX2].port_xform[id_Q3] = id_RXDATA9;
+            IdString itype = ctx->idf("IDDRX%d", gear);
+            iol_rules[itype].new_type = id_IOLOGIC;
+            iol_rules[itype].set_params.emplace_back(id_MODE, std::string("IDDRXN"));
+            iol_rules[itype].set_params.emplace_back(ctx->id("IDDRXN.DDRMODE"), itype.str(ctx));
+            iol_rules[itype].port_xform[id_ECLK] = id_ECLK;
+            iol_rules[itype].port_xform[id_SCLK] = id_SCLKIN;
+            iol_rules[itype].port_xform[id_RST] = id_LSRIN;
+            iol_rules[itype].port_xform[id_ALIGNWD] = id_WORDALIGN;
+            iol_rules[itype].port_xform[id_D] = id_DI;
+            for (int i = 0; i < 2 * gear; i++)
+                iol_rules[itype].port_xform[ctx->idf("Q%d", i)] = ctx->idf("RXDATA%d", (10 - 2 * gear) + i);
+        }
 
         generic_xform(iol_rules, true);
     }
