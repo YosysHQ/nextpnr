@@ -1501,6 +1501,7 @@ struct Arch : BaseArch<ArchRanges>
     BelId get_pad_pio_bel(const PadInfoPOD *pad) const;
     const PadInfoPOD *get_bel_pad(BelId bel) const;
     std::string get_pad_functions(const PadInfoPOD *pad) const;
+    BelId get_bank_vref_io_bel(int bank, int vref) const;
 
     // -------------------------------------------------
     // Data about different IO standard, mostly used by bitgen

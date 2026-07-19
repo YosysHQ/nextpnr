@@ -412,6 +412,7 @@ struct NexusFasmWriter
         bool lvds_used = false;
         bool slvs_used = false;
         bool dphy_used = false;
+        std::array<bool, 2> vref_used{false, false};
     };
 
     std::map<int, BankConfig> bank_cfg;
@@ -459,6 +460,13 @@ struct NexusFasmWriter
         const char *iodir = is_input ? "INPUT" : (is_output ? "OUTPUT" : "BIDIR");
         write_bit(stringf("BASE_TYPE.%s_%s", iodir, str_or_default(cell->attrs, id_IO_TYPE, "LVCMOS18H").c_str()));
         write_ioattr(cell, "PULLMODE", "NONE");
+        write_ioattr(cell, "VREF");
+        auto vref_cfg = str_or_default(cell->attrs, id_VREF, "");
+        if (vref_cfg == "VREF1_LOAD") {
+            bank.vref_used[0] = true;
+        } else if (vref_cfg == "VREF2_LOAD") {
+            bank.vref_used[0] = true;
+        }
         write_ioattr(cell, "SLEWRATE", str_or_default(cell->attrs, id_SLEWRATE, "MED").c_str());
         pop();
         write_cell_muxes(cell);
@@ -586,6 +594,59 @@ struct NexusFasmWriter
         write_enum(cell, "GSR", "DISABLED");
         pop();
     }
+    // Write config for ECLKSYNC
+    void write_eclksync(const CellInfo *cell)
+    {
+        BelId bel = cell->bel;
+        push_bel(bel);
+        write_enum(cell, "STOP_EN");
+        pop();
+    }
+    // Write config for DQSBUF
+    void write_dqsbuf(const CellInfo *cell)
+    {
+        BelId bel = cell->bel;
+        push_bel(bel);
+        write_enum(cell, "ENABLE_FIFO");
+        write_enum(cell, "GSR", "DISABLED");
+        write_enum(cell, "ENABLE_FIFO");
+        write_enum(cell, "FORCE_READ");
+        write_enum(cell, "FREE_WHEEL");
+        write_enum(cell, "MODX");
+        write_enum(cell, "MT_EN_READ");
+        write_enum(cell, "MT_EN_WRITE");
+        write_enum(cell, "MT_EN_WRITE_LEVELING");
+        write_enum(cell, "READ_ENABLE");
+        write_enum(cell, "RX_CENTERED", "ENABLED");
+        // write_enum(cell, "SIGN_READ", "POSITIVE");
+        write_bit("SIGN_READ.COMPLEMENT");
+        write_enum(cell, "SIGN_WRITE", "POSITIVE");
+        write_enum(cell, "UPDATE_QU", "UP1_AND_UP0_SAME");
+        write_enum(cell, "WRITE_ENABLE");
+        write_enum(cell, "SEL_READ_BIT_ENABLE_CYCLES", "NORMAL");
+        write_enum(cell, "BYPASS_WR_LEVEL_SMTH_LATCH", "SMOOTHING_PATH");
+        write_enum(cell, "BYPASS_WR_SMTH_LATCH", "SMOOTHING_PATH");
+        write_enum(cell, "BYPASS_READ_SMTH_LATCH", "SMOOTHING_PATH");
+        write_bit("RSTMUX.RST"); // TODO: pins config
+        write_bit("RSTSMCNTMUX.RSTSMCNT");
+        write_bit("PAUSEMUX.PAUSE");
+        // TODO: S_READ, S_WRITE: where do these magic numbers come from?
+        write_bit("S_WRITE[8:0] = 9'b000100100");
+        write_bit("S_READ[8:0] = 9'b110001010");
+
+        pop();
+    }
+    void write_ddrdll(const CellInfo *cell)
+    {
+        BelId bel = cell->bel;
+        push_bel(bel);
+        write_enum(cell, "ENA_OSC", "ENABLED");
+        write_enum(cell, "GSR", "DISABLED");
+        write_enum(cell, "ENA_ROUNDOFF", "ENABLED");
+        write_enum(cell, "FORCE_MAX_DELAY");
+        write_bit("RSTMUX.RST"); // TODO: pins config
+        pop();
+    }
     // Write config for an OXIDE_EBR cell
     void write_bram(const CellInfo *cell)
     {
@@ -684,6 +745,7 @@ struct NexusFasmWriter
         if (cell->type == id_IOLOGIC) {
             write_enum(cell, "IDDRXN.DDRMODE");
             write_enum(cell, "ODDRXN.DDRMODE");
+            write_enum(cell, "MIDDRXN.DDRMODE");
             write_enum(cell, "MODDRXN.DDRMODE");
             write_enum(cell, "MTDDRXN.DDRMODE");
         }
@@ -1092,7 +1154,12 @@ struct NexusFasmWriter
                 write_bit("LVDS_IO.ON", bank.lvds_used);
                 write_bit("SLVS_IO.ON", bank.slvs_used);
                 write_bit("MIPI_DPHY_IO.ON", bank.dphy_used);
-
+                for (int vref = 1; vref <= 2; vref++) {
+                    if (!bank.vref_used[vref - 1])
+                        continue;
+                    write_bit(stringf("VREF%d_USED.ON", vref));
+                    write_bit("REF_IO.ON");
+                }
                 pop();
             } else {
                 if (is_lifcl_17 && (i != 0) && (i != 1))
@@ -1105,6 +1172,27 @@ struct NexusFasmWriter
             }
         }
         blank();
+        for (int i = 3; i <= 5; i++) {
+            auto &bank = bank_cfg[i];
+            for (int vref = 1; vref <= 2; vref++) {
+                if (!bank.vref_used[vref - 1])
+                    continue;
+                // Set VREF pin to VREFn_DRIVER
+                BelId vref_pio = ctx->get_bank_vref_io_bel(i, vref);
+                if (vref_pio == BelId())
+                    log_error("Unable to find pad for bank %d VREF%d\n", i, vref);
+                if (!ctx->checkBelAvail(vref_pio))
+                    log_error("IO %s is required for bank %d VREF%d but is occupied by cell '%s'.\n",
+                              ctx->nameOfBel(vref_pio), i, vref, ctx->nameOf(ctx->getBoundBelCell(vref_pio)));
+                used_io.insert(vref_pio);
+                push_bel(vref_pio);
+                push("SEIO18");
+                write_bit(stringf("VREF%d_DRIVER.ON", vref));
+                pop();
+                pop();
+                blank();
+            }
+        }
     }
     // Write out FASM for the whole design
     void operator()()
@@ -1160,14 +1248,20 @@ struct NexusFasmWriter
                 write_cfg_clkrst(ci);
             else if (ci->type == id_ECLKDIV_CORE)
                 write_eclkdiv(ci);
+            else if (ci->type == id_ECLKSYNC_CORE)
+                write_eclksync(ci);
+            else if (ci->type == id_DQSBUF_CORE)
+                write_dqsbuf(ci);
+            else if (ci->type == id_DDRDLL_CORE)
+                write_ddrdll(ci);
             blank();
         }
         // Handle DCC route-throughs
         write_dcc_thru();
-        // Write config for unused bels
-        write_unused();
         // Write bank config
         write_bankcfg();
+        // Write config for unused bels
+        write_unused();
     }
 };
 } // namespace

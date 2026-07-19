@@ -801,6 +801,9 @@ struct NexusPacker
             return true;
         }
 
+        if (strict_routing)
+            return false;
+
         // Unless in strict mode; check based on simple distance too
         BelId nearest = find_nearest_bel(pin_drv, cell->type, [&](BelId bel) { return !used_bels.count(bel); });
 
@@ -1093,6 +1096,8 @@ struct NexusPacker
                 {id_CONFIG_LMMI, id_CONFIG_LMMI_CORE},
                 {id_ECLKSYNC, id_ECLKSYNC_CORE},
                 {id_ECLKDIV, id_ECLKDIV_CORE},
+                {id_DQSBUF, id_DQSBUF_CORE},
+                {id_DDRDLL, id_DDRDLL_CORE},
         };
 
         // extra prefix needed for this primitive for some reason
@@ -1233,11 +1238,11 @@ struct NexusPacker
     void pack_iodelay()
     {
         dict<IdString, XFormRule> base_iodelay_rules;
-        base_iodelay_rules[id_DELAYB].new_type = id_IOLOGIC;
 
         XFormRule delay_rule;
         delay_rule.param_xform[id_DEL_VALUE] = ctx->id("DELAY.DEL_VALUE");
         delay_rule.param_xform[id_COARSE_DELAY] = ctx->id("DELAY.COARSE_DELAY");
+        delay_rule.new_type = id_IOLOGIC;
 
         base_iodelay_rules[id_DELAYB] = delay_rule;
         base_iodelay_rules[id_DELAYA] = delay_rule;
@@ -1330,6 +1335,64 @@ struct NexusPacker
                 iol_rules[itype].port_xform[ctx->idf("Q%d", i)] = ctx->idf("RXDATA%d", (10 - 2 * gear) + i);
         }
 
+        for (int gear : {2, 4}) {
+            IdString oshxtype = ctx->idf("OSHX%d", gear);
+            iol_rules[oshxtype].new_type = id_IOLOGIC;
+            iol_rules[oshxtype].set_params.emplace_back(id_MODE, std::string("MIDDRXN_MODDRXN"));
+            iol_rules[oshxtype].set_params.emplace_back(ctx->id("MODDRXN.DDRMODE"), stringf("MOSHX%d", gear));
+            iol_rules[oshxtype].port_xform[id_ECLK] = id_ECLK;
+            iol_rules[oshxtype].port_xform[id_SCLK] = id_SCLKOUT;
+            iol_rules[oshxtype].port_xform[id_RST] = id_LSROUT;
+            iol_rules[oshxtype].port_xform[id_Q] = id_DOUT;
+            for (int i = 0; i < gear; i++)
+                iol_rules[oshxtype].port_xform[ctx->idf("D%d", i)] = ctx->idf("TXDATA%d", i);
+
+            for (std::string dq : {"DQ", "DQS"}) {
+                IdString tshxtype = ctx->idf("TSHX%d%s", gear, dq.c_str());
+                iol_rules[tshxtype].new_type = id_IOLOGIC;
+                iol_rules[tshxtype].set_params.emplace_back(id_MODE, std::string("MIDDRXN_MODDRXN"));
+                iol_rules[tshxtype].set_params.emplace_back(ctx->id("MTDDRXN.DDRMODE"), stringf("MTSHX%d", gear));
+                iol_rules[tshxtype].port_xform[id_ECLK] = id_ECLK;
+                iol_rules[tshxtype].port_xform[id_SCLK] = id_SCLKOUT;
+                iol_rules[tshxtype].port_xform[id_RST] = id_LSROUT;
+                iol_rules[tshxtype].port_xform[id_Q] = id_TOUT;
+                if (dq == "DQS")
+                    iol_rules[tshxtype].port_xform[id_DQSW] = id_DQSW;
+                else
+                    iol_rules[tshxtype].port_xform[id_DQSW270] = id_DQSW270;
+                for (int i = 0; i < gear; i++)
+                    iol_rules[tshxtype].port_xform[ctx->idf("T%d", i)] = ctx->idf("TSDATA%d", i);
+
+                IdString otype = ctx->idf("ODDRX%d%s", gear, dq.c_str());
+                iol_rules[otype].new_type = id_IOLOGIC;
+                iol_rules[otype].set_params.emplace_back(id_MODE, std::string("MIDDRXN_MODDRXN"));
+                iol_rules[otype].set_params.emplace_back(ctx->id("MODDRXN.DDRMODE"),
+                                                         stringf("MODDRX%d_DQSW%s", gear, (dq == "DQS") ? "" : "270"));
+                iol_rules[otype].port_xform[id_ECLK] = id_ECLK;
+                iol_rules[otype].port_xform[id_SCLK] = id_SCLKOUT;
+                iol_rules[otype].port_xform[id_RST] = id_LSROUT;
+                iol_rules[otype].port_xform[id_Q] = id_DOUT;
+                if (dq == "DQS")
+                    iol_rules[otype].port_xform[id_DQSW] = id_DQSW;
+                else
+                    iol_rules[otype].port_xform[id_DQSW270] = id_DQSW270;
+                for (int i = 0; i < 2 * gear; i++)
+                    iol_rules[otype].port_xform[ctx->idf("D%d", i)] = ctx->idf("TXDATA%d", i);
+            }
+
+            IdString itype = ctx->idf("IDDRX%dDQ", gear);
+            iol_rules[itype].new_type = id_IOLOGIC;
+            iol_rules[itype].set_params.emplace_back(id_MODE, std::string("MIDDRXN_MODDRXN"));
+            iol_rules[itype].set_params.emplace_back(ctx->id("MIDDRXN.DDRMODE"), stringf("MIDDRX%d", gear));
+            iol_rules[itype].port_xform[id_ECLK] = id_ECLK;
+            iol_rules[itype].port_xform[id_SCLK] = id_SCLKIN;
+            iol_rules[itype].port_xform[id_RST] = id_LSRIN;
+            iol_rules[itype].port_xform[id_DQSR90] = id_DQSR90;
+            iol_rules[itype].port_xform[id_D] = id_DI;
+            for (int i = 0; i < 2 * gear; i++)
+                iol_rules[itype].port_xform[ctx->idf("Q%d", i)] = ctx->idf("RXDATA%d", (10 - 2 * gear) + i);
+        }
+
         generic_xform(iol_rules, true);
     }
 
@@ -1341,6 +1404,18 @@ struct NexusPacker
             base->params[param.first] = param.second;
         }
         for (auto &port : mergee->ports) {
+            if (base->getPort(port.first)) {
+                if (!port.second.net)
+                    continue;
+                if (base->getPort(port.first) != port.second.net) {
+                    log_error("Conflict between IOLOGIC cells '%s' and '%s' on port '%s': nets '%s' and '%s'\n",
+                              ctx->nameOf(base), ctx->nameOf(mergee), ctx->nameOf(port.first),
+                              ctx->nameOf(base->getPort(port.first)), ctx->nameOf(port.second.net));
+                    continue;
+                }
+                mergee->disconnectPort(port.first);
+                continue;
+            }
             mergee->movePortTo(port.first, base, port.first);
         }
         ctx->cells.erase(mergee->name);
@@ -1386,7 +1461,9 @@ struct NexusPacker
             // Deal with interconnectivity
             if (is_output) {
                 // Configure delay for use with DDR
-                logic_iol->params[id_DELAYMUX] = std::string("OUT_REG");
+                std::string mode = str_or_default(logic_iol->params, id_MODE);
+                if (mode != "IDDRXN" && mode != "ODDRXN" && mode != "MIDDRXN_MODDRXN")
+                    logic_iol->params[id_DELAYMUX] = std::string("OUT_REG");
 
                 NetInfo *out_net = delay_iol->getPort(id_DOUT);
                 delay_iol->disconnectPort(id_DOUT);
@@ -2566,7 +2643,8 @@ struct NexusPacker
     {
         auto buffer =
                 insert_buffer(eclk, id_ECLKSYNC_CORE, "edge_clk", id_ECLKIN, id_ECLKOUT, [&](const PortRef &port) {
-                    return port.port.in(id_ECLK, id_ECLKIN); // TODO: DDRDLL
+                    return port.port.in(id_ECLK, id_ECLKIN) ||
+                           (port.cell->type == id_DDRDLL_CORE && port.port == id_CLKIN);
                 });
         buffer->addInput(id_STOP);
         buffer->connectPort(id_STOP, gnd_net);
@@ -2589,6 +2667,31 @@ struct NexusPacker
                 bank_eclkdiv[bank].insert(bel);
         }
         dict<IdString, int> eclk_bank;
+        // Prioritise DQSBUF in case an ECLK crosses banks
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->type != id_DQSBUF_CORE)
+                continue;
+
+            NetInfo *eclk = ci->getPort(id_ECLKIN);
+            if (!eclk)
+                continue;
+            if (eclk_bank.count(eclk->name))
+                continue;
+
+            NetInfo *dqsi = ci->getPort(id_DQSI);
+            if (!dqsi || !dqsi->driver.cell)
+                continue;
+            CellInfo *pio = dqsi->driver.cell;
+            if (!pio->type.in(id_DIFFIO18_CORE, id_SEIO18_CORE))
+                continue;
+            BelId pio_bel = ctx->getBelByNameStr(pio->attrs.at(id_BEL).as_string());
+            Loc pad_loc = ctx->getBelLocation(pio_bel);
+            pad_loc.z = 0;
+            int bank = ctx->get_bel_pad(ctx->getBelByLocation(pad_loc))->bank;
+            eclk_bank[eclk->name] = bank;
+        }
+
         for (auto &cell : ctx->cells) {
             CellInfo *iol = cell.second.get();
             if (iol->type != id_IOLOGIC)
@@ -2622,7 +2725,7 @@ struct NexusPacker
                 log_error("Unable to place ECLKSYNC '%s': none remaining for bank %d.\n", ctx->nameOf(eclksync),
                           eclk_pair.second);
             BelId eclksync_bel = *(eclksyncs.begin());
-            ctx->bindBel(eclksync_bel, eclksync, STRENGTH_LOCKED);
+            eclksync->attrs[id_BEL] = ctx->getBelName(eclksync_bel).str(ctx);
             log_info("    placed ECLKSYNC '%s' at bel '%s'\n", ctx->nameOf(eclksync), ctx->nameOfBel(eclksync_bel));
             eclksyncs.erase(eclksync_bel);
 
@@ -2635,10 +2738,51 @@ struct NexusPacker
                     log_error("Unable to place ECLKDIV '%s': none remaining for bank %d.\n", ctx->nameOf(usr.cell),
                               eclk_pair.second);
                 BelId eclkdiv_bel = *(eclkdivs.begin());
-                ctx->bindBel(eclkdiv_bel, usr.cell, STRENGTH_LOCKED);
+                usr.cell->attrs[id_BEL] = ctx->getBelName(eclkdiv_bel).str(ctx);
                 log_info("    placed ECLKDIV '%s' at bel '%s'\n", ctx->nameOf(usr.cell), ctx->nameOfBel(eclkdiv_bel));
                 eclkdivs.erase(eclkdiv_bel);
             }
+        }
+        // Place DDRDLL based on ECLK
+        for (auto &cell : ctx->cells) {
+            CellInfo *ddrdll = cell.second.get();
+            if (ddrdll->type != id_DDRDLL_CORE)
+                continue;
+            bool placed = preplace_prim(ddrdll, id_CLKIN, true);
+            if (!placed)
+                log_error("Failed to find a placement for DDRDLL '%s'.\n", ctx->nameOf(ddrdll));
+        }
+    }
+
+    void place_dqsbuf()
+    {
+        log_info("Placing DQSBUFs...\n");
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->type != id_DQSBUF_CORE)
+                continue;
+            NetInfo *dqsi = ci->getPort(id_DQSI);
+            if (!dqsi || !dqsi->driver.cell)
+                log_error("DQSBUF '%s' has disconnected DQSI.\n", ctx->nameOf(ci));
+            CellInfo *pio = dqsi->driver.cell;
+            if (!pio->type.in(id_DIFFIO18_CORE, id_SEIO18_CORE))
+                log_error("DQSBUF '%s' has DQSI driven by illegal cell '%s'.\n", ctx->nameOf(ci), ctx->nameOf(pio));
+            BelId pio_bel = ctx->getBelByNameStr(pio->attrs.at(id_BEL).as_string());
+            WireId pio_wire = ctx->getBelPinWire(pio_bel, dqsi->driver.port);
+            BelId dqsbuf_bel = BelId();
+            for (PipId pip : ctx->getPipsDownhill(pio_wire)) {
+                for (BelPin bp : ctx->getWireBelPins(ctx->getPipDstWire(pip))) {
+                    if (ctx->getBelType(bp.bel) == id_DQSBUF_CORE && bp.pin == id_DQSI) {
+                        dqsbuf_bel = bp.bel;
+                        goto done;
+                    }
+                }
+            }
+        done:
+            if (dqsbuf_bel == BelId())
+                log_error("Failed to find a placement for DQSBUF '%s'.\n", ctx->nameOf(ci));
+            log_info("    constraining DQSBUF '%s' to bel '%s'\n", ctx->nameOf(ci), ctx->nameOfBel(dqsbuf_bel));
+            ci->attrs[id_BEL] = ctx->getBelName(dqsbuf_bel).str(ctx);
         }
     }
 
@@ -2824,6 +2968,7 @@ struct NexusPacker
         pack_ip();
         handle_iologic();
 
+        place_dqsbuf();
         place_eclk();
 
         if (!bool_or_default(ctx->settings, id_no_pack_lutff)) {

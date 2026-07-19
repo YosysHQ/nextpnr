@@ -269,6 +269,11 @@ static const dict<IdString, Arch::CellPinsData> base_cell_pin_data = {
          {
                  {{id_ECLKIN}, PINSTYLE_DEDI},
                  {{id_DIVOUT}, PINSTYLE_DEDI},
+                 {{id_TESTINP0}, PINSTYLE_PU},
+                 {{id_TESTINP1}, PINSTYLE_PU},
+                 {{id_TESTINP2}, PINSTYLE_PU},
+                 {{id_TESTINP3}, PINSTYLE_PU},
+
                  {{}, PINSTYLE_CIB},
          }},
         {id_ECLKSYNC_CORE,
