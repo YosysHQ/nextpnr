@@ -962,6 +962,27 @@ std::string Arch::get_pad_functions(const PadInfoPOD *pad) const
     return s;
 }
 
+BelId Arch::get_bank_vref_io_bel(int bank, int vref) const
+{
+    IdString func = idf("VREF%d_%d", bank, vref);
+    for (auto &pad : chip_info->pads) {
+        if (pad.bank != bank)
+            continue;
+        bool found = false;
+        for (auto f : pad.func_strs) {
+            if (IdString(f) == func) {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            continue;
+        return get_pad_pio_bel(&pad);
+    }
+    return BelId();
+}
+
+
 // -----------------------------------------------------------------------
 
 // Helper for cell timing lookups
