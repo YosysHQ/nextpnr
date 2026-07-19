@@ -1091,6 +1091,8 @@ struct NexusPacker
                 {id_DPHY, id_DPHY_CORE},
                 {id_MULTIBOOT, id_CONFIG_MULTIBOOT_CORE},
                 {id_CONFIG_LMMI, id_CONFIG_LMMI_CORE},
+                {id_ECLKSYNC, id_ECLKSYNC_CORE},
+                {id_ECLKDIV, id_ECLKDIV_CORE},
         };
 
         // extra prefix needed for this primitive for some reason
@@ -2560,6 +2562,86 @@ struct NexusPacker
         }
     }
 
+    NetInfo *buffer_eclk(NetInfo *eclk)
+    {
+        auto buffer =
+                insert_buffer(eclk, id_ECLKSYNC_CORE, "edge_clk", id_ECLKIN, id_ECLKOUT, [&](const PortRef &port) {
+                    return port.port.in(id_ECLK, id_ECLKIN); // TODO: DDRDLL
+                });
+        buffer->addInput(id_STOP);
+        buffer->connectPort(id_STOP, gnd_net);
+        return buffer->getPort(id_ECLKOUT);
+    }
+
+    void place_eclk()
+    {
+        log_info("Placing edge clocks...\n");
+        // Build up per-bank ECLK bel maps
+        dict<int, pool<BelId>> bank_eclksync, bank_eclkdiv;
+        for (auto bel : ctx->getBels()) {
+            if (!ctx->getBelType(bel).in(id_ECLKSYNC_CORE, id_ECLKDIV_CORE) || !ctx->checkBelAvail(bel))
+                continue;
+            std::string bel_name = ctx->getBelName(bel)[2].str(ctx);
+            int bank = std::stoi(bel_name.substr(bel_name.size() - 2, 1));
+            if (ctx->getBelType(bel) == id_ECLKSYNC_CORE)
+                bank_eclksync[bank].insert(bel);
+            else if (ctx->getBelType(bel) == id_ECLKDIV_CORE)
+                bank_eclkdiv[bank].insert(bel);
+        }
+        dict<IdString, int> eclk_bank;
+        for (auto &cell : ctx->cells) {
+            CellInfo *iol = cell.second.get();
+            if (iol->type != id_IOLOGIC)
+                continue;
+            NetInfo *eclk = iol->getPort(id_ECLK);
+            if (!eclk)
+                continue;
+            // An ECLK might cover multiple banks, we just assume the cascade stuff works and don't special-case this
+            // for now Maybe sometimes we need to duplicate ECLKSYNCs...
+            if (eclk_bank.count(eclk->name))
+                continue;
+            // Find the bank of the IOLOGIC
+            Loc pad_loc = ctx->getBelLocation(ctx->getBelByNameStr(iol->attrs.at(id_BEL).as_string()));
+            pad_loc.z = 0;
+            int bank = ctx->get_bel_pad(ctx->getBelByLocation(pad_loc))->bank;
+            eclk_bank[eclk->name] = bank;
+        }
+        for (auto eclk_pair : eclk_bank) {
+            NetInfo *eclk = ctx->nets.at(eclk_pair.first).get();
+            if (!eclk->driver.cell)
+                continue;
+            if (eclk->driver.cell->type != id_ECLKSYNC_CORE) {
+                // TODO: insert one so we can isolate the ECLK routing
+                eclk = buffer_eclk(eclk);
+            }
+            CellInfo *eclksync = eclk->driver.cell;
+            if (eclksync->bel != BelId())
+                continue;
+            auto &eclksyncs = bank_eclksync.at(eclk_pair.second);
+            if (eclksyncs.empty())
+                log_error("Unable to place ECLKSYNC '%s': none remaining for bank %d.\n", ctx->nameOf(eclksync),
+                          eclk_pair.second);
+            BelId eclksync_bel = *(eclksyncs.begin());
+            ctx->bindBel(eclksync_bel, eclksync, STRENGTH_LOCKED);
+            log_info("    placed ECLKSYNC '%s' at bel '%s'\n", ctx->nameOf(eclksync), ctx->nameOfBel(eclksync_bel));
+            eclksyncs.erase(eclksync_bel);
+
+            for (auto &usr : eclk->users) {
+                if (usr.cell->type != id_ECLKDIV_CORE || usr.port != id_ECLKIN)
+                    continue;
+
+                auto &eclkdivs = bank_eclkdiv.at(eclk_pair.second);
+                if (eclkdivs.empty())
+                    log_error("Unable to place ECLKDIV '%s': none remaining for bank %d.\n", ctx->nameOf(usr.cell),
+                              eclk_pair.second);
+                BelId eclkdiv_bel = *(eclkdivs.begin());
+                ctx->bindBel(eclkdiv_bel, usr.cell, STRENGTH_LOCKED);
+                log_info("    placed ECLKDIV '%s' at bel '%s'\n", ctx->nameOf(usr.cell), ctx->nameOfBel(eclkdiv_bel));
+                eclkdivs.erase(eclkdiv_bel);
+            }
+        }
+    }
+
     FFControlSet gather_ff_settings(CellInfo *cell)
     {
         NPNR_ASSERT(cell->type == id_OXIDE_FF);
@@ -2741,6 +2823,8 @@ struct NexusPacker
         pack_luts();
         pack_ip();
         handle_iologic();
+
+        place_eclk();
 
         if (!bool_or_default(ctx->settings, id_no_pack_lutff)) {
             pack_lutffs();
