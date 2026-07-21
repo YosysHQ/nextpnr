@@ -32,6 +32,7 @@
 
 #include "fab_cfg.h"
 #include "fab_defs.h"
+#include "bel_timing.h"
 #include "fasm.h"
 #include "pack.h"
 #include "pcf.h"
@@ -42,38 +43,6 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 namespace {
-
-// A single predicate gating a timing arc, parsed from a bel.v3 condition field.
-// PARAM matches a config bit / cell parameter; PORT_ANY/NONE_CONNECTED match the
-// connectivity of one or more ports (the '/'-list expresses OR).
-struct TimingPredicate
-{
-    enum Kind
-    {
-        PARAM,
-        PORT_ANY_CONNECTED,
-        PORT_NONE_CONNECTED
-    } kind;
-    IdString param;
-    bool param_value = true;
-    std::vector<IdString> ports;
-};
-
-// One timing arc for a BEL type, mapping to an addCellTiming* call when its
-// (optional, AND-ed) conditions hold for a given cell.
-struct BelTimingArc
-{
-    enum Kind
-    {
-        DELAY,
-        SETUPHOLD,
-        CLK2OUT,
-        CLOCK
-    } kind;
-    IdString from, to;
-    float v0 = 0, v1 = 0;
-    std::vector<TimingPredicate> cond;
-};
 
 struct FabulousImpl : ViaductAPI
 {
@@ -332,7 +301,7 @@ struct FabulousImpl : ViaductAPI
                 if (curr_type == IdString())
                     log_error("placement_estimate.txt: timing command %s outside a BelBegin/BelEnd block\n",
                               cmd.c_str(ctx));
-                estimate_by_type[curr_type].push_back(parse_one_arc(csv, cmd));
+                estimate_by_type[curr_type].push_back(parse_one_arc(ctx, csv, cmd));
                 continue;
             }
             // otherwise a numeric `key=value` line; strip() tolerates whitespace
@@ -579,7 +548,7 @@ struct FabulousImpl : ViaductAPI
             } else if (cmd.in(id_Delay, id_SetupHold, id_ClkToOut, id_Clock)) {
                 if (curr_bel == BelId())
                     log_error("timing command %s outside a BelBegin/BelEnd block\n", cmd.c_str(ctx));
-                bel_timing_by_bel[curr_bel].push_back(parse_one_arc(csv, cmd));
+                bel_timing_by_bel[curr_bel].push_back(parse_one_arc(ctx, csv, cmd));
             } else if (cmd == id_BelEnd) {
                 curr_bel = BelId();
             } else if (cmd != IdString()) {
@@ -594,143 +563,6 @@ struct FabulousImpl : ViaductAPI
     // bel.v3 timing arcs, keyed by physical BEL. Empty for v1/v2 projects.
     // postPlace applies each placed cell its own BEL's arcs (per-instance).
     dict<BelId, std::vector<BelTimingArc>> bel_timing_by_bel;
-
-    static float parse_float(parser_view v)
-    {
-        std::string s(v.m_ptr, v.m_length);
-        try {
-            return std::stof(s);
-        } catch (const std::exception &) {
-            log_error("invalid bel.v3 timing value '%s'\n", s.c_str());
-        }
-    }
-
-    static double parse_double(parser_view v)
-    {
-        std::string s(v.m_ptr, v.m_length);
-        try {
-            return std::stod(s);
-        } catch (const std::exception &) {
-            log_error("invalid placement_estimate.txt value '%s'\n", s.c_str());
-        }
-    }
-
-    // Parse a bel.v3 condition field (e.g. "FF=0&I0MUX=1" or "Ci/Co?") into a
-    // list of AND-ed predicates. An empty field means the arc always applies.
-    std::vector<TimingPredicate> parse_timing_condition(parser_view field)
-    {
-        std::vector<TimingPredicate> preds;
-        if (field.empty())
-            return preds;
-        std::string cond(field.m_ptr, field.m_length);
-        size_t start = 0;
-        while (start <= cond.size()) {
-            size_t amp = cond.find('&', start);
-            std::string tok = cond.substr(start, amp == std::string::npos ? std::string::npos : amp - start);
-            start = (amp == std::string::npos) ? cond.size() + 1 : amp + 1;
-            if (tok.empty())
-                continue;
-            TimingPredicate p;
-            char last = tok.back();
-            if (last == '?' || last == '!') {
-                p.kind = (last == '?') ? TimingPredicate::PORT_ANY_CONNECTED : TimingPredicate::PORT_NONE_CONNECTED;
-                std::string ports = tok.substr(0, tok.size() - 1);
-                size_t ps = 0;
-                while (ps <= ports.size()) {
-                    size_t slash = ports.find('/', ps);
-                    std::string pn = ports.substr(ps, slash == std::string::npos ? std::string::npos : slash - ps);
-                    ps = (slash == std::string::npos) ? ports.size() + 1 : slash + 1;
-                    if (!pn.empty())
-                        p.ports.push_back(ctx->id(pn));
-                }
-            } else {
-                size_t eq = tok.find('=');
-                if (eq == std::string::npos)
-                    log_error("invalid bel.v3 timing condition '%s'\n", tok.c_str());
-                p.kind = TimingPredicate::PARAM;
-                p.param = ctx->id(tok.substr(0, eq));
-                p.param_value = (tok.substr(eq + 1) != "0");
-            }
-            preds.push_back(std::move(p));
-        }
-        return preds;
-    }
-
-    // Build one timing arc from the fields after the command (shared by the BEL
-    // file and the placement_estimate.txt placement estimate).
-    BelTimingArc parse_one_arc(CsvParser &csv, IdString cmd)
-    {
-        BelTimingArc arc;
-        if (cmd == id_Delay) {
-            arc.kind = BelTimingArc::DELAY;
-            arc.from = csv.next_field().to_id(ctx);
-            arc.to = csv.next_field().to_id(ctx);
-            arc.v0 = parse_float(csv.next_field());
-        } else if (cmd == id_SetupHold) {
-            arc.kind = BelTimingArc::SETUPHOLD;
-            arc.from = csv.next_field().to_id(ctx);
-            arc.to = csv.next_field().to_id(ctx);
-            arc.v0 = parse_float(csv.next_field());
-            arc.v1 = parse_float(csv.next_field());
-        } else if (cmd == id_ClkToOut) {
-            arc.kind = BelTimingArc::CLK2OUT;
-            arc.from = csv.next_field().to_id(ctx);
-            arc.to = csv.next_field().to_id(ctx);
-            arc.v0 = parse_float(csv.next_field());
-        } else {
-            NPNR_ASSERT(cmd == id_Clock);
-            arc.kind = BelTimingArc::CLOCK;
-            arc.from = csv.next_field().to_id(ctx);
-        }
-        arc.cond = parse_timing_condition(csv.next_field());
-        return arc;
-    }
-
-    // True if every predicate holds for this cell (empty cond always holds).
-    bool timing_cond_holds(const CellInfo *ci, const std::vector<TimingPredicate> &cond) const
-    {
-        for (const auto &p : cond) {
-            if (p.kind == TimingPredicate::PARAM) {
-                if (bool_or_default(ci->params, p.param) != p.param_value)
-                    return false;
-            } else if (p.kind == TimingPredicate::PORT_ANY_CONNECTED) {
-                bool any = false;
-                for (IdString port : p.ports)
-                    if (ci->getPort(port)) {
-                        any = true;
-                        break;
-                    }
-                if (!any)
-                    return false;
-            } else { // PORT_NONE_CONNECTED
-                for (IdString port : p.ports)
-                    if (ci->getPort(port))
-                        return false;
-            }
-        }
-        return true;
-    }
-
-    // Register one arc on the cell as the matching addCellTiming* call, if its condition holds.
-    void apply_arc(Context *ctx, CellInfo *ci, const BelTimingArc &arc)
-    {
-        if (!timing_cond_holds(ci, arc.cond))
-            return;
-        switch (arc.kind) {
-        case BelTimingArc::DELAY:
-            ctx->addCellTimingDelay(ci->name, arc.from, arc.to, arc.v0);
-            break;
-        case BelTimingArc::SETUPHOLD:
-            ctx->addCellTimingSetupHold(ci->name, arc.from, arc.to, arc.v0, arc.v1);
-            break;
-        case BelTimingArc::CLK2OUT:
-            ctx->addCellTimingClockToOut(ci->name, arc.from, arc.to, arc.v0);
-            break;
-        case BelTimingArc::CLOCK:
-            ctx->addCellTimingClock(ci->name, arc.from);
-            break;
-        }
-    }
 
     // postPlace: replace each placed cell's timing with its BEL's own arcs.
     void apply_bel_timing_per_instance(Context *ctx)
