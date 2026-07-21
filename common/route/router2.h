@@ -54,6 +54,20 @@ struct Router2Cfg
     // of choosing a less congestion/delay-optimal route
     float estimate_weight;
 
+    // Maximum main-loop iterations before giving up with a best-effort
+    // binding (0 = unlimited).  Backstops PathFinder pathologies on
+    // genuinely-impossible designs.
+    int max_router_iters;
+    // Stall detection: break out of the main loop if (overused_wires,
+    // total_wire_overuse) has been unchanged for this many iterations.
+    // A one-shot congestion-weight reset is attempted on first stall
+    // before the break path is taken.
+    int stall_iter_limit;
+    // Periodically call bind_and_check_all() while still iterating, so
+    // architectural impossibilities surface early instead of being hidden
+    // by "archfail=NA".  0 = off.
+    int bind_check_interval;
+
     // Print additional performance profiling information
     bool perf_profile = false;
 
