@@ -1319,7 +1319,7 @@ struct Arch : BaseArch<ArchRanges>
 
     // for better DSP bounding boxes
     void pre_routing();
-    pool<WireId> dsp_wires, lram_wires;
+    pool<WireId> dsp_wires, lram_wires, dqsbuf_wires;
 
     // -------------------------------------------------
 

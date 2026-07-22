@@ -736,7 +736,10 @@ BoundingBox Arch::getRouteBoundingBox(WireId src, WireId dst) const
         bb.y0 = std::max<int>(0, bb.y0 - 7);
         bb.y1 = std::min<int>(chip_info->width, bb.y1 + 7);
     }
-
+    if (dqsbuf_wires.count(src) || dqsbuf_wires.count(dst)) {
+        bb.x0 = std::max<int>(0, bb.x0 - 6);
+        bb.x1 = std::min<int>(chip_info->width, bb.x1 + 6);
+    }
     return bb;
 }
 
@@ -794,6 +797,13 @@ void Arch::pre_routing()
                 WireId wire = getBelPinWire(ci->bel, port.first);
                 if (wire != WireId())
                     lram_wires.insert(wire);
+            }
+        }
+        if (ci->type == id_DQSBUF_CORE) {
+            for (auto &port : ci->ports) {
+                WireId wire = getBelPinWire(ci->bel, port.first);
+                if (wire != WireId())
+                    dqsbuf_wires.insert(wire);
             }
         }
     }
