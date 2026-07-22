@@ -185,6 +185,25 @@ struct NexusGlobalRouter
         log_info("    routed net '%s' using global resources\n", ctx->nameOf(net));
     }
 
+    void route_eclk_net(NetInfo *net)
+    {
+        for (auto usr : net->users.enumerate())
+            backwards_bfs_route(net, usr.index, 1000000, true, [&](PipId pip) {
+                return (is_relaxed_sink(usr.value) || global_pip_filter(pip)) && routeability_pip_filter(pip);
+            });
+        log_info("    routed edge clock net '%s' using global resources\n", ctx->nameOf(net));
+    }
+
+    void route_eclk_src(NetInfo *net, store_index<PortRef> user_idx)
+    {
+        bool routed =
+                backwards_bfs_route(net, user_idx, 1000000, false, [&](PipId pip) { return global_pip_filter(pip); });
+        if (routed)
+            log_info("    routed edge source '%s' using global resources\n", ctx->nameOf(net));
+        else
+            log_warning("    failed to route edge source '%s' using global resources\n", ctx->nameOf(net));
+    }
+
     void operator()()
     {
         log_info("Routing globals...\n");
@@ -196,6 +215,17 @@ struct NexusGlobalRouter
             if (drv->type.in(id_DCC, id_DCS)) {
                 route_clk_net(ni);
                 continue;
+            }
+        }
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->type == id_ECLKSYNC_CORE) {
+                NetInfo *eclk = ci->getPort(id_ECLKOUT);
+                if (eclk)
+                    route_eclk_net(eclk);
+                auto &eclki = ci->ports.at(id_ECLKIN);
+                if (eclki.net)
+                    route_eclk_src(eclki.net, eclki.user_idx);
             }
         }
     }
