@@ -680,13 +680,13 @@ static void insert_global(Context *ctx, NetInfo *net, bool is_reset, bool is_cen
 static void promote_globals(Context *ctx)
 {
     log_info("Promoting globals..\n");
-    const int logic_fanout_thresh = 15;
-    const int enable_fanout_thresh = 15;
-    const int reset_fanout_thresh = 15;
+    const int logic_fanout_thresh = 40;
+    const int enable_fanout_thresh = 40;
+    const int reset_fanout_thresh = 40;
     std::map<IdString, int> clock_count, reset_count, cen_count, logic_count;
     for (auto &net : ctx->nets) {
         NetInfo *ni = net.second.get();
-        if (ni->driver.cell != nullptr && !ctx->is_global_net(ni)) {
+        if (ni->driver.cell != nullptr && !ctx->is_global_net(ni) && !bool_or_default(ni->attrs, id_noglobal)) {
             clock_count[net.first] = 0;
             reset_count[net.first] = 0;
             cen_count[net.first] = 0;
