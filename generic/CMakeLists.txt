@@ -21,6 +21,8 @@ set(SOURCES
     viaduct/fabulous/fabulous.cc
     viaduct/fabulous/fasm.cc
     viaduct/fabulous/fasm.h
+    viaduct/fabulous/bel_timing.cc
+    viaduct/fabulous/bel_timing.h
     viaduct/fabulous/pack.cc
     viaduct/fabulous/pack.h
     viaduct/fabulous/validity_check.cc

@@ -32,6 +32,7 @@
 
 #include "fab_cfg.h"
 #include "fab_defs.h"
+#include "bel_timing.h"
 #include "fasm.h"
 #include "pack.h"
 #include "pcf.h"
@@ -42,6 +43,7 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 namespace {
+
 struct FabulousImpl : ViaductAPI
 {
     FabulousImpl(const dict<std::string, std::string> &args)
@@ -76,13 +78,47 @@ struct FabulousImpl : ViaductAPI
         // To consider: a faster serialised form of the device data (like bba that other arches use) so we don't have to
         // go through the whole csv parsing malarkey each time
         blk_trk = std::make_unique<BlockTracker>(ctx, cfg);
-        is_new_fab ? init_bels_v2() : init_bels_v1();
+        bool has_v3 = is_new_fab && std::filesystem::exists(fab_root + "/.FABulous/bel.v3.txt");
+        if (has_v3)
+            init_bels_v2("/.FABulous/bel.v3.txt"); // same parser; v3 adds timing lines
+        else if (is_new_fab)
+            init_bels_v2("/.FABulous/bel.v2.txt");
+        else
+            init_bels_v1();
         init_pips();
         init_pseudo_constant_wires();
         setup_lut_permutation();
-        ctx->setDelayScaling(3.0, 3.0);
-        ctx->delay_epsilon = 0.25;
-        ctx->ripup_penalty = 0.5;
+        // bel.v3.txt and placement_estimate.txt are generated together; having
+        // only one means a stale/partial .FABulous dir, so warn.
+        bool has_estimate = std::filesystem::exists(fab_root + "/.FABulous/placement_estimate.txt");
+        if (has_v3 != has_estimate)
+            log_warning("only one of bel.v3.txt / placement_estimate.txt is present; regenerate both with "
+                        "gen_model_npnr\n");
+        // placement_estimate.txt provides these tunables; each falls back to
+        // nextpnr's historical hardcoded default when the file/key is absent
+        // (legacy or unregenerated projects), so behaviour is unchanged without it.
+        // delayScale/Offset are FABulous's precomputed average pip delay.
+        dict<std::string, double> pe;
+        read_placement_estimate(pe);
+        pool<std::string> known_keys;
+        auto pe_or = [&](const char *key, double def) {
+            known_keys.insert(key);
+            if (!pe.count(key)) {
+                log_info("placement_estimate.txt: no value for '%s', using default %g\n", key, def);
+                return def;
+            }
+            return pe.at(key);
+        };
+        double delay_scale = pe_or("delayScale", 3.0);
+        double delay_offset = pe_or("delayOffset", 3.0);
+        ctx->setDelayScaling(delay_scale, delay_offset);
+        carry_predict_delay = pe_or("carryPredictDelay", 0.5);
+        ctx->delay_epsilon = pe_or("delayEpsilon", 0.25);
+        ctx->ripup_penalty = pe_or("ripupPenalty", 0.5);
+        for (auto &kv : pe)
+            if (!known_keys.count(kv.first))
+                log_warning("unknown placement_estimate.txt key '%s' ignored\n", kv.first.c_str());
+        seed_default_estimates();
     }
 
     void init_default_ctrlset_cfg()
@@ -101,39 +137,55 @@ struct FabulousImpl : ViaductAPI
         setup_cfg(cfg.clb.sr, ControlSetConfig::MaskType::MASK_ZERO);  // sr can be masked with 0
     }
 
-    void update_cell_timing(Context *ctx)
+    // prePlace: give every cell its per-type timing estimate (from
+    // placement_estimate.txt or the built-in defaults), so the placer has
+    // timing to optimise against. postPlace replaces it per instance.
+    void apply_preplace_timing_estimates(Context *ctx)
     {
-        // These timings are not realistic. They just make sure nextpnr does some timing-driven optimisation...
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
-            if (ci->type == id_FABULOUS_LC) {
-                auto &lct = cell_tags.get(ci);
-                if (lct.comb.carry_used) {
-                    ctx->addCellTimingDelay(ci->name, id_Ci, id_Co, 0.2);
-                    ctx->addCellTimingDelay(ci->name, ctx->id("I1"), id_Co, 1.0);
-                    ctx->addCellTimingDelay(ci->name, ctx->id("I2"), id_Co, 1.0);
-                }
-                if (lct.ff.ff_used) {
-                    ctx->addCellTimingClock(ci->name, id_CLK);
-                    for (unsigned i = 0; i < cfg.clb.lut_k; i++)
-                        ctx->addCellTimingSetupHold(ci->name, ctx->idf("I%d", i), id_CLK, 2.5, 0.1);
-                    ctx->addCellTimingClockToOut(ci->name, id_Q, id_CLK, 1.0);
-                    if (bool_or_default(ci->params, id_I0MUX))
-                        ctx->addCellTimingSetupHold(ci->name, id_Ci, id_CLK, 2.5, 0.1);
-                } else {
-                    for (unsigned i = 0; i < cfg.clb.lut_k; i++)
-                        ctx->addCellTimingDelay(ci->name, ctx->idf("I%d", i), id_O, 3.0);
-                    if (bool_or_default(ci->params, id_I0MUX))
-                        ctx->addCellTimingDelay(ci->name, id_Ci, id_O, 3.0);
-                }
-            } else if (ci->type.in(id_OutPass4_frame_config, id_OutPass4_frame_config_mux)) {
-                for (unsigned i = 0; i < 4; i++)
-                    ctx->addCellTimingSetupHold(ci->name, ctx->idf("I%d", i), id_CLK, 2.5, 0.1);
-            } else if (ci->type.in(id_InPass4_frame_config, id_InPass4_frame_config_mux)) {
-                for (unsigned i = 0; i < 4; i++)
-                    ctx->addCellTimingClockToOut(ci->name, ctx->idf("O%d", i), id_CLK, 2.5);
+            auto est = estimate_by_type.find(ci->type);
+            if (est == estimate_by_type.end())
+                continue;
+            for (const auto &arc : est->second)
+                apply_arc(ctx, ci, arc);
+        }
+    }
+
+    // nextpnr's historical hardcoded dummy timings, seeded for any cell type
+    // placement_estimate.txt doesn't describe (equivalent to a file containing
+    // e.g. "Delay,I0,O,3.0,FF=0").
+    void seed_default_estimates()
+    {
+        const TimingPredicate ff{TimingPredicate::PARAM, id_FF, true, {}};
+        const TimingPredicate no_ff{TimingPredicate::PARAM, id_FF, false, {}};
+        const TimingPredicate i0mux{TimingPredicate::PARAM, id_I0MUX, true, {}};
+        const TimingPredicate carry{TimingPredicate::PORT_ANY_CONNECTED, IdString(), true, {id_Ci, id_Co}};
+        if (!estimate_by_type.count(id_FABULOUS_LC)) {
+            auto &lc = estimate_by_type[id_FABULOUS_LC];
+            lc = {
+                    {BelTimingArc::CLOCK, id_CLK, IdString(), 0, 0, {ff}},
+                    {BelTimingArc::CLK2OUT, id_Q, id_CLK, 1.0, 0, {ff}},
+                    {BelTimingArc::DELAY, id_Ci, id_Co, 0.2, 0, {carry}},
+                    {BelTimingArc::DELAY, ctx->id("I1"), id_Co, 1.0, 0, {carry}},
+                    {BelTimingArc::DELAY, ctx->id("I2"), id_Co, 1.0, 0, {carry}},
+                    {BelTimingArc::DELAY, id_Ci, id_O, 3.0, 0, {no_ff, i0mux}},
+                    {BelTimingArc::SETUPHOLD, id_Ci, id_CLK, 2.5, 0.1, {ff, i0mux}},
+            };
+            for (unsigned i = 0; i < cfg.clb.lut_k; i++) {
+                IdString in = ctx->idf("I%d", i);
+                lc.push_back({BelTimingArc::DELAY, in, id_O, 3.0, 0, {no_ff}});
+                lc.push_back({BelTimingArc::SETUPHOLD, in, id_CLK, 2.5, 0.1, {ff}});
             }
         }
+        for (IdString t : {id_OutPass4_frame_config, id_OutPass4_frame_config_mux})
+            if (!estimate_by_type.count(t))
+                for (unsigned i = 0; i < 4; i++)
+                    estimate_by_type[t].push_back({BelTimingArc::SETUPHOLD, ctx->idf("I%d", i), id_CLK, 2.5, 0.1, {}});
+        for (IdString t : {id_InPass4_frame_config, id_InPass4_frame_config_mux})
+            if (!estimate_by_type.count(t))
+                for (unsigned i = 0; i < 4; i++)
+                    estimate_by_type[t].push_back({BelTimingArc::CLK2OUT, ctx->idf("O%d", i), id_CLK, 2.5, 0, {}});
     }
 
     void pack() override
@@ -154,11 +206,13 @@ struct FabulousImpl : ViaductAPI
     void prePlace() override
     {
         assign_cell_info();
-        update_cell_timing(ctx);
+        apply_preplace_timing_estimates(ctx);
     }
 
     void postPlace() override
     {
+        if (!bel_timing_by_bel.empty())
+            apply_bel_timing_per_instance(ctx);
         if (ctx->debug) {
             log_info("================== Final Placement ==================\n");
             for (auto &cell : ctx->cells) {
@@ -216,10 +270,66 @@ struct FabulousImpl : ViaductAPI
         return open_ifstream_and_log_error(filename, "data file (is FAB_ROOT set correctly?)");
     }
 
+    // Reads `.FABulous/placement_estimate.txt`: numeric `key=value` tunables (see
+    // init() for the keys) into `vals`, plus optional BEL-file-format timing lines
+    // describing one representative BEL per type into `estimate_by_type` (the
+    // prePlace estimate; see apply_preplace_timing_estimates). Timing lines are
+    // scoped to a type by `BelBegin,<type>` ... `BelEnd` blocks. Missing
+    // keys/lines/file leave init()'s defaults.
+    void read_placement_estimate(dict<std::string, double> &vals)
+    {
+        std::string path = fab_root + "/.FABulous/placement_estimate.txt";
+        if (!std::filesystem::exists(path))
+            return;
+        std::ifstream in(path);
+        CsvParser csv(in);
+        IdString curr_type;
+        while (csv.fetch_next_line()) {
+            parser_view first = csv.next_field();
+            IdString cmd = first.to_id(ctx);
+            if (cmd == id_BelBegin) {
+                curr_type = csv.next_field().to_id(ctx);
+                if (curr_type == IdString())
+                    log_error("placement_estimate.txt: BelBegin without a bel type\n");
+                continue;
+            }
+            if (cmd == id_BelEnd) {
+                curr_type = IdString();
+                continue;
+            }
+            if (cmd.in(id_Delay, id_SetupHold, id_ClkToOut, id_Clock)) {
+                if (curr_type == IdString())
+                    log_error("placement_estimate.txt: timing command %s outside a BelBegin/BelEnd block\n",
+                              cmd.c_str(ctx));
+                estimate_by_type[curr_type].push_back(parse_one_arc(ctx, csv, cmd));
+                continue;
+            }
+            // otherwise a numeric `key=value` line; strip() tolerates whitespace
+            // around '=' (e.g. "key = value")
+            if (first.find('=') == parser_view::npos)
+                log_error("placement_estimate.txt: unsupported line starting with '%s'\n", cmd.c_str(ctx));
+            auto kv = first.split('=');
+            parser_view key_v = kv.first.strip();
+            parser_view value_v = kv.second.strip();
+            std::string key(key_v.m_ptr, key_v.m_length);
+            vals[key] = parse_double(value_v);
+        }
+    }
+
+    // Representative per-cell-type prePlace estimates from placement_estimate.txt;
+    // empty unless the file provides them (see update_cell_timing).
+    dict<IdString, std::vector<BelTimingArc>> estimate_by_type;
+
     std::string fab_root;
     bool is_new_fab;
 
+    // predictDelay's Co->Ci carry-chain estimate; set from placement_estimate.txt
+    // in init(), default 0.5 (the old hardcoded value).
+    double carry_predict_delay = 0.5;
+
     pool<IdString> warned_beltypes;
+    // cell types already warned about having no applicable bel.v3 timing arc
+    pool<IdString> warned_untimed;
 
     std::vector<PseudoPipTags> pp_tags;
 
@@ -386,10 +496,12 @@ struct FabulousImpl : ViaductAPI
         postprocess_bels();
     }
 
-    void init_bels_v2()
+    // Reads both bel.v2.txt and bel.v3.txt; the latter additionally carries
+    // Delay/SetupHold/ClkToOut/Clock timing lines into bel_timing_by_bel.
+    void init_bels_v2(const std::string &filename)
     {
-        log_info("Reading BELs file: /.FABulous/bel.v2.txt\n");
-        std::ifstream in = open_data_rel("/.FABulous/bel.v2.txt");
+        log_info("Reading BELs file: %s\n", filename.c_str());
+        std::ifstream in = open_data_rel(filename);
         CsvParser csv(in);
         BelId curr_bel;
         while (csv.fetch_next_line()) {
@@ -433,6 +545,10 @@ struct FabulousImpl : ViaductAPI
                 add_pseudo_pip(global_clk_wire, clk_wire, id_global_clock);
             } else if (cmd == id_CFG) {
                 // TODO...
+            } else if (cmd.in(id_Delay, id_SetupHold, id_ClkToOut, id_Clock)) {
+                if (curr_bel == BelId())
+                    log_error("timing command %s outside a BelBegin/BelEnd block\n", cmd.c_str(ctx));
+                bel_timing_by_bel[curr_bel].push_back(parse_one_arc(ctx, csv, cmd));
             } else if (cmd == id_BelEnd) {
                 curr_bel = BelId();
             } else if (cmd != IdString()) {
@@ -442,6 +558,41 @@ struct FabulousImpl : ViaductAPI
         }
         init_global_clock();
         postprocess_bels();
+    }
+
+    // bel.v3 timing arcs, keyed by physical BEL. Empty for v1/v2 projects.
+    // postPlace applies each placed cell its own BEL's arcs (per-instance).
+    dict<BelId, std::vector<BelTimingArc>> bel_timing_by_bel;
+
+    // postPlace: replace each placed cell's timing with its BEL's own arcs.
+    void apply_bel_timing_per_instance(Context *ctx)
+    {
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->bel == BelId())
+                continue;
+            auto fnd = bel_timing_by_bel.find(ci->bel);
+            if (fnd == bel_timing_by_bel.end())
+                continue;
+            std::vector<const BelTimingArc *> matching;
+            for (const auto &arc : fnd->second)
+                if (timing_cond_holds(ci, arc.cond))
+                    matching.push_back(&arc);
+            // If no arc condition holds the cell would end up with no timing at
+            // all; likely a broken condition in bel.v3.txt, so warn and keep the
+            // prePlace per-type estimate instead.
+            if (matching.empty()) {
+                if (warned_untimed.insert(ci->type).second)
+                    log_warning("no bel.v3 timing arc applies to '%s' (type %s); keeping prePlace estimate\n",
+                                ctx->nameOf(ci), ci->type.c_str(ctx));
+                continue;
+            }
+            // SetupHold/ClockToOut *append* their arcs, so clear the prePlace
+            // per-type timing first or register arcs would double-register.
+            ctx->cellTiming.erase(ci->name);
+            for (const auto *arc : matching)
+                apply_arc(ctx, ci, *arc);
+        }
     }
 
     void generate_split_mux8(BelId bel)
@@ -721,7 +872,7 @@ struct FabulousImpl : ViaductAPI
     delay_t predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const override
     {
         if (src_pin == id_Co && dst_pin == id_Ci)
-            return 0.5;
+            return carry_predict_delay;
 
         auto driver_loc = ctx->getBelLocation(src_bel);
         auto sink_loc = ctx->getBelLocation(dst_bel);
