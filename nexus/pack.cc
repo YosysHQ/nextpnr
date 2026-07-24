@@ -162,8 +162,10 @@ struct NexusPacker
         for (auto &param : ci->params)
             if (rule.param_xform.count(param.first))
                 xform_params.push_back(param.first);
-        for (auto param : xform_params)
-            ci->params[rule.param_xform.at(param)] = ci->params[param];
+        for (auto param : xform_params) {
+            auto old_value = ci->params[param];
+            ci->params[rule.param_xform.at(param)] = old_value;
+        }
 
         for (auto &attr : rule.set_attrs)
             ci->attrs[attr.first] = attr.second;
