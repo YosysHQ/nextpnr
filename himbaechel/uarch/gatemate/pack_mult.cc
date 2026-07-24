@@ -994,6 +994,8 @@ void GateMatePacker::pack_mult()
             // Reconfigure the flop.
             sink->renamePort(id_D, id_DIN);
             sink->renamePort(id_Q, id_DOUT);
+            sink->renamePort(id_CLK, id_CLK_INT);
+            sink->renamePort(id_EN, id_EN_INT);
             sink->type = id_CPE_FF;
 
             // Connect the passthrough.
