@@ -1347,7 +1347,7 @@ struct NexusPacker
             iol_rules[oshxtype].port_xform[id_RST] = id_LSROUT;
             iol_rules[oshxtype].port_xform[id_Q] = id_DOUT;
             for (int i = 0; i < gear; i++)
-                iol_rules[oshxtype].port_xform[ctx->idf("D%d", i)] = ctx->idf("TXDATA%d", i);
+                iol_rules[oshxtype].port_xform[ctx->idf("D%d", i)] = ctx->idf("TXDATA%d", 2*i);
 
             for (std::string dq : {"DQ", "DQS"}) {
                 IdString tshxtype = ctx->idf("TSHX%d%s", gear, dq.c_str());
