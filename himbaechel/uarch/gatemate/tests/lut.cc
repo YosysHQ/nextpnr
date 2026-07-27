@@ -103,7 +103,7 @@ TEST_F(GateMateTest, remove_lut1_inv)
     ctx->uarch->pack();
     // Expect IBUF -> CPE -> OBUF
     // LUT merged, but CPE for driving OBUF added
-    ASSERT_EQ(ctx->cells.size(), 9LU);
+    ASSERT_EQ(ctx->cells.size(), 8LU);
 }
 
 TEST_F(GateMateTest, remove_lut1_not_driven)
