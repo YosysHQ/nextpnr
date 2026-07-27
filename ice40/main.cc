@@ -79,6 +79,7 @@ po::options_description Ice40CommandHandler::getArchOptions()
     specific.add_options()("promote-logic",
                            "enable promotion of 'logic' globals (in addition to clk/ce/sr by default)");
     specific.add_options()("no-promote-globals", "disable all global promotion");
+    specific.add_options()("no-promote-ce", "disable promotion of 'ce' globals");
     specific.add_options()("opt-timing", "run post-placement timing optimisation pass (experimental)");
     specific.add_options()("tmfuzz", "run path delay estimate fuzzer");
     specific.add_options()("pcf-allow-unconstrained", "don't require PCF to constrain all IO");
@@ -266,6 +267,8 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(dict<std::string, Pr
         ctx->settings[id_promote_logic] = Property::State::S1;
     if (vm.count("no-promote-globals"))
         ctx->settings[id_no_promote_globals] = Property::State::S1;
+    if (vm.count("no-promote-ce"))
+        ctx->settings[id_no_promote_ce] = Property::State::S1;
     if (vm.count("opt-timing"))
         ctx->settings[id_opt_timing] = Property::State::S1;
     if (vm.count("pcf-allow-unconstrained"))

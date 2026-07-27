@@ -774,8 +774,9 @@ static void promote_globals(Context *ctx)
             reset_count.erase(rstnet->name);
             cen_count.erase(rstnet->name);
             logic_count.erase(rstnet->name);
-        } else if (global_cen->second > global_clock->second && prom_cens < cens_available &&
-                   global_cen->second > enable_fanout_thresh) {
+        } else if ((global_cen->second > global_clock->second && prom_cens < cens_available &&
+                    global_cen->second > enable_fanout_thresh) &&
+                   !bool_or_default(ctx->settings, id_no_promote_ce, false)) {
             NetInfo *cennet = ctx->nets[global_cen->first].get();
             insert_global(ctx, cennet, false, true, false, global_cen->second);
             ++prom_globals;
