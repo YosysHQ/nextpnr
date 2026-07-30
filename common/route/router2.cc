@@ -447,10 +447,19 @@ struct Router2
             return;
         WireId src = nets.at(net->udata).src_wire;
         WireId cursor = ad.sink_wire;
-        while (cursor != src &&
-               (net->constant_value == IdString() || ctx->getWireConstantValue(cursor) == net->constant_value)) {
+        while (cursor != src) {
             PipId pip = nd.wires.at(cursor).first;
             unbind_pip_internal(nd, user, cursor);
+            // Constant nets have no global source; each arc's tree roots at a
+            // tap wire carrying the right constant value, bound with a null
+            // pip (see the const_mode midpoint bind in route_arc). The old
+            // condition here tested the const value on every wire from the
+            // sink up - false for all general routing - so the walk stopped
+            // immediately and ripup never unbound anything: rebinding the
+            // same path each iteration leaked one refcount per iteration and
+            // congestion on contested taps could never resolve.
+            if (pip == PipId())
+                break;
             cursor = ctx->getPipSrcWire(pip);
         }
         ad.routed = false;
