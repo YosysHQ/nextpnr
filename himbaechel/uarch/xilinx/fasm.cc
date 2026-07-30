@@ -1691,14 +1691,15 @@ struct FasmBackend
             filter_lookup = Xc7MMCM::filter_lookup_high;
         else
             filter_lookup = Xc7MMCM::filter_lookup_optimized;
-        write_int_vector("FILTREG1_RESERVED[11:0]", filter_lookup[clkfbout_mult - 1], 12);
+        // TABLE holds the loop-filter word; FILTREG1_RESERVED is a constant 0x8 (matches Vivado)
+        write_int_vector("FILTREG1_RESERVED[11:0]", 0x8, 12);
 
         // 0x9900 enables fractional counters
         // only int counters would be 0x1 << 8
         // 0xffff enables everything, I suppose, this is what is used in xap888
         write_int_vector("POWER_REG_POWER_REG_POWER_REG[15:0]", 0xffff, 16);
         write_bit("LOCKREG3_RESERVED[0]");
-        write_int_vector("TABLE[9:0]", 0x3d4, 10);
+        write_int_vector("TABLE[9:0]", filter_lookup[clkfbout_mult - 1], 10);
         pop(2);
     }
     void write_dsp_cell(CellInfo *ci)
