@@ -754,14 +754,19 @@ void XC7Packer::pack_bram()
                 ci->connectPort(p, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
             }
         } else if (ci->type == id_RAMB36E1_RAMB36E1) {
+            // ADDRARDADDRL15/ADDRBWRADDRL15 must be tied high in non-cascaded
+            // modes, but in a depth-cascaded pair (RAM_EXTENSION_A/B = LOWER/
+            // UPPER) they carry the address MSB that selects the half; the
+            // multixform has already wired ADDRARDADDR[15] onto them, and
+            // overriding that with VCC pins both reads and writes to the upper
+            // 32K half. Only tie when not driven.
             for (auto p : {id_ADDRARDADDRL15, id_ADDRBWRADDRL15}) {
                 if (!ci->ports.count(p)) {
                     ci->ports[p].name = p;
                     ci->ports[p].type = PORT_IN;
-                } else {
-                    ci->disconnectPort(p);
                 }
-                ci->connectPort(p, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
+                if (ci->getPort(p) == nullptr)
+                    ci->connectPort(p, ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
             }
             if (int_or_default(ci->params, id_WRITE_WIDTH_A, 0) == 1) {
                 ci->disconnectPort(id_DIADI1);
