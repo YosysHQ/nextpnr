@@ -808,6 +808,50 @@ void XC7Packer::pack_bram()
             }
         }
     }
+
+    // Cluster cascaded RAMB36 pairs: CASCADEOUT->CASCADEIN are dedicated
+    // wires that only reach the vertically adjacent RAMB36 site, so the
+    // pair must be placed together (cf. carry chains). BRAM tiles are 5
+    // grid rows apart within a column.
+    int cascade_pairs = 0;
+    for (auto &cell : ctx->cells) {
+        CellInfo *lower = cell.second.get();
+        if (lower->type != id_RAMB36E1_RAMB36E1)
+            continue;
+        for (auto pn : {ctx->id("CASCADEOUTA"), ctx->id("CASCADEOUTB")}) {
+            NetInfo *cn = lower->getPort(pn);
+            if (cn == nullptr || cn->users.empty())
+                continue;
+            // the only legal load on CASCADEOUT is the corresponding
+            // CASCADEIN of one other RAMB36
+            IdString in_port = (pn == ctx->id("CASCADEOUTA")) ? ctx->id("CASCADEINA") : ctx->id("CASCADEINB");
+            if (cn->users.entries() != 1)
+                log_error("%s.%s (net '%s') must drive exactly one load, found %d\n", ctx->nameOf(lower),
+                          pn.c_str(ctx), ctx->nameOf(cn), int(cn->users.entries()));
+            auto &usr = *cn->users.begin();
+            CellInfo *upper = usr.cell;
+            if (upper == lower || upper->type != id_RAMB36E1_RAMB36E1 || usr.port != in_port)
+                log_error("%s.%s (net '%s') may only drive %s of another RAMB36E1, found %s.%s\n",
+                          ctx->nameOf(lower), pn.c_str(ctx), ctx->nameOf(cn), in_port.c_str(ctx),
+                          ctx->nameOf(upper), usr.port.c_str(ctx));
+            if (upper->cluster == lower->name)
+                continue; // pair already clustered via the other cascade port
+            if (upper->cluster != ClusterId() || lower->cluster != ClusterId())
+                log_error("unsupported RAMB36E1 cascade topology at '%s' -> '%s' (chains deeper than two "
+                          "are not possible on xc7)\n",
+                          ctx->nameOf(lower), ctx->nameOf(upper));
+            lower->cluster = lower->name;
+            upper->cluster = lower->name;
+            lower->constr_children.push_back(upper);
+            upper->constr_x = 0;
+            upper->constr_y = 5;
+            upper->constr_z = 0;
+            upper->constr_abs_z = false;
+            ++cascade_pairs;
+        }
+    }
+    if (cascade_pairs > 0)
+        log_info("    Clustered %d cascaded BRAM pairs\n", cascade_pairs);
 }
 
 void XilinxPacker::pack_inverters()
