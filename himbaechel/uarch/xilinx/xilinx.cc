@@ -440,7 +440,7 @@ void XilinxImpl::configurePlacerStatic(PlacerStaticCfg &cfg)
         comb.cell_area[id_RAMB18E1_RAMB18E1] = StaticRect(1.0f, 3.0f);
         comb.bel_area[id_RAMB18E1_RAMB18E1] = StaticRect(1.0f, 3.0f);
         comb.cell_area[id_RAMB36E1_RAMB36E1] = StaticRect(1.0f, 6.0f);
-        comb.bel_area[id_RAMB36E1_RAMB36E1] = StaticRect(0.0f, 0.0f);
+        comb.bel_area[id_RAMB36E1_RAMB36E1] = StaticRect(1.0f, 6.0f);
         comb.spacer_rect = StaticRect(1.0f, 3.0f);
     }
     {
