@@ -1691,14 +1691,23 @@ struct FasmBackend
             filter_lookup = Xc7MMCM::filter_lookup_high;
         else
             filter_lookup = Xc7MMCM::filter_lookup_optimized;
-        write_int_vector("FILTREG1_RESERVED[11:0]", filter_lookup[clkfbout_mult - 1], 12);
+        // prjxray's TABLE[9:0] IS the 10-bit loop-filter word; putting the
+        // filter word in FILTREG1_RESERVED with a hardcoded TABLE=0x3d4
+        // (as before) yields an MMCM that never locks on hardware.
+        // Values verified against Vivado bitstreams (integer and
+        // CLKOUT0_DIVIDE_F=6.5 fractional testcases) and hardware-validated
+        // on a QMTech Wukong xc7a100t.
+        write_int_vector("FILTREG1_RESERVED[11:0]", 0x8, 12);
 
-        // 0x9900 enables fractional counters
-        // only int counters would be 0x1 << 8
-        // 0xffff enables everything, I suppose, this is what is used in xap888
-        write_int_vector("POWER_REG_POWER_REG_POWER_REG[15:0]", 0xffff, 16);
+        // POWER_REG: 0x1 << 8 for integer-only counters, 0x9900 when
+        // CLKOUT0 or CLKFBOUT use fractional divide.
+        float clkout0_divide_f = float_or_default(ci, "CLKOUT0_DIVIDE_F", 1.0);
+        float clkfbout_mult_f = float_or_default(ci, "CLKFBOUT_MULT_F", 5.000);
+        bool fractional = (clkout0_divide_f != (float)(int)clkout0_divide_f) ||
+                          (clkfbout_mult_f != (float)(int)clkfbout_mult_f);
+        write_int_vector("POWER_REG_POWER_REG_POWER_REG[15:0]", fractional ? 0x9900 : 0x0100, 16);
         write_bit("LOCKREG3_RESERVED[0]");
-        write_int_vector("TABLE[9:0]", 0x3d4, 10);
+        write_int_vector("TABLE[9:0]", filter_lookup[clkfbout_mult - 1], 10);
         pop(2);
     }
     void write_dsp_cell(CellInfo *ci)
