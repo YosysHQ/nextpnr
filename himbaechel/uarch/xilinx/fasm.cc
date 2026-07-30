@@ -1004,7 +1004,11 @@ struct FasmBackend
         else
             inv = uarch->get_site_bel(pad_bel_site, ctx->id("IOB33S.O_ININV"));
 
-        if (inv != BelId() && ctx->getBoundBelCell(inv) != nullptr)
+        // TMDS_33 outputs are driven by the Y0 current-mode driver alone
+        // (TMDS_33.OUT + DRIVE.I_FIXED, Y1 IN_ONLY); Vivado does not set
+        // OUT_DIFF for them and setting it disables the driver stage
+        // (hardware-verified: monitor reports "no transmitter present").
+        if (inv != BelId() && ctx->getBoundBelCell(inv) != nullptr && !is_tmds33)
             write_bit("OUT_DIFF");
 
         if (is_stepdown && !is_sing)
