@@ -1452,6 +1452,16 @@ struct FasmBackend
             for (const char *port : {"READ_WIDTH_A", "READ_WIDTH_B", "WRITE_WIDTH_A", "WRITE_WIDTH_B"})
                 if (int_or_default(ci->params, ctx->id(port), 0) == 1)
                     write_bit(std::string("BRAM36_") + port + "_1");
+            // Depth-cascaded pairs (64K x 1): the LOWER cell needs its
+            // RAM_EXTENSION bit set; UPPER shares the NONE encoding (bit
+            // clear), so only LOWER is written. Was never emitted, which
+            // breaks true width-1 cascaded memories.
+            for (const char *port : {"A", "B"}) {
+                std::string ext =
+                        str_or_default(ci->params, ctx->id(std::string("RAM_EXTENSION_") + port), "NONE");
+                if (ext == "LOWER")
+                    write_bit(std::string("RAM_EXTENSION_") + port + "_LOWER");
+            }
             pop();
         }
         pop();
