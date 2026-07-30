@@ -808,6 +808,42 @@ void XC7Packer::pack_bram()
             }
         }
     }
+
+    // Cluster cascaded RAMB36 pairs: CASCADEOUT->CASCADEIN are dedicated
+    // wires that only reach the vertically adjacent RAMB36 site, so the
+    // pair must be placed together (cf. carry chains). BRAM tiles are 5
+    // grid rows apart within a column.
+    int cascade_pairs = 0;
+    for (auto &cell : ctx->cells) {
+        CellInfo *lower = cell.second.get();
+        if (lower->type != id_RAMB36E1_RAMB36E1)
+            continue;
+        for (auto pn : {ctx->id("CASCADEOUTA"), ctx->id("CASCADEOUTB")}) {
+            NetInfo *cn = lower->getPort(pn);
+            if (cn == nullptr)
+                continue;
+            for (auto &usr : cn->users) {
+                CellInfo *upper = usr.cell;
+                if (upper == lower || upper->type != id_RAMB36E1_RAMB36E1)
+                    continue;
+                if (upper->cluster != ClusterId())
+                    continue; // already clustered (e.g. via the A cascade)
+                if (lower->cluster == ClusterId())
+                    lower->cluster = lower->name;
+                else if (lower->cluster != lower->name)
+                    continue; // lower is a child of another cluster; unsupported
+                upper->cluster = lower->name;
+                lower->constr_children.push_back(upper);
+                upper->constr_x = 0;
+                upper->constr_y = 5;
+                upper->constr_z = 0;
+                upper->constr_abs_z = false;
+                ++cascade_pairs;
+            }
+        }
+    }
+    if (cascade_pairs > 0)
+        log_info("    Clustered %d cascaded BRAM pairs\n", cascade_pairs);
 }
 
 void XilinxPacker::pack_inverters()
