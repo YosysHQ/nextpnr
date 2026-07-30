@@ -1442,6 +1442,18 @@ struct FasmBackend
             write_bit("CASCOUT_ARD_ACTIVE", !used_rdaddrcasc.empty());
             write_bit("CASCOUT_BWR_ACTIVE", !used_wraddrcasc.empty());
         }
+        // A RAMB36E1 with a width-1 port needs the RAMB36-level BRAM36_*_WIDTH_*_1
+        // feature in addition to the per-half RAMB18_Yx width bits. Without it the
+        // two 16K halves (which interleave even/odd bit addresses in true 32K x 1
+        // mode) both respond at addr>>1: every write hits bit pairs 2k/2k+1 and
+        // the address LSB is ignored.
+        if (half == 0 && ci != nullptr && ci->type == id_RAMB36E1_RAMB36E1) {
+            push("RAMB36");
+            for (const char *port : {"READ_WIDTH_A", "READ_WIDTH_B", "WRITE_WIDTH_A", "WRITE_WIDTH_B"})
+                if (int_or_default(ci->params, ctx->id(port), 0) == 1)
+                    write_bit(std::string("BRAM36_") + port + "_1");
+            pop();
+        }
         pop();
     }
 
