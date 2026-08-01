@@ -448,7 +448,7 @@ struct Router2
         WireId src = nets.at(net->udata).src_wire;
         WireId cursor = ad.sink_wire;
         while (cursor != src &&
-               (net->constant_value == IdString() || ctx->getWireConstantValue(cursor) == net->constant_value)) {
+               (net->constant_value == IdString() || ctx->getWireConstantValue(cursor) != net->constant_value)) {
             PipId pip = nd.wires.at(cursor).first;
             unbind_pip_internal(nd, user, cursor);
             cursor = ctx->getPipSrcWire(pip);
