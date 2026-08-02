@@ -123,7 +123,7 @@ struct ExampleArch : ViaductArch
 
 ### Adding a new uarch
 
-The reference above provides an overview of what a Viaduct uarch must implement, it's also recommended to look at the `generic` and `okami` examples in `generic/viaduct`. New uarches should have their source contained in subfolders of `generic/viaduct`; and added to `VIADUCT_UARCHES` list in `generic/family.cmake`.
+The reference above provides an overview of what a Viaduct uarch must implement, it's also recommended to look at the `generic` and `fabulous` examples in `generic/viaduct`. New uarches should have their source contained in subfolders of `generic/viaduct`; and added to `VIADUCT_UARCHES` list in `generic/family.cmake`.
 
 Once you've implemented `ViaductAPI` and created the `ViaductArch` singleton, you should be able to run nextpnr with the arch by running `nextpnr-generic --uarch <name>`.
 
