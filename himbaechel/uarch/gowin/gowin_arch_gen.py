@@ -512,6 +512,15 @@ def uturn(db: chipdb, x: int, y: int, wire: str):
         wire = f'{direction}{num}{segment}'
     return (x, y, wire)
 
+def create_reuse_wire(tt: TileType, name: str, wire_type: str="", const_value: str=""):
+    """ Whenever possible, use an existing wire. This situation arises when
+    creating ports for primitives that share a wire (for example, for RESET)
+    when located in the same tile.  """
+    if not tt.has_wire(name):
+        tt.create_wire(name, wire_type, const_value)
+    elif wire_type:
+        tt.set_wire_type(name, wire_type)
+
 def create_nodes(chip: Chip, db: chipdb):
     # : (x, y)
     dirs = { 'N': (0, -1), 'S': (0, 1), 'W': (-1, 0), 'E': (1, 0) }
@@ -576,10 +585,7 @@ def create_nodes(chip: Chip, db: chipdb):
             min_wire_name_len = len(next(iter(node))[2])
         for y, x, wire in node:
             if wire_type:
-                if not chip.tile_type_at(x, y).has_wire(wire):
-                    chip.tile_type_at(x, y).create_wire(wire, wire_type)
-                else:
-                    chip.tile_type_at(x, y).set_wire_type(wire, wire_type)
+                create_reuse_wire(chip.tile_type_at(x, y), wire, wire_type)
             new_node = NodeWire(x, y, wire)
             gl_nodes = global_nodes.setdefault(node_name, [])
             if new_node not in gl_nodes:
@@ -636,11 +642,9 @@ def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
         return
     # hclk wires
     for dst, srcs in db.hclk_pips[y, x].items():
-        if not tt.has_wire(dst):
-            tt.create_wire(dst, "HCLK")
+        create_reuse_wire(tt, dst, "HCLK")
         for src in srcs.keys():
-            if not tt.has_wire(src):
-                tt.create_wire(src, "HCLK")
+            create_reuse_wire(tt, src, "HCLK")
             tt.create_pip(src, dst, get_tm_class(db, "X01")) # XXX
 
     hclk_bel_zs = {
@@ -703,8 +707,7 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
             osc_type = desc['type']
             portmap = db[y, x].bels[osc_type].portmap
             for port, wire in portmap.items():
-                if not tt.has_wire(wire):
-                    tt.create_wire(wire, port)
+                create_reuse_wire(tt, wire, port)
             bel = tt.create_bel(osc_type, osc_type, z = OSC_Z)
             for port, wire in portmap.items():
                 if 'OUT' in port:
@@ -713,21 +716,18 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                     tt.add_bel_pin(bel, port, wire, PinType.INPUT)
         elif func == 'gsr':
             wire = desc['wire']
-            if not tt.has_wire(wire):
-                tt.create_wire(wire)
+            create_reuse_wire(tt, wire)
             bel = tt.create_bel("GSR", "GSR", z = GSR_Z)
             tt.add_bel_pin(bel, "GSRI", wire, PinType.INPUT)
         elif func == 'bandgap':
             wire = desc['wire']
-            if not tt.has_wire(wire):
-                tt.create_wire(wire)
+            create_reuse_wire(tt, wire)
             bel = tt.create_bel("BANDGAP", "BANDGAP", z = BANDGAP_Z)
             tt.add_bel_pin(bel, "BGEN", wire, PinType.INPUT)
         elif func == 'dhcen':
             for idx, dhcen in enumerate(desc):
                 wire = dhcen['ce']
-                if not tt.has_wire(wire):
-                    tt.create_wire(wire)
+                create_reuse_wire(tt, wire)
                 bel_z = DHCEN_Z + idx
                 bel = tt.create_bel(f"DHCEN{idx}", "DHCEN", z = bel_z)
                 tt.add_bel_pin(bel, "CE", wire, PinType.INPUT)
@@ -738,12 +738,10 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                 bel_z = DLLDLY_Z + idx
                 bel = tt.create_bel(f"DLLDLY{idx}", "DLLDLY", z = bel_z)
                 for pin, wire in dlldly['in_wires'].items():
-                    if not tt.has_wire(wire):
-                        tt.create_wire(wire)
+                    create_reuse_wire(tt, wire)
                     tt.add_bel_pin(bel, pin, wire, PinType.INPUT)
                 for pin, wire in dlldly['out_wires'].items():
-                    if not tt.has_wire(wire):
-                        tt.create_wire(wire)
+                    create_reuse_wire(tt, wire)
                     tt.add_bel_pin(bel, pin, wire, PinType.OUTPUT)
                 io_dlldly_bels[f"{dlldly['io_loc']}/{dlldly['io_bel']}"] = f"X{x}Y{y}/DLLDLY{idx}"
 
@@ -753,13 +751,11 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                 bel = tt.create_bel(f"DQCE{idx}", "DQCE", bel_z)
                 wire = desc[idx]['clkin']
                 dqce_bels[wire] = (x, y, bel_z)
-                if not tt.has_wire(wire):
-                    tt.create_wire(wire, "GLOBAL_CLK")
+                create_reuse_wire(tt, wire, "GLOBAL_CLK")
                 tt.add_bel_pin(bel, "CLKIN", wire, PinType.INPUT)
                 tt.add_bel_pin(bel, "CLKOUT", wire, PinType.OUTPUT)
                 wire = desc[idx]['ce']
-                if not tt.has_wire(wire):
-                    tt.create_wire(wire)
+                create_reuse_wire(tt, wire)
                 tt.add_bel_pin(bel, "CE", wire, PinType.INPUT)
         elif func == 'dcs':
             for idx in range(2):
@@ -771,25 +767,21 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                 bel_z = DCS_Z + idx
                 bel = tt.create_bel(f"DCS{idx}", "DCS", bel_z)
                 wire = desc[idx]['clkout']
-                if not tt.has_wire(wire):
-                    tt.create_wire(wire)
+                create_reuse_wire(tt, wire)
                 tt.add_bel_pin(bel, "CLKOUT", wire, PinType.OUTPUT)
                 clkout_wire = wire
                 for clk_idx, wire in enumerate(desc[idx]['clk']):
-                    if not tt.has_wire(wire):
-                        tt.create_wire(wire, "GLOBAL_CLK")
+                    create_reuse_wire(tt, wire, "GLOBAL_CLK")
                     tt.add_bel_pin(bel, f"{dcs_prefix}{clk_idx}", wire, PinType.INPUT)
                     # This is a fake PIP that allows routing “through” this
                     # primitive from the CLK input to the CLKOUT output.
                     tt.create_pip(wire, clkout_wire)
                     dcs_bels[wire] = (x, y, bel_z)
                 for i, wire in enumerate(desc[idx]['clksel']):
-                    if not tt.has_wire(wire):
-                        tt.create_wire(wire)
+                    create_reuse_wire(tt, wire)
                     tt.add_bel_pin(bel, f"CLKSEL{i}", wire, PinType.INPUT)
                 wire = desc[idx]['selforce']
-                if not tt.has_wire(wire):
-                    tt.create_wire(wire)
+                create_reuse_wire(tt, wire)
                 tt.add_bel_pin(bel, "SELFORCE", wire, PinType.INPUT)
         elif func == 'io16':
             role = desc['role']
@@ -804,11 +796,10 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                 for port, wire in portmap.items():
                     if port == 'FCLK': # XXX compatibility
                         wire = 'FCLKA'
-                    if not tt.has_wire(wire):
-                        if port in {'CLK', 'PCLK'}:
-                            tt.create_wire(wire, "TILE_CLK")
-                        else:
-                            tt.create_wire(wire, "IOL_PORT")
+                    if port in {'CLK', 'PCLK'}:
+                        create_reuse_wire(tt, wire, "TILE_CLK")
+                    else:
+                        create_reuse_wire(tt, wire)
                     if 'OUT' in port:
                         tt.add_bel_pin(bel, port, wire, PinType.OUTPUT)
                     else:
@@ -820,25 +811,21 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
         elif func == 'mipi_ibuf':
             bel = tt.create_bel('MIPI_IBUF', 'MIPI_IBUF', MIPIIBUF_Z)
             wire = desc['HSREN']
-            if not tt.has_wire(wire):
-                tt.create_wire(wire)
+            create_reuse_wire(tt, wire)
             tt.add_bel_pin(bel, 'HSREN', wire, PinType.INPUT)
             wire = 'MIPIOL'
-            if not tt.has_wire(wire):
-                tt.create_wire(wire)
+            create_reuse_wire(tt, wire)
             tt.add_bel_pin(bel, 'OL', wire, PinType.OUTPUT)
             for i in range(2):
                 wire = f'MIPIEN{i}'
-                if not tt.has_wire(wire):
-                    tt.create_wire(wire)
+                create_reuse_wire(tt, wire)
                 tt.add_bel_pin(bel, f'MIPIEN{i}', wire, PinType.INPUT)
         elif func == 'buf':
             for buf_type, wires in desc.items():
                 for i, wire in enumerate(wires):
-                    if not tt.has_wire(wire):
-                        tt.create_wire(wire, "TILE_CLK")
+                    create_reuse_wire(tt, wire, "TILE_CLK")
                     wire_out = f'{buf_type}{i}_O'
-                    tt.create_wire(wire_out, "BUFG_O")
+                    create_reuse_wire(tt, wire_out, "BUFG_O")
                     # XXX make Z from buf_type
                     bel = tt.create_bel(f'{buf_type}{i}', buf_type, z = BUFG_Z + i)
                     bel.flags = BEL_FLAG_GLOBAL
@@ -848,86 +835,81 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                 bel = tt.create_bel("USERFLASH", desc['type'], USERFLASH_Z)
                 portmap = desc['ins']
                 for port, wire in portmap.items():
-                    if not tt.has_wire(wire):
-                        tt.create_wire(wire, "FLASH_IN")
+                    create_reuse_wire(tt, wire, "FLASH_IN")
                     tt.add_bel_pin(bel, port, wire, PinType.INPUT)
                 portmap = desc['outs']
                 for port, wire in portmap.items():
-                    if not tt.has_wire(wire):
-                        tt.create_wire(wire, "FLASH_OUT")
+                    create_reuse_wire(tt, wire, "FLASH_OUT")
                     tt.add_bel_pin(bel, port, wire, PinType.OUTPUT)
         elif func == 'emcu':
                 bel = tt.create_bel("EMCU", "EMCU", EMCU_Z)
                 portmap = desc['ins']
                 for port, wire in portmap.items():
-                    if not tt.has_wire(wire):
-                        tt.create_wire(wire, "EMCU_IN")
+                    create_reuse_wire(tt, wire, "EMCU_IN")
                     tt.add_bel_pin(bel, port, wire, PinType.INPUT)
                 portmap = desc['outs']
                 for port, wire in portmap.items():
-                    if not tt.has_wire(wire):
-                        tt.create_wire(wire, "EMCU_OUT")
+                    create_reuse_wire(tt, wire, "EMCU_OUT")
                     tt.add_bel_pin(bel, port, wire, PinType.OUTPUT)
         elif func == 'pincfg':
                 bel = tt.create_bel("PINCFG", "PINCFG", PINCFG_Z)
                 portmap = desc['ins']
                 for port, wire in portmap.items():
-                    if not tt.has_wire(wire):
-                        tt.create_wire(wire, "PINCFG_IN")
+                    create_reuse_wire(tt, wire, "PINCFG_IN")
                     tt.add_bel_pin(bel, port, wire, PinType.INPUT)
         elif func == 'pll':
                 pll = tt.create_bel("PLL", "PLLA", z = PLL_Z)
                 pll.flags = BEL_FLAG_GLOBAL
                 for pin, wire in desc['outputs'].items():
-                    tt.create_wire(wire, "PLL_O")
+                    create_reuse_wire(tt, wire, "PLL_O")
                     tt.add_bel_pin(pll, pin, wire, PinType.OUTPUT)
                 for pin, wire in desc['inputs'].items():
-                    tt.create_wire(wire, "PLL_I")
+                    create_reuse_wire(tt, wire, "PLL_I")
                     tt.add_bel_pin(pll, pin, wire, PinType.INPUT)
         elif func == 'adc':
                 pll = tt.create_bel("ADC", "ADC", z = ADC_Z)
                 for pin, wire in desc['outputs'].items():
-                    tt.create_wire(wire, "ADC_O")
+                    create_reuse_wire(tt, wire, "ADC_O")
                     tt.add_bel_pin(pll, pin, wire, PinType.OUTPUT)
                 for pin, wire in desc['inputs'].items():
                     if pin == 'CLK' or pin == 'MDRP_CLK':
-                        tt.create_wire(wire, "TILE_CLK")
+                        create_reuse_wire(tt, wire, "TILE_CLK")
                     else:
-                        tt.create_wire(wire, "ADC_I")
+                        create_reuse_wire(tt, wire, "ADC_I")
                     tt.add_bel_pin(pll, pin, wire, PinType.INPUT)
         elif func == 'gnd_source':
                 # GND is the logic low level generator
-                tt.create_wire('VSS', 'GND', const_value = 'VSS')
+                create_reuse_wire(tt, 'VSS', 'GND', const_value = 'VSS')
                 gnd = tt.create_bel('GND', 'GND', z = GND_Z)
                 tt.add_bel_pin(gnd, "G", "VSS", PinType.OUTPUT)
         elif func == 'vcc_source':
                 # VCC is the logic high level generator
-                tt.create_wire('VCC', 'VCC', const_value = 'VCC')
+                create_reuse_wire(tt, 'VCC', 'VCC', const_value = 'VCC')
                 gnd = tt.create_bel('VCC', 'VCC', z = VCC_Z)
                 tt.add_bel_pin(gnd, "V", "VCC", PinType.OUTPUT)
         elif func == 'clkdiv2':
             for i, pins in desc['bels'].items():
                 clkdiv2 = tt.create_bel(f"CLKDIV2_{i}", "CLKDIV2", z = CLKDIV2_0_Z + i)
                 for pin, wire in pins['outputs'].items():
-                    tt.create_wire(wire, "HCLK")
+                    create_reuse_wire(tt, wire, "HCLK")
                     tt.add_bel_pin(clkdiv2, pin, wire, PinType.OUTPUT)
                 for pin, wire in pins['inputs'].items():
                     if pin == 'RESETN':
-                        tt.create_wire(wire, "")
+                        create_reuse_wire(tt, wire, "")
                     else:
-                        tt.create_wire(wire, "HCLK")
+                        create_reuse_wire(tt, wire, "HCLK")
                     tt.add_bel_pin(clkdiv2, pin, wire, PinType.INPUT)
         elif func == 'clkdiv':
             for i, pins in desc['bels'].items():
                 clkdiv = tt.create_bel(f"CLKDIV_{i}", "CLKDIV", z = CLKDIV_0_Z + i)
                 for pin, wire in pins['outputs'].items():
-                    tt.create_wire(wire, "HCLK")
+                    create_reuse_wire(tt, wire, "HCLK")
                     tt.add_bel_pin(clkdiv, pin, wire, PinType.OUTPUT)
                 for pin, wire in pins['inputs'].items():
                     if pin in {'RESETN', 'CALIB'}:
-                        tt.create_wire(wire, "")
+                        create_reuse_wire(tt, wire, "")
                     else:
-                        tt.create_wire(wire, "HCLK")
+                        create_reuse_wire(tt, wire, "HCLK")
                     tt.add_bel_pin(clkdiv, pin, wire, PinType.INPUT)
 
 def set_wire_flags(tt: TileType, tdesc: TypeDesc):
@@ -1033,9 +1015,9 @@ def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc:
             continue
         # wires
         portmap = db[y, x].bels[name].portmap
-        tt.create_wire(portmap['I'], "IO_I")
-        tt.create_wire(portmap['O'], "IO_O")
-        tt.create_wire(portmap['OE'], "IO_OE")
+        create_reuse_wire(tt, portmap['I'], "IO_I")
+        create_reuse_wire(tt, portmap['O'], "IO_O")
+        create_reuse_wire(tt, portmap['OE'], "IO_OE")
         # bels
         io = tt.create_bel(name, "IOB", z = IOBA_Z + i)
         if simple_io and chip.name in {'GW1N-1'}:
@@ -1044,14 +1026,13 @@ def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc:
         tt.add_bel_pin(io, "OEN", portmap['OE'], PinType.INPUT)
         tt.add_bel_pin(io, "O", portmap['O'], PinType.OUTPUT)
         if 'ADCEN' in portmap:
-            tt.create_wire(portmap['ADCEN'], "IO_ADCEN")
+            create_reuse_wire(tt, portmap['ADCEN'], "IO_ADCEN")
             tt.add_bel_pin(io, "ADCEN", portmap['ADCEN'], PinType.INPUT)
 
         # bottom io
         if 'BOTTOM_IO_PORT_A' in portmap and portmap['BOTTOM_IO_PORT_A']:
-            if not tt.has_wire(portmap['BOTTOM_IO_PORT_A']):
-                tt.create_wire(portmap['BOTTOM_IO_PORT_A'], "IO_I")
-                tt.create_wire(portmap['BOTTOM_IO_PORT_B'], "IO_I")
+            create_reuse_wire(tt, portmap['BOTTOM_IO_PORT_A'], "IO_I")
+            create_reuse_wire(tt, portmap['BOTTOM_IO_PORT_B'], "IO_I")
             tt.add_bel_pin(io, "BOTTOM_IO_PORT_A", portmap['BOTTOM_IO_PORT_A'], PinType.INPUT)
             tt.add_bel_pin(io, "BOTTOM_IO_PORT_B", portmap['BOTTOM_IO_PORT_B'], PinType.INPUT)
     # create IOLOGIC bels if any
@@ -1063,11 +1044,10 @@ def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc:
             for port, wire in db[y, x].bels[name].portmap.items():
                 if port == 'FCLK': # XXX compatibility
                     wire = f'FCLK{name[-1]}'
-                if not tt.has_wire(wire):
-                    if port in {'CLK', 'PCLK', 'MCLK'}:
-                        tt.create_wire(wire, "TILE_CLK")
-                    else:
-                        tt.create_wire(wire, "IOL_PORT")
+                if port in {'CLK', 'PCLK', 'MCLK'}:
+                    create_reuse_wire(tt, wire, "TILE_CLK")
+                else:
+                    create_reuse_wire(tt, wire, "")
                 if port in {'Q', 'Q0', 'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8', 'Q9', 'DF', 'LAG', 'LEAD'}:
                     tt.add_bel_pin(iol, port, wire, PinType.OUTPUT)
                 else:
@@ -1088,28 +1068,28 @@ def create_logic_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tde
     # setup LUT wires
     for i in range(8):
         for inp_name in lut_inputs:
-            tt.create_wire(f"{inp_name}{i}", "LUT_IN")
-        tt.create_wire(f"F{i}", "LUT_OUT")
+            create_reuse_wire(tt, f"{inp_name}{i}", "LUT_IN")
+        create_reuse_wire(tt, f"F{i}", "LUT_OUT")
         # experimental. the wire is false - it is assumed that DFF is always
         # connected to the LUT's output F{i}, but we can place primitives
         # arbitrarily and create a pass-through LUT afterwards.
         # just out of curiosity
-        tt.create_wire(f"XD{i}", "FF_INPUT")
-        tt.create_wire(f"Q{i}", "FF_OUT")
+        create_reuse_wire(tt, f"XD{i}", "FF_INPUT")
+        create_reuse_wire(tt, f"Q{i}", "FF_OUT")
     # setup DFF wires
     for j in range(3):
-        tt.create_wire(f"CLK{j}", "TILE_CLK")
-        tt.create_wire(f"LSR{j}", "TILE_LSR")
-        tt.create_wire(f"CE{j}",  "TILE_CE")
+        create_reuse_wire(tt, f"CLK{j}", "TILE_CLK")
+        create_reuse_wire(tt, f"LSR{j}", "TILE_LSR")
+        create_reuse_wire(tt, f"CE{j}",  "TILE_CE")
     # setup MUX2 wires
     for j in range(8):
-        tt.create_wire(f"OF{j}", "MUX_OUT")
-        tt.create_wire(f"SEL{j}", "MUX_SEL")
-    tt.create_wire("OF30", "MUX_OUT")
+        create_reuse_wire(tt, f"OF{j}", "MUX_OUT")
+        create_reuse_wire(tt, f"SEL{j}", "MUX_SEL")
+    create_reuse_wire(tt, "OF30", "MUX_OUT")
     # setup ALU wires
     for j in range(6):
-        tt.create_wire(f"CIN{j}", "ALU_CIN")
-        tt.create_wire(f"COUT{j}", "ALU_COUT")
+        create_reuse_wire(tt, f"CIN{j}", "ALU_CIN")
+        create_reuse_wire(tt, f"COUT{j}", "ALU_COUT")
 
     # create logic cells
     for i in range(8):
@@ -1562,10 +1542,10 @@ def create_pll_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc
     pll.flags = BEL_FLAG_GLOBAL
     for pin, wire in portmap.items():
         if pin in pll_outputs:
-            tt.create_wire(wire, "PLL_O")
+            create_reuse_wire(tt, wire, "PLL_O")
             tt.add_bel_pin(pll, pin, wire, PinType.OUTPUT)
         else:
-            tt.create_wire(wire, "PLL_I")
+            create_reuse_wire(tt, wire, "PLL_I")
             tt.add_bel_pin(pll, pin, wire, PinType.INPUT)
     tdesc.tiletype = tiletype
     return tt
