@@ -142,7 +142,7 @@ template <typename R> struct BaseArch : ArchAPI<R>
     // Default, trivial, implementations of Arch API functions for arches that don't need complex behaviours
 
     // Basic config
-    virtual IdString archId() const override { return this->id(NPNR_STRINGIFY(ARCHNAME)); }
+    virtual IdString archId() const override { return this->id(NPNR_STRINGIFY_MACRO(ARCHNAME)); }
     virtual IdString archArgsToId(typename R::ArchArgsT /*args*/) const override { return IdString(); }
     virtual int getTilePipDimZ(int /*x*/, int /*y*/) const override { return 1; }
     virtual char getNameDelimiter() const override { return ' '; }
