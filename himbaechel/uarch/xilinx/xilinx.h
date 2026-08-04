@@ -144,6 +144,8 @@ struct XilinxImpl : HimbaechelAPI
     void fixup_routing();
     void route_clocks();
 
+    virtual std::string getDefaultRouter() const override { return "router2"; };
+
     // Misc utility functions
     const XlnxTileInstExtraDataPOD *tile_extra_data(int tile) const;
     IdString bel_tile_type(BelId bel) const;
