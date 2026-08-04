@@ -113,7 +113,7 @@ bool boolstr_or_default(const dict<KeyType, Property> &ct, const KeyType &key, b
     if (found == ct.end())
         return def;
     if (!found->second.is_string)
-        bool(found->second.as_int64());
+        return bool(found->second.as_int64());
     auto str = found->second.as_string();
     if (str == "0" || boost::iequals(str, "false"))
         return false;

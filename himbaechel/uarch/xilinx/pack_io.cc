@@ -335,7 +335,6 @@ void XC7Packer::pack_io()
     }
     flush_cells();
     pool<BelId> used_io_bels;
-    int unconstr_io_count = 0;
     for (auto &iob : pad_and_buf) {
         CellInfo *pad = iob.first;
         // Process location constraints
@@ -353,8 +352,6 @@ void XC7Packer::pack_io()
         }
         if (pad->attrs.count(id_BEL)) {
             used_io_bels.insert(ctx->getBelByNameStr(pad->attrs.at(id_BEL).as_string()));
-        } else {
-            ++unconstr_io_count;
         }
     }
     // Constrain unconstrained IO
@@ -362,7 +359,6 @@ void XC7Packer::pack_io()
         CellInfo *pad = iob.first;
         if (!pad->attrs.count(id_BEL)) {
             log_error("FIXME: unconstrained IO not supported (pad %s)\n", ctx->nameOf(pad));
-            ;
         }
     }
     // Decompose macro IO primitives to smaller primitives that map logically to the actual IO Bels

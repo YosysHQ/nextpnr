@@ -275,7 +275,7 @@ void XC7Packer::pack_carries()
             NetInfo *c4_di = c4->getPort(ctx->idf("DI[%d]", z));
             // Keep track of the total LUT input count; cannot exceed five or the LUTs cannot be packed together
             pool<IdString> unique_lut_inputs;
-            int s_inputs = 0, d_inputs = 0;
+            int s_inputs = 0;
             // Check that S and DI are validy and unqiuely driven by LUTs
             // FIXME: in multiple fanout cases, cell duplication will probably be cheaper
             // than feed-throughs
@@ -301,7 +301,6 @@ void XC7Packer::pack_carries()
                         NetInfo *ix = di_lut->getPort(ctx->idf("I%d", j));
                         if (ix) {
                             unique_lut_inputs.insert(ix->name);
-                            d_inputs++;
                         }
                     }
                 }
