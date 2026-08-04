@@ -20,9 +20,11 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include <boost/algorithm/string/predicate.hpp>
 #include <map>
 #include <set>
 #include <string>
+
 #include "nextpnr.h"
 
 #include "log.h"
@@ -112,13 +114,13 @@ bool boolstr_or_default(const dict<KeyType, Property> &ct, const KeyType &key, b
         return def;
     if (!found->second.is_string)
         bool(found->second.as_int64());
-    const char *str = found->second.as_string().c_str();
-    if (!strcmp(str, "0") || !strcasecmp(str, "false"))
+    auto str = found->second.as_string();
+    if (str == "0" || boost::iequals(str, "false"))
         return false;
-    else if (!strcmp(str, "1") || !strcasecmp(str, "true"))
+    if (str == "1" || boost::iequals(str, "true"))
         return true;
     else
-        log_error("Expecting bool-compatible value but got '%s'.\n", found->second.as_string().c_str());
+        log_error("Expecting bool-compatible value but got '%s'.\n", str.c_str());
     return false;
 };
 
