@@ -1724,7 +1724,7 @@ struct FasmBackend
         // but in real life, Vivado sets AREG_0 is 0,
         // no bit is 1, and AREG_2 is 2
         auto areg = int_or_default(ci->params, ctx->id("AREG"), 1);
-        if (areg == 0 or areg == 2)
+        if (areg == 0 || areg == 2)
             write_bit("AREG_" + std::to_string(areg));
 
         auto ainput = str_or_default(ci->params, ctx->id("A_INPUT"), "DIRECT");
@@ -1735,7 +1735,7 @@ struct FasmBackend
         // but in real life, Vivado sets AREG_0 is 0,
         // no bit is 1, and AREG_2 is 2
         auto breg = int_or_default(ci->params, ctx->id("BREG"), 1);
-        if (breg == 0 or breg == 2)
+        if (breg == 0 || breg == 2)
             write_bit("BREG_" + std::to_string(breg));
 
         auto binput = str_or_default(ci->params, ctx->id("B_INPUT"), "DIRECT");
