@@ -29,7 +29,7 @@ const QString PythonTab::MULTILINE_PROMPT = "... ";
 
 PythonTab::PythonTab(QWidget *parent) : QWidget(parent), initialized(false)
 {
-	const QFont f = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    const QFont f = QFontDatabase::systemFont(QFontDatabase::FixedFont);
     // Add text area for Python output and input line
     console = new PythonConsole();
     console->setMinimumHeight(100);

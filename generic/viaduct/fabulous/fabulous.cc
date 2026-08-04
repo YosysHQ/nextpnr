@@ -30,9 +30,9 @@
 #define VIADUCT_CONSTIDS "viaduct/fabulous/constids.inc"
 #include "viaduct_constids.h"
 
+#include "bel_timing.h"
 #include "fab_cfg.h"
 #include "fab_defs.h"
-#include "bel_timing.h"
 #include "fasm.h"
 #include "pack.h"
 #include "pcf.h"

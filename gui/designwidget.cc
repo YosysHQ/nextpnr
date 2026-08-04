@@ -736,8 +736,7 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
         addProperty(topItem, QtType::QString, "Conflicting Net", ctx->nameOf(ctx->getConflictingPipNet(pip)),
                     ElementType::NET);
         addProperty(topItem, QtType::QString, "Src Wire", ctx->nameOfWire(ctx->getPipSrcWire(pip)), ElementType::WIRE);
-        addProperty(topItem, QtType::QString, "Dest Wire", ctx->nameOfWire(ctx->getPipDstWire(pip)),
-                    ElementType::WIRE);
+        addProperty(topItem, QtType::QString, "Dest Wire", ctx->nameOfWire(ctx->getPipDstWire(pip)), ElementType::WIRE);
 
         QtProperty *attrsItem = addSubGroup(topItem, "Attributes");
         for (auto &item : ctx->getPipAttrs(pip)) {
