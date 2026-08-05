@@ -130,26 +130,16 @@ std::string proc_self_dirname()
 #elif defined(_WIN32)
 std::string proc_self_dirname()
 {
-    int i = 0;
-#ifdef _WIN32
-    char longpath[MAX_PATH + 1];
-    char shortpath[MAX_PATH + 1];
-#else
-    WCHAR longpath[MAX_PATH + 1];
-    TCHAR shortpath[MAX_PATH + 1];
-#endif
-    if (!GetModuleFileNameA(0, longpath, MAX_PATH + 1))
-        log_error("GetModuleFileNameA() failed.\n");
-    if (!GetShortPathNameA(longpath, shortpath, MAX_PATH + 1))
-        log_error("GetShortPathNameA() failed.\n");
-    while (shortpath[i] != 0)
-        i++;
-    while (i > 0 && shortpath[i - 1] != '/' && shortpath[i - 1] != '\\')
-        shortpath[--i] = 0;
-    std::string path;
-    for (i = 0; shortpath[i]; i++)
-        path += char(shortpath[i]);
-    return path;
+    std::wstring wbinpath(4096, L'\0');
+    if (!GetModuleFileNameW(0, &wbinpath[0], wbinpath.size()))
+        fprintf(stderr, "GetModuleFileNameW() failed.\n");
+    wbinpath.resize(wbinpath.rfind(L'\\') + 1); // remove filename
+    std::string ubinpath;
+    ubinpath.resize(WideCharToMultiByte(CP_UTF8, 0, wbinpath.data(), wbinpath.size(), NULL, 0, NULL, NULL));
+    if (WideCharToMultiByte(CP_UTF8, 0, wbinpath.data(), wbinpath.size(), &ubinpath[0], ubinpath.size(), NULL, NULL) == 0)
+        fprintf(stderr, "WideCharToMultiByte() failed.\n");
+    return ubinpath;
+
 }
 #elif defined(EMSCRIPTEN) || defined(__wasm)
 std::string proc_self_dirname() { return "/"; }
@@ -242,6 +232,20 @@ bool CommandHandler::parseOptions()
 {
     options.add(getGeneralOptions()).add(getArchOptions());
     try {
+#ifdef _WIN32
+        int argc = 0;
+        LPWSTR *wargv = CommandLineToArgvW(GetCommandLineW(), &argc);
+        std::vector<char*> uargs;
+        for (int i = 0; i < argc; i++) {
+            int usize = WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, NULL, 0, NULL, NULL);
+            char *uarg = (char *)malloc(usize);
+            WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, uarg, usize, NULL, NULL);
+            uargs.push_back(uarg);
+        }
+        uargs.push_back(NULL);
+        LocalFree(wargv);
+        char **argv = uargs.data();
+#endif
         po::parsed_options parsed =
                 po::command_line_parser(argc, argv)
                         .style(po::command_line_style::default_style ^ po::command_line_style::allow_guessing)
@@ -718,6 +722,17 @@ void CommandHandler::printFooter()
 
 int CommandHandler::exec()
 {
+#ifdef _WIN32
+    // Configure ASCII functions like fopen() to use UTF-8 filenames.
+    // See https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/setlocale-wsetlocale?view=msvc-170#utf-8-support
+#ifdef _UCRT
+    setlocale(LC_ALL, ".UTF-8");
+#endif
+    // Configure the Win32 console to use UTF-8.
+    SetConsoleCP(CP_UTF8);
+    SetConsoleOutputCP(CP_UTF8);
+#endif
+
     try {
         if (!parseOptions())
             return 125;
