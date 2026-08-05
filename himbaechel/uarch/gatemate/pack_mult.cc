@@ -1026,7 +1026,7 @@ void GateMatePacker::pack_mult()
                 auto *sink = cpe_half_cpout_user.cell;
                 NPNR_ASSERT(sink != nullptr);
                 if (sink->type == id_CC_DFF && should_pack_register) {
-                    create_p_register(cpe_half, sink, b_width / 2, b_width / 2 + p / 2, p % 2 == 1, p);
+                    create_p_register(cpe_half, sink, b_width / 2, 4 + p / 2, p % 2 == 1, p);
                 }
             }
         }
@@ -1043,8 +1043,8 @@ void GateMatePacker::pack_mult()
                 auto *sink = cpe_half_cpout_user.cell;
                 NPNR_ASSERT(sink != nullptr);
                 if (sink->type == id_CC_DFF && should_pack_register) {
-                    create_p_register(cpe_half, sink, b_width / 2, b_width / 2 + diagonal_p_width / 2 + p / 2,
-                                      p % 2 == 1, p + diagonal_p_width);
+                    create_p_register(cpe_half, sink, b_width / 2, 4 + diagonal_p_width / 2 + p / 2, p % 2 == 1,
+                                      p + diagonal_p_width);
                 }
             }
         }
