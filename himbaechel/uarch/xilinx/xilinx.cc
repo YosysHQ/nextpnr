@@ -101,6 +101,49 @@ void XilinxImpl::init(Context *ctx)
         auto extra_data = tile_extra_data(i);
         tile_status.at(i).site_variant.resize(extra_data->sites.ssize());
     }
+
+    // Build the next-RAMB36-up-the-column map for cascade placement
+    std::map<int, std::map<int, BelId>> bram36_by_col; // x -> y -> bel
+    for (BelId bel : ctx->getBels()) {
+        if (ctx->getBelType(bel) != id_RAMB36E1_RAMB36E1)
+            continue;
+        Loc l = ctx->getBelLocation(bel);
+        bram36_by_col[l.x][l.y] = bel;
+    }
+    for (auto &col : bram36_by_col) {
+        BelId prev;
+        int prev_y = 0;
+        for (auto &entry : col.second) {
+            if (prev != BelId() && (entry.first - prev_y) <= 6)
+                next_bram36_up[entry.second] = prev; // grid Y increases downwards: 'up' = smaller y
+            prev = entry.second;
+            prev_y = entry.first;
+        }
+    }
+}
+
+bool XilinxImpl::getClusterPlacement(ClusterId cluster, BelId root_bel,
+                                     std::vector<std::pair<CellInfo *, BelId>> &placement) const
+{
+    CellInfo *root_cell = ctx->getClusterRootCell(cluster);
+    if (root_cell->type == id_RAMB36E1_RAMB36E1) {
+        if (ctx->getBelType(root_bel) != id_RAMB36E1_RAMB36E1)
+            return false;
+        placement.clear();
+        placement.emplace_back(root_cell, root_bel);
+        BelId cursor = root_bel;
+        for (auto child : root_cell->constr_children) {
+            auto fnd = next_bram36_up.find(cursor);
+            if (fnd == next_bram36_up.end())
+                return false;
+            cursor = fnd->second;
+            if (ctx->getBelType(cursor) != id_RAMB36E1_RAMB36E1)
+                return false;
+            placement.emplace_back(child, cursor);
+        }
+        return true;
+    }
+    return HimbaechelAPI::getClusterPlacement(cluster, root_bel, placement);
 }
 
 SiteIndex XilinxImpl::get_bel_site(BelId bel) const
@@ -397,7 +440,7 @@ void XilinxImpl::configurePlacerStatic(PlacerStaticCfg &cfg)
         comb.cell_area[id_RAMB18E1_RAMB18E1] = StaticRect(1.0f, 3.0f);
         comb.bel_area[id_RAMB18E1_RAMB18E1] = StaticRect(1.0f, 3.0f);
         comb.cell_area[id_RAMB36E1_RAMB36E1] = StaticRect(1.0f, 6.0f);
-        comb.bel_area[id_RAMB36E1_RAMB36E1] = StaticRect(0.0f, 0.0f);
+        comb.bel_area[id_RAMB36E1_RAMB36E1] = StaticRect(1.0f, 6.0f);
         comb.spacer_rect = StaticRect(1.0f, 3.0f);
     }
     {
