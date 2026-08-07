@@ -370,6 +370,11 @@ void BaseMainWindow::open_json()
         if (ctx->settings.find(ctx->id("synth")) == ctx->settings.end()) {
             ArchArgs chipArgs = ctx->args;
             ctx = std::unique_ptr<Context>(new Context(chipArgs));
+#ifdef ARCH_HIMBAECHEL
+            ctx->uarch->with_gui = true;
+            ctx->uarch->init(ctx.get());
+            ctx->late_init();
+#endif
             Q_EMIT contextChanged(ctx.get());
         }
         handler->load_json(ctx.get(), fileName.toStdString());
