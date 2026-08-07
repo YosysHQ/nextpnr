@@ -310,6 +310,17 @@ void XilinxPacker::pack_lutffs()
                 ci->constr_z = lut->constr_z + (BEL_FF - BEL_6LUT);
                 ++pairs;
             } else {
+                // For SRL/LUTRAM drivers the slice write clock is the slice
+                // CLK, which the FF must share (same net, same polarity) —
+                // otherwise the cluster is unplaceable (xc7_logic_tile_valid
+                // FF-clk-vs-wclk check rejects it at every bel and
+                // legalisation spins forever).
+                NetInfo *lut_clk = lut->getPort(id_CLK);
+                if (lut_clk != nullptr &&
+                    (ci->getPort(id_CK) != lut_clk ||
+                     bool_or_default(ci->params, id_IS_CLK_INVERTED, false) !=
+                             bool_or_default(lut->params, id_IS_CLK_INVERTED, false)))
+                    continue;
                 lut->constr_children.push_back(ci);
                 lut->cluster = lut->name;
                 ci->cluster = lut->name;
