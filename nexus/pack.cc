@@ -1602,6 +1602,12 @@ struct NexusPacker
             CellInfo *ci = cell.second.get();
             if (ci->type != id_CCU2)
                 continue;
+
+            // For CCU2s with LUT value 0xFFFF, CIN is a don't-care
+            // disconnect it so it doesn't cause an error below or during chaining
+            if (str_or_default(ci->params, id_INIT0, "") == "0xFFFF")
+                ci->disconnectPort(id_CIN);
+
             NetInfo *cin = ci->getPort(id_CIN);
             if (cin) {
                 if (cin->driver.cell && cin->driver.cell->type != id_CCU2) {
