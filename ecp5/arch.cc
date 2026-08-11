@@ -630,6 +630,18 @@ void configure_static(Arch *arch, PlacerStaticCfg &cfg)
     cfg.timing_c = (120 - 22 * arch->args.speed) * 6;
     cfg.timing_mx = (120 - 22 * arch->args.speed);
     cfg.timing_my = (120 - 22 * arch->args.speed);
+
+    cfg.predict_delay = [](Context *ctx, const PlacerStaticCfg &cfg, Loc src_loc, IdString src_pin, Loc dst_loc,
+                           IdString dst_pin) -> delay_t {
+        if ((src_pin == id_FCO && dst_pin == id_FCI) || dst_pin.in(id_FXA, id_FXB) ||
+            (src_pin == id_F && dst_pin == id_DI))
+            return 0;
+
+        int dx = abs(src_loc.x - dst_loc.x), dy = abs(src_loc.y - dst_loc.y);
+
+        return (80 - 9 * ctx->args.speed) *
+               (6 + std::max(dx - 5, 0) + std::max(dy - 5, 0) + 2 * (std::min(dx, 5) + std::min(dy, 5)));
+    };
 }
 } // namespace
 

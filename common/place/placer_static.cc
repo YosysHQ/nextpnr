@@ -1295,8 +1295,8 @@ class StaticPlacer
             RealPair drv_loc = cell_loc(ni->driver.cell, false);
             for (auto usr : ni->users.enumerate()) {
                 RealPair usr_loc = cell_loc(usr.value.cell, false);
-                delay_t est_delay = cfg.timing_c + cfg.timing_mx * std::abs(drv_loc.x - usr_loc.x) +
-                                    cfg.timing_my * std::abs(drv_loc.y - usr_loc.y);
+                delay_t est_delay = cfg.predict_delay(ctx, cfg, Loc(drv_loc.x, drv_loc.y, 0), ni->driver.port,
+                                                      Loc(usr_loc.x, usr_loc.y, 0), usr.value.port);
                 tmg.set_route_delay(CellPortKey(usr.value), DelayPair(est_delay));
             }
         }
@@ -1721,6 +1721,12 @@ PlacerStaticCfg::PlacerStaticCfg(Context *ctx)
 
     hpwl_scale_x = 1;
     hpwl_scale_y = 1;
+
+    predict_delay = [](Context *ctx, const PlacerStaticCfg &cfg, Loc src_loc, IdString /*src_pin*/, Loc dst_loc,
+                       IdString /*dst_pin*/) -> delay_t {
+        return cfg.timing_c + delay_t(cfg.timing_mx * std::abs(dst_loc.x - src_loc.x)) +
+               delay_t(cfg.timing_my * std::abs(dst_loc.y - src_loc.y));
+    };
 }
 
 NEXTPNR_NAMESPACE_END
