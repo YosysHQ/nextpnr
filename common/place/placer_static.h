@@ -72,6 +72,9 @@ struct PlacerStaticCfg
     // this is an optional callback to override the area of a cell e.g. based on configuration
     std::function<std::optional<StaticRect>(Context *, const CellInfo *)> get_cell_area_override =
             [](Context *, const CellInfo *) { return std::optional<StaticRect>{}; };
+
+    // override the default delay estimation formula (we can't use predictDelay because we don't have concrete bels)
+    std::function<delay_t(Context *, const PlacerStaticCfg &, Loc, IdString, Loc, IdString)> predict_delay;
 };
 
 extern bool placer_static(Context *ctx, PlacerStaticCfg cfg);
