@@ -56,6 +56,11 @@ void GateMateImpl::route_clock()
         return (ctx->getBelBucketForCellType(port.cell->type) == id_CPE_FF) && port.port.in(id_CLK_INT);
     };
 
+    auto feeds_ram_or_iosel_clk_port = [&](PortRef &port) {
+        return (ctx->getBelBucketForCellType(port.cell->type).in(id_RAM_HALF, id_IOSEL)) &&
+               port.port.in(id_CLOCK1, id_CLOCK2, id_CLOCK3, id_CLOCK4);
+    };
+
     auto feeds_ddr_port = [&](NetInfo *net, PortRef &port) {
         return this->ddr_nets.find(net->name) != this->ddr_nets.end() && port.port == id_D0_10;
     };
@@ -120,7 +125,7 @@ void GateMateImpl::route_clock()
         auto sink_wires = dict<WireId, PortRef>{};
         auto sink_wires_to_do = pool<WireId>{};
         for (auto &usr : clk_net->users) {
-            if (!feeds_clk_port(usr) && !feeds_ddr_port(clk_net, usr))
+            if (!feeds_clk_port(usr) && !feeds_ddr_port(clk_net, usr) && !feeds_ram_or_iosel_clk_port(usr))
                 continue;
 
             auto sink_wire = ctx->getNetinfoSinkWire(clk_net, usr, 0);
