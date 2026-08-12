@@ -637,7 +637,7 @@ class StaticPlacer
     void insert_dark()
     {
         log_info("⌁ inserting dark nodes...\n");
-        for (int group = 0; group < int(groups.size()); group++) {
+        for (int group = cfg.logic_groups; group < int(groups.size()); group++) {
             const auto &cg = cfg.cell_groups.at(group);
             auto &g = groups.at(group);
             int dark_count = 0;
@@ -1651,7 +1651,7 @@ class StaticPlacer
         prepare_cells();
         init_cells();
         init_nets();
-        // insert_dark();
+        insert_dark();
         insert_spacer();
 
         prepare_density_bins();
