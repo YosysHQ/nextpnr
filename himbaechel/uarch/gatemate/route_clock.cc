@@ -74,16 +74,33 @@ void GateMateImpl::route_clock()
 
     auto reserve = [&](WireId wire, NetInfo *net) {
         for (auto pip : ctx->getPipsUphill(wire)) {
-            wire = ctx->getPipSrcWire(pip);
-            break;
+            WireId src = ctx->getPipSrcWire(pip);
+
+            if (ctx->debug) {
+                auto wire_name = "(uninitialized)";
+                if (src != WireId())
+                    wire_name = ctx->nameOfWire(src);
+                log_info("        reserving wire %s\n", wire_name);
+            }
+            reserved_wires.insert({src, net->name});
+
+            int next_count = 0;
+            for (auto pip : ctx->getPipsUphill(src)) {
+                src = ctx->getPipSrcWire(pip);
+                ++next_count;
+            }
+            if (next_count == 1) {
+                // If one layer above we still only have one choice of pip, reserve it too
+                if (ctx->debug) {
+                    auto wire_name = "(uninitialized)";
+                    if (src != WireId())
+                        wire_name = ctx->nameOfWire(src);
+                    log_info("        reserving wire %s\n", wire_name);
+                }
+                reserved_wires.insert({src, net->name});
+            }
+
         }
-        if (ctx->debug) {
-            auto wire_name = "(uninitialized)";
-            if (wire != WireId())
-                wire_name = ctx->nameOfWire(wire);
-            log_info("        reserving wire %s\n", wire_name);
-        }
-        reserved_wires.insert({wire, net->name});
     };
 
     for (auto &net_pair : ctx->nets) {
