@@ -644,13 +644,16 @@ struct Router2
 
         WireId src = ctx->getNetinfoSourceWire(net);
         auto &usr = net->users.at(i);
-        for (auto sink : ctx->getNetinfoSinkWires(net, usr)) {
-            WireId cursor = sink;
+        auto &nd = nets.at(net->udata);
+        for (auto &ad : nd.arcs.at(i.idx())) {
+            if (ad.pre_routed)
+                continue;
+            WireId cursor = ad.sink_wire;
             bool done = false;
             if (ctx->debug) {
                 log("reserving wires for arc %d (%s.%s) of net %s\n", i.idx(), ctx->nameOf(usr.cell),
                     ctx->nameOf(usr.port), ctx->nameOf(net));
-                log("   with sink wire %s\n", ctx->nameOfWire(sink));
+                log("   with sink wire %s\n", ctx->nameOfWire(ad.sink_wire));
             }
             while (!done) {
                 auto &wd = wire_data(cursor);
@@ -690,13 +693,22 @@ struct Router2
         do {
             did_something = false;
             for (auto net : nets_by_udata) {
+                auto &nd = nets.at(net->udata);
                 WireId src = ctx->getNetinfoSourceWire(net);
                 if (src == WireId())
                     continue;
                 pool<WireId> sink_wires;
-                for (auto &usr : net->users)
-                    for (auto sink_wire : ctx->getNetinfoSinkWires(net, usr))
+                bool all_pre_routed = true;
+                for (auto usr : net->users.enumerate()) {
+                    for (auto &sink : nd.arcs.at(usr.index.idx())) {
+                        if (!sink.pre_routed)
+                            all_pre_routed = false;
+                    }
+                    for (auto sink_wire : ctx->getNetinfoSinkWires(net, usr.value))
                         sink_wires.insert(sink_wire);
+                }
+                if (all_pre_routed)
+                    continue;
                 did_something |= reserve_driver_wires_for_arc(net, sink_wires);
                 for (auto usr : net->users.enumerate())
                     did_something |= reserve_sink_wires_for_arc(net, usr.index);
