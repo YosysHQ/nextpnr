@@ -836,6 +836,8 @@ struct Router2
         float best_midpoint_cost = 0;
         int explored = 1;
 
+        float est_cost = ctx->getDelayNS(std::max(ctx->estimateDelay(src_wire, dst_wire), ctx->getDelayEpsilon()));
+
         for (; mode < 2; mode++) {
             // Clear out the queues
             if (!t.fwd_queue.empty()) {
@@ -910,12 +912,25 @@ struct Router2
                     auto curr = t.fwd_queue.top();
                     t.fwd_queue.pop();
                     ++explored;
-                    if (was_visited_bwd(curr.wire, std::numeric_limits<float>::max())) {
-                        // Meet in the middle; done
-                        midpoint_wire = curr.wire;
-                        break;
-                    }
+
                     auto &curr_data = flat_wires.at(curr.wire);
+
+                    if (was_visited_bwd(curr.wire, std::numeric_limits<float>::max())) {
+                        auto total_cost = curr_data.cost_fwd + curr_data.cost_bwd;
+                        if (midpoint_wire == -1) {
+                            midpoint_wire = curr.wire;
+                            best_midpoint_cost = total_cost;
+                            toexplore = iter + std::min(1000, 20 * int(total_cost / est_cost));
+                        } else if (total_cost < best_midpoint_cost) {
+                            midpoint_wire = curr.wire;
+                            best_midpoint_cost = total_cost;
+                            // keep exploring while we find better solutions
+                            toexplore = iter + std::min(1000, 20 * int(total_cost / est_cost));
+                        }
+                        // Never allow the forward and backward router to intersect, this could result in loops
+                        continue;
+                    }
+
                     for (PipId dh : ctx->getPipsDownhill(curr_data.w)) {
                         // Skip pips outside of box in bounding-box mode
                         if (is_bb && !hit_test_pip(nd.bb, ctx->getPipLocation(dh)))
@@ -926,10 +941,10 @@ struct Router2
                         int next_idx = wire_to_idx.at(next);
                         WireScore next_score;
                         next_score.delay = curr.score.delay + cfg.get_base_cost(ctx, next, dh, crit_weight);
-                        next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, dh, crit_weight);
+                        next_score.cost = curr_data.cost_fwd + score_wire_for_arc(net, i, phys_pin, next, dh, crit_weight);
                         next_score.togo_cost =
                                 cfg.estimate_weight * get_togo_cost(net, i, next_idx, dst_wire, false, crit_weight);
-                        if (was_visited_fwd(next_idx, next_score.delay)) {
+                        if (was_visited_fwd(next_idx, next_score.cost)) {
                             // Don't expand the same node twice.
                             continue;
                         }
@@ -953,7 +968,7 @@ struct Router2
                         }
                         if (!thread_test_wire(t, nwd))
                             continue; // thread safety issue
-                        set_visited_fwd(t, next_idx, dh, next_score.delay);
+                        set_visited_fwd(t, next_idx, dh, next_score.cost);
                         t.fwd_queue.push(QueuedWire(next_idx, next_score, t.rng.rng()));
                     }
                 }
@@ -979,9 +994,20 @@ struct Router2
                         }
                     } else {
                         if (was_visited_fwd(curr.wire, std::numeric_limits<float>::max())) {
-                            // Meet in the middle; done
-                            midpoint_wire = curr.wire;
-                            break;
+                            auto total_cost = curr_data.cost_bwd + curr_data.cost_fwd;
+                            if (midpoint_wire == -1) {
+                                midpoint_wire = curr.wire;
+                                best_midpoint_cost = total_cost;
+                                toexplore = iter + std::min(1000, 20 * int(total_cost / est_cost));
+
+                            } else if (total_cost < best_midpoint_cost) {
+                                midpoint_wire = curr.wire;
+                                best_midpoint_cost = total_cost;
+                                // keep exploring while we find better solutions
+                                toexplore = iter + std::min(1000, 20 * int(total_cost / est_cost));
+                            }
+                            // Never allow the forward and backward router to intersect, this could result in loops
+                            continue;
                         }
                     }
                     // Don't allow the same wire to be bound to the same net with a different driving pip
@@ -1001,12 +1027,12 @@ struct Router2
                         int next_idx = wire_to_idx.at(next);
                         WireScore next_score;
                         next_score.delay = curr.score.delay + cfg.get_base_cost(ctx, next, uh, crit_weight);
-                        next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, uh, crit_weight);
+                        next_score.cost = curr_data.cost_bwd + score_wire_for_arc(net, i, phys_pin, next, uh, crit_weight);
                         next_score.togo_cost = const_mode
                                                        ? 0
                                                        : cfg.estimate_weight * get_togo_cost(net, i, next_idx, src_wire,
                                                                                              true, crit_weight);
-                        if (was_visited_bwd(next_idx, next_score.delay)) {
+                        if (was_visited_bwd(next_idx, next_score.cost)) {
                             // Don't expand the same node twice.
                             continue;
                         }
@@ -1026,7 +1052,7 @@ struct Router2
                         }
                         if (!thread_test_wire(t, nwd))
                             continue; // thread safety issue
-                        set_visited_bwd(t, next_idx, uh, next_score.delay);
+                        set_visited_bwd(t, next_idx, uh, next_score.cost);
                         t.bwd_queue.push(QueuedWire(next_idx, next_score, t.rng.rng()));
                     }
                 }
