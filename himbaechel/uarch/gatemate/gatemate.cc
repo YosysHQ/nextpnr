@@ -24,6 +24,7 @@
 #include "nextpnr_assertions.h"
 #include "placer_heap.h"
 #include "placer_static.h"
+#include "router2.h"
 
 #define GEN_INIT_CONSTIDS
 #define HIMBAECHEL_CONSTIDS "uarch/gatemate/constids.inc"
@@ -1077,6 +1078,15 @@ void GateMateImpl::configurePlacerStatic(PlacerStaticCfg &cfg)
 
         ram.spacer_rect = StaticRect(1.0f, 2.0f);
     }
+}
+
+void GateMateImpl::configureRouter2(Router2Cfg &cfg) {
+    cfg.get_base_cost = [](Context *ctx, WireId wire, PipId pip, float crit_weight) {
+        float delay_cost = ctx->getDelayNS(ctx->getPipDelay(pip).maxDelay() + ctx->getWireDelay(wire).maxDelay() + ctx->getDelayEpsilon());
+        const float rr_cost = 0.5f; // fundamental cost of using a routing resource
+        return delay_cost + rr_cost * (1.0f - crit_weight);
+        // return delay_cost;
+    };
 }
 
 int GateMateImpl::get_dff_config(CellInfo *dff) const

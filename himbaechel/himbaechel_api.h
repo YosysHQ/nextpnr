@@ -56,6 +56,7 @@ struct Context;
 
 struct PlacerHeapCfg;
 struct PlacerStaticCfg;
+struct Router2Cfg;
 
 namespace po = boost::program_options;
 
@@ -148,6 +149,8 @@ struct HimbaechelAPI
     // For custom placer configuration
     virtual void configurePlacerHeap(PlacerHeapCfg &cfg) {};
     virtual void configurePlacerStatic(PlacerStaticCfg &cfg);
+
+    virtual void configureRouter2(Router2Cfg &cfg) {};
 
     virtual std::string getDefaultRouter() const { return "router1"; };
 
