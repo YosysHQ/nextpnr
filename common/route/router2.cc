@@ -329,7 +329,7 @@ struct Router2
         DeterministicRNG rng;
 
         // Used to add existing routing to the heap
-        pool<WireId> in_wire_by_loc;
+        dict<WireId, float> wire_by_loc_cost;
         dict<std::pair<int, int>, pool<WireId>> wire_by_loc;
     };
 
@@ -742,15 +742,34 @@ struct Router2
         WireId cursor = ad.sink_wire;
         if (!nd.wires.count(cursor))
             return;
+
+        // Compute cost
+        float final_cost = 0;
         while (cursor != nd.src_wire) {
-            if (!t.in_wire_by_loc.count(cursor)) {
-                t.in_wire_by_loc.insert(cursor);
-                for (auto dh : ctx->getPipsDownhill(cursor)) {
-                    Loc dh_loc = ctx->getPipLocation(dh);
-                    t.wire_by_loc[std::make_pair(dh_loc.x, dh_loc.y)].insert(cursor);
-                }
+            auto found = t.wire_by_loc_cost.find(cursor);
+            if (found != t.wire_by_loc_cost.end()) {
+                final_cost += found->second;
+                break;
             }
-            cursor = ctx->getPipSrcWire(nd.wires.at(cursor).first);
+            auto pip = nd.wires.at(cursor).first;
+            final_cost += cfg.get_base_cost(ctx, cursor, pip, 0);
+            cursor = ctx->getPipSrcWire(pip);
+        }
+
+
+        while (cursor != nd.src_wire) {
+            if (t.wire_by_loc_cost.count(cursor))
+                break;
+            t.wire_by_loc_cost[cursor] = final_cost;
+            auto pip = nd.wires.at(cursor).first;
+            for (auto dh : ctx->getPipsDownhill(cursor)) {
+                Loc dh_loc = ctx->getPipLocation(dh);
+                t.wire_by_loc[std::make_pair(dh_loc.x, dh_loc.y)].insert(cursor);
+            }
+            // clamp at epsilon to avoid the risk of small negative delays breaking the router in case of rounding errors
+            final_cost = std::max(ctx->getDelayNS(ctx->getDelayEpsilon()),
+                final_cost - cfg.get_base_cost(ctx, cursor, pip, 0));
+            cursor = ctx->getPipSrcWire(pip);
         }
     }
 
@@ -854,14 +873,14 @@ struct Router2
             ROUTE_LOG_DBG("src_wire = %s -> dst_wire = %s\n", ctx->nameOfWire(src_wire), ctx->nameOfWire(dst_wire));
 
             // Add 'forward' direction startpoints to queue
-            auto seed_queue_fwd = [&](WireId wire) {
+            auto seed_queue_fwd = [&](WireId wire, float base_cost = 0) {
                 WireScore base_score;
-                base_score.delay = 0;
-                base_score.cost = 0;
+                base_score.delay = base_cost;
+                base_score.cost = base_cost;
                 int wire_idx = wire_to_idx.at(wire);
                 base_score.togo_cost = get_togo_cost(net, i, wire_idx, dst_wire, false, crit_weight);
                 t.fwd_queue.push(QueuedWire(wire_idx, base_score));
-                set_visited_fwd(t, wire_idx, PipId(), 0.0);
+                set_visited_fwd(t, wire_idx, PipId(), base_cost);
             };
             auto &dst_data = flat_wires.at(dst_wire_idx);
             // Look for nearby existing routing
@@ -872,7 +891,7 @@ struct Router2
                         continue;
                     for (WireId wire : fnd->second) {
                         ROUTE_LOG_DBG("   seeding with %s\n", ctx->nameOfWire(wire));
-                        seed_queue_fwd(wire);
+                        seed_queue_fwd(wire, t.wire_by_loc_cost.at(wire));
                     }
                 }
 
@@ -1176,7 +1195,7 @@ struct Router2
         t.processed_sinks.clear();
         t.route_arcs.clear();
         t.wire_by_loc.clear();
-        t.in_wire_by_loc.clear();
+        t.wire_by_loc_cost.clear();
         auto &nd = nets.at(net->udata);
         bool failed_slack = false;
         for (auto usr : net->users.enumerate())
