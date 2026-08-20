@@ -495,8 +495,8 @@ void XilinxPacker::pack_dram()
                                                      dout, zoffset + i);
                     if (base == nullptr)
                         base = dram;
-                    if (ci->params.count(ctx->idf("INIT%c", 'A' + i)))
-                        dram->params[id_INIT] = ci->params[ctx->idf("INIT%c", 'A' + i)];
+                    if (ci->params.count(ctx->idf("INIT_%c", 'A' + i)))
+                        dram->params[id_INIT] = ci->params[ctx->idf("INIT_%c", 'A' + i)];
                 } else {
                     for (int j = 0; j < dbits; j++) {
                         NetInfo *di = ci->getPort(ctx->idf("DI%c[%d]", 'A' + i, j));
@@ -507,13 +507,19 @@ void XilinxPacker::pack_dram()
                                                            address, di, dout, (j == 0), zoffset + i);
                         if (base == nullptr)
                             base = dram;
-                        if (ci->params.count(ctx->idf("INIT%c", 'A' + i))) {
-                            auto orig_init = ci->params.at(ctx->idf("INIT%c", 'A' + i)).extract(0, 64).as_bits();
-                            std::string init;
-                            for (int k = 0; k < 32; k++) {
-                                init.push_back(orig_init.at(k * 2 + j));
-                            }
-                            dram->params[id_INIT] = Property::from_string(init);
+                        if (ci->params.count(ctx->idf("INIT_%c", 'A' + i))) {
+                            // De-interleave the 64-bit INIT (bit k*2+j is bit j
+                            // of entry k) into this RAMD32's 32 bits. Slice the
+                            // canonical bit string ('0'/'1' chars, LSB first) -
+                            // as_bits() gives raw bools, which are not valid
+                            // Property string characters.
+                            Property orig_init = ci->params.at(ctx->idf("INIT_%c", 'A' + i)).extract(0, 64);
+                            Property init;
+                            init.is_string = false;
+                            for (int k = 0; k < 32; k++)
+                                init.str.push_back(orig_init.str.at(k * 2 + j));
+                            init.update_intval();
+                            dram->params[id_INIT] = init;
                         }
                     }
                 }
