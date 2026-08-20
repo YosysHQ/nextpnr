@@ -76,6 +76,8 @@ fn_wrapper_1a<Context, decltype(&Context::getWireChecksum), &Context::getWireChe
               conv_from_str<WireId>>::def_wrap(ctx_cls, "getWireChecksum");
 fn_wrapper_1a<Context, decltype(&Context::getWireType), &Context::getWireType, conv_to_str<IdString>,
               conv_from_str<WireId>>::def_wrap(ctx_cls, "getWireType");
+fn_wrapper_1a<Context, decltype(&Context::getWireDelay), &Context::getWireDelay, pass_through<DelayQuad>,
+              conv_from_str<WireId>>::def_wrap(ctx_cls, "getWireDelay");
 fn_wrapper_3a_v<Context, decltype(&Context::bindWire), &Context::bindWire, conv_from_str<WireId>,
                 addr_and_unwrap<NetInfo>, pass_through<PlaceStrength>>::def_wrap(ctx_cls, "bindWire");
 fn_wrapper_1a_v<Context, decltype(&Context::unbindWire), &Context::unbindWire, conv_from_str<WireId>>::def_wrap(
