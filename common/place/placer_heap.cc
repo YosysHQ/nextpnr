@@ -689,7 +689,7 @@ class HeAPPlacer
 
         std::stable_sort(result.begin(), result.end(), [&](Loc a, Loc b) {
             int d0 = std::abs(a.x - cx) + std::abs(a.y - cy);
-            int d1 = std::abs(b.y - cx) + std::abs(b.y - cy);
+            int d1 = std::abs(b.x - cx) + std::abs(b.y - cy);
             return d0 < d1;
         });
 
