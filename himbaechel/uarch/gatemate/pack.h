@@ -113,7 +113,8 @@ struct GateMatePacker
     std::pair<CellInfo *, CellInfo *> move_ram_io_fixed(CellInfo *cell, IdString iPort, IdString oPort, Loc fixed);
     uint8_t ram_ctrl_signal(CellInfo *cell, IdString port, bool alt);
     uint8_t ram_clk_signal(CellInfo *cell, IdString port);
-    bool is_gpio_valid_dff(CellInfo *dff);
+    bool is_gpio_out_valid_dff(CellInfo *dff);
+    bool is_gpio_in_valid_dff(CellInfo *dff);
     bool are_ffs_compatible(CellInfo *dff, CellInfo *other);
 
     // Cell creating
