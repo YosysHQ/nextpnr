@@ -50,6 +50,10 @@ bool XilinxImpl::xc7_logic_tile_valid(IdString tile_type, const LogicTileStatus 
     if (lts.cells[(3 << 4) | BEL_5LUT] != nullptr && get_tags(lts.cells[(3 << 4) | BEL_5LUT])->lut.is_memory)
         small_memory = true;
     NetInfo *wclk = nullptr;
+    // The SLICEM write enable (WEMUX_OUT) is a single per-slice signal shared
+    // by all LUTRAM WE and SRL CE pins, exactly like the shared write clock.
+    NetInfo *we = nullptr;
+    bool we_seen = false;
     // Check eight-tiles (mostly LUT-related validity)
     for (int i = 0; i < 8; i++) {
         if (lts.eights[i].dirty) {
@@ -73,6 +77,13 @@ bool XilinxImpl::xc7_logic_tile_valid(IdString tile_type, const LogicTileStatus 
                     if (wclk == nullptr)
                         wclk = lut6->lut.wclk;
                     else if (lut6->lut.wclk != wclk) {
+                        DBG();
+                        return false;
+                    }
+                    if (!we_seen) {
+                        we_seen = true;
+                        we = lut6->lut.we;
+                    } else if (lut6->lut.we != we) {
                         DBG();
                         return false;
                     }
@@ -111,10 +122,17 @@ bool XilinxImpl::xc7_logic_tile_valid(IdString tile_type, const LogicTileStatus 
                     DBG();
                     return false; // Memory and SRLs only valid in SLICEMs
                 }
-                if (lut5->lut.is_srl) {
+                if (lut5->lut.is_memory || lut5->lut.is_srl) {
                     if (wclk == nullptr)
                         wclk = lut5->lut.wclk;
                     else if (lut5->lut.wclk != wclk) {
+                        DBG();
+                        return false;
+                    }
+                    if (!we_seen) {
+                        we_seen = true;
+                        we = lut5->lut.we;
+                    } else if (lut5->lut.we != we) {
                         DBG();
                         return false;
                     }
