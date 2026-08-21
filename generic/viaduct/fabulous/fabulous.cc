@@ -345,13 +345,23 @@ struct FabulousImpl : ViaductAPI
         if (found != ctx->wire_by_name.end()) {
             BelId global_clk_bel = ctx->addBel(IdStringList::concat(ctx->id("X0Y0"), id_CLK), id_Global_Clock,
                                                Loc(0, 0, 0), true, false);
-            WireId global_clk_wire = get_wire(ctx->id("X0Y0"), id_CLK, id_CLK);
-            ctx->addBelOutput(global_clk_bel, id_CLK, global_clk_wire);
+            ctx->addBelOutput(global_clk_bel, id_CLK, global_clock_wire());
         }
     }
 
     // Reads both bel.v2.txt and bel.v3.txt; the latter additionally carries
     // Delay/SetupHold/ClkToOut/Clock timing lines into bel_timing_by_bel.
+    // TODO: multi-clock will need one root per domain.
+    WireId global_clock_wire() { return get_wire(ctx->id("X0Y0"), id_CLK, id_CLK); }
+
+    // `delay` is this flop's clock arrival time; only differences between flops
+    // produce skew, a uniform value cancels out. Default 1.0 for bel.v2, which
+    // carries no arrival time.
+    void add_global_clock_pip(WireId clk_wire, float delay = 1.0)
+    {
+        add_pseudo_pip(global_clock_wire(), clk_wire, id_global_clock, delay);
+    }
+
     void init_bels_v2(const std::string &filename)
     {
         log_info("Reading BELs file: %s\n", filename.c_str());
@@ -395,8 +405,12 @@ struct FabulousImpl : ViaductAPI
                 IdStringList bel_name = ctx->getBelName(curr_bel);
                 WireId clk_wire = get_wire(bel_name[0], ctx->idf("%s_CLK", bel_name[1].c_str(ctx)), id_REG_CLK);
                 ctx->addBelInput(curr_bel, id_CLK, clk_wire);
-                WireId global_clk_wire = get_wire(ctx->id("X0Y0"), id_CLK, id_CLK);
-                add_pseudo_pip(global_clk_wire, clk_wire, id_global_clock);
+                // per-flop clock arrival time (ns); bel.v2 has no delay field
+                parser_view clk_delay = csv.next_field();
+                if (clk_delay.empty())
+                    add_global_clock_pip(clk_wire);
+                else
+                    add_global_clock_pip(clk_wire, parse_float(clk_delay));
             } else if (cmd == id_CFG) {
                 // TODO...
             } else if (cmd.in(id_Delay, id_SetupHold, id_ClkToOut, id_Clock)) {
