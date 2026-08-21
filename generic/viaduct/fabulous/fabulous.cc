@@ -69,25 +69,15 @@ struct FabulousImpl : ViaductAPI
         ViaductAPI::init(ctx);
         h.init(ctx);
         fab_root = get_env_var("FAB_ROOT", ", set it to the fabulous build output or project path");
-        if (std::filesystem::exists(fab_root + "/.FABulous"))
-            is_new_fab = true;
-        else
-            is_new_fab = false;
-        log_info("Detected FABulous %s format project.\n", is_new_fab ? "2.0" : "1.0");
+        if (!std::filesystem::exists(fab_root + "/.FABulous"))
+            log_error("no .FABulous directory in '%s'; FABulous 1.0 projects are no longer supported, regenerate "
+                      "the fabric with a current FABulous or use nextpnr 0.11.1 or older\n",
+                      fab_root.c_str());
         init_default_ctrlset_cfg();
         // To consider: a faster serialised form of the device data (like bba that other arches use) so we don't have to
         // go through the whole csv parsing malarkey each time
         blk_trk = std::make_unique<BlockTracker>(ctx, cfg);
-        bool has_v3 = is_new_fab && std::filesystem::exists(fab_root + "/.FABulous/bel.v3.txt");
-        if (has_v3)
-            init_bels_v2("/.FABulous/bel.v3.txt"); // same parser; v3 adds timing lines
-        else if (is_new_fab)
-            init_bels_v2("/.FABulous/bel.v2.txt");
-        else
-            init_bels_v1();
-        init_pips();
-        init_pseudo_constant_wires();
-        setup_lut_permutation();
+        bool has_v3 = std::filesystem::exists(fab_root + "/.FABulous/bel.v3.txt");
         // bel.v3.txt and placement_estimate.txt are generated together; having
         // only one means a stale/partial .FABulous dir, so warn.
         bool has_estimate = std::filesystem::exists(fab_root + "/.FABulous/placement_estimate.txt");
@@ -115,9 +105,17 @@ struct FabulousImpl : ViaductAPI
         carry_predict_delay = pe_or("carryPredictDelay", 0.5);
         ctx->delay_epsilon = pe_or("delayEpsilon", 0.25);
         ctx->ripup_penalty = pe_or("ripupPenalty", 0.5);
+        // nanoseconds per unit of the pips file's integer delay column
+        double pip_delay_scale = pe_or("pipDelayScale", 0.05);
         for (auto &kv : pe)
             if (!known_keys.count(kv.first))
                 log_warning("unknown placement_estimate.txt key '%s' ignored\n", kv.first.c_str());
+        init_bels_v2(has_v3 ? "/.FABulous/bel.v3.txt" // same parser; v3 adds timing lines
+                            : "/.FABulous/bel.v2.txt",
+                     has_v3);
+        init_pips(pip_delay_scale);
+        init_pseudo_constant_wires();
+        setup_lut_permutation();
         seed_default_estimates();
     }
 
@@ -321,13 +319,11 @@ struct FabulousImpl : ViaductAPI
     dict<IdString, std::vector<BelTimingArc>> estimate_by_type;
 
     std::string fab_root;
-    bool is_new_fab;
 
     // predictDelay's Co->Ci carry-chain estimate; set from placement_estimate.txt
     // in init(), default 0.5 (the old hardcoded value).
     double carry_predict_delay = 0.5;
 
-    pool<IdString> warned_beltypes;
     // cell types already warned about having no applicable bel.v3 timing arc
     pool<IdString> warned_untimed;
 
@@ -345,104 +341,6 @@ struct FabulousImpl : ViaductAPI
         pp_tags.at(idx.index) = tags;
     }
 
-    void handle_bel_ports(BelId bel, IdString tile, IdString bel_type, const std::vector<parser_view> &ports)
-    {
-        // TODO: improve the scalability here as we support more bel types
-        IdString idx = ctx->getBelName(bel)[1];
-        Loc loc = ctx->getBelLocation(bel);
-        if (bel_type == id_IO_1_bidirectional_frame_config_pass) {
-            for (parser_view p : ports) {
-                IdString port_id = p.to_id(ctx);
-                WireId port_wire = get_wire(tile, port_id, ctx->idf("W_IO_%s", port_id.c_str(ctx)));
-                IdString pin = p.back(1).to_id(ctx);
-                ctx->addBelPin(bel, pin, port_wire, pin.in(id_I, id_T) ? PORT_IN : PORT_OUT);
-            }
-        } else if (bel_type.in(id_InPass4_frame_config, id_OutPass4_frame_config, id_InPass4_frame_config_mux,
-                               id_OutPass4_frame_config_mux)) {
-            WireId clk_wire = get_wire(tile, id_CLK, id_REG_CLK);
-            if (ctx->wires.at(clk_wire.index).uphill.empty()) {
-                WireId global_clk_wire = get_wire(ctx->id("X0Y0"), id_CLK, id_CLK);
-                add_pseudo_pip(global_clk_wire, clk_wire, id_global_clock);
-            }
-            ctx->addBelInput(bel, id_CLK, clk_wire);
-            for (parser_view p : ports) {
-                IdString port_id = p.to_id(ctx);
-                WireId port_wire = get_wire(tile, port_id, port_id);
-                IdString pin = p.back(2).to_id(ctx);
-                bool bel_type_is_input_port = bel_type.in(id_OutPass4_frame_config, id_OutPass4_frame_config_mux);
-                ctx->addBelPin(bel, pin, port_wire, bel_type_is_input_port ? PORT_IN : PORT_OUT);
-            }
-        } else if (bel_type == id_RegFile_32x4) {
-            WireId clk_wire = get_wire(tile, id_CLK, id_REG_CLK);
-            ctx->addBelInput(bel, id_CLK, clk_wire);
-            WireId global_clk_wire = get_wire(ctx->id("X0Y0"), id_CLK, id_CLK);
-            add_pseudo_pip(global_clk_wire, clk_wire, id_global_clock);
-            for (parser_view p : ports) {
-                IdString port_id = p.to_id(ctx);
-                // TODO: nicer way of determining port type?
-                if (p[0] == 'D') {
-                    ctx->addBelInput(bel, port_id, get_wire(tile, port_id, id_WRITE_DATA));
-                } else if (p[0] == 'W') {
-                    ctx->addBelInput(bel, port_id, get_wire(tile, port_id, id_WRITE_ADDRESS));
-                } else if (p[1] == 'D') {
-                    ctx->addBelOutput(bel, port_id, get_wire(tile, port_id, id_READ_DATA));
-                } else {
-                    ctx->addBelInput(bel, port_id, get_wire(tile, port_id, id_READ_ADDRESS));
-                }
-            }
-        } else if (bel_type == id_MULADD) {
-            // TODO: do DSPs need a clock too like regfiles?
-            for (parser_view p : ports) {
-                IdString port_id = p.to_id(ctx);
-                if (p[0] == 'Q') {
-                    ctx->addBelOutput(bel, port_id, get_wire(tile, port_id, id_DSP_DATA_OUT));
-                } else if (port_id == id_clr) {
-                    ctx->addBelInput(bel, port_id, get_wire(tile, port_id, id_DSP_CLR));
-                } else {
-                    ctx->addBelInput(bel, port_id, get_wire(tile, port_id, id_DSP_DATA_IN));
-                }
-            }
-        } else if (bel_type == id_MUX8LUT_frame_config) {
-            for (parser_view p : ports) {
-                IdString port_id = p.to_id(ctx);
-                ctx->addBelPin(bel, port_id, get_wire(tile, port_id, ctx->idf("LUTMUX_%s", port_id.c_str(ctx))),
-                               p[0] == 'M' ? PORT_OUT : PORT_IN);
-            }
-        } else if (bel_type == id_FABULOUS_LC) {
-            // TODO: split LC mode, LUT permutation pseudo-switchbox, LUT thru pseudo-pips
-            WireId clk_wire = get_wire(tile, ctx->idf("L%s_CLK", idx.c_str(ctx)), id_LUT_CLK);
-            ctx->addBelInput(bel, id_CLK, clk_wire);
-            WireId global_clk_wire = get_wire(ctx->id("X0Y0"), id_CLK, id_CLK);
-            add_pseudo_pip(global_clk_wire, clk_wire, id_global_clock);
-            blk_trk->set_bel_type(bel, BelFlags::BLOCK_CLB, BelFlags::FUNC_LC_COMB, loc.z);
-            for (parser_view p : ports) {
-                IdString port_id = p.to_id(ctx);
-                WireId port_wire = get_wire(tile, port_id, ctx->idf("LUT_%s", port_id.c_str(ctx)));
-                // TODO: more robust port name handling
-                if (p[3] == 'S' || p[3] == 'E' || p[3] == 'I') { // set/reset, enable, LUT input
-                    ctx->addBelInput(bel, p.substr(3).to_id(ctx), port_wire);
-                } else if (p[3] == 'O') { // LUT otuput
-                    ctx->addBelOutput(bel, p.substr(3, 1).to_id(ctx), port_wire);
-                } else if (p[3] == 'C') { // carry chain
-                    if (p[4] == 'i') {
-                        ctx->addBelInput(bel, id_Ci, port_wire);
-                    } else {
-                        NPNR_ASSERT(p[4] == 'o');
-                        ctx->addBelOutput(bel, id_Co, port_wire);
-                    }
-                } else {
-                    log_error("don't know what to do with LC port '%s'\n", port_id.c_str(ctx));
-                }
-            }
-        } else {
-            // ...
-            if (!warned_beltypes.count(bel_type) && !ports.empty()) {
-                log_warning("don't know how to handle ports for bel type '%s'\n", bel_type.c_str(ctx));
-                warned_beltypes.insert(bel_type);
-            }
-        }
-    }
-
     void init_global_clock()
     {
         // TODO: how do we extend this to more complex clocking topologies?
@@ -450,56 +348,30 @@ struct FabulousImpl : ViaductAPI
         if (found != ctx->wire_by_name.end()) {
             BelId global_clk_bel = ctx->addBel(IdStringList::concat(ctx->id("X0Y0"), id_CLK), id_Global_Clock,
                                                Loc(0, 0, 0), true, false);
-            WireId global_clk_wire = get_wire(ctx->id("X0Y0"), id_CLK, id_CLK);
-            ctx->addBelOutput(global_clk_bel, id_CLK, global_clk_wire);
+            ctx->addBelOutput(global_clk_bel, id_CLK, global_clock_wire());
         }
     }
 
-    // TODO: this is for legacy fabulous only, the new code path can be a lot simpler
-    void init_bels_v1()
+    // TODO: multi-clock will need one root per domain.
+    WireId global_clock_wire() { return get_wire(ctx->id("X0Y0"), id_CLK, id_CLK); }
+
+    // Clock arrival time (ns) for a bel whose GlobalClk line carries none.
+    static constexpr float default_clock_delay = 1.0;
+
+    // `delay` is this flop's clock arrival time; only differences between flops
+    // produce skew, a uniform value cancels out. Default for bel.v2, which
+    // carries no arrival time.
+    void add_global_clock_pip(WireId clk_wire, float delay = default_clock_delay)
     {
-        log_info("Reading BELs file: /npnroutput/bel.txt\n");
-        std::ifstream in = open_data_rel("/npnroutput/bel.txt");
-        CsvParser csv(in);
-        while (csv.fetch_next_line()) {
-            IdString tile = csv.next_field().to_id(ctx);
-            int bel_x = csv.next_field().substr(1).to_int();
-            int bel_y = csv.next_field().substr(1).to_int();
-            auto bel_idx = csv.next_field();
-            IdString bel_type = csv.next_field().to_id(ctx);
-            NPNR_ASSERT(bel_idx.size() == 1);
-            int bel_z = bel_idx[0] - 'A';
-            NPNR_ASSERT(bel_z >= 0 && bel_z < 26);
-            std::vector<parser_view> ports;
-            parser_view port;
-            while (!(port = csv.next_field()).empty()) {
-                ports.push_back(port);
-            }
-            IdString bel_name = bel_idx.to_id(ctx);
-            if (bel_type.in(id_InPass4_frame_config, id_OutPass4_frame_config, id_InPass4_frame_config_mux,
-                            id_OutPass4_frame_config_mux)) {
-                // Assign BRAM IO a nicer name than just a letter
-                bel_name = ports.front().rsplit('_').first.to_id(ctx);
-            }
-            /*
-            In the future we will need to handle optionally splitting SLICEs into separate LUT/COMB and FF bels
-            This is the preferred approach in nextpnr for arches where the LUT and FF can be used separately of
-            each other (e.g. there is a way of routing the LUT and FF outputs individually, and some extra
-            optional FF input).
-            While this isn't yet the standard fabulous SLICE, it should be considered as a future option in fabulous.
-            */
-            Loc loc(bel_x, bel_y, bel_z);
-            BelId bel = ctx->addBel(IdStringList::concat(tile, bel_name), bel_type, loc, false, false);
-            handle_bel_ports(bel, tile, bel_type, ports);
-        }
-        init_global_clock();
-        postprocess_bels();
+        add_pseudo_pip(global_clock_wire(), clk_wire, id_global_clock, delay);
     }
 
-    // Reads both bel.v2.txt and bel.v3.txt; the latter additionally carries
-    // Delay/SetupHold/ClkToOut/Clock timing lines into bel_timing_by_bel.
-    void init_bels_v2(const std::string &filename)
+    // Reads both bel.v2.txt and bel.v3.txt
+    void init_bels_v2(const std::string &filename, bool has_timing)
     {
+        // Either all clock pins should have an arrival time, or none.
+        int clk_pins = 0, clk_pins_untimed = 0;
+        BelId first_untimed;
         log_info("Reading BELs file: %s\n", filename.c_str());
         std::ifstream in = open_data_rel(filename);
         CsvParser csv(in);
@@ -541,8 +413,16 @@ struct FabulousImpl : ViaductAPI
                 IdStringList bel_name = ctx->getBelName(curr_bel);
                 WireId clk_wire = get_wire(bel_name[0], ctx->idf("%s_CLK", bel_name[1].c_str(ctx)), id_REG_CLK);
                 ctx->addBelInput(curr_bel, id_CLK, clk_wire);
-                WireId global_clk_wire = get_wire(ctx->id("X0Y0"), id_CLK, id_CLK);
-                add_pseudo_pip(global_clk_wire, clk_wire, id_global_clock);
+                // per-flop clock arrival time (ns); bel.v2 has no delay field
+                parser_view clk_delay = csv.next_field();
+                ++clk_pins;
+                if (clk_delay.empty()) {
+                    if (clk_pins_untimed++ == 0)
+                        first_untimed = curr_bel;
+                    add_global_clock_pip(clk_wire);
+                } else {
+                    add_global_clock_pip(clk_wire, parse_float(clk_delay));
+                }
             } else if (cmd == id_CFG) {
                 // TODO...
             } else if (cmd.in(id_Delay, id_SetupHold, id_ClkToOut, id_Clock)) {
@@ -556,6 +436,11 @@ struct FabulousImpl : ViaductAPI
                           curr_bel == BelId() ? "<none>" : ctx->nameOfBel(curr_bel));
             }
         }
+        if (has_timing && clk_pins_untimed > 0)
+            log_warning("%s: %d of %d clock pins have no arrival time and fall back to %.2f ns; that shows up as "
+                        "clock skew against the timed ones (e.g. %s)\n",
+                        filename.c_str(), clk_pins_untimed, clk_pins, default_clock_delay,
+                        ctx->nameOfBel(first_untimed));
         init_global_clock();
         postprocess_bels();
     }
@@ -662,17 +547,10 @@ struct FabulousImpl : ViaductAPI
     }
 
     int max_x = 0, max_y = 0;
-    void init_pips()
+    void init_pips(double pip_delay_scale)
     {
-        // PIP file selection
-        std::string pips_file = "/npnroutput/pips.txt";
-        if (is_new_fab) {
-            if (!corner.empty()) {
-                pips_file = stringf("/.FABulous/pips.%s.txt", corner.c_str());
-            } else {
-                pips_file = "/.FABulous/pips.txt";
-            }
-        }
+        std::string pips_file =
+                corner.empty() ? "/.FABulous/pips.txt" : stringf("/.FABulous/pips.%s.txt", corner.c_str());
 
         log_info("Reading PIPs file: %s\n", pips_file.c_str());
         std::ifstream in = open_data_rel(pips_file);
@@ -690,7 +568,7 @@ struct FabulousImpl : ViaductAPI
             max_x = std::max(loc.x, max_x);
             max_y = std::max(loc.y, max_y);
             ctx->addPip(IdStringList::concat(src_tile, pip_name), pip_name, src_wire, dst_wire,
-                        ctx->getDelayFromNS(0.05 * delay), loc);
+                        ctx->getDelayFromNS(pip_delay_scale * delay), loc);
         }
     }
 
