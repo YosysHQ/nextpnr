@@ -78,11 +78,6 @@ struct FabulousImpl : ViaductAPI
         // go through the whole csv parsing malarkey each time
         blk_trk = std::make_unique<BlockTracker>(ctx, cfg);
         bool has_v3 = std::filesystem::exists(fab_root + "/.FABulous/bel.v3.txt");
-        init_bels_v2(has_v3 ? "/.FABulous/bel.v3.txt" // same parser; v3 adds timing lines
-                            : "/.FABulous/bel.v2.txt");
-        init_pips();
-        init_pseudo_constant_wires();
-        setup_lut_permutation();
         // bel.v3.txt and placement_estimate.txt are generated together; having
         // only one means a stale/partial .FABulous dir, so warn.
         bool has_estimate = std::filesystem::exists(fab_root + "/.FABulous/placement_estimate.txt");
@@ -110,9 +105,16 @@ struct FabulousImpl : ViaductAPI
         carry_predict_delay = pe_or("carryPredictDelay", 0.5);
         ctx->delay_epsilon = pe_or("delayEpsilon", 0.25);
         ctx->ripup_penalty = pe_or("ripupPenalty", 0.5);
+        // nanoseconds per unit of the pips file's integer delay column
+        double pip_delay_scale = pe_or("pipDelayScale", 0.05);
         for (auto &kv : pe)
             if (!known_keys.count(kv.first))
                 log_warning("unknown placement_estimate.txt key '%s' ignored\n", kv.first.c_str());
+        init_bels_v2(has_v3 ? "/.FABulous/bel.v3.txt" // same parser; v3 adds timing lines
+                            : "/.FABulous/bel.v2.txt");
+        init_pips(pip_delay_scale);
+        init_pseudo_constant_wires();
+        setup_lut_permutation();
         seed_default_estimates();
     }
 
@@ -530,7 +532,7 @@ struct FabulousImpl : ViaductAPI
     }
 
     int max_x = 0, max_y = 0;
-    void init_pips()
+    void init_pips(double pip_delay_scale)
     {
         std::string pips_file =
                 corner.empty() ? "/.FABulous/pips.txt" : stringf("/.FABulous/pips.%s.txt", corner.c_str());
@@ -551,7 +553,7 @@ struct FabulousImpl : ViaductAPI
             max_x = std::max(loc.x, max_x);
             max_y = std::max(loc.y, max_y);
             ctx->addPip(IdStringList::concat(src_tile, pip_name), pip_name, src_wire, dst_wire,
-                        ctx->getDelayFromNS(0.05 * delay), loc);
+                        ctx->getDelayFromNS(pip_delay_scale * delay), loc);
         }
     }
 
