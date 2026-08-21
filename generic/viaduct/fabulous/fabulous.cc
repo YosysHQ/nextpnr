@@ -111,7 +111,8 @@ struct FabulousImpl : ViaductAPI
             if (!known_keys.count(kv.first))
                 log_warning("unknown placement_estimate.txt key '%s' ignored\n", kv.first.c_str());
         init_bels_v2(has_v3 ? "/.FABulous/bel.v3.txt" // same parser; v3 adds timing lines
-                            : "/.FABulous/bel.v2.txt");
+                            : "/.FABulous/bel.v2.txt",
+                     has_v3);
         init_pips(pip_delay_scale);
         init_pseudo_constant_wires();
         setup_lut_permutation();
@@ -351,21 +352,26 @@ struct FabulousImpl : ViaductAPI
         }
     }
 
-    // Reads both bel.v2.txt and bel.v3.txt; the latter additionally carries
-    // Delay/SetupHold/ClkToOut/Clock timing lines into bel_timing_by_bel.
     // TODO: multi-clock will need one root per domain.
     WireId global_clock_wire() { return get_wire(ctx->id("X0Y0"), id_CLK, id_CLK); }
 
+    // Clock arrival time (ns) for a bel whose GlobalClk line carries none.
+    static constexpr float default_clock_delay = 1.0;
+
     // `delay` is this flop's clock arrival time; only differences between flops
-    // produce skew, a uniform value cancels out. Default 1.0 for bel.v2, which
+    // produce skew, a uniform value cancels out. Default for bel.v2, which
     // carries no arrival time.
-    void add_global_clock_pip(WireId clk_wire, float delay = 1.0)
+    void add_global_clock_pip(WireId clk_wire, float delay = default_clock_delay)
     {
         add_pseudo_pip(global_clock_wire(), clk_wire, id_global_clock, delay);
     }
 
-    void init_bels_v2(const std::string &filename)
+    // Reads both bel.v2.txt and bel.v3.txt
+    void init_bels_v2(const std::string &filename, bool has_timing)
     {
+        // Either all clock pins should have an arrival time, or none.
+        int clk_pins = 0, clk_pins_untimed = 0;
+        BelId first_untimed;
         log_info("Reading BELs file: %s\n", filename.c_str());
         std::ifstream in = open_data_rel(filename);
         CsvParser csv(in);
@@ -409,10 +415,14 @@ struct FabulousImpl : ViaductAPI
                 ctx->addBelInput(curr_bel, id_CLK, clk_wire);
                 // per-flop clock arrival time (ns); bel.v2 has no delay field
                 parser_view clk_delay = csv.next_field();
-                if (clk_delay.empty())
+                ++clk_pins;
+                if (clk_delay.empty()) {
+                    if (clk_pins_untimed++ == 0)
+                        first_untimed = curr_bel;
                     add_global_clock_pip(clk_wire);
-                else
+                } else {
                     add_global_clock_pip(clk_wire, parse_float(clk_delay));
+                }
             } else if (cmd == id_CFG) {
                 // TODO...
             } else if (cmd.in(id_Delay, id_SetupHold, id_ClkToOut, id_Clock)) {
@@ -426,6 +436,11 @@ struct FabulousImpl : ViaductAPI
                           curr_bel == BelId() ? "<none>" : ctx->nameOfBel(curr_bel));
             }
         }
+        if (has_timing && clk_pins_untimed > 0)
+            log_warning("%s: %d of %d clock pins have no arrival time and fall back to %.2f ns; that shows up as "
+                        "clock skew against the timed ones (e.g. %s)\n",
+                        filename.c_str(), clk_pins_untimed, clk_pins, default_clock_delay,
+                        ctx->nameOfBel(first_untimed));
         init_global_clock();
         postprocess_bels();
     }
