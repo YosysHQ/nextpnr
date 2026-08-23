@@ -2,6 +2,7 @@ from os import path
 import sys
 
 import importlib.resources
+import itertools
 import gzip
 import re
 import argparse
@@ -36,6 +37,7 @@ CHIP_HAS_I2CCFG             = 0x2000
 CHIP_HAS_5A_DSP             = 0x4000
 CHIP_NEED_BSRAM_DP_CE_FIX   = 0x8000
 CHIP_HAS_5A_HCLK            = 0x10000
+CHIP_HAS_EMPTY_QUADRANT     = 0x20000
 
 # Tile flags
 TILE_I3C_CAPABLE_IO        = 0x1
@@ -492,24 +494,23 @@ def get_tm_class(db: chipdb, wire: str):
 # u-turn at the rim
 uturnlut = {'N': 'S', 'S': 'N', 'E': 'W', 'W': 'E'}
 def uturn(db: chipdb, x: int, y: int, wire: str):
-    m = re.match(r"([NESW])([128]\d)(\d)", wire)
-    if m:
-        direction, num, segment = m.groups()
-        # wires wrap around the edges
-        # assumes 0-based indexes
-        if y < 0:
-            y = -1 - y
-            direction = uturnlut[direction]
-        if x < 0:
-            x = -1 - x
-            direction = uturnlut[direction]
-        if y > db.rows - 1:
-            y = 2 * db.rows - 1 - y
-            direction = uturnlut[direction]
-        if x > db.cols - 1:
-            x = 2 * db.cols - 1 - x
-            direction = uturnlut[direction]
-        wire = f'{direction}{num}{segment}'
+    direction, num_segment = wire[0], wire[1:]
+
+    # wires wrap around the edges
+    # assumes 0-based indexes
+    if y < 0:
+        y = -1 - y
+        direction = uturnlut[direction]
+    if x < 0:
+        x = -1 - x
+        direction = uturnlut[direction]
+    if y > db.rows - 1:
+        y = 2 * db.rows - 1 - y
+        direction = uturnlut[direction]
+    if x > db.cols - 1:
+        x = 2 * db.cols - 1 - x
+        direction = uturnlut[direction]
+    wire = direction + num_segment
     return (x, y, wire)
 
 def create_reuse_wire(tt: TileType, name: str, wire_type: str="", const_value: str=""):
@@ -521,15 +522,269 @@ def create_reuse_wire(tt: TileType, name: str, wire_type: str="", const_value: s
     elif wire_type:
         tt.set_wire_type(name, wire_type)
 
+def create_global_nodes(chip: Chip, db: chipdb):
+    ### add nodes from the apicula db """
+    global_nodes = {}
+    for node_name, node_hdr in db.nodes.items():
+        wire_type, node = node_hdr
+        if len(node) < 2:
+            continue
+        min_wire_name_len = 0
+        if node:
+            min_wire_name_len = len(next(iter(node))[2])
+        for y, x, wire in node:
+            if wire_type:
+                create_reuse_wire(chip.tile_type_at(x, y), wire, wire_type)
+            new_node = NodeWire(x, y, wire)
+            gl_nodes = global_nodes.setdefault(node_name, [])
+            if new_node not in gl_nodes:
+                if len(wire) < min_wire_name_len:
+                    min_wire_name_len = len(wire)
+                    gl_nodes.insert(0, new_node)
+                else:
+                    gl_nodes.append(new_node)
+
+    for name, node in global_nodes.items():
+        chip.add_node(node)
+
+def create_nodes_with_empty_area(chip: Chip, db: chipdb):
+    """ Currently, only one chip is known to have an "empty" region—the
+    GW5AT-60B.  The unused areas include a rectangular region in the upper left
+    corner, as well as one row and one column, which must be "jumped" when
+    describing inter-cell wires.
+
+     f - normal FPGA cell
+     . - empty cell (no wires etc)
+     x - exactly the same cell as the previous one, but this is the cell whose
+     coordinates we use to describe the empty area
+
+      ......fffff
+      ......fffff
+      ......fffff
+      ffffffx....
+      ffffff.ffff
+      ffffff.ffff
+      ffffff.fff
+
+    Because of this geometry, u-turns and jumps are currently created without
+    code optimization - if u-turns are not important for large LUTs, DSPs and
+    ALUs, the impact of jumps requires research.
+    """
+    X = db.cols
+    Y = db.rows
+    empty_x = db.empty_cell_col
+    empty_y = db.empty_cell_row
+
+    def u_turn_N(src_y, dst_x, dst_y, wire):
+        direction = 'N'
+        num_segment = wire[1:]
+        if dst_y < 0:
+            dst_y =  -dst_y - 1
+            direction = 'S'
+        elif dst_x < empty_x and dst_y < empty_y:
+            dst_y = 2 * empty_y - dst_y - 1
+            direction = 'S'
+        elif dst_x > empty_x and src_y > empty_y and dst_y <= empty_y:
+            # jump
+            dst_y -= 1
+        return (dst_x, dst_y, direction + num_segment)
+
+    def u_turn_S(src_y, dst_x, dst_y, wire):
+        direction = 'S'
+        num_segment = wire[1:]
+        if dst_y > db.rows - 1:
+            dst_y =  2 * db.rows - dst_y - 1
+            direction = 'N'
+        elif dst_x == empty_x and dst_y >= empty_y:
+            dst_y = 2 * empty_y - dst_y - 1
+            direction = 'N'
+        elif dst_x > empty_x and src_y < empty_y and dst_y >= empty_y:
+            # jump
+            dst_y += 1
+        return (dst_x, dst_y, direction + num_segment)
+
+    def u_turn_W(src_x, dst_x, dst_y, wire):
+        direction = 'W'
+        num_segment = wire[1:]
+        if dst_x < 0:
+            dst_x =  -dst_x - 1
+            direction = 'E'
+        elif dst_x < empty_x and dst_y < empty_y:
+            dst_x = 2 * empty_x - dst_x - 1
+            direction = 'E'
+        elif dst_x <= empty_x and src_x > empty_x and dst_y > empty_y:
+            # jump
+            dst_x -= 1
+        return (dst_x, dst_y, direction + num_segment)
+
+    def u_turn_E(src_x, dst_x, dst_y, wire):
+        direction = 'E'
+        num_segment = wire[1:]
+        if dst_x > db.cols - 1:
+            dst_x =  2 * db.cols - dst_x - 1
+            direction = 'W'
+        elif dst_x >= empty_x and dst_y == empty_y:
+            dst_x = 2 * empty_x - dst_x - 1
+            direction = 'W'
+        elif dst_x >= empty_x and src_x < empty_x and dst_y > empty_y:
+            # jump
+            dst_x += 1
+        return (dst_x, dst_y, direction + num_segment)
+
+    nodes = []
+    for x, y in itertools.product(range(X), range(Y)):
+        tt = chip.tile_type_at(x, y)
+        extra_tile_data = tt.extra_data
+        # ignore empty tiles
+        if y == empty_y and x > empty_x:
+            continue
+        # SN and EW
+        for i in [1, 2]:
+            src_wire = f'SN{i}0'
+            if not tt.has_wire(src_wire):
+                continue
+            nodes.append([NodeWire(x, y, src_wire),
+                    NodeWire(*u_turn_N(y, x, y - 1, f'N1{i}1')),
+                    NodeWire(*u_turn_S(y, x, y + 1, f'S1{i}1'))])
+            src_wire = f'EW{i}0'
+            if not tt.has_wire(src_wire):
+                continue
+            nodes.append([NodeWire(x, y, src_wire),
+                    NodeWire(*u_turn_W(x, x - 1, y, f'W1{i}1')),
+                    NodeWire(*u_turn_E(x, x + 1, y, f'E1{i}1'))])
+
+        # N 1-hop
+        for i in [0, 3]:
+            src_wire = f'N1{i}0'
+            if not tt.has_wire(src_wire):
+                continue
+            nodes.append([NodeWire(x, y, src_wire),
+                NodeWire(*u_turn_N(y, x, y - 1, f'N1{i}1'))])
+        # N 2-hop
+        for i in range(8):
+            src_wire = f'N2{i}0'
+            if not tt.has_wire(src_wire):
+                continue
+            nodes.append([NodeWire(x, y, src_wire),
+                NodeWire(*u_turn_N(y, x, y - 1, f'N2{i}1')),
+                NodeWire(*u_turn_N(y, x, y - 2, f'N2{i}2'))])
+        # N 4-hop
+        for i in range(4):
+            src_wire = f'N8{i}0'
+            if not tt.has_wire(src_wire):
+                continue
+            nodes.append([NodeWire(x, y, src_wire),
+                NodeWire(*u_turn_N(y, x, y - 4, f'N8{i}4')),
+                NodeWire(*u_turn_N(y, x, y - 8, f'N8{i}8'))])
+
+        # S 1-hop
+        for i in [0, 3]:
+            src_wire = f'S1{i}0'
+            if not tt.has_wire(src_wire):
+                continue
+            nodes.append([NodeWire(x, y, src_wire),
+                NodeWire(*u_turn_S(y, x, y + 1, f'S1{i}1'))])
+        # S 2-hop
+        for i in range(8):
+            src_wire = f'S2{i}0'
+            if not tt.has_wire(src_wire):
+                continue
+            nodes.append([NodeWire(x, y, src_wire),
+                NodeWire(*u_turn_S(y, x, y + 1, f'S2{i}1')),
+                NodeWire(*u_turn_S(y, x, y + 2, f'S2{i}2'))])
+        # S 4-hop
+        for i in range(4):
+            src_wire = f'S8{i}0'
+            if not tt.has_wire(src_wire):
+                continue
+            nodes.append([NodeWire(x, y, src_wire),
+                NodeWire(*u_turn_S(y, x, y + 4, f'S8{i}4')),
+                NodeWire(*u_turn_S(y, x, y + 8, f'S8{i}8'))])
+
+        # W 1-hop
+        for i in [0, 3]:
+            src_wire = f'W1{i}0'
+            if not tt.has_wire(src_wire):
+                continue
+            nodes.append([NodeWire(x, y, src_wire),
+                NodeWire(*u_turn_W(x, x - 1, y, f'W1{i}1'))])
+        # W 2-hop
+        for i in range(8):
+            src_wire = f'W2{i}0'
+            if not tt.has_wire(src_wire):
+                continue
+            nodes.append([NodeWire(x, y, src_wire),
+                NodeWire(*u_turn_W(x, x - 1, y, f'W2{i}1')),
+                NodeWire(*u_turn_W(x, x - 2, y, f'W2{i}2'))])
+        # W 4-hop
+        for i in range(4):
+            src_wire = f'W8{i}0'
+            if not tt.has_wire(src_wire):
+                continue
+            nodes.append([NodeWire(x, y, src_wire),
+                NodeWire(*u_turn_W(x, x - 4, y, f'W8{i}4')),
+                NodeWire(*u_turn_W(x, x - 8, y, f'W8{i}8'))])
+
+        # E 1-hop
+        for i in [0, 3]:
+            src_wire = f'E1{i}0'
+            if not tt.has_wire(src_wire):
+                continue
+            nodes.append([NodeWire(x, y, src_wire),
+                NodeWire(*u_turn_E(x, x + 1, y, f'E1{i}1'))])
+        # E 2-hop
+        for i in range(8):
+            src_wire = f'E2{i}0'
+            if not tt.has_wire(src_wire):
+                continue
+            nodes.append([NodeWire(x, y, src_wire),
+                NodeWire(*u_turn_E(x, x + 1, y, f'E2{i}1')),
+                NodeWire(*u_turn_E(x, x + 2, y, f'E2{i}2'))])
+        # E 4-hop
+        for i in range(4):
+            src_wire = f'E8{i}0'
+            if not tt.has_wire(src_wire):
+                continue
+            nodes.append([NodeWire(x, y, src_wire),
+                NodeWire(*u_turn_E(x, x + 4, y, f'E8{i}4')),
+                NodeWire(*u_turn_E(x, x + 8, y, f'E8{i}8'))])
+
+        # I0 for MUX2_LUT8
+        if x < X - 1 and extra_tile_data.tile_class == chip.strs.id('LOGIC'):
+            dst_x = x + 1
+            if dst_x == empty_x:
+                dst_x += 1
+            if chip.tile_type_at(dst_x, y).extra_data.tile_class == chip.strs.id('LOGIC'):
+                nodes.append([NodeWire(x, y, 'OF30'), NodeWire(dst_x, y, 'OF3')])
+
+        # ALU
+        if extra_tile_data.tile_class == chip.strs.id('LOGIC'):
+            # local carry chain
+            for i in range(5):
+                nodes.append([NodeWire(x, y, f'COUT{i}'),
+                              NodeWire(x, y, f'CIN{i + 1}')]);
+            # global carry chain
+            if x > 1:
+                dst_x = x - 1
+                if dst_x == empty_x:
+                    dst_x -= 1
+                    if y < empty_y:
+                        continue
+                if chip.tile_type_at(x - 1, y).extra_data.tile_class == chip.strs.id('LOGIC'):
+                    nodes.append([NodeWire(x, y, f'CIN0'), NodeWire(dst_x, y, f'COUT5')])
+
+    for node in nodes:
+        chip.add_node(node)
+    create_global_nodes(chip, db)
+
 def create_nodes(chip: Chip, db: chipdb):
     # : (x, y)
     dirs = { 'N': (0, -1), 'S': (0, 1), 'W': (-1, 0), 'E': (1, 0) }
     X = db.cols
     Y = db.rows
-    global_nodes = {}
+    nodes = []
     for y in range(Y):
         for x in range(X):
-            nodes = []
             tt = chip.tile_type_at(x, y)
             extra_tile_data = tt.extra_data
             # SN and EW
@@ -572,31 +827,9 @@ def create_nodes(chip: Chip, db: chipdb):
                     nodes.append([NodeWire(x, y, f'CIN0'),
                                   NodeWire(x - 1, y, f'COUT5')])
 
-            for node in nodes:
-                chip.add_node(node)
-
-    # add nodes from the apicula db
-    for node_name, node_hdr in db.nodes.items():
-        wire_type, node = node_hdr
-        if len(node) < 2:
-            continue
-        min_wire_name_len = 0
-        if node:
-            min_wire_name_len = len(next(iter(node))[2])
-        for y, x, wire in node:
-            if wire_type:
-                create_reuse_wire(chip.tile_type_at(x, y), wire, wire_type)
-            new_node = NodeWire(x, y, wire)
-            gl_nodes = global_nodes.setdefault(node_name, [])
-            if new_node not in gl_nodes:
-                if len(wire) < min_wire_name_len:
-                    min_wire_name_len = len(wire)
-                    gl_nodes.insert(0, new_node)
-                else:
-                    gl_nodes.append(new_node)
-
-    for name, node in global_nodes.items():
+    for node in nodes:
         chip.add_node(node)
+    create_global_nodes(chip, db)
 
 def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
     def get_wire_type(name):
@@ -1906,6 +2139,8 @@ def main():
             chip_flags |= CHIP_HAS_5A_DSP;
         if "HAS_5A_HCLK" in db.chip_flags:
             chip_flags |= CHIP_HAS_5A_HCLK;
+        if "HAS_EMPTY_QUADRANT" in db.chip_flags:
+            chip_flags |= CHIP_HAS_EMPTY_QUADRANT;
 
     X = db.cols;
     Y = db.rows;
@@ -1955,7 +2190,11 @@ def main():
                 create_tiletype(create_null_tiletype, ch, db, x, y, ttyp)
 
     # Create nodes between tiles
-    create_nodes(ch, db)
+    if "HAS_EMPTY_QUADRANT" in db.chip_flags:
+        create_nodes_with_empty_area(ch, db)
+    else:
+        create_nodes(ch, db)
+
     create_extra_data(ch, db, chip_flags)
     create_timing_info(ch, db)
     ch.write_bba(args.output)

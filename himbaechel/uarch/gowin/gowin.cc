@@ -163,7 +163,7 @@ void GowinImpl::init_database(Arch *arch)
             std::smatch match;
             if (std::regex_match(args.device, match, devicere)) {
                 family = stringf("GW5A%s-%s%s", match[1].str().c_str(), match[2].str().c_str(),
-                                 match[2].str() == "25" ? "A" : "C");
+                                 match[2].str() == "25" ? "A" : (match[2].str() == "60" ? "B" : "C"));
             } else {
                 std::regex devicere = std::regex("GW1N([SZ]?)[A-Z]*-(LV|UV|UX)([0-9])(C?).*");
                 std::smatch match;

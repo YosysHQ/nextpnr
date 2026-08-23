@@ -249,6 +249,7 @@ NPNR_PACKED_STRUCT(struct Extra_chip_data_POD {
     static constexpr int32_t HAS_5A_DSP = 16384;
     static constexpr int32_t NEED_BSRAM_DP_CE_FIX = 32768;
     static constexpr int32_t HAS_5A_HCLK = 65536;
+    static constexpr int32_t HAS_EMPTY_QUADRANT = 131072;
 });
 
 } // namespace
