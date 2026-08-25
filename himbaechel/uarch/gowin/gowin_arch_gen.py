@@ -1926,12 +1926,6 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
             cell.add_clock_out(clock, f"{bus}{i}", ClockEdge.RISING, group_to_timingvalue(arc[group]))
 
     def check_bram_timing(cell, variant, required):
-        # Every listed pin must have ended up with a timing model. The buses
-        # are added in a loop over a cell handle, so passing the wrong handle
-        # silently attaches a whole bus to another variant: the arcs are
-        # created, no error is raised, and the port is simply absent from the
-        # timing graph. A path ending there then has no setup check and the
-        # clock reports a false pass.
         missing = [pin for pin in required if pin not in cell.pin_data]
         assert not missing, \
             f"{variant}: no timing model for {', '.join(missing)}"
