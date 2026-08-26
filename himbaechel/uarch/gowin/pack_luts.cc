@@ -393,7 +393,7 @@ void GowinPacker::pack_alus(void)
                         ci->constr_z = alu_chain_len % 6;
                     }
                     // optimize only MODE=2 for now
-                    if (ci->params.at(id_ALU_MODE).as_int64() == 2) {
+                    if (ci->attrs.count(id_RAW_ALU_LUT) == 0 && ci->params.at(id_ALU_MODE).as_int64() == 2) {
                         optimize_alu_lut(ci, 2);
                     }
                     // XXX I2 is pin C which must be set to 1 for all ALU modes except MUL
