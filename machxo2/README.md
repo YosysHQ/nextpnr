@@ -86,7 +86,7 @@ make
 ```
 
 Although uncommon, the `facade` and `machxo2` branches of the above repos are
-occassionally rebased; use `git pull -f` if necessary.
+occasionally rebased; use `git pull -f` if necessary.
 
 ### Demo
 
