@@ -426,8 +426,12 @@ struct FasmBackend
                 for (int k = 0; k < 6; k++) {
                     if ((j & (1 << k)) == 0)
                         continue;
-                    for (auto &p2l : phys_to_log[k])
-                        log_index |= (1 << log_to_bit[p2l]);
+                    for (auto &p2l : phys_to_log[k]) {
+                        if (!log_to_bit.count(p2l))
+                            log_error("cell '%s': X_ORIG_PORT_%s token '%s' does not name a logical input\n",
+                                      ctx->nameOf(lut), phys_inputs[k].c_str(ctx), p2l.c_str());
+                        log_index |= (1 << log_to_bit.at(p2l));
+                    }
                 }
                 bits[j] = (init.str.at(log_index) == Property::S1);
             }
