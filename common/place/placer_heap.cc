@@ -1429,7 +1429,15 @@ class HeAPPlacer
                         }
                     }
                     ctx->bindBel(target.second, target.first, STRENGTH_STRONG);
-                    moves_made[target.second] = bound;
+                    // Do not overwrite an existing ripup record: when a
+                    // cluster is ripped up, every member (including its
+                    // root) is recorded above; if a LATER target bel lands
+                    // on that cluster's root, `bound` was re-read after the
+                    // unbind and is nullptr - overwriting would erase the
+                    // root's record, so the ripped-up cluster is never
+                    // requeued and every one of its cells stays unbound.
+                    if (!moves_made.count(target.second))
+                        moves_made[target.second] = bound;
                 }
                 // Check that the move we have made is legal
                 for (auto &move : moves_made) {
