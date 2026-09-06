@@ -34,6 +34,7 @@ set(SOURCES
 add_nextpnr_architecture(${family}
     CORE_SOURCES ${SOURCES}
     MAIN_SOURCE  main.cc
+    TEST_SOURCES tests/timing.cc
 )
 
 target_sources(nextpnr-${family}-chipdb PUBLIC chipdb.cc)
