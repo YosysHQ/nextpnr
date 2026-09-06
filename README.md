@@ -139,6 +139,17 @@ sudo make install
 
 Cyclone V support is currently experimental and has limited testing. The backend is undergoing active API refactoring, and its structure, build requirements, and integration points may change between versions.
 
+### nextpnr-machxo2
+
+Install [Project Trellis](https://github.com/YosysHQ/prjtrellis) as for nextpnr-ecp5 above.
+
+```
+mkdir -p build && cd build
+cmake .. -DARCH=machxo2 -DTRELLIS_INSTALL_PREFIX=/usr/local
+make -j$(nproc)
+sudo make install
+```
+
 ### nextpnr-generic
 
 The generic target allows running placement and routing for arbitrary custom architectures.
