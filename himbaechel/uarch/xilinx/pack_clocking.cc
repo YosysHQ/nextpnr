@@ -429,13 +429,13 @@ void XilinxPacker::generate_constraints()
             return;
         if (to->clkconstr != nullptr) {
             if (!equals_epsilon_constr(*to->clkconstr, *constr) && user_constrained.count(to->name))
-                log_warning("    Overriding derived constraint of %.1f MHz on net %s with user-specified constraint of "
+                log_warning("    Overriding derived constraint of %.2f MHz on net %s with user-specified constraint of "
                             "%.1f MHz.\n",
                             MHz(to->clkconstr->period.min_delay), to->name.c_str(ctx), MHz(constr->period.min_delay));
             return;
         }
         to->clkconstr = std::move(constr);
-        log_info("    Derived frequency constraint of %.1f MHz for net %s\n", MHz(to->clkconstr->period.minDelay()),
+        log_info("    Derived frequency constraint of %.2f MHz for net %s\n", MHz(to->clkconstr->period.minDelay()),
                  to->name.c_str(ctx));
         changed_nets.insert(to->name);
     };
@@ -450,7 +450,7 @@ void XilinxPacker::generate_constraints()
             if (!equals_epsilon(to->clkconstr->period.minDelay(),
                                 delay_t(from->clkconstr->period.minDelay() / ratio)) &&
                 user_constrained.count(to->name))
-                log_warning("    Overriding derived constraint of %.1f MHz on net %s with user-specified constraint of "
+                log_warning("    Overriding derived constraint of %.2f MHz on net %s with user-specified constraint of "
                             "%.1f MHz.\n",
                             MHz(to->clkconstr->period.minDelay()), to->name.c_str(ctx),
                             MHz(delay_t(from->clkconstr->period.minDelay() / ratio)));
@@ -461,7 +461,7 @@ void XilinxPacker::generate_constraints()
         to->clkconstr->high = DelayPair(ctx->getDelayFromNS(ctx->getDelayNS(from->clkconstr->high.min_delay) / ratio));
         to->clkconstr->period =
                 DelayPair(ctx->getDelayFromNS(ctx->getDelayNS(from->clkconstr->period.min_delay) / ratio));
-        log_info("    Derived frequency constraint of %.1f MHz for net %s\n", MHz(to->clkconstr->period.minDelay()),
+        log_info("    Derived frequency constraint of %.2f MHz for net %s\n", MHz(to->clkconstr->period.minDelay()),
                  to->name.c_str(ctx));
         changed_nets.insert(to->name);
     };
@@ -490,7 +490,7 @@ void XilinxPacker::generate_constraints()
                 delay_t period_in;
                 if (!get_period(ci, id_CLKIN1, period_in))
                     continue;
-                log_info("    Input frequency of PLL '%s' is constrained to %.1f MHz\n", ci->name.c_str(ctx),
+                log_info("    Input frequency of PLL '%s' is constrained to %.2f MHz\n", ci->name.c_str(ctx),
                          MHz(period_in));
                 double period_in_div = period_in * int_or_default(ci->params, id_DIVCLK_DIVIDE, 1);
 
@@ -513,8 +513,8 @@ void XilinxPacker::generate_constraints()
                 }
 
                 double vco_period = period_in_div / feedback_div;
-                log_info("    Derived VCO frequency %.1f MHz for PLL '%s'\n", vco_freq, ci->name.c_str(ctx));
                 double vco_freq = MHz_f(vco_period);
+                log_info("    Derived VCO frequency %.2f MHz for PLL '%s'\n", vco_freq, ci->name.c_str(ctx));
 
                 for (int i = 0; i <= 6; i++) {
                     auto port = ctx->idf("CLKOUT%d", i);
