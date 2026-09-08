@@ -85,6 +85,7 @@ DLLDLY_Z    = 303 # : 305 reserve for 2 DLLDLYs
 
 PINCFG_Z    = 400
 ADC_Z       = 401
+GW_JTAG_Z      = 402
 
 DSP_Z          = 509
 
@@ -1144,6 +1145,14 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
                     else:
                         create_reuse_wire(tt, wire, "HCLK")
                     tt.add_bel_pin(clkdiv, pin, wire, PinType.INPUT)
+        elif func == 'jtag':
+            jtag = tt.create_bel("GW_JTAG", "GW_JTAG", z = GW_JTAG_Z)
+            for pin, wire in desc['outputs'].items():
+                create_reuse_wire(tt, wire, "")
+                tt.add_bel_pin(jtag, pin, wire, PinType.OUTPUT)
+            for pin, wire in desc['inputs'].items():
+                create_reuse_wire(tt, wire, "")
+                tt.add_bel_pin(jtag, pin, wire, PinType.INPUT)
 
 def set_wire_flags(tt: TileType, tdesc: TypeDesc):
     if tdesc.extra_func and 'clock_gates' in tdesc.extra_func:
