@@ -385,6 +385,7 @@ void XilinxPacker::generate_constraints()
 {
     log_info("Generating derived timing constraints...\n");
     auto MHz = [&](delay_t a) { return 1000.0 / ctx->getDelayNS(a); };
+    auto MHz_f = [&](float a) { return 1000000.0 / a; };
 
     auto equals_epsilon = [](delay_t a, delay_t b) { return (std::abs(a - b) / std::max(double(b), 1.0)) < 1e-3; };
     auto equals_epsilon_pair = [&](DelayPair &a, DelayPair &b) {
@@ -512,8 +513,8 @@ void XilinxPacker::generate_constraints()
                 }
 
                 double vco_period = period_in_div / feedback_div;
-                double vco_freq = MHz(vco_period);
                 log_info("    Derived VCO frequency %.1f MHz for PLL '%s'\n", vco_freq, ci->name.c_str(ctx));
+                double vco_freq = MHz_f(vco_period);
 
                 for (int i = 0; i <= 6; i++) {
                     auto port = ctx->idf("CLKOUT%d", i);
