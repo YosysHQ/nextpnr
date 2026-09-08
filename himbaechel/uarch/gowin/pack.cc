@@ -203,6 +203,27 @@ void GowinPacker::pack_adc(void)
 }
 
 // ===================================
+// GW JTAG
+// ===================================
+void GowinPacker::pack_gw_jtag(void)
+{
+    log_info("Pack GW JTAG...\n");
+
+    for (auto &cell : ctx->cells) {
+        auto &ci = *cell.second;
+
+        if (is_gw_jtag(&ci)) {
+            // disconnect pads - they have no wires
+            ci.disconnectPort(ctx->id("tck_pad_i"));
+            ci.disconnectPort(ctx->id("tms_pad_i"));
+            ci.disconnectPort(ctx->id("tdi_pad_i"));
+            ci.disconnectPort(ctx->id("tdo_pad_o"));
+            ci.disconnectPort(ctx->id("pause_dr_o"));
+        }
+    }
+}
+
+// ===================================
 // HCLK -- CLKDIV and CLKDIV2 for now
 // ===================================
 void GowinPacker::pack_hclk(void)
@@ -612,6 +633,9 @@ void GowinPacker::run(void)
     ctx->check();
 
     pack_adc();
+    ctx->check();
+
+    pack_gw_jtag();
     ctx->check();
 
     pack_bsram();

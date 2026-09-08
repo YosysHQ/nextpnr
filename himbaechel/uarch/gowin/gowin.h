@@ -111,6 +111,10 @@ inline bool is_pll(const CellInfo *cell) { return type_is_pll(cell->type); }
 inline bool type_is_adc(IdString cell_type) { return cell_type.in(id_ADC); }
 inline bool is_adc(const CellInfo *cell) { return type_is_adc(cell->type); }
 
+// Return true if a cell is a GW_JTAG
+inline bool type_is_gw_jtag(IdString cell_type) { return cell_type.in(id_GW_JTAG); }
+inline bool is_gw_jtag(const CellInfo *cell) { return type_is_gw_jtag(cell->type); }
+
 // Return true if a cell is a EMCU
 inline bool type_is_emcu(IdString cell_type) { return cell_type == id_EMCU; }
 inline bool is_emcu(const CellInfo *cell) { return type_is_emcu(cell->type); }
@@ -300,6 +304,7 @@ enum
     PINCFG_Z = 400,
 
     ADC_Z = 401,
+    GW_JTAG_Z = 402,
 
     // The two least significant bits encode Z for 9-bit adders and
     // multipliers, if they are equal to 0, then we get Z of their common

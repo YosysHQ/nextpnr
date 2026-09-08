@@ -65,6 +65,7 @@ struct GowinPacker
     void pack_bandgap(void);
     void pack_userflash(bool have_emcu);
     void pack_emcu_and_flash(void);
+    void pack_gw_jtag(void);
 
     void run(void);
 
