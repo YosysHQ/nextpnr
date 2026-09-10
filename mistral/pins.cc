@@ -24,6 +24,20 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 const dict<IdString, Arch::CellPinsData> Arch::cell_pins_db = {
+        // DSP inputs have individual inversion bits, allowing constants and
+        // inverters to be folded. Bitgen accounts for each physical default.
+        {id_MISTRAL_MUL9X9,
+         {{{id_CLK, PINSTYLE_CLK}, {id_ENA, PINSTYLE_CE}, {id_ACLR, PINSTYLE_RST},
+           {id_ACCUMULATE, PINSTYLE_COMB}, {id_SUB, PINSTYLE_COMB}, {id_NEGATE, PINSTYLE_COMB},
+           {id_LOADCONST, PINSTYLE_COMB}, {{}, PINSTYLE_COMB}}}},
+        {id_MISTRAL_MUL18X18,
+         {{{id_CLK, PINSTYLE_CLK}, {id_ENA, PINSTYLE_CE}, {id_ACLR, PINSTYLE_RST},
+           {id_ACCUMULATE, PINSTYLE_COMB}, {id_SUB, PINSTYLE_COMB}, {id_NEGATE, PINSTYLE_COMB},
+           {id_LOADCONST, PINSTYLE_COMB}, {{}, PINSTYLE_COMB}}}},
+        {id_MISTRAL_MUL27X27,
+         {{{id_CLK, PINSTYLE_CLK}, {id_ENA, PINSTYLE_CE}, {id_ACLR, PINSTYLE_RST},
+           {id_ACCUMULATE, PINSTYLE_COMB}, {id_SUB, PINSTYLE_COMB}, {id_NEGATE, PINSTYLE_COMB},
+           {id_LOADCONST, PINSTYLE_COMB}, {{}, PINSTYLE_COMB}}}},
         // For combinational cells, inversion and tieing can be implemented by manipulating the LUT function
         {id_MISTRAL_ALUT2, {{{}, PINSTYLE_COMB}}},
         {id_MISTRAL_ALUT3, {{{}, PINSTYLE_COMB}}},

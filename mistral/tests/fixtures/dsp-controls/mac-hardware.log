@@ -1,0 +1,4 @@
+PASS: expected=125 actual=125 status=0xD615007D
+PASS: expected=65032 actual=65032 status=0xD615FE08
+PASS: expected=65535 actual=65535 status=0xD615FFFF
+PASS: expected=258 actual=258 status=0xD6150102
