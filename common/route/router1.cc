@@ -1485,11 +1485,4 @@ bool Context::checkRoutedDesign() const
     return true;
 }
 
-bool Context::getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t *delay, dict<WireId, PipId> *route,
-                                  bool useEstimate)
-{
-    // FIXME
-    return false;
-}
-
 NEXTPNR_NAMESPACE_END

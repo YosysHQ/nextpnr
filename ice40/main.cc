@@ -81,7 +81,6 @@ po::options_description Ice40CommandHandler::getArchOptions()
     specific.add_options()("no-promote-globals", "disable all global promotion");
     specific.add_options()("no-promote-ce", "disable promotion of 'ce' globals");
     specific.add_options()("opt-timing", "run post-placement timing optimisation pass (experimental)");
-    specific.add_options()("tmfuzz", "run path delay estimate fuzzer");
     specific.add_options()("pcf-allow-unconstrained", "don't require PCF to constrain all IO");
 
     return specific;
@@ -117,9 +116,6 @@ void Ice40CommandHandler::customBitstream(Context *ctx)
 
 void Ice40CommandHandler::setupArchContext(Context *ctx)
 {
-    if (vm.count("tmfuzz"))
-        ice40DelayFuzzerMain(ctx);
-
     if (vm.count("read")) {
         std::string filename = vm["read"].as<std::string>();
         auto f = open_ifstream_and_log_error(filename, "ASC file");
