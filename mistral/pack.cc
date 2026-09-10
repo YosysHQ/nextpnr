@@ -18,12 +18,95 @@
  */
 
 #include "design_utils.h"
+#include "dsp.h"
 #include "log.h"
 #include "nextpnr.h"
 #include "util.h"
+#include <array>
 
 NEXTPNR_NAMESPACE_BEGIN
 namespace {
+
+bool is_dsp_multiplier(IdString type)
+{
+    return type.in(id_MISTRAL_MUL9X9, id_MISTRAL_MUL18X18, id_MISTRAL_MUL27X27);
+}
+
+bool dsp_bool_param(const dict<IdString, Property> &params, IdString key, bool def = false)
+{
+    auto it = params.find(key);
+    if (it == params.end())
+        return def;
+    if (!it->second.is_string)
+        return it->second.as_bool();
+    const std::string &value = it->second.as_string();
+    if (value == "1" || value == "true" || value == "TRUE" || value == "on" || value == "reg" ||
+        value == "registered")
+        return true;
+    if (value == "0" || value == "false" || value == "FALSE" || value == "off" || value == "bypass")
+        return false;
+    log_error("DSP parameter expects a boolean or register/bypass value, got '%s'.\n", value.c_str());
+    return def;
+}
+
+bool dsp_reg_param(const dict<IdString, Property> &params, IdString key)
+{
+    return dsp_bool_param(params, key, false);
+}
+
+bool dsp_shared_control_nets_equal(const CellInfo *a, const CellInfo *b)
+{
+    for (IdString port : {id_CLK, id_ACLR, id_ENA, id_ACCUMULATE, id_SUB, id_NEGATE, id_LOADCONST}) {
+        const NetInfo *an = a->getPort(port);
+        const NetInfo *bn = b->getPort(port);
+        // A hard constant has no net after packing, so compare both the net
+        // identity and the retained pin state. Otherwise two M9 lanes tied
+        // to opposite constants would be incorrectly clustered and the
+        // bitstream would apply the first lane's shared setting to both.
+        if (an != bn || a->get_pin_state(port) != b->get_pin_state(port))
+            return false;
+    }
+    return true;
+}
+
+bool dsp_control_used(const CellInfo *cell, IdString port)
+{
+    if (cell->getPort(port) != nullptr)
+        return true;
+    auto state = cell->get_pin_state(port);
+    return state == PIN_1 || state == PIN_INV;
+}
+
+bool dsp_has_bus(const CellInfo *cell, const BaseCtx *ctx, const char *base)
+{
+    std::string prefix = std::string(base) + "[";
+    for (const auto &port : cell->ports)
+        if (port.first.str(ctx).find(prefix) == 0)
+            return true;
+    return false;
+}
+
+bool dsp_shared_config_equal(const CellInfo *a, const CellInfo *b)
+{
+    if (dsp_bool_param(a->params, id_A_SIGNED, true) != dsp_bool_param(b->params, id_A_SIGNED, true) ||
+        dsp_bool_param(a->params, id_B_SIGNED, true) != dsp_bool_param(b->params, id_B_SIGNED, true))
+        return false;
+    for (IdString key : {id_INREG_CTRL_AX, id_INREG_CTRL_AY, id_INREG_CTRL_AZ, id_INREG_CTRL_BX,
+                         id_INREG_CTRL_BY, id_INREG_CTRL_BZ, id_OREG_CTRL, id_PREADDER_EN, id_PREADDER_SUB,
+                         id_CASCADE_EN, id_CASCADE_1ST_EN, id_CHAIN_OUTPUT_EN}) {
+        if (dsp_bool_param(a->params, key) != dsp_bool_param(b->params, key))
+            return false;
+    }
+    return dsp_shared_control_nets_equal(a, b);
+}
+
+bool is_supported_dsp_param(IdString key)
+{
+    return key.in(id_A_SIGNED, id_B_SIGNED, id_INREG_CTRL_AX, id_INREG_CTRL_AY, id_INREG_CTRL_AZ,
+                  id_INREG_CTRL_BX, id_INREG_CTRL_BY, id_INREG_CTRL_BZ, id_OREG_CTRL, id_PREADDER_EN,
+                  id_PREADDER_SUB, id_CASCADE_EN, id_CASCADE_1ST_EN, id_CHAIN_OUTPUT_EN);
+}
+
 struct MistralPacker
 {
     MistralPacker(Context *ctx) : ctx(ctx) {};
@@ -491,14 +574,170 @@ struct MistralPacker
         }
     }
 
+    void ensure_dsp_control_ports()
+    {
+        // The Yosys DSP cells intentionally contain only the controls used by
+        // the RTL. The physical block still needs explicit defaults on its
+        // control inputs, so materialise the omitted inputs before constant
+        // folding. This gives bitstream generation a PIN_0/PIN_1 state to
+        // encode instead of silently leaving the hardware default selected.
+        const std::array<IdString, 7> controls{
+                id_CLK, id_ACLR, id_ENA, id_ACCUMULATE, id_SUB, id_NEGATE, id_LOADCONST};
+        for (auto &entry : ctx->cells) {
+            CellInfo *cell = entry.second.get();
+            if (!is_dsp_multiplier(cell->type))
+                continue;
+            for (IdString control : controls)
+                if (!cell->ports.count(control))
+                    cell->addInput(control);
+        }
+    }
+
+    bool is_global_dsp_clock(const NetInfo *net) const
+    {
+        // MISTRAL_CLKBUF.Q is the output of the dedicated global clock path.
+        // Any other source (including an HPS/GPIO signal) needs the DSP's
+        // fabric CLKIN alternative.
+        return net != nullptr && net->driver.cell != nullptr &&
+               net->driver.cell->type.in(id_MISTRAL_CLKBUF, id_MISTRAL_CLKENA) && net->driver.port == id_Q;
+    }
+
+    void select_dsp_control_pinmaps()
+    {
+        const IdString clk_fabric = ctx->id("CLK_FABRIC");
+        const IdString aclr_fabric = ctx->id("ACLR_FABRIC");
+        for (auto &entry : ctx->cells) {
+            CellInfo *cell = entry.second.get();
+            if (!is_dsp_multiplier(cell->type))
+                continue;
+
+            NetInfo *clk = cell->getPort(id_CLK);
+            if (clk != nullptr && !is_global_dsp_clock(clk))
+                cell->pin_data[id_CLK].bel_pins = {clk_fabric};
+
+            NetInfo *aclr = cell->getPort(id_ACLR);
+            if (aclr != nullptr && !is_global_dsp_clock(aclr))
+                cell->pin_data[id_ACLR].bel_pins = {aclr_fabric};
+        }
+    }
+
+    void constrain_dsps()
+    {
+        std::vector<CellInfo *> multipliers;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (is_dsp_multiplier(ci->type)) {
+                for (auto &param : ci->params) {
+                    if (!is_supported_dsp_param(param.first))
+                        log_error("DSP cell '%s' has unsupported parameter '%s'.\n", ctx->nameOf(ci),
+                                  ctx->nameOf(param.first));
+                }
+                if (dsp_reg_param(ci->params, id_INREG_CTRL_AX) || dsp_reg_param(ci->params, id_INREG_CTRL_AY) ||
+                    dsp_reg_param(ci->params, id_INREG_CTRL_AZ) || dsp_reg_param(ci->params, id_INREG_CTRL_BX) ||
+                    dsp_reg_param(ci->params, id_INREG_CTRL_BY) || dsp_reg_param(ci->params, id_INREG_CTRL_BZ) ||
+                    dsp_reg_param(ci->params, id_OREG_CTRL)) {
+                    if (ci->getPort(id_CLK) == nullptr && ci->get_pin_state(id_CLK) != PIN_0 &&
+                        ci->get_pin_state(id_CLK) != PIN_1)
+                        log_error("DSP cell '%s' enables a register without a CLK port.\n", ctx->nameOf(ci));
+                }
+                if (ci->type == id_MISTRAL_MUL18X18 && dsp_bool_param(ci->params, id_PREADDER_EN))
+                    log_error("MISTRAL_MUL18X18 does not support PREADDER_EN; use the M9 preadder mode.\n");
+                if (ci->type == id_MISTRAL_MUL18X18 && dsp_has_bus(ci, ctx, "Z"))
+                    log_error("MISTRAL_MUL18X18 does not support a Z preadder port in M18X18P36 mode.\n");
+                if (ci->type == id_MISTRAL_MUL9X9 && dsp_has_bus(ci, ctx, "C"))
+                    log_error("MISTRAL_MUL9X9 does not support a C addend port.\n");
+                if (ci->type == id_MISTRAL_MUL9X9 && dsp_has_bus(ci, ctx, "Z") &&
+                    !dsp_bool_param(ci->params, id_PREADDER_EN))
+                    log_error("MISTRAL_MUL9X9 Z preadder ports require PREADDER_EN.\n");
+                if (ci->type == id_MISTRAL_MUL27X27 &&
+                    (dsp_bool_param(ci->params, id_PREADDER_EN) || dsp_has_bus(ci, ctx, "C") ||
+                     dsp_has_bus(ci, ctx, "Z")))
+                    log_error("MISTRAL_MUL27X27 does not support addend or preadder ports.\n");
+                if (ci->type == id_MISTRAL_MUL9X9 &&
+                    (dsp_control_used(ci, id_ACCUMULATE) || dsp_control_used(ci, id_SUB) ||
+                     dsp_control_used(ci, id_NEGATE) || dsp_control_used(ci, id_LOADCONST) ||
+                     dsp_bool_param(ci->params, id_CASCADE_EN) || dsp_bool_param(ci->params, id_CASCADE_1ST_EN) ||
+                     dsp_bool_param(ci->params, id_CHAIN_OUTPUT_EN)))
+                    log_error("MISTRAL_MUL9X9 does not support accumulator or cascade controls.\n");
+                multipliers.push_back(ci);
+            }
+        }
+        if (multipliers.empty())
+            return;
+
+        std::sort(multipliers.begin(), multipliers.end(), [](CellInfo *a, CellInfo *b) {
+            if (a->type != b->type)
+                return a->type.index < b->type.index;
+            bool a_signed = dsp_bool_param(a->params, id_A_SIGNED, true);
+            bool b_signed = dsp_bool_param(b->params, id_A_SIGNED, true);
+            if (a_signed != b_signed)
+                return a_signed < b_signed;
+            a_signed = dsp_bool_param(a->params, id_B_SIGNED, true);
+            b_signed = dsp_bool_param(b->params, id_B_SIGNED, true);
+            if (a_signed != b_signed)
+                return a_signed < b_signed;
+            for (IdString key : {id_INREG_CTRL_AX, id_INREG_CTRL_AY, id_INREG_CTRL_AZ, id_INREG_CTRL_BX,
+                                 id_INREG_CTRL_BY, id_INREG_CTRL_BZ, id_OREG_CTRL, id_PREADDER_EN, id_PREADDER_SUB,
+                                 id_CASCADE_EN, id_CASCADE_1ST_EN, id_CHAIN_OUTPUT_EN}) {
+                bool av = dsp_bool_param(a->params, key);
+                bool bv = dsp_bool_param(b->params, key);
+                if (av != bv)
+                    return av < bv;
+            }
+            return a->name.str(a->ctx) < b->name.str(b->ctx);
+        });
+
+        for (size_t i = 0; i < multipliers.size();) {
+            CellInfo *root = multipliers.at(i);
+            if (root->type != id_MISTRAL_MUL9X9) {
+                ++i;
+                continue;
+            }
+            root->cluster = root->name;
+            root->constr_abs_z = true;
+            root->constr_z = 0;
+
+            bool a_signed = dsp_bool_param(root->params, id_A_SIGNED, true);
+            bool b_signed = dsp_bool_param(root->params, id_B_SIGNED, true);
+            size_t end = i + 1;
+            while (end < multipliers.size() && end - i < mistral_dsp_lanes.size() &&
+                   multipliers.at(end)->type == id_MISTRAL_MUL9X9 &&
+                   dsp_bool_param(multipliers.at(end)->params, id_A_SIGNED, true) == a_signed &&
+                   dsp_bool_param(multipliers.at(end)->params, id_B_SIGNED, true) == b_signed &&
+                   dsp_shared_config_equal(root, multipliers.at(end)))
+                ++end;
+            for (size_t lane = i; lane < end; ++lane) {
+                CellInfo *ci = multipliers.at(lane);
+                if (dsp_bool_param(ci->params, id_A_SIGNED, true) != a_signed ||
+                    dsp_bool_param(ci->params, id_B_SIGNED, true) != b_signed) {
+                    log_error("MISTRAL_MUL9X9 cells '%s' and '%s' disagree on shared DSP signedness; "
+                              "three-lane packing requires matching A_SIGNED and B_SIGNED.\n",
+                              ctx->nameOf(root), ctx->nameOf(ci));
+                }
+                if (lane == i)
+                    continue;
+                ci->cluster = root->name;
+                ci->constr_x = 0;
+                ci->constr_y = 0;
+                ci->constr_abs_z = true;
+                ci->constr_z = int(lane - i);
+                root->constr_children.push_back(ci);
+            }
+            i = end;
+        }
+    }
+
     void run()
     {
         init_constant_nets();
-        pack_constants();
         pack_io();
+        ensure_dsp_control_ports();
+        pack_constants();
+        select_dsp_control_pinmaps();
         constrain_carries();
         constrain_lutram();
         setup_m10ks();
+        constrain_dsps();
     }
 };
 }; // namespace
