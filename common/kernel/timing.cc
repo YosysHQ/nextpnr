@@ -29,27 +29,6 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-// Opposite edges are separated by the selected high/low phase, not always
-// half a period. Use the same interval for placement slack and reporting.
-static delay_t clock_period(const Context *ctx, IdString clock)
-{
-    auto net = ctx->nets.find(clock);
-    if (net != ctx->nets.end() && net->second->clkconstr)
-        return net->second->clkconstr->period.minDelay();
-    return ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq"));
-}
-
-static delay_t clock_interval(const Context *ctx, IdString clock, ClockEdge launch, ClockEdge capture)
-{
-    if (launch == capture)
-        return clock_period(ctx, clock);
-    auto net = ctx->nets.find(clock);
-    if (net != ctx->nets.end() && net->second->clkconstr)
-        return launch == RISING_EDGE ? net->second->clkconstr->high.minDelay()
-                                     : net->second->clkconstr->low.minDelay();
-    return clock_period(ctx, clock) / 2;
-}
-
 TimingAnalyser::TimingAnalyser(Context *ctx) : ctx(ctx)
 {
     ClockDomainKey key{IdString(), ClockEdge::RISING_EDGE};
@@ -341,7 +320,17 @@ void TimingAnalyser::setup_port_domains()
         auto &capture_data = domains.at(dp.key.capture);
         if (launch_data.key.clock != capture_data.key.clock)
             continue;
-        dp.period = DelayPair(clock_interval(ctx, launch_data.key.clock, launch_data.key.edge, capture_data.key.edge));
+        IdString clk = launch_data.key.clock;
+        delay_t period = ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq"));
+        if (ctx->nets.count(clk)) {
+            NetInfo *clk_net = ctx->nets.at(clk).get();
+            if (clk_net->clkconstr) {
+                period = clk_net->clkconstr->period.minDelay();
+            }
+        }
+        if (launch_data.key.edge != capture_data.key.edge)
+            period /= 2;
+        dp.period = DelayPair(period);
     }
 }
 
@@ -691,12 +680,12 @@ dict<domain_id_t, delay_t> TimingAnalyser::max_delay_by_domain_pairs()
             auto &req = ep_port.required.at(capture_id);
 
             for (auto &[launch_id, arr] : ep_port.arrival) {
-                const auto &launch = domains.at(launch_id);
+                const auto &launch = domains.at(capture_id);
 
                 auto dp = domain_pair_id(launch_id, capture_id);
 
                 auto clocks = std::make_pair(launch.key.clock, capture.key.clock);
-                auto same_clock = launch.key.clock == capture.key.clock;
+                auto same_clock = capture_id == launch_id;
                 auto related_clocks = clock_delays.count(clocks) > 0;
                 delay_t clock_to_clock = 0;
                 if (related_clocks) {
@@ -768,7 +757,7 @@ void TimingAnalyser::compute_slack()
             if (!setup_only)
                 pdp.second.hold_slack = arr.value.minDelay() - req.value.maxDelay() + clock_to_clock;
             pdp.second.max_path_length = arr.path_length + req.path_length;
-            if (launch_clock == capture_clock)
+            if (dp.key.launch == dp.key.capture)
                 pd.worst_setup_slack = std::min(pd.worst_setup_slack, dp.period.minDelay() + pdp.second.setup_slack);
             dp.worst_setup_slack = std::min(dp.worst_setup_slack, pdp.second.setup_slack);
             if (!setup_only) {
@@ -1116,8 +1105,7 @@ void TimingAnalyser::build_crit_path_reports()
         if (launch.edge == capture.edge)
             Fmax = 1000 / ctx->getDelayNS(path_delay);
         else
-            Fmax = 1000.0 * double(clock_interval(ctx, launch.clock, launch.edge, capture.edge)) /
-                   double(clock_period(ctx, launch.clock)) / ctx->getDelayNS(path_delay);
+            Fmax = 500 / ctx->getDelayNS(path_delay);
 
         if (!clock_fmax.count(launch.clock) || Fmax < clock_fmax.at(launch.clock).achieved) {
             float target = ctx->setting<float>("target_freq") / 1e6;
@@ -1192,7 +1180,12 @@ void TimingAnalyser::build_slack_histogram_report()
                     if (launch.clock != capture.clock || launch.is_async())
                         continue;
 
-                    delay_t clk_period = clock_interval(ctx, launch.clock, launch.edge, capture.edge);
+                    float clk_period = ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq"));
+                    if (ctx->nets.at(launch.clock)->clkconstr)
+                        clk_period = ctx->nets.at(launch.clock)->clkconstr->period.minDelay();
+
+                    if (launch.edge != capture.edge)
+                        clk_period = clk_period / 2;
 
                     delay_t delay = arr.second.value.maxDelay() - req.second.value.minDelay();
                     delay_t slack = clk_period - delay;
