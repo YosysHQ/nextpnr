@@ -492,9 +492,11 @@ void TimingAnalyser::identify_related_domains()
                 continue;
             }
 
-            // Compute delay from c1 to c2 and store it
+            // Store how much later c1 arrives than c2. Paths are looked up as
+            // (launch, capture), and the value is added to their delay: a late
+            // launch clock makes the path longer, a late capture clock shorter.
             auto driver = *common_drivers.begin();
-            auto delay = c2.second.at(driver) - c1.second.at(driver);
+            auto delay = c1.second.at(driver) - c2.second.at(driver);
             clock_delays[std::make_pair(c1.first, c2.first)] = delay;
         }
     }
