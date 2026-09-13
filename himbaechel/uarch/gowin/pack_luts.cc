@@ -219,7 +219,7 @@ std::unique_ptr<CellInfo> GowinPacker::alu_add_cin_block(Context *ctx, CellInfo 
     cin_ci->connectPort(id_I2, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
     cin_ci->addInput(id_I0);
     cin_ci->connectPort(id_I0, cin_net);
-    cin_ci->setParam(id_RAW_ALU_LUT, 0x505a); // 0101_0000_0101_1010 -> ignore I1 and I3, out carry = I0
+    cin_ci->setParam(id_RAW_ALU_LUT, 0x000a); // 0000_0000_0000_1010 -> ignore I1, I3 and CIN, out carry = I0
     cin_ci->setParam(id_CIN_NETTYPE, Property("LOGIC"));
     return cin_ci;
 }
