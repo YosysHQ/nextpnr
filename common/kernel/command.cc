@@ -78,7 +78,10 @@ bool check_file_exists(std::string filename, bool is_exec)
 }
 #endif
 
-#if defined(__linux__) || defined(__CYGWIN__)
+#if defined(__linux__) || defined(__CYGWIN__) || defined(__GNU__)
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
 std::string proc_self_dirname()
 {
     char path[PATH_MAX];
