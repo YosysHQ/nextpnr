@@ -145,8 +145,16 @@ struct GowinCstReader
                     }
                 }
 
-                IdString net = ctx->id(match[1]);
+                std::string net_name = match[1];
+                IdString net = ctx->id(net_name);
                 auto it = ctx->cells.find(net);
+                // 1-bit wires are treated as scalar by nextpnr.
+                // In HDL they might have been a singleton vector.
+                if (it == ctx->cells.end() && net_name.size() >= 3 && net_name.substr(net_name.size() - 3) == "[0]") {
+                    net_name = net_name.substr(0, net_name.size() - 3);
+                    net = ctx->id(net_name);
+                    it = ctx->cells.find(net);
+                }
                 if (cst_type != clock && cst_type != adc && it == ctx->cells.end()) {
                     log_info("Cell %s not found\n", net.c_str(ctx));
                     continue;
@@ -203,7 +211,7 @@ struct GowinCstReader
 
                     // Prepare pinlines and nets (default: one Pin, one LOC).
                     pinlines[0] = match[2];
-                    nets[0] = ctx->id(match[1]);
+                    nets[0] = net;
 
                     // Differential case: one Pin (_p), two LOCs separated by a ','
                     if (match[3].length() > 0) {
@@ -212,10 +220,15 @@ struct GowinCstReader
                         pinlines[1] = std::regex_replace(match[3].str(), std::regex("^,"), "");
 
                         // Replaces _p with _n in pinname.
-                        std::string tmp = std::regex_replace(match[1].str(), std::regex("_p$"), "_n");
+                        std::string tmp = std::regex_replace(net_name, std::regex("_p$"), "_n");
 
                         nets[1] = ctx->id(tmp);
                         it = ctx->cells.find(nets[1]);
+                        if (it == ctx->cells.end() && tmp.size() >= 3 && tmp.substr(tmp.size() - 3) == "[0]") {
+                            tmp = tmp.substr(0, tmp.size() - 3);
+                            nets[1] = ctx->id(tmp);
+                            it = ctx->cells.find(nets[1]);
+                        }
                         if (cst_type != clock && it == ctx->cells.end()) {
                             log_info("Cell %s not found\n", nets[1].c_str(ctx));
                             continue;

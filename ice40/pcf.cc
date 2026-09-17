@@ -85,6 +85,12 @@ bool apply_pcf(Context *ctx, std::string filename, std::istream &in)
                 std::string cell = words.at(args_end);
                 std::string pin = words.at(args_end + 1);
                 auto fnd_cell = ctx->cells.find(ctx->id(cell));
+                // 1-bit wires are treated as scalar by nextpnr.
+                // In HDL they might have been a singleton vector.
+                if (fnd_cell == ctx->cells.end() && cell.size() >= 3 && cell.substr(cell.size() - 3) == "[0]") {
+                    cell = cell.substr(0, cell.size() - 3);
+                    fnd_cell = ctx->cells.find(ctx->id(cell));
+                }
                 if (fnd_cell == ctx->cells.end()) {
                     if (!nowarn)
                         log_warning("unmatched constraint '%s' (on line %d)\n", cell.c_str(), lineno);
