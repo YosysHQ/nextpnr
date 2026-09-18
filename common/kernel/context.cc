@@ -95,6 +95,19 @@ WireId Context::getNetinfoSinkWire(const NetInfo *net_info, const PortRef &sink,
     return WireId();
 }
 
+CellInfo *Context::getCellForPinConstraint(const std::string &name)
+{
+    auto fnd_cell = cells.find(id(name));
+    // 1-bit wires are treated as scalar by nextpnr.
+    // In HDL they might have been a singleton vector.
+    if (fnd_cell == cells.end() && name.size() >= 3 && name.substr(name.size() - 3) == "[0]") {
+        auto trimmed_name = name.substr(0, name.size() - 3);
+        fnd_cell = cells.find(id(trimmed_name));
+    }
+    return fnd_cell != cells.end() ? fnd_cell->second.get() : nullptr;
+}
+
+
 delay_t Context::predictArcDelay(const NetInfo *net_info, const PortRef &sink) const
 {
     if (net_info->driver.cell == nullptr || net_info->driver.cell->bel == BelId() || sink.cell->bel == BelId())

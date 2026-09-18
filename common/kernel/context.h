@@ -56,6 +56,12 @@ struct Context : Arch, DeterministicRNG
     bool checkRoutedDesign() const;
 
     // --------------------------------------------------------------
+
+    // Look up the IO cell a pin constraint refers to. Handles removing the [0] if need be, because a
+    // 1-bit vector and a scalar are equivalent in the JSON.
+    CellInfo *getCellForPinConstraint(const std::string &name);
+
+    // --------------------------------------------------------------
     // Dispatch to the Arch API or pseudo-cell API accordingly
     bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const override
     {
