@@ -84,21 +84,21 @@ bool apply_pcf(Context *ctx, std::string filename, std::istream &in)
 
                 std::string cell = words.at(args_end);
                 std::string pin = words.at(args_end + 1);
-                auto fnd_cell = ctx->cells.find(ctx->id(cell));
-                if (fnd_cell == ctx->cells.end()) {
+                CellInfo *ci = ctx->getCellForPinConstraint(cell);
+                if (!ci) {
                     if (!nowarn)
                         log_warning("unmatched constraint '%s' (on line %d)\n", cell.c_str(), lineno);
                 } else {
                     BelId pin_bel = ctx->get_package_pin_bel(pin);
                     if (pin_bel == BelId())
                         log_error("package does not have a pin named '%s' (on line %d)\n", pin.c_str(), lineno);
-                    if (fnd_cell->second->attrs.count(id_BEL))
+                    if (ci->attrs.count(id_BEL))
                         log_error("duplicate pin constraint on '%s' (on line %d)\n", cell.c_str(), lineno);
-                    fnd_cell->second->attrs[id_BEL] = ctx->getBelName(pin_bel).str(ctx);
+                    ci->attrs[id_BEL] = ctx->getBelName(pin_bel).str(ctx);
                     log_info("constrained '%s' to bel '%s'\n", cell.c_str(),
-                             fnd_cell->second->attrs[id_BEL].as_string().c_str());
+                             ci->attrs[id_BEL].as_string().c_str());
                     for (const auto &attr : extra_attrs)
-                        fnd_cell->second->attrs[attr.first] = attr.second;
+                        ci->attrs[attr.first] = attr.second;
                 }
             } else if (cmd == "set_frequency") {
                 if (words.size() < 3)
