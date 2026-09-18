@@ -21,6 +21,7 @@
 #include <sstream>
 
 #include "arch.h"
+#include "context.h"
 #include "log.h"
 #include "nextpnr_namespaces.h"
 
@@ -133,16 +134,9 @@ bool Arch::apply_lpf(std::string filename, std::istream &in)
                             log_error("expected 'SITE' after 'LOCATE COMP %s' (on line %d)\n", cell.c_str(), lineno);
                         if (words.size() > 5)
                             log_error("unexpected input following LOCATE clause (on line %d)\n", lineno);
-                        auto fnd_cell = cells.find(id(cell));
-                        // 1-bit wires are treated as scalar by nextpnr.
-                        // In HDL they might have been a singleton vector.
-                        if (fnd_cell == cells.end() && cell.size() >= 3 && cell.substr(cell.size() - 3) == "[0]") {
-                            cell = cell.substr(0, cell.size() - 3);
-                            fnd_cell = cells.find(id(cell));
-                        }
-
-                        if (fnd_cell != cells.end()) {
-                            fnd_cell->second->attrs[id_LOC] = strip_quotes(words.at(4));
+                        CellInfo *ci = getCtx()->getCellForPinConstraint(cell);
+                        if (ci) {
+                            ci->attrs[id_LOC] = strip_quotes(words.at(4));
                         }
                     } else if (verb == "IOBUF") {
                         if (words.size() < 3)
@@ -151,8 +145,8 @@ bool Arch::apply_lpf(std::string filename, std::istream &in)
                         if (words.at(1) != "PORT")
                             log_error("expected 'PORT' after 'IOBUF' (on line %d)\n", lineno);
                         std::string cell = strip_quotes(words.at(2));
-                        auto fnd_cell = cells.find(id(cell));
-                        if (fnd_cell != cells.end()) {
+                        CellInfo *ci = getCtx()->getCellForPinConstraint(cell);
+                        if (ci) {
                             for (size_t i = 3; i < words.size(); i++) {
                                 std::string setting = words.at(i);
                                 size_t eqpos = setting.find('=');
@@ -164,7 +158,7 @@ bool Arch::apply_lpf(std::string filename, std::istream &in)
                                 if (!iobuf_keys.count(key))
                                     log_warning("IOBUF '%s' attribute '%s' is not recognised (on line %d)\n",
                                                 cell.c_str(), key.c_str(), lineno);
-                                fnd_cell->second->attrs[id(key)] = value;
+                                ci->attrs[id(key)] = value;
                             }
                         }
                     }

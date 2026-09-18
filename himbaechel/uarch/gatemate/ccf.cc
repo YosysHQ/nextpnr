@@ -372,12 +372,11 @@ struct GateMateCCFReader
                         ss << words.at(i);
                     params[0] = ss.str();
 
-                    IdString cellname = ctx->id(pin_name);
-                    if (ctx->cells.count(cellname)) {
-                        CellInfo *cell = ctx->cells.at(cellname).get();
+                    CellInfo *ci = ctx->getCellForPinConstraint(pin_name);
+                    if (ci) {
                         for (auto p : defaults)
-                            cell->params[p.first] = p.second;
-                        parse_params(params, false, &cell->params);
+                            ci->params[p.first] = p.second;
+                        parse_params(params, false, &ci->params);
                     } else
                         log_warning("Pad with name '%s' not found in netlist.\n", pin_name.c_str());
                 } else if (type == "start" || type == "end") {
