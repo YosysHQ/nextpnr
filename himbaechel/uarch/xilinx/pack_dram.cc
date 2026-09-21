@@ -42,7 +42,11 @@ CellInfo *XilinxPacker::create_dram_lut(const std::string &name, CellInfo *base,
     for (int i = 0; i < int(address.size()); i++)
         dram_lut->connectPort(ctx->idf("RADR%d", i), address[i]);
     dram_lut->connectPort(id_I, di);
-    dram_lut->connectPort(id_O, dout);
+    if (dout != nullptr) {
+        if (dout->driver.cell != nullptr)
+            dout->driver.cell->disconnectPort(dout->driver.port);
+        dram_lut->connectPort(id_O, dout);
+    }
     dram_lut->connectPort(id_CLK, ctrlset.wclk);
     dram_lut->connectPort(id_WE, ctrlset.we);
     for (int i = 0; i < int(ctrlset.wa.size()); i++)
@@ -72,7 +76,11 @@ CellInfo *XilinxPacker::create_dram32_lut(const std::string &name, CellInfo *bas
     for (int i = 0; i < int(address.size()); i++)
         dram_lut->connectPort(ctx->idf("RADR%d", i), address[i]);
     dram_lut->connectPort(id_I, di);
-    dram_lut->connectPort(id_O, dout);
+    if (dout != nullptr) {
+        if (dout->driver.cell != nullptr)
+            dout->driver.cell->disconnectPort(dout->driver.port);
+        dram_lut->connectPort(id_O, dout);
+    }
     dram_lut->connectPort(id_CLK, ctrlset.wclk);
     dram_lut->connectPort(id_WE, ctrlset.we);
     for (int i = 0; i < int(ctrlset.wa.size()); i++)
