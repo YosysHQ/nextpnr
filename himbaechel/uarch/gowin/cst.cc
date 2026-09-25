@@ -146,8 +146,9 @@ struct GowinCstReader
                 }
 
                 IdString net = ctx->id(match[1]);
-                auto it = ctx->cells.find(net);
-                if (cst_type != clock && cst_type != adc && it == ctx->cells.end()) {
+                CellInfo *ci = ctx->getCellForPinConstraint(match[1].str());
+                const bool constrains_cell = cst_type != clock && cst_type != adc;
+                if (constrains_cell && ci == nullptr) {
                     log_info("Cell %s not found\n", net.c_str(ctx));
                     continue;
                 }
@@ -199,11 +200,10 @@ struct GowinCstReader
                 } break;
                 case ioloc: { // IO_LOC name pin
                     int nb_iter = 1;
-                    IdString nets[2];
+                    CellInfo *io_cells[2] = {ci, nullptr};
 
-                    // Prepare pinlines and nets (default: one Pin, one LOC).
+                    // Prepare pinlines (default: one Pin, one LOC).
                     pinlines[0] = match[2];
-                    nets[0] = ctx->id(match[1]);
 
                     // Differential case: one Pin (_p), two LOCs separated by a ','
                     if (match[3].length() > 0) {
@@ -211,27 +211,27 @@ struct GowinCstReader
                         // Uses second pin after removing ','
                         pinlines[1] = std::regex_replace(match[3].str(), std::regex("^,"), "");
 
-                        // Replaces _p with _n in pinname.
-                        std::string tmp = std::regex_replace(match[1].str(), std::regex("_p$"), "_n");
+                        // Replaces _p with _n in the name of the cell found for the _p pin, so a
+                        // singleton vector X_p[0] pairs with X_n.
+                        std::string tmp = std::regex_replace(ci->name.str(ctx), std::regex("_p$"), "_n");
 
-                        nets[1] = ctx->id(tmp);
-                        it = ctx->cells.find(nets[1]);
-                        if (cst_type != clock && it == ctx->cells.end()) {
-                            log_info("Cell %s not found\n", nets[1].c_str(ctx));
+                        io_cells[1] = ctx->getCellForPinConstraint(tmp);
+                        if (io_cells[1] == nullptr) {
+                            log_info("Cell %s not found\n", tmp.c_str());
                             continue;
                         }
                     }
 
                     for (int iter = 0; iter < nb_iter; iter++) {
                         IdString pinname = ctx->id(pinlines[iter]);
-                        auto it = ctx->cells.find(nets[iter]);
+                        CellInfo *io_cell = io_cells[iter];
 
                         const PadInfoPOD *belname =
                                 pinLookup(ctx->package_info->pads.get(), ctx->package_info->pads.ssize(), pinname);
                         if (belname != nullptr) {
                             IdStringList bel = IdStringList::concat(IdString(belname->tile), IdString(belname->bel));
-                            it->second->setAttr(IdString(ID_BEL), bel.str(ctx));
-                            debug_cell(it->second->name, bel);
+                            io_cell->setAttr(IdString(ID_BEL), bel.str(ctx));
+                            debug_cell(io_cell->name, bel);
                         } else {
                             if (std::regex_match(pinlines[iter], match_pinloc, iobelre)) {
                                 // may be it's IOx#[AB] style?
@@ -240,8 +240,8 @@ struct GowinCstReader
                                 if (bel == BelId()) {
                                     log_error("Pin %s not found (TRBL style). \n", pinlines[iter].c_str());
                                 }
-                                it->second->setAttr(IdString(ID_BEL), std::string(ctx->nameOfBel(bel)));
-                                debug_cell(it->second->name, ctx->getBelName(bel));
+                                io_cell->setAttr(IdString(ID_BEL), std::string(ctx->nameOfBel(bel)));
+                                debug_cell(io_cell->name, ctx->getBelName(bel));
                             } else {
                                 log_error("Pin %s not found (pin# style)\n", pinname.c_str(ctx));
                             }
@@ -249,7 +249,7 @@ struct GowinCstReader
                     }
                 } break;
                 case hclk: {
-                    IdString cell_type = it->second->type;
+                    IdString cell_type = ci->type;
                     if (cell_type != id_CLKDIV) {
                         log_error("Unsupported or invalid cell type %s for hclk\n", cell_type.c_str(ctx));
                     }
@@ -262,8 +262,8 @@ struct GowinCstReader
                                       match[3].str().c_str());
                         }
                         constrained_clkdivs.push_back(hclk_bel_name);
-                        it->second->setAttr(id_BEL, ctx->getBelName(hclk_bel).str(ctx));
-                        debug_cell(it->second->name, ctx->getBelName(hclk_bel));
+                        ci->setAttr(id_BEL, ctx->getBelName(hclk_bel).str(ctx));
+                        debug_cell(ci->name, ctx->getBelName(hclk_bel));
                     } else {
                         log_error("No Bel of type CLKDIV found at constrained location %sSIDE[%s]\n",
                                   match[2].str().c_str(), match[3].str().c_str());
@@ -275,7 +275,7 @@ struct GowinCstReader
                         std::string attr = "&";
                         attr += match_attr[1];
                         boost::algorithm::to_upper(attr);
-                        it->second->setAttr(ctx->id(attr), 1);
+                        ci->setAttr(ctx->id(attr), 1);
                         attr_val = match_attr[2];
                     }
                 }
