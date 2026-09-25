@@ -129,9 +129,8 @@ std::pair<CellInfo *, PortRef> XilinxPacker::insert_pad_and_buf(CellInfo *npnr_i
 
     if (!iobuf.cell) {
         // No IO buffer, need to create one
-        log_error(
-                "   IO port '%s' is missing an IO buffer, do you need to remove -noiopad from your Yosys arguments?\n",
-                npnr_io->name.c_str(ctx));
+        log_error("    IO port '%s' is missing an IO buffer, do you need to remove -noiopad from your Yosys arguments?\n",
+                  npnr_io->name.c_str(ctx));
     } else {
         log_info("    IO port '%s' driven by %s '%s'\n", npnr_io->name.c_str(ctx), iobuf.cell->type.c_str(ctx),
                  iobuf.cell->name.c_str(ctx));
