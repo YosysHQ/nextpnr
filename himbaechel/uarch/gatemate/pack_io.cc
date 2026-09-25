@@ -450,7 +450,7 @@ void GateMatePacker::pack_io_sel()
             ci.disconnectPort(id_Y);
             dff->movePortTo(id_Q, &ci, id_IN1);
             set_in_clk(dff, &ci);
-            bool invert = bool_or_default(dff->params, id_CLK_INV, 0);
+            bool invert = int_or_default(dff->params, id_C_CPE_CLK, 0) == 0b01;
             if (invert) {
                 ci.params[id_INV_IN1_CLOCK] = Property(Property::State::S1);
                 ci.params[id_INV_IN2_CLOCK] = Property(Property::State::S1);
@@ -525,7 +525,7 @@ void GateMatePacker::pack_io_sel()
                         ci.disconnectPort(id_A);
                         dff->movePortTo(id_D, &ci, id_OUT1);
                         use_custom_clock = set_out_clk(dff, &ci);
-                        bool invert = bool_or_default(dff->params, id_CLK_INV, 0);
+                        bool invert = int_or_default(dff->params, id_C_CPE_CLK, 0) == 0b01;
                         if (invert) {
                             ci.params[id_INV_OUT1_CLOCK] = Property(Property::State::S1);
                             ci.params[id_INV_OUT2_CLOCK] = Property(Property::State::S1);
