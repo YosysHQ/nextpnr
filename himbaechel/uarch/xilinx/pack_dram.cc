@@ -227,7 +227,7 @@ void XilinxPacker::pack_dram()
             }
         }
     }
-    log_info("   Transformed %d tied-low DRAM address inputs to be tied-high\n", inverted_ports);
+    log_info("    Transformed %d tied-low DRAM address inputs to be tied-high\n", inverted_ports);
 
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();

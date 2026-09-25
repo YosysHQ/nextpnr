@@ -207,7 +207,7 @@ void XC7Packer::pack_carries()
     }
     flush_cells();
 
-    log_info("   Grouped %d MUXCYs and %d XORCYs into %d chains.\n", muxcy_count, xorcy_count, int(root_muxcys.size()));
+    log_info("    Grouped %d MUXCYs and %d XORCYs into %d chains\n", muxcy_count, xorcy_count, int(root_muxcys.size()));
 
     // N.B. LUT6 is not a valid type here, as CARRY requires dual outputs
     pool<IdString> lut_types{id_LUT1, id_LUT2, id_LUT3, id_LUT4, id_LUT5};
@@ -384,7 +384,7 @@ void XC7Packer::pack_carries()
     softlogic_rules[id_XORCY].set_params.emplace_back(id_INIT, Property(0x6));
 
     generic_xform(softlogic_rules, false);
-    log_info("   Blasted %d non-chain MUXCYs and %d non-chain XORCYs to soft logic\n", remaining_muxcy,
+    log_info("    Blasted %d non-chain MUXCYs and %d non-chain XORCYs to soft logic\n", remaining_muxcy,
              remaining_xorcy);
 
     // Finally, use generic_xform to remove the [] from bus ports; and set up the logical-physical mapping for
