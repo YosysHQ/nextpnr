@@ -123,6 +123,8 @@ void XC7Packer::pack_carries()
         }
     }
 
+    unsigned muxcy_feed_through_luts = 0;
+
     // Create chains from root MUXCYs
     pool<IdString> processed_muxcys;
     std::vector<CarryGroup> groups;
@@ -184,6 +186,7 @@ void XC7Packer::pack_carries()
                 // (creating a zero-driver using Vcc and an inverter for now...)
                 CellInfo *zero_lut = create_lut(mux_ci->name.str(ctx) + "$feed$zero",
                                                 {ctx->nets.at(ctx->id("$PACKER_VCC_NET")).get()}, nullptr, Property(1));
+                muxcy_feed_through_luts++;
                 CellInfo *feed_xorcy = create_cell(id_XORCY, ctx->id(mux_ci->name.str(ctx) + "$feed$xor"));
                 CellInfo *dummy_muxcy = create_cell(id_MUXCY, ctx->id(mux_ci->name.str(ctx) + "$feed$muxcy"));
 
@@ -207,12 +210,16 @@ void XC7Packer::pack_carries()
     }
     flush_cells();
 
+    if (muxcy_feed_through_luts > 0)
+        log_info("    Created %d feed-through LUTs from MUXCY entries\n", muxcy_feed_through_luts);
     log_info("    Grouped %d MUXCYs and %d XORCYs into %d chains\n", muxcy_count, xorcy_count, int(root_muxcys.size()));
 
     // N.B. LUT6 is not a valid type here, as CARRY requires dual outputs
     pool<IdString> lut_types{id_LUT1, id_LUT2, id_LUT3, id_LUT4, id_LUT5};
 
     pool<IdString> folded_nets;
+
+    unsigned carry_feed_through_luts = 0;
 
     for (auto &grp : groups) {
         std::vector<CellInfo *> carry4s;
@@ -323,6 +330,7 @@ void XC7Packer::pack_carries()
                 pr.port = ctx->idf("S[%d]", z);
                 auto s_feed = feed_through_lut(c4_s, {pr});
                 s_lut = s_feed;
+                carry_feed_through_luts++;
             }
             if (!di_lut && c4_di) {
                 PortRef pr;
@@ -330,6 +338,7 @@ void XC7Packer::pack_carries()
                 pr.port = ctx->idf("DI[%d]", z);
                 auto di_feed = feed_through_lut(c4_di, {pr});
                 di_lut = di_feed;
+                carry_feed_through_luts++;
             }
             // Constrain LUTs relative to root CARRY4
             if (s_lut) {
@@ -384,6 +393,8 @@ void XC7Packer::pack_carries()
     softlogic_rules[id_XORCY].set_params.emplace_back(id_INIT, Property(0x6));
 
     generic_xform(softlogic_rules, false);
+    if (carry_feed_through_luts > 0)
+        log_info("    Created %d feed-through LUTs from carry chains\n", carry_feed_through_luts);
     log_info("    Blasted %d non-chain MUXCYs and %d non-chain XORCYs to soft logic\n", remaining_muxcy,
              remaining_xorcy);
 
