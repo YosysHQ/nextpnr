@@ -179,6 +179,8 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
                                : (bool_or_default(cell->params, id_OUT1_4) ? id_OUT4 : id_OUT1);
         int oe = int_or_default(cell->params, id_OE_SIGNAL);
         IdString oe_s = (oe & 2) ? ((oe & 1) ? id_OUT4 : id_OUT3) : ((oe & 1) ? id_OUT2 : id_OUT1);
+        if (!fromPort.in(id_OUT1, id_OUT2, id_OUT3, id_OUT4, id_GPIO_IN))
+            return false;
         if (output && fromPort != o_s)
             return false;
         if (enable && fromPort != oe_s)
