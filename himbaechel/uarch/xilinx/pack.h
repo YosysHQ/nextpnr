@@ -39,6 +39,9 @@ struct XilinxPacker
     Context *ctx;
     XilinxImpl *uarch;
 
+    // Number of created LUTs, for user reporting purpose
+    unsigned muxf_feed_through_luts = 0;
+
     XilinxPacker(Context *ctx, XilinxImpl *uarch) : ctx(ctx), uarch(uarch) {};
 
     // Generic cell transformation

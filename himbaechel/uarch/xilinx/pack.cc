@@ -360,6 +360,7 @@ void XilinxPacker::legalise_muxf_tree(CellInfo *curr, std::vector<CellInfo *> &m
                 pr.cell = curr;
                 pr.port = p;
                 feed_through_lut(pn, {pr});
+                muxf_feed_through_luts++;
                 continue;
             }
             seen_leaves.insert(pn->driver.cell->name);
@@ -461,6 +462,8 @@ void XilinxPacker::pack_muxfs()
         root->cluster = root->name;
         constrain_muxf_tree(root, root, 0);
     }
+    if (muxf_feed_through_luts > 0)
+        log_info("    Created %d feed-through LUTs from MUXF trees\n", muxf_feed_through_luts);
 }
 
 void XilinxPacker::finalise_muxfs()
