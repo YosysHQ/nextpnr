@@ -95,8 +95,7 @@ bool apply_pcf(Context *ctx, std::string filename, std::istream &in)
                     if (ci->attrs.count(id_BEL))
                         log_error("duplicate pin constraint on '%s' (on line %d)\n", cell.c_str(), lineno);
                     ci->attrs[id_BEL] = ctx->getBelName(pin_bel).str(ctx);
-                    log_info("constrained '%s' to bel '%s'\n", cell.c_str(),
-                             ci->attrs[id_BEL].as_string().c_str());
+                    log_info("constrained '%s' to bel '%s'\n", cell.c_str(), ci->attrs[id_BEL].as_string().c_str());
                     for (const auto &attr : extra_attrs)
                         ci->attrs[attr.first] = attr.second;
                 }

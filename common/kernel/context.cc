@@ -107,7 +107,6 @@ CellInfo *Context::getCellForPinConstraint(const std::string &name)
     return fnd_cell != cells.end() ? fnd_cell->second.get() : nullptr;
 }
 
-
 delay_t Context::predictArcDelay(const NetInfo *net_info, const PortRef &sink) const
 {
     if (net_info->driver.cell == nullptr || net_info->driver.cell->bel == BelId() || sink.cell->bel == BelId())
