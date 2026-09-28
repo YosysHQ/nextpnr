@@ -86,6 +86,42 @@ void GateMateImpl::get_setuphold_from_tmg_db(IdString id_setuphold, DelayPair &s
     }
 }
 
+bool iosel_ff(const CellInfo *cell, IdString path_ff) { return bool_or_default(cell->params, path_ff); }
+
+bool iosel_in_ff(const CellInfo *cell) { return iosel_ff(cell, id_IN1_FF) || iosel_ff(cell, id_IN2_FF); }
+
+bool iosel_out_ff(const CellInfo *cell) { return iosel_ff(cell, id_OUT1_FF) || iosel_ff(cell, id_OUT2_FF); }
+
+bool iosel_fabric_clock(const CellInfo *cell, bool out)
+{
+    return bool_or_default(cell->params, out ? id_SEL_OUT_CLOCK : id_SEL_IN_CLOCK);
+}
+
+int iosel_clock_index(const CellInfo *cell, bool out)
+{
+    if (iosel_fabric_clock(cell, out))
+        return -1; // when FFs are clocked from the fabric (OUT4)
+    return int_or_default(cell->params, out ? id_OUT_CLOCK : id_IN_CLOCK, 0);
+}
+
+IdString iosel_clock_port(const CellInfo *cell, bool out)
+{
+    static const IdString clocks[4] = {id_CLOCK1, id_CLOCK2, id_CLOCK3, id_CLOCK4};
+    int idx = iosel_clock_index(cell, out);
+    return idx < 0 ? id_OUT4 : clocks[idx & 3];
+}
+
+// OUT4 carries a clock instead of data
+bool iosel_out4_is_clock(const CellInfo *cell)
+{
+    return (iosel_in_ff(cell) && iosel_fabric_clock(cell, false)) || (iosel_out_ff(cell) && iosel_fabric_clock(cell, true));
+}
+
+ClockEdge iosel_edge(const CellInfo *cell, IdString inv_param)
+{
+    return bool_or_default(cell->params, inv_param) ? FALLING_EDGE : RISING_EDGE;
+}
+
 bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const
 {
     delay = DelayQuad{0};
@@ -181,6 +217,13 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
         IdString oe_s = (oe & 2) ? ((oe & 1) ? id_OUT4 : id_OUT3) : ((oe & 1) ? id_OUT2 : id_OUT1);
         if (!fromPort.in(id_OUT1, id_OUT2, id_OUT3, id_OUT4, id_GPIO_IN))
             return false;
+        if (fromPort == id_OUT4 && iosel_out4_is_clock(cell))
+            return false;
+        // Registered paths are modelled via getPortClockingInfo
+        if ((toPort == id_IN1 && iosel_ff(cell, id_IN1_FF)) || (toPort == id_IN2 && iosel_ff(cell, id_IN2_FF)))
+            return false;
+        if (toPort == id_GPIO_OUT && iosel_out_ff(cell))
+            return false;
         if (output && fromPort != o_s)
             return false;
         if (enable && fromPort != oe_s)
@@ -275,6 +318,34 @@ TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString 
             return TMG_STARTPOINT;
         return TMG_IGNORE;
     } else if (cell->type.in(id_IOSEL)) {
+        bool in1_ff = iosel_ff(cell, id_IN1_FF);
+        bool in2_ff = iosel_ff(cell, id_IN2_FF);
+        bool out1_ff = iosel_ff(cell, id_OUT1_FF);
+        bool out2_ff = iosel_ff(cell, id_OUT2_FF);
+        if (port.in(id_CLOCK1, id_CLOCK2, id_CLOCK3, id_CLOCK4))
+            return TMG_CLOCK_INPUT;
+        if (port == id_OUT4 && iosel_out4_is_clock(cell))
+            return TMG_CLOCK_INPUT;
+        if (port == id_IN1 && in1_ff) {
+            clockInfoCount = 1;
+            return TMG_REGISTER_OUTPUT;
+        }
+        if (port == id_IN2 && in2_ff) {
+            clockInfoCount = 1;
+            return TMG_REGISTER_OUTPUT;
+        }
+        if (port == id_GPIO_OUT && (out1_ff || out2_ff)) {
+            clockInfoCount = int(out1_ff) + int(out2_ff); // two edges for ODDR
+            return TMG_REGISTER_OUTPUT;
+        }
+        if (port == id_GPIO_IN && (in1_ff || in2_ff)) {
+            clockInfoCount = int(in1_ff) + int(in2_ff); // two edges for IDDR
+            return TMG_REGISTER_INPUT;
+        }
+        if ((port == id_OUT1 && out1_ff) || (port == id_OUT2 && out2_ff)) {
+            clockInfoCount = 1;
+            return TMG_REGISTER_INPUT;
+        }
         if (port.in(id_IN1, id_IN2, id_GPIO_EN, id_GPIO_OUT))
             return TMG_COMB_OUTPUT;
         if (port.in(id_OUT1, id_OUT2, id_OUT3, id_OUT4, id_GPIO_IN))
@@ -402,6 +473,43 @@ TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdStr
             info.clockToQ += delay;
             get_delay_from_tmg_db(id_timing_del_CPE_CP_Q, delay);
             info.clockToQ += delay;
+        }
+    } else if (cell->type.in(id_IOSEL)) {
+        bool out_side = port.in(id_OUT1, id_OUT2, id_GPIO_OUT);
+        info.clock_port = iosel_clock_port(cell, out_side);
+        int clk_idx = iosel_clock_index(cell, out_side);
+        std::vector<std::pair<IdString, IdString>> ffs;
+        if (out_side) {
+            if (iosel_ff(cell, id_OUT1_FF))
+                ffs.emplace_back(id_OUT1_FF, id_INV_OUT1_CLOCK);
+            if (iosel_ff(cell, id_OUT2_FF))
+                ffs.emplace_back(id_OUT2_FF, id_INV_OUT2_CLOCK);
+        } else {
+            if (iosel_ff(cell, id_IN1_FF))
+                ffs.emplace_back(id_IN1_FF, id_INV_IN1_CLOCK);
+            if (iosel_ff(cell, id_IN2_FF))
+                ffs.emplace_back(id_IN2_FF, id_INV_IN2_CLOCK);
+        }
+        IdString inv;
+        if (port == id_IN1)
+            inv = id_INV_IN1_CLOCK;
+        else if (port == id_IN2)
+            inv = id_INV_IN2_CLOCK;
+        else if (port == id_OUT1)
+            inv = id_INV_OUT1_CLOCK;
+        else if (port == id_OUT2)
+            inv = id_INV_OUT2_CLOCK;
+        else if (index < int(ffs.size()))
+            inv = ffs.at(index).second;
+        info.edge = inv == IdString() ? RISING_EDGE : iosel_edge(cell, inv);
+
+        if (port.in(id_IN1, id_IN2, id_GPIO_OUT)) {
+            IdString to = (port == id_GPIO_OUT) ? id_GPIO_OUT : port;
+            if (clk_idx < 0 || !get_delay_from_tmg_db(ctx->idf("timing_io_sel_CLOCK%d_%s", clk_idx, to.c_str(ctx)), info.clockToQ))
+                get_delay_from_tmg_db(out_side ? id_timing_del_IO_SEL_Q_out : id_timing_del_IO_SEL_Q_in, info.clockToQ);
+        } else {
+            // use the CPE FF values as an approximation
+            get_setuphold_from_tmg_db(id_timing_del_Setup_D_L, id_timing_del_Hold_D_L, info.setup, info.hold);
         }
     } else if (cell->type.in(id_RAM, id_RAM_HALF)) {
         std::string name = port.str(ctx);
