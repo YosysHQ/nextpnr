@@ -86,6 +86,7 @@ void GateMateImpl::get_setuphold_from_tmg_db(IdString id_setuphold, DelayPair &s
     }
 }
 
+namespace {
 bool iosel_ff(const CellInfo *cell, IdString path_ff) { return bool_or_default(cell->params, path_ff); }
 
 bool iosel_in_ff(const CellInfo *cell) { return iosel_ff(cell, id_IN1_FF) || iosel_ff(cell, id_IN2_FF); }
@@ -121,6 +122,7 @@ ClockEdge iosel_edge(const CellInfo *cell, IdString inv_param)
 {
     return bool_or_default(cell->params, inv_param) ? FALLING_EDGE : RISING_EDGE;
 }
+} // namespace
 
 bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const
 {
