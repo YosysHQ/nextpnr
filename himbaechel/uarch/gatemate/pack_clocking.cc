@@ -487,8 +487,8 @@ void GateMatePacker::pack_pll()
                             fpga_mode_to_str(perf_md), fpga_mode_to_str(uarch->fpga_mode));
 
             double ref_clk = double_or_default(ci.params, id_REF_CLK, 0.0);
-            if (ref_clk <= 0 || ref_clk > 125)
-                log_error("REF_CLK parameter is out of range (0,125.00] for '%s'.\n", ci.name.c_str(ctx));
+            if (ref_clk <= 0)
+                log_error("REF_CLK parameter is <= 0 for '%s'.\n", ci.name.c_str(ctx));
 
             double out_clk = double_or_default(ci.params, id_OUT_CLK, 0.0);
             if (out_clk <= 0 || out_clk > max_freq)
