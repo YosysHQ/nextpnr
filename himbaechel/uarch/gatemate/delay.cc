@@ -194,21 +194,21 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
             return true;
         return false;
     } else if (cell->type.in(id_CPE_IBUF, id_CPE_OBUF, id_CPE_TOBUF, id_CPE_IOBUF)) {
-        if (fromPort == id_A && toPort == id_O)
+        if (fromPort == id_A && toPort.in(id_O, id_IO))
             return get_delay_from_tmg_db(id_timing_del_OBF, delay);
-        if (fromPort == id_T && toPort == id_O)
+        if (fromPort == id_T && toPort.in(id_O, id_IO))
             return get_delay_from_tmg_db(id_timing_del_TOBF_ctrl, delay);
-        if (fromPort == id_I && toPort == id_Y)
+        if (fromPort.in(id_I, id_IO) && toPort == id_Y)
             return get_delay_from_tmg_db(id_timing_del_IBF, delay);
-        return true;
+        return false;
     } else if (cell->type.in(id_CPE_LVDS_IBUF, id_CPE_LVDS_OBUF, id_CPE_LVDS_TOBUF, id_CPE_LVDS_IOBUF)) {
-        if (fromPort == id_A && toPort.in(id_O_P, id_O_N))
+        if (fromPort == id_A && toPort.in(id_O_P, id_O_N, id_IO_P, id_IO_N))
             return get_delay_from_tmg_db(id_timing_del_LVDS_OBF, delay);
-        if (fromPort == id_T && toPort.in(id_O_P, id_O_N))
+        if (fromPort == id_T && toPort.in(id_O_P, id_O_N, id_IO_P, id_IO_N))
             return get_delay_from_tmg_db(id_timing_del_LVDS_TOBF_ctrl, delay);
-        if (fromPort.in(id_I_P, id_I_N) && toPort == id_Y)
+        if (fromPort.in(id_I_P, id_I_N, id_IO_P, id_IO_N) && toPort == id_Y)
             return get_delay_from_tmg_db(id_timing_del_LVDS_IBF, delay);
-        return true;
+        return false;
     } else if (cell->type.in(id_IOSEL)) {
         bool output = bool_or_default(cell->params, id_OUT_SIGNAL);
         bool enable = bool_or_default(cell->params, id_OE_ENABLE);
