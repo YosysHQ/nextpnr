@@ -78,6 +78,14 @@ void XilinxPacker::split_carry4s()
             continue;
         carry4s.push_back(ci);
     }
+    // Pre-list carry port IDs
+    IdString name_c4_s[4], name_c4_di[4], name_c4_o[4], name_c4_co[4];
+    for (unsigned i=0; i<4; i++) {
+        name_c4_s[i]  = ctx->idf("S[%d]", i);
+        name_c4_di[i] = ctx->idf("DI[%d]", i);
+        name_c4_o[i]  = ctx->idf("O[%d]", i);
+        name_c4_co[i] = ctx->idf("CO[%d]", i);
+    }
     for (CellInfo *ci : carry4s) {
         NetInfo *cin = ci->getPort(id_CI);
         if (cin == nullptr || cin->name == ctx->id("$PACKER_GND_NET")) {
@@ -91,12 +99,12 @@ void XilinxPacker::split_carry4s()
             CellInfo *muxcy = create_cell(id_MUXCY, ctx->idf("%s$split$muxcy%d", ci->name.c_str(ctx), i));
             muxcy->connectPort(id_CI, cin);
             xorcy->connectPort(id_CI, cin);
-            ci->movePortTo(ctx->idf("DI[%d]", i), muxcy, id_DI);
-            muxcy->connectPort(id_S, ci->getPort(ctx->id("S[" + std::to_string(i) + "]")));
-            ci->movePortTo(ctx->idf("S[%d]", i), xorcy, id_LI);
-            ci->movePortTo(ctx->idf("O[%d]", i), xorcy, id_O);
-            NetInfo *co = ci->getPort(ctx->idf("CO[%d]", i));
-            ci->disconnectPort(ctx->idf("CO[%d]", i));
+            ci->movePortTo(name_c4_di[i], muxcy, id_DI);
+            muxcy->connectPort(id_S, ci->getPort(name_c4_s[i]));
+            ci->movePortTo(name_c4_s[i], xorcy, id_LI);
+            ci->movePortTo(name_c4_o[i], xorcy, id_O);
+            NetInfo *co = ci->getPort(name_c4_co[i]);
+            ci->disconnectPort(name_c4_co[i]);
             if (!co)
                 co = create_internal_net(ci->name, stringf("$split$co%d", i), false);
             muxcy->connectPort(id_O, co);
@@ -214,6 +222,17 @@ void XC7Packer::pack_carries()
         log_info("    Created %d feed-through LUTs from MUXCY entries\n", muxcy_feed_through_luts);
     log_info("    Grouped %d MUXCYs and %d XORCYs into %d chains\n", muxcy_count, xorcy_count, int(root_muxcys.size()));
 
+    // Pre-list LUT port IDs
+    IdString name_lut_ins[6] = {id_I0, id_I1, id_I2, id_I3, id_I4, id_I5};
+    // Pre-list carry port IDs
+    IdString name_c4_s[4], name_c4_di[4], name_c4_o[4], name_c4_co[4];
+    for (unsigned i=0; i<4; i++) {
+        name_c4_s[i]  = ctx->idf("S[%d]", i);
+        name_c4_di[i] = ctx->idf("DI[%d]", i);
+        name_c4_o[i]  = ctx->idf("O[%d]", i);
+        name_c4_co[i] = ctx->idf("CO[%d]", i);
+    }
+
     // N.B. LUT6 is not a valid type here, as CARRY requires dual outputs
     pool<IdString> lut_types{id_LUT1, id_LUT2, id_LUT3, id_LUT4, id_LUT5};
 
@@ -257,7 +276,7 @@ void XC7Packer::pack_carries()
                 muxcy->disconnectPort(id_CI);
             }
             if (z == 3) {
-                muxcy->movePortTo(id_O, c4, ctx->id("CO[3]"));
+                muxcy->movePortTo(id_O, c4, name_c4_co[z]);
             } else {
                 NetInfo *muxcy_o = muxcy->getPort(id_O);
                 if (muxcy_o)
@@ -265,21 +284,21 @@ void XC7Packer::pack_carries()
                 muxcy->disconnectPort(id_O);
             }
             // Replace connections into the MUXCY with external CARRY4 ports
-            muxcy->movePortTo(id_S, c4, ctx->idf("S[%d]", z));
-            muxcy->movePortTo(id_DI, c4, ctx->idf("DI[%d]", z));
+            muxcy->movePortTo(id_S, c4, name_c4_s[z]);
+            muxcy->movePortTo(id_DI, c4, name_c4_di[z]);
             packed_cells.insert(muxcy->name);
             // Fold MUXCY->XORCY into the CARRY4, if there is a XORCY
             if (xorcy) {
                 // Replace XORCY output with external CARRY4 output
-                xorcy->movePortTo(id_O, c4, ctx->idf("O[%d]", z));
+                xorcy->movePortTo(id_O, c4, name_c4_o[z]);
                 // Disconnect internal XORCY connectivity
                 xorcy->disconnectPort(id_LI);
                 xorcy->disconnectPort(id_DI);
                 packed_cells.insert(xorcy->name);
             }
             // Check legality of LUTs driving CARRY4, making them legal if they aren't already
-            NetInfo *c4_s = c4->getPort(ctx->idf("S[%d]", z));
-            NetInfo *c4_di = c4->getPort(ctx->idf("DI[%d]", z));
+            NetInfo *c4_s  = c4->getPort(name_c4_s[z]);
+            NetInfo *c4_di = c4->getPort(name_c4_di[z]);
             // Keep track of the total LUT input count; cannot exceed five or the LUTs cannot be packed together
             pool<IdString> unique_lut_inputs;
             int s_inputs = 0;
@@ -292,7 +311,7 @@ void XC7Packer::pack_carries()
                     lut_types.count(c4_s->driver.cell->type)) {
                     s_lut = c4_s->driver.cell;
                     for (int j = 0; j < 5; j++) {
-                        NetInfo *ix = s_lut->getPort(ctx->idf("I%d", j));
+                        NetInfo *ix = s_lut->getPort(name_lut_ins[j]);
                         if (ix) {
                             unique_lut_inputs.insert(ix->name);
                             s_inputs++;
@@ -305,7 +324,7 @@ void XC7Packer::pack_carries()
                     lut_types.count(c4_di->driver.cell->type)) {
                     di_lut = c4_di->driver.cell;
                     for (int j = 0; j < 5; j++) {
-                        NetInfo *ix = di_lut->getPort(ctx->idf("I%d", j));
+                        NetInfo *ix = di_lut->getPort(name_lut_ins[j]);
                         if (ix) {
                             unique_lut_inputs.insert(ix->name);
                         }
@@ -327,7 +346,7 @@ void XC7Packer::pack_carries()
             if (!s_lut && c4_s) {
                 PortRef pr;
                 pr.cell = c4;
-                pr.port = ctx->idf("S[%d]", z);
+                pr.port = name_c4_s[z];
                 auto s_feed = feed_through_lut(c4_s, {pr});
                 s_lut = s_feed;
                 carry_feed_through_luts++;
@@ -335,7 +354,7 @@ void XC7Packer::pack_carries()
             if (!di_lut && c4_di) {
                 PortRef pr;
                 pr.cell = c4;
-                pr.port = ctx->idf("DI[%d]", z);
+                pr.port = name_c4_di[z];
                 auto di_feed = feed_through_lut(c4_di, {pr});
                 di_lut = di_feed;
                 carry_feed_through_luts++;
