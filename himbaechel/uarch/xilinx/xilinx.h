@@ -123,6 +123,14 @@ struct XilinxImpl : HimbaechelAPI
     bool isBelLocationValid(BelId bel, bool explain_invalid = false) const override;
     bool xc7_logic_tile_valid(IdString tileType, const LogicTileStatus &lts) const;
 
+    // BRAM cascade support: CASCADEOUT->CASCADEIN only reaches the next
+    // RAMB36 site up the column; bel z indices are not uniform across BRAM
+    // tiles, so relative (x,y,z) constraints cannot express this. Precompute
+    // the next-RAMB36-in-column map and use it in getClusterPlacement.
+    dict<BelId, BelId> next_bram36_up;
+    bool getClusterPlacement(ClusterId cluster, BelId root_bel,
+                             std::vector<std::pair<CellInfo *, BelId>> &placement) const override;
+
     // Pips
     bool is_pip_unavail(PipId pip) const;
     bool checkPipAvail(PipId pip) const override { return !is_pip_unavail(pip); }
