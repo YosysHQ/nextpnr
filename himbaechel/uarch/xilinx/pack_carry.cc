@@ -78,14 +78,6 @@ void XilinxPacker::split_carry4s()
             continue;
         carry4s.push_back(ci);
     }
-    // Pre-list carry port IDs
-    IdString name_c4_s[4], name_c4_di[4], name_c4_o[4], name_c4_co[4];
-    for (unsigned i=0; i<4; i++) {
-        name_c4_s[i]  = ctx->idf("S[%d]", i);
-        name_c4_di[i] = ctx->idf("DI[%d]", i);
-        name_c4_o[i]  = ctx->idf("O[%d]", i);
-        name_c4_co[i] = ctx->idf("CO[%d]", i);
-    }
     for (CellInfo *ci : carry4s) {
         NetInfo *cin = ci->getPort(id_CI);
         if (cin == nullptr || cin->name == ctx->id("$PACKER_GND_NET")) {
@@ -222,17 +214,6 @@ void XC7Packer::pack_carries()
         log_info("    Created %d feed-through LUTs from MUXCY entries\n", muxcy_feed_through_luts);
     log_info("    Grouped %d MUXCYs and %d XORCYs into %d chains\n", muxcy_count, xorcy_count, int(root_muxcys.size()));
 
-    // Pre-list LUT port IDs
-    IdString name_lut_ins[6] = {id_I0, id_I1, id_I2, id_I3, id_I4, id_I5};
-    // Pre-list carry port IDs
-    IdString name_c4_s[4], name_c4_di[4], name_c4_o[4], name_c4_co[4];
-    for (unsigned i=0; i<4; i++) {
-        name_c4_s[i]  = ctx->idf("S[%d]", i);
-        name_c4_di[i] = ctx->idf("DI[%d]", i);
-        name_c4_o[i]  = ctx->idf("O[%d]", i);
-        name_c4_co[i] = ctx->idf("CO[%d]", i);
-    }
-
     // FIXME for now, only support routing 2 wires per carry position (0..3) to slice outputs
     // Up to 3 would be possible but need to set a reg as passthough
     const unsigned max_route_out = 2;
@@ -318,7 +299,7 @@ void XC7Packer::pack_carries()
                 if (c4_s->driver.cell != nullptr && lut_types.count(c4_s->driver.cell->type)) {
                     s_lut = c4_s->driver.cell;
                     for (int j = 0; j < 6; j++) {
-                        NetInfo *ix = s_lut->getPort(name_lut_ins[j]);
+                        NetInfo *ix = s_lut->getPort(name_lut_i[j]);
                         if (ix) {
                             unique_lut_inputs.insert(ix->name);
                             s_inputs++;
@@ -331,7 +312,7 @@ void XC7Packer::pack_carries()
                 if (c4_di->driver.cell != nullptr && lut_types.count(c4_di->driver.cell->type)) {
                     di_lut = c4_di->driver.cell;
                     for (int j = 0; j < 6; j++) {
-                        NetInfo *ix = di_lut->getPort(name_lut_ins[j]);
+                        NetInfo *ix = di_lut->getPort(name_lut_i[j]);
                         if (ix) {
                             unique_lut_inputs.insert(ix->name);
                             di_inputs++;
