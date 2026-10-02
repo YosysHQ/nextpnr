@@ -168,7 +168,7 @@ struct GowinCstReader
                     }
                     adc_ios.insert(ctx->idf("%d/X%dY%d", std::stoi(match[1]), col - 1, row - 1));
                 } break;
-                case clock: { // CLOCK name BUFG|S=#
+                case clock: { // CLOCK_LOC name BUFG|S=#
                     std::string which_clock = match[2];
                     std::string lw = match[4];
                     int lw_idx = -1;

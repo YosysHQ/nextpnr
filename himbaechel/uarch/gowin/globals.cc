@@ -82,13 +82,15 @@ struct GowinGlobalRouter
         bool res;
         if (src == src_wire && (src_type == id_PLL_O || (!src_is_outpin))) {
             bool dst_is_spine = dst_name.str(ctx).rfind("SPINE", 0) == 0;
-            res = src_valid && (dst_is_spine || dst_type == id_PLL_O);
+            bool src_is_gate = gwu.wire_is_clock_gate(src);
+            res = (src_valid && (dst_is_spine || dst_type == id_PLL_O)) || (src_is_gate && dst_valid);
         } else {
             res = (src_valid && dst_valid) || (src_valid && is_local(dst_type)) || (is_local(src_type) && dst_valid);
         }
         if (ctx->debug && false /*&& res*/) {
-            log_info("%s <- %s [%s <- %s]\n", ctx->nameOfWire(ctx->getPipDstWire(pip)),
-                     ctx->nameOfWire(ctx->getPipSrcWire(pip)), dst_type.c_str(ctx), src_type.c_str(ctx));
+            log_info("%s <- %s [%s <- %s] src:%s\n", ctx->nameOfWire(ctx->getPipDstWire(pip)),
+                     ctx->nameOfWire(ctx->getPipSrcWire(pip)), dst_type.c_str(ctx), src_type.c_str(ctx),
+                     ctx->nameOfWire(src_wire));
             log_info("  res:%d, src_valid:%d, dst_valid:%d, src local:%d, dst local:%d, dst gate:%d\n", res, src_valid,
                      dst_valid, is_local(src_type), is_local(dst_type), gwu.wire_is_clock_gate(dst));
         }
