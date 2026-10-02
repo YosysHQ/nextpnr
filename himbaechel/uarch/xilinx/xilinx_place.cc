@@ -83,15 +83,11 @@ bool XilinxImpl::xc7_logic_tile_valid(IdString tile_type, const LogicTileStatus 
                         DBG();
                         return false;
                     }
-                    // If all 6 inputs or 2 outputs are used, 5LUT can't also be present
-                    if (lut6->lut.input_count == 6 || lut6->lut.output_count == 2) {
-                        DBG();
-                        return false;
-                    }
-                    // If more than 5 total inputs are used, need to check number of shared input
+                    // If more than 5 total inputs are used, need to check number of shared inputs
+                    // FIXME For now, sharing I6 is not allowed due to concerns of support in pin reordering code
                     if ((lut6->lut.input_count + lut5->lut.input_count) > 5) {
                         int shared = 0, need_shared = (lut6->lut.input_count + lut5->lut.input_count - 5);
-                        for (int j = 0; j < lut6->lut.input_count; j++) {
+                        for (int j = 0; j < std::max(lut6->lut.input_count, 5); j++) {
                             for (int k = 0; k < lut5->lut.input_count; k++) {
                                 if (lut6->lut.input_sigs[j] == lut5->lut.input_sigs[k])
                                     shared++;
