@@ -660,6 +660,8 @@ struct Router2
                 auto &wd = wire_data(cursor);
                 if (ctx->debug)
                     log("      %s (sink input)\n", ctx->nameOfWire(cursor));
+                if (wd.reserved_net == PerWireData::RESERVED_UNAVAILABLE)
+                    break;
                 did_something |= (wd.reserved_net != net->udata);
                 if (wd.reserved_net != -1 && wd.reserved_net != net->udata)
                     log_error("attempting to reserve sink input path wire '%s' for nets '%s' and '%s'\n",
