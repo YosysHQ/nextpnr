@@ -223,6 +223,7 @@ void XC7Packer::pack_carries()
     pool<IdString> folded_nets;
 
     unsigned carry_feed_through_luts = 0;
+    unsigned carry_blasted_lut6_2 = 0;
 
     for (auto &grp : groups) {
         std::vector<CellInfo *> carry4s;
@@ -441,6 +442,26 @@ void XC7Packer::pack_carries()
                 di_lut = di_feed;
                 carry_feed_through_luts++;
             }
+            // If this is one LUT6_2 validly used for S and DI, split into LUT6 + LUT5 to register packing
+            bool packed_lut6_2 = false;
+            if (s_lut && s_lut == di_lut && s_lut->type == id_LUT6_2 && c4_di->driver.port == id_O5) {
+                // Disconnect O5
+                s_lut->disconnectPort(id_O5);
+                // Get input nets for O5
+                std::vector<NetInfo*> in_nets(5);
+                for (int j = 0; j < 5; j++) {
+                    in_nets[i] = di_lut->getPort(name_lut_i[j]);
+                }
+                // Create the replacement LUT5
+                uint64_t o5_init = s_lut->params[id_INIT].as_int64() & 0xFFFFFFFF;
+                di_lut = create_lut(stringf("%s$LUT%d", c4_di->name.c_str(ctx), ++autoidx), in_nets, c4_di, Property(o5_init));
+                // Change type of cell LUT6_2 to LUT6, and output port name from O6 to O
+                s_lut->type = id_LUT6;
+                s_lut->ports.erase(id_O5);
+                s_lut->renamePort(id_O6, id_O);
+                packed_lut6_2 = true;
+                carry_blasted_lut6_2 ++;
+						}
             // Constrain LUTs relative to root CARRY4
             if (s_lut) {
                 root->constr_children.push_back(s_lut);
@@ -451,12 +472,12 @@ void XC7Packer::pack_carries()
                 s_lut->constr_z = (z << 4 | BEL_6LUT);
             }
             // Check if clustering of DI driver is possible
-            // FIXME If this is pin O5 of LUT6_2 it may be necessary to split into LUT6 + LUT5 to register packing
             unsigned lut_inp_count = unique_lut_inputs.size();
             if (s_needs_ft || di_needs_ft)
                 lut_inp_count = s_inputs + di_inputs;
-            if (di_lut && di_lut != s_lut && lut_inp_count <= 5 &&
-                (s_route_out + di_route_out + c4_route_out) <= max_route_out) {
+            // FIXME The logic is not good here, O5 and CO cant' be routed to slice outputs (would need FF passthough support)
+            if (di_lut && (di_lut->type != id_LUT6_2) && (packed_lut6_2 ||
+                (lut_inp_count <= 5 && (s_route_out + di_route_out + c4_route_out) <= max_route_out))) {
                 root->constr_children.push_back(di_lut);
                 di_lut->cluster = root->name;
                 di_lut->constr_x = 0;
@@ -502,6 +523,8 @@ void XC7Packer::pack_carries()
     generic_xform(softlogic_rules, false);
     if (carry_feed_through_luts > 0)
         log_info("    Created %d feed-through LUTs from carry chains\n", carry_feed_through_luts);
+    if (carry_blasted_lut6_2 > 0)
+        log_info("    Blasted %d LUT6_2 to enable clustering for carry chains\n", carry_blasted_lut6_2);
     log_info("    Blasted %d non-chain MUXCYs and %d non-chain XORCYs to soft logic\n", remaining_muxcy,
              remaining_xorcy);
 
