@@ -35,6 +35,23 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+XilinxPacker::XilinxPacker(Context *ctx, XilinxImpl *uarch) : ctx(ctx), uarch(uarch)
+{
+    // Pre-list IDs for LUT ports
+    // Note : Initializer list is not in class declaration to avoid moving constids include to header
+    IdString from_name_lut_i[6] = {id_I0, id_I1, id_I2, id_I3, id_I4, id_I5};
+    IdString from_name_lut_a[7] = {id_A0, id_A1, id_A2, id_A3, id_A4, id_A5, id_A6};
+    memcpy(name_lut_i, name_lut_i, 6*sizeof(IdString));
+    memcpy(name_lut_a, name_lut_a, 7*sizeof(IdString));
+    // Pre-list IDs for carry ports
+    for (unsigned i=0; i<4; i++) {
+        name_c4_s[i]  = ctx->idf("S[%d]", i);
+        name_c4_di[i] = ctx->idf("DI[%d]", i);
+        name_c4_o[i]  = ctx->idf("O[%d]", i);
+        name_c4_co[i] = ctx->idf("CO[%d]", i);
+    }
+}
+
 // Process the contents of packed_cells
 void XilinxPacker::flush_cells()
 {
@@ -173,7 +190,7 @@ void XilinxPacker::pack_luts()
         IdString lut = ctx->id("LUT" + std::to_string(k));
         lut_rules[lut].new_type = id_SLICE_LUTX;
         for (int i = 0; i < k; i++)
-            lut_rules[lut].port_xform[ctx->id("I" + std::to_string(i))] = ctx->id("A" + std::to_string(i + 1));
+            lut_rules[lut].port_xform[name_lut_i[i]] = name_lut_a[i+1];
         lut_rules[lut].port_xform[id_O] = id_O6;
     }
     lut_rules[id_LUT6_2] = XFormRule(lut_rules[id_LUT6]);

@@ -91,12 +91,12 @@ void XilinxPacker::split_carry4s()
             CellInfo *muxcy = create_cell(id_MUXCY, ctx->idf("%s$split$muxcy%d", ci->name.c_str(ctx), i));
             muxcy->connectPort(id_CI, cin);
             xorcy->connectPort(id_CI, cin);
-            ci->movePortTo(ctx->idf("DI[%d]", i), muxcy, id_DI);
-            muxcy->connectPort(id_S, ci->getPort(ctx->id("S[" + std::to_string(i) + "]")));
-            ci->movePortTo(ctx->idf("S[%d]", i), xorcy, id_LI);
-            ci->movePortTo(ctx->idf("O[%d]", i), xorcy, id_O);
-            NetInfo *co = ci->getPort(ctx->idf("CO[%d]", i));
-            ci->disconnectPort(ctx->idf("CO[%d]", i));
+            ci->movePortTo(name_c4_di[i], muxcy, id_DI);
+            muxcy->connectPort(id_S, ci->getPort(name_c4_s[i]));
+            ci->movePortTo(name_c4_s[i], xorcy, id_LI);
+            ci->movePortTo(name_c4_o[i], xorcy, id_O);
+            NetInfo *co = ci->getPort(name_c4_co[i]);
+            ci->disconnectPort(name_c4_co[i]);
             if (!co)
                 co = create_internal_net(ci->name, stringf("$split$co%d", i), false);
             muxcy->connectPort(id_O, co);
@@ -214,12 +214,16 @@ void XC7Packer::pack_carries()
         log_info("    Created %d feed-through LUTs from MUXCY entries\n", muxcy_feed_through_luts);
     log_info("    Grouped %d MUXCYs and %d XORCYs into %d chains\n", muxcy_count, xorcy_count, int(root_muxcys.size()));
 
-    // N.B. LUT6 is not a valid type here, as CARRY requires dual outputs
-    pool<IdString> lut_types{id_LUT1, id_LUT2, id_LUT3, id_LUT4, id_LUT5};
+    // FIXME for now, only support routing 2 wires per carry position (0..3) to slice outputs
+    // Up to 3 would be possible but need to set a reg as passthough
+    const unsigned max_route_out = 2;
+
+    pool<IdString> lut_types{id_LUT1, id_LUT2, id_LUT3, id_LUT4, id_LUT5, id_LUT6, id_LUT6_2};
 
     pool<IdString> folded_nets;
 
     unsigned carry_feed_through_luts = 0;
+    unsigned carry_blasted_lut6_2 = 0;
 
     for (auto &grp : groups) {
         std::vector<CellInfo *> carry4s;
@@ -245,7 +249,7 @@ void XC7Packer::pack_carries()
                 c4->constr_abs_z = true;
                 c4->constr_z = BEL_CARRY4;
             }
-            // Fold CI->CO connections into the CARRY4, except for those external ones every 8 units
+            // Fold CI->CO connections into the CARRY4, except for those external ones every 4 units
             if (z == 0 && i == 0) {
                 muxcy->movePortTo(id_CI, c4, id_CYINIT);
             } else if (z == 0 && i > 0) {
@@ -257,7 +261,7 @@ void XC7Packer::pack_carries()
                 muxcy->disconnectPort(id_CI);
             }
             if (z == 3) {
-                muxcy->movePortTo(id_O, c4, ctx->id("CO[3]"));
+                muxcy->movePortTo(id_O, c4, name_c4_co[z]);
             } else {
                 NetInfo *muxcy_o = muxcy->getPort(id_O);
                 if (muxcy_o)
@@ -265,34 +269,38 @@ void XC7Packer::pack_carries()
                 muxcy->disconnectPort(id_O);
             }
             // Replace connections into the MUXCY with external CARRY4 ports
-            muxcy->movePortTo(id_S, c4, ctx->idf("S[%d]", z));
-            muxcy->movePortTo(id_DI, c4, ctx->idf("DI[%d]", z));
+            muxcy->movePortTo(id_S, c4, name_c4_s[z]);
+            muxcy->movePortTo(id_DI, c4, name_c4_di[z]);
             packed_cells.insert(muxcy->name);
             // Fold MUXCY->XORCY into the CARRY4, if there is a XORCY
             if (xorcy) {
                 // Replace XORCY output with external CARRY4 output
-                xorcy->movePortTo(id_O, c4, ctx->idf("O[%d]", z));
+                xorcy->movePortTo(id_O, c4, name_c4_o[z]);
                 // Disconnect internal XORCY connectivity
                 xorcy->disconnectPort(id_LI);
                 xorcy->disconnectPort(id_DI);
                 packed_cells.insert(xorcy->name);
             }
             // Check legality of LUTs driving CARRY4, making them legal if they aren't already
-            NetInfo *c4_s = c4->getPort(ctx->idf("S[%d]", z));
-            NetInfo *c4_di = c4->getPort(ctx->idf("DI[%d]", z));
+            NetInfo *c4_s  = c4->getPort(name_c4_s[z]);
+            NetInfo *c4_di = c4->getPort(name_c4_di[z]);
             // Keep track of the total LUT input count; cannot exceed five or the LUTs cannot be packed together
             pool<IdString> unique_lut_inputs;
-            int s_inputs = 0;
-            // Check that S and DI are validy and unqiuely driven by LUTs
+            // Number of LUT inputs for drivers for S and DI, value zero means not a LUT or not eligible
+            unsigned s_inputs = 0, di_inputs = 0;
+            // Whether the wires S and DI also need routing to slice output (0 or 1 each)
+            unsigned s_route_out = 0, di_route_out = 0;
+            // Check whether S and DI are validly and uniquely driven by LUTs
+            // Also count the number of unique input wires in union of these LUTs
             // FIXME: in multiple fanout cases, cell duplication will probably be cheaper
             // than feed-throughs
             CellInfo *s_lut = nullptr, *di_lut = nullptr;
             if (c4_s) {
-                if (c4_s->users.entries() == 1 && c4_s->driver.cell != nullptr &&
-                    lut_types.count(c4_s->driver.cell->type)) {
+                s_route_out = c4_s->users.entries() > 1;
+                if (c4_s->driver.cell != nullptr && lut_types.count(c4_s->driver.cell->type)) {
                     s_lut = c4_s->driver.cell;
-                    for (int j = 0; j < 5; j++) {
-                        NetInfo *ix = s_lut->getPort(ctx->idf("I%d", j));
+                    for (int j = 0; j < 6; j++) {
+                        NetInfo *ix = s_lut->getPort(name_lut_i[j]);
                         if (ix) {
                             unique_lut_inputs.insert(ix->name);
                             s_inputs++;
@@ -301,45 +309,159 @@ void XC7Packer::pack_carries()
                 }
             }
             if (c4_di) {
-                if (c4_di->users.entries() == 1 && c4_di->driver.cell != nullptr &&
-                    lut_types.count(c4_di->driver.cell->type)) {
+                di_route_out = c4_di->users.entries() > 1;
+                if (c4_di->driver.cell != nullptr && lut_types.count(c4_di->driver.cell->type)) {
                     di_lut = c4_di->driver.cell;
-                    for (int j = 0; j < 5; j++) {
-                        NetInfo *ix = di_lut->getPort(ctx->idf("I%d", j));
+                    for (int j = 0; j < 6; j++) {
+                        NetInfo *ix = di_lut->getPort(name_lut_i[j]);
                         if (ix) {
                             unique_lut_inputs.insert(ix->name);
+                            di_inputs++;
                         }
                     }
                 }
             }
-            int lut_inp_count = int(unique_lut_inputs.size());
-            if (!s_lut)
-                ++lut_inp_count; // for feedthrough
-            if (!di_lut)
-                ++lut_inp_count; // for feedthrough
-            if (lut_inp_count > 5) {
-                // Must use feedthrough for at least one LUT
-                di_lut = nullptr;
-                if (s_inputs > 4)
-                    s_lut = nullptr;
+            // Number of c4 outputs that need routing to slice output
+            NetInfo *c4_o  = c4->getPort(name_c4_o[z]);
+            NetInfo *c4_co = c4->getPort(name_c4_co[z]);
+            unsigned c4_route_out = (c4_o && c4_o->users.entries() > 0) + (c4_co && c4_co->users.entries() > 0);
+            // Determine if CYINIT has a real driver that is not DI driver
+            // Then slice input AX is reserved for CYINIT and DI must be driven by O5
+            NetInfo *c4_cyinit = c4->getPort(id_CYINIT);
+            bool di_must_be_o5 = (i == 0) && c4_cyinit && c4_di &&
+                c4_cyinit->driver.cell != nullptr && c4_di->driver.cell != nullptr &&
+                (c4_cyinit->driver.cell != c4_di->driver.cell || c4_cyinit->driver.port != c4_di->driver.port);
+            // Check for necessary conditions to add feed-through LUTs and update number of LUT inputs
+            bool s_needs_ft = false, di_needs_ft = false;
+            // If input S is not driven by a LUT, need feed-through for S
+            // If S wire can't be routed to slice output, need feed-through for S
+            if (!c4_s || s_lut == nullptr || (s_route_out + c4_route_out) > max_route_out) {
+                s_needs_ft = true;
+                s_inputs = 1;
+                s_route_out = 0;
             }
-            // If LUTs are nullptr, that means we need a feedthrough lut
-            if (!s_lut && c4_s) {
+            // Cases where S is driven by LUT6_2
+            // FIXME For now, don't consider splitting into 2 separate LUTs
+            else if (s_lut && s_lut->type == id_LUT6_2) {
+                // If S is not driven by O6 then need a feed-through
+                if (c4_s->driver.port != id_O6) {
+                    s_needs_ft = true;
+                    s_inputs = 1;
+                    s_route_out = 0;
+                }
+                // Note : the weird case where DI would be driven by O6 too should be covered already,
+                // in the previous check of O6 wire needing routing to slice output
+                // From here if S and DI are driven by same LUT, assume DI is driven by O5
+                else if (s_lut == di_lut) {
+                    if (s_route_out + di_route_out + c4_route_out > max_route_out) {
+                        s_needs_ft = true;
+                        s_inputs = 1;
+                        s_route_out = 0;
+                    }
+                }
+                // Case where O5 does not drive DI, need to route it to slice outputs
+                else {
+                    NetInfo *lut_o5 = s_lut->getPort(id_O5);
+                    if(lut_o5 && (s_route_out + (lut_o5->users.entries() > 0) + c4_route_out > max_route_out) ) {
+                        s_needs_ft = true;
+                        s_inputs = 1;
+                        s_route_out = 0;
+                    }
+                }
+                // Check additional conflict on O5
+                if (s_needs_ft && di_must_be_o5 && s_lut == di_lut) {
+                    di_needs_ft = true;
+                    di_inputs = 1;
+                    di_route_out = 0;
+                }
+            }
+            // Cases where DI is driven by LUT6_2 (but not S)
+            // This causes conflict if DI must be driven by O5
+            else if (di_lut && di_lut->type == id_LUT6_2 && di_must_be_o5) {
+                di_needs_ft = true;
+                di_inputs = 1;
+                di_route_out = 0;
+            }
+            // Cases where S and DI don't involve LUT6_2, and DI must be driven by O5
+            // Consider naively LUTs can share at most 5 inputs
+            else if (di_must_be_o5) {
+                // Input DI is not driven by a LUT, or can't route DI to slice output
+                if (di_inputs == 0 || s_route_out + di_route_out + c4_route_out > max_route_out) {
+                    di_needs_ft = true;
+                    di_inputs = 1;
+                    di_route_out = 0;
+                }
+                // Check the number of unique inputs for LUTs
+                unsigned lut_inp_count = unique_lut_inputs.size();
+                if (s_needs_ft || di_needs_ft)
+                    lut_inp_count = s_inputs + di_inputs;
+                // Evaluate with feed-through on DI first because this path has less delay
+                if (lut_inp_count > 5 && di_needs_ft == false) {
+                    int new_lut_inp_count = s_inputs + 1;
+                    if (new_lut_inp_count <= 5) {
+                        di_needs_ft = true;
+                        di_inputs = 1;
+                        di_route_out = 0;
+                        lut_inp_count = new_lut_inp_count;
+                    }
+                }
+                // Evaluate with feed-through on S
+                if (lut_inp_count > 5 && s_needs_ft == false) {
+                    int new_lut_inp_count = di_inputs + 1;
+                    if (new_lut_inp_count <= 5) {
+                        s_needs_ft = true;
+                        s_inputs = 1;
+                        s_route_out = 0;
+                        lut_inp_count = new_lut_inp_count;
+                    }
+                }
+                // Last resort, feed-through for both S and DI
+                if (lut_inp_count > 5) {
+                    s_needs_ft = true;
+                    s_inputs = 1;
+                    s_route_out = 0;
+                    di_needs_ft = true;
+                    di_inputs = 1;
+                    di_route_out = 0;
+                }
+            }
+            // Create necessary feed-through luts
+            if (c4_s && s_needs_ft) {
                 PortRef pr;
                 pr.cell = c4;
-                pr.port = ctx->idf("S[%d]", z);
+                pr.port = name_c4_s[z];
                 auto s_feed = feed_through_lut(c4_s, {pr});
                 s_lut = s_feed;
                 carry_feed_through_luts++;
             }
-            if (!di_lut && c4_di) {
+            if (c4_di && di_needs_ft) {
                 PortRef pr;
                 pr.cell = c4;
-                pr.port = ctx->idf("DI[%d]", z);
+                pr.port = name_c4_di[z];
                 auto di_feed = feed_through_lut(c4_di, {pr});
                 di_lut = di_feed;
                 carry_feed_through_luts++;
             }
+            // If this is one LUT6_2 validly used for S and DI, split into LUT6 + LUT5 to register packing
+            bool packed_lut6_2 = false;
+            if (s_lut && s_lut == di_lut && s_lut->type == id_LUT6_2 && c4_di->driver.port == id_O5) {
+                // Disconnect O5
+                s_lut->disconnectPort(id_O5);
+                // Get input nets for O5
+                std::vector<NetInfo*> in_nets(5);
+                for (int j = 0; j < 5; j++) {
+                    in_nets[i] = di_lut->getPort(name_lut_i[j]);
+                }
+                // Create the replacement LUT5
+                uint64_t o5_init = s_lut->params[id_INIT].as_int64() & 0xFFFFFFFF;
+                di_lut = create_lut(stringf("%s$LUT%d", c4_di->name.c_str(ctx), ++autoidx), in_nets, c4_di, Property(o5_init));
+                // Change type of cell LUT6_2 to LUT6, and output port name from O6 to O
+                s_lut->type = id_LUT6;
+                s_lut->ports.erase(id_O5);
+                s_lut->renamePort(id_O6, id_O);
+                packed_lut6_2 = true;
+                carry_blasted_lut6_2 ++;
+						}
             // Constrain LUTs relative to root CARRY4
             if (s_lut) {
                 root->constr_children.push_back(s_lut);
@@ -349,7 +471,13 @@ void XC7Packer::pack_carries()
                 s_lut->constr_abs_z = true;
                 s_lut->constr_z = (z << 4 | BEL_6LUT);
             }
-            if (di_lut) {
+            // Check if clustering of DI driver is possible
+            unsigned lut_inp_count = unique_lut_inputs.size();
+            if (s_needs_ft || di_needs_ft)
+                lut_inp_count = s_inputs + di_inputs;
+            // FIXME The logic is not good here, O5 and CO cant' be routed to slice outputs (would need FF passthough support)
+            if (di_lut && (di_lut->type != id_LUT6_2) && (packed_lut6_2 ||
+                (lut_inp_count <= 5 && (s_route_out + di_route_out + c4_route_out) <= max_route_out))) {
                 root->constr_children.push_back(di_lut);
                 di_lut->cluster = root->name;
                 di_lut->constr_x = 0;
@@ -395,6 +523,8 @@ void XC7Packer::pack_carries()
     generic_xform(softlogic_rules, false);
     if (carry_feed_through_luts > 0)
         log_info("    Created %d feed-through LUTs from carry chains\n", carry_feed_through_luts);
+    if (carry_blasted_lut6_2 > 0)
+        log_info("    Blasted %d LUT6_2 to enable clustering for carry chains\n", carry_blasted_lut6_2);
     log_info("    Blasted %d non-chain MUXCYs and %d non-chain XORCYs to soft logic\n", remaining_muxcy,
              remaining_xorcy);
 
