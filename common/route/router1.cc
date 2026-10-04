@@ -115,6 +115,28 @@ struct Router1
 
     int arcs_with_ripup = 0;
     int arcs_without_ripup = 0;
+
+    // With router1/arcRipup, a pip held by another net is treated as a conflict on the wire it drives (when that wire
+    // is driven by exactly this pip), so only the arcs that pass through the wire are ripped up and re-routed. Without
+    // it the architecture default is to rip up the whole net owning the pip, which for a net with thousands of sinks
+    // means thousands of re-routes.
+    WireId arc_ripup_pip_wire(PipId pip) const
+    {
+        NetInfo *n = ctx->getConflictingPipNet(pip);
+        if (n == nullptr)
+            return WireId();
+        WireId dst = ctx->getPipDstWire(pip);
+        auto it = n->wires.find(dst);
+        return (it != n->wires.end() && it->second.pip == pip) ? dst : WireId();
+    }
+
+    // Bounded-search statistics (router1/bbMargin): arcs routed inside the box, arcs that needed the unbounded
+    // fallback, and nodes visited by each kind of attempt
+    int bb_arcs_ok = 0, bb_arcs_fallback = 0;
+    long long bb_visits = 0, unbounded_visits = 0;
+
+    // Per-net search effort (router1/reportHeavyNets): number of route attempts and A* nodes visited
+    dict<IdString, std::pair<long long, long long>> net_effort;
     bool ripup_flag;
 
     TimingAnalyser tmg;
@@ -261,6 +283,8 @@ struct Router1
             log("    ripup pip %s\n", ctx->nameOfPip(pip));
 
         WireId w = ctx->getConflictingPipWire(pip);
+        if (w == WireId() && cfg.arcRipup)
+            w = arc_ripup_pip_wire(pip);
 
         if (w == WireId()) {
             NetInfo *n = ctx->getConflictingPipNet(pip);
@@ -619,6 +643,8 @@ struct Router1
                             if (!ripup)
                                 continue;
                             conflictPipWire = ctx->getConflictingPipWire(pip);
+                            if (conflictPipWire == WireId() && cfg.arcRipup)
+                                conflictPipWire = arc_ripup_pip_wire(pip);
                             if (conflictPipWire == WireId()) {
                                 conflictPipNet = ctx->getConflictingPipNet(pip);
                                 if (conflictPipNet == nullptr)
@@ -746,8 +772,19 @@ struct Router1
                 }
             }
 
-            if (visited.count(dst_wire) != 0)
+            (use_bb ? bb_visits : unbounded_visits) += visitCnt;
+            if (cfg.reportHeavyNets > 0) {
+                auto &effort = net_effort[net_info->name];
+                effort.first++;
+                effort.second += visitCnt;
+            }
+            if (visited.count(dst_wire) != 0) {
+                if (use_bb)
+                    bb_arcs_ok++;
                 break;
+            }
+            if (use_bb)
+                bb_arcs_fallback++;
         }
 
         if (ctx->debug)
@@ -1185,6 +1222,8 @@ Router1Cfg::Router1Cfg(Context *ctx)
 
     estimatePrecision = 100 * ctx->getRipupDelayPenalty();
     bbMargin = ctx->setting<int>("router1/bbMargin", -1);
+    arcRipup = ctx->setting<bool>("router1/arcRipup", false);
+    reportHeavyNets = ctx->setting<int>("router1/reportHeavyNets", 0);
 }
 
 bool router1(Context *ctx, const Router1Cfg &cfg)
@@ -1308,6 +1347,30 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
                  std::chrono::duration<float>(rend - rstart).count());
         log_info("Routing complete.\n");
         ctx->yield();
+        if (cfg.bbMargin >= 0)
+            log_info("Bounded search: %d arcs routed in the box, %d fell back to unbounded; %lld nodes visited in the "
+                     "box, %lld unbounded\n",
+                     router.bb_arcs_ok, router.bb_arcs_fallback, router.bb_visits, router.unbounded_visits);
+        if (cfg.reportHeavyNets > 0) {
+            std::vector<std::pair<long long, IdString>> by_visits;
+            long long total_visits = 0;
+            for (auto &kv : router.net_effort) {
+                by_visits.emplace_back(kv.second.second, kv.first);
+                total_visits += kv.second.second;
+            }
+            std::sort(by_visits.begin(), by_visits.end(),
+                      [](const std::pair<long long, IdString> &a, const std::pair<long long, IdString> &b) {
+                          return a.first > b.first;
+                      });
+            log_info("Nets with the most A* node visits (%lld in total):\n", total_visits);
+            for (size_t i = 0; i < by_visits.size() && int(i) < cfg.reportHeavyNets; i++) {
+                const NetInfo *ni = ctx->nets.at(by_visits[i].second).get();
+                log_info("  %5.1f%% %12lld visits %7lld searches %6d users %7d wires  %s\n",
+                         100.0 * by_visits[i].first / total_visits, by_visits[i].first,
+                         router.net_effort.at(by_visits[i].second).first, int(ni->users.entries()),
+                         int(ni->wires.size()), ctx->nameOf(ni));
+            }
+        }
         log_info("Router1 time %.02fs\n", std::chrono::duration<float>(rend - rstart).count());
 
 #ifndef NDEBUG

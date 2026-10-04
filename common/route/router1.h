@@ -36,6 +36,11 @@ struct Router1Cfg
     delay_t netRipupPenalty;
     delay_t reuseBonus;
     delay_t estimatePrecision;
+    // Rip up only the arcs through a conflicting wire when a pip held by another net is in the way, instead of that
+    // net's every arc
+    bool arcRipup;
+    // Log the N nets that consume the most A* node visits when routing finishes (diagnostic); 0 disables
+    int reportHeavyNets;
     // Margin (in tiles) added to an arc's bounding box for the first search attempt; negative disables the limit
     int bbMargin;
 };
