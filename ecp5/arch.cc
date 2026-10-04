@@ -707,6 +707,17 @@ bool Arch::route()
 
     bool result;
     if (router == "router1") {
+        // Router1 options for congested designs: bounded A* search, rip-up of only the arcs through a conflicting
+        // wire, and a capped penalty for ripping up shared wires. They were tested on ECP5-45F designs only, so they
+        // are enabled here and not in the architecture independent defaults. A value given with --setting wins;
+        // router1/bbMargin=-1, router1/arcRipup=0 and router1/arcPenaltyCap=0 give the previous behaviour.
+        auto default_setting = [&](const char *key, int value) {
+            if (!settings.count(id(key)))
+                settings[id(key)] = std::to_string(value);
+        };
+        default_setting("router1/bbMargin", 8);
+        default_setting("router1/arcRipup", 1);
+        default_setting("router1/arcPenaltyCap", 20);
         result = router1(getCtx(), Router1Cfg(getCtx()));
     } else if (router == "router2") {
         router2(getCtx(), Router2Cfg(getCtx()));
