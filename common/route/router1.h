@@ -36,6 +36,8 @@ struct Router1Cfg
     delay_t netRipupPenalty;
     delay_t reuseBonus;
     delay_t estimatePrecision;
+    // Margin (in tiles) added to an arc's bounding box for the first search attempt; negative disables the limit
+    int bbMargin;
 };
 
 extern bool router1(Context *ctx, const Router1Cfg &cfg);
