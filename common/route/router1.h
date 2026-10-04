@@ -39,6 +39,8 @@ struct Router1Cfg
     // Rip up only the arcs through a conflicting wire when a pip held by another net is in the way, instead of that
     // net's every arc
     bool arcRipup;
+    // Cap, in units of wireRipupPenalty, on the extra penalty for ripping up a wire shared by several arcs; 0 disables
+    int arcPenaltyCap;
     // Log the N nets that consume the most A* node visits when routing finishes (diagnostic); 0 disables
     int reportHeavyNets;
     // Margin (in tiles) added to an arc's bounding box for the first search attempt; negative disables the limit

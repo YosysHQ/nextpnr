@@ -130,6 +130,20 @@ struct Router1
         return (it != n->wires.end() && it->second.pip == pip) ? dst : WireId();
     }
 
+    // Extra penalty for ripping up a wire that other arcs also pass through: each of them has to be routed again.
+    // Wires near the root of a net with thousands of sinks serve all of them, yet were charged like a leaf wire, so
+    // such nets were ripped up over and over. Counted in units of wireRipupPenalty and capped (router1/arcPenaltyCap,
+    // 0 disables) so an arc that is blocked by a busy wire cannot make A* expand the whole die.
+    delay_t arc_count_penalty(WireId w) const
+    {
+        if (cfg.arcPenaltyCap <= 0)
+            return 0;
+        auto it = wire_to_arcs.find(w);
+        if (it == wire_to_arcs.end() || it->second.size() <= 1)
+            return 0;
+        return std::min<size_t>(it->second.size() - 1, cfg.arcPenaltyCap) * cfg.wireRipupPenalty;
+    }
+
     // Bounded-search statistics (router1/bbMargin): arcs routed inside the box, arcs that needed the unbounded
     // fallback, and nodes visited by each kind of attempt
     int bb_arcs_ok = 0, bb_arcs_fallback = 0;
@@ -683,6 +697,7 @@ struct Router1
                             if (scores_it != wireScores.end())
                                 penalty_delta += scores_it->second * cfg.wireRipupPenalty;
                             penalty_delta += cfg.wireRipupPenalty;
+                            penalty_delta += arc_count_penalty(conflictWireWire);
                         }
 
                         if (conflictPipWire != WireId()) {
@@ -690,6 +705,7 @@ struct Router1
                             if (scores_it != wireScores.end())
                                 penalty_delta += scores_it->second * cfg.wireRipupPenalty;
                             penalty_delta += cfg.wireRipupPenalty;
+                            penalty_delta += arc_count_penalty(conflictPipWire);
                         }
 
                         if (conflictWireNet != nullptr) {
@@ -1223,6 +1239,7 @@ Router1Cfg::Router1Cfg(Context *ctx)
     estimatePrecision = 100 * ctx->getRipupDelayPenalty();
     bbMargin = ctx->setting<int>("router1/bbMargin", -1);
     arcRipup = ctx->setting<bool>("router1/arcRipup", false);
+    arcPenaltyCap = ctx->setting<int>("router1/arcPenaltyCap", 0);
     reportHeavyNets = ctx->setting<int>("router1/reportHeavyNets", 0);
 }
 
