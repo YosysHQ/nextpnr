@@ -1134,6 +1134,13 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
             return TMG_REGISTER_OUTPUT;
         else
             return TMG_REGISTER_INPUT;
+    } else if (cell->type == id_SB_FILTER_50NS) {
+        if (port == id_FILTERIN)
+            return TMG_COMB_INPUT;
+        else if (port == id_FILTEROUT)
+            return TMG_COMB_OUTPUT;
+        else
+            return TMG_IGNORE;
     }
     log_error("cell type '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(this), cell->name.c_str(this));
 }
