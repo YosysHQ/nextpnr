@@ -102,6 +102,12 @@ void GateMateImpl::route_clock()
         }
     };
 
+    auto occupied_tiles = std::vector<bool>(ctx->getGridDimX() * ctx->getGridDimY(), false);
+    for (auto &cell : ctx->cells) {
+        if (cell.second->bel != BelId())
+            occupied_tiles.at(cell.second->bel.tile) = true;
+    }
+
     for (auto &net_pair : ctx->nets) {
         NetInfo *net = net_pair.second.get();
         if (!net->driver.cell)
@@ -179,6 +185,9 @@ void GateMateImpl::route_clock()
                     if (!(extra_data.resource == PipMask::C_CY2_I && extra_data.value == 0))
                         continue;
                 }
+                // Only bridge through CPEs that are completely free
+                if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_ROUTING) && occupied_tiles.at(dh.tile))
+                    continue;
                 if (!ctx->checkPipAvailForNet(dh, clk_net))
                     continue;
                 WireId dst = ctx->getPipDstWire(dh);
