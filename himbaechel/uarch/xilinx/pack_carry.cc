@@ -215,7 +215,7 @@ void XC7Packer::pack_carries()
     log_info("    Grouped %d MUXCYs and %d XORCYs into %d chains\n", muxcy_count, xorcy_count, int(root_muxcys.size()));
 
     // FIXME for now, only support routing 2 wires per carry position (0..3) to slice outputs
-    // Up to 3 would be possible but need to set a reg as passthough
+    // Up to 3 would be possible but need to set a reg as transparent latch
     const unsigned max_route_out = 2;
 
     pool<IdString> lut_types{id_LUT1, id_LUT2, id_LUT3, id_LUT4, id_LUT5, id_LUT6, id_LUT6_2};
@@ -224,6 +224,7 @@ void XC7Packer::pack_carries()
 
     unsigned carry_feed_through_luts = 0;
     unsigned carry_blasted_lut6_2 = 0;
+    unsigned carry_reserve_lut_o5 = 0;
 
     for (auto &grp : groups) {
         std::vector<CellInfo *> carry4s;
@@ -294,7 +295,7 @@ void XC7Packer::pack_carries()
             // Also count the number of unique input wires in union of these LUTs
             // FIXME: in multiple fanout cases, cell duplication will probably be cheaper
             // than feed-throughs
-            CellInfo *s_lut = nullptr, *di_lut = nullptr;
+            CellInfo *s_lut = nullptr, *di_lut = nullptr, *o5_lut = nullptr;
             if (c4_s) {
                 s_route_out = c4_s->users.entries() > 1;
                 if (c4_s->driver.cell != nullptr && lut_types.count(c4_s->driver.cell->type)) {
@@ -322,6 +323,8 @@ void XC7Packer::pack_carries()
                 }
             }
             // Number of c4 outputs that need routing to slice output
+            // FIXME For now, transparent latch is not supported by nextpnr
+            //   so only either O5 or CO can be routed to slice out but not both
             NetInfo *c4_o  = c4->getPort(name_c4_o[z]);
             NetInfo *c4_co = c4->getPort(name_c4_co[z]);
             unsigned c4_route_out = (c4_o && c4_o->users.entries() > 0) + (c4_co && c4_co->users.entries() > 0);
@@ -385,6 +388,8 @@ void XC7Packer::pack_carries()
             // Cases where S and DI don't involve LUT6_2, and DI must be driven by O5
             // Consider naively LUTs can share at most 5 inputs
             else if (di_must_be_o5) {
+                // By default, mark the O5 location to be for DI (if not nullptr)
+                o5_lut = di_lut;
                 // Input DI is not driven by a LUT, or can't route DI to slice output
                 if (di_inputs == 0 || s_route_out + di_route_out + c4_route_out > max_route_out) {
                     di_needs_ft = true;
@@ -440,28 +445,58 @@ void XC7Packer::pack_carries()
                 pr.port = name_c4_di[z];
                 auto di_feed = feed_through_lut(c4_di, {pr});
                 di_lut = di_feed;
+                o5_lut = di_feed;
                 carry_feed_through_luts++;
             }
-            // If this is one LUT6_2 validly used for S and DI, split into LUT6 + LUT5 to register packing
-            bool packed_lut6_2 = false;
-            if (s_lut && s_lut == di_lut && s_lut->type == id_LUT6_2 && c4_di->driver.port == id_O5) {
+            // If S is still LUT6_2 then split into LUT6 + LUT5 to register packing of O5
+            if (s_lut && s_lut->type == id_LUT6_2) {
+                NetInfo *net_o5 = s_lut->getPort(id_O5);
                 // Disconnect O5
                 s_lut->disconnectPort(id_O5);
-                // Get input nets for O5
+                // Get input nets, remove higher inputs stuck at zero otherwise failures occur
                 std::vector<NetInfo*> in_nets(5);
+                unsigned valid_in = 0;
                 for (int j = 0; j < 5; j++) {
-                    in_nets[i] = di_lut->getPort(name_lut_i[j]);
+                    in_nets[i] = s_lut->getPort(name_lut_i[j]);
+                    if (in_nets[i])
+                      valid_in = i + 1;
                 }
+                in_nets.resize(valid_in);
                 // Create the replacement LUT5
                 uint64_t o5_init = s_lut->params[id_INIT].as_int64() & 0xFFFFFFFF;
-                di_lut = create_lut(stringf("%s$LUT%d", c4_di->name.c_str(ctx), ++autoidx), in_nets, c4_di, Property(o5_init));
+                o5_lut = create_lut(stringf("%s$LUT%d", s_lut->name.c_str(ctx), ++autoidx), in_nets, net_o5, Property(o5_init));
                 // Change type of cell LUT6_2 to LUT6, and output port name from O6 to O
                 s_lut->type = id_LUT6;
                 s_lut->ports.erase(id_O5);
                 s_lut->renamePort(id_O6, id_O);
-                packed_lut6_2 = true;
+                // FIXME The resulting LUT6 could be optimized, removing constant inputs I5=1, I4=0, etc
                 carry_blasted_lut6_2 ++;
-						}
+            }
+            // If the O5 site won't be usable, create a phony LUT so placer never tries this location
+            if (!o5_lut && (s_lut && s_lut->type == id_LUT6 || (s_route_out + c4_route_out) >= max_route_out)) {
+    log_info("    DEBUG Creating phony LUT5 at carry position %u\n", z);
+                // Get input nets, remove higher inputs stuck at zero otherwise failures occur
+                std::vector<NetInfo*> in_nets(5);
+                unsigned valid_in = 0;
+                for (int j = 0; j < 5; j++) {
+                    in_nets[i] = s_lut->getPort(name_lut_i[j]);
+                    if (in_nets[i])
+                      valid_in = i + 1;
+                }
+                in_nets.resize(valid_in);
+                // Create the new LUT
+                uint64_t o5_init = s_lut->params[id_INIT].as_int64() & 0xFFFFFFFF;
+                o5_lut = create_lut(stringf("%s$LUT%d", s_lut->name.c_str(ctx), ++autoidx), in_nets, nullptr, Property(o5_init));
+                carry_reserve_lut_o5 ++;
+            }
+            // Check if clustering of DI driver is possible
+            if (!o5_lut && di_lut) {
+                unsigned lut_inp_count = unique_lut_inputs.size();
+                if (s_needs_ft || di_needs_ft)
+                    lut_inp_count = s_inputs + di_inputs;
+                if (lut_inp_count <= 5)
+                    o5_lut = di_lut;
+            }
             // Constrain LUTs relative to root CARRY4
             if (s_lut) {
                 root->constr_children.push_back(s_lut);
@@ -471,19 +506,13 @@ void XC7Packer::pack_carries()
                 s_lut->constr_abs_z = true;
                 s_lut->constr_z = (z << 4 | BEL_6LUT);
             }
-            // Check if clustering of DI driver is possible
-            unsigned lut_inp_count = unique_lut_inputs.size();
-            if (s_needs_ft || di_needs_ft)
-                lut_inp_count = s_inputs + di_inputs;
-            // FIXME The logic is not good here, O5 and CO cant' be routed to slice outputs (would need FF passthough support)
-            if (di_lut && (di_lut->type != id_LUT6_2) && (packed_lut6_2 ||
-                (lut_inp_count <= 5 && (s_route_out + di_route_out + c4_route_out) <= max_route_out))) {
-                root->constr_children.push_back(di_lut);
-                di_lut->cluster = root->name;
-                di_lut->constr_x = 0;
-                di_lut->constr_y = -(i / 4 + i / (4 * 25));
-                di_lut->constr_abs_z = true;
-                di_lut->constr_z = (z << 4 | BEL_5LUT);
+            if (o5_lut) {
+                root->constr_children.push_back(o5_lut);
+                o5_lut->cluster = root->name;
+                o5_lut->constr_x = 0;
+                o5_lut->constr_y = -(i / 4 + i / (4 * 25));
+                o5_lut->constr_abs_z = true;
+                o5_lut->constr_z = (z << 4 | BEL_5LUT);
             }
         }
     }
@@ -521,10 +550,9 @@ void XC7Packer::pack_carries()
     softlogic_rules[id_XORCY].set_params.emplace_back(id_INIT, Property(0x6));
 
     generic_xform(softlogic_rules, false);
-    if (carry_feed_through_luts > 0)
-        log_info("    Created %d feed-through LUTs from carry chains\n", carry_feed_through_luts);
-    if (carry_blasted_lut6_2 > 0)
-        log_info("    Blasted %d LUT6_2 to enable clustering for carry chains\n", carry_blasted_lut6_2);
+
+    log_info("    Created %d LUTs as feed-through, %u LUTs from blasted LUT6_2 and %u LUTs to reserve O5 sites\n",
+        carry_feed_through_luts, carry_blasted_lut6_2, carry_reserve_lut_o5);
     log_info("    Blasted %d non-chain MUXCYs and %d non-chain XORCYs to soft logic\n", remaining_muxcy,
              remaining_xorcy);
 
