@@ -130,6 +130,7 @@ void GateMateImpl::route_clock()
                     }
                 };
 
+                reserve_port_if_needed(id_EN_INT);
                 reserve_port_if_needed(id_EN);
                 reserve_port_if_needed(id_SR);
             }
