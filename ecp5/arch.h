@@ -1073,6 +1073,8 @@ struct Arch : BaseArch<ArchRanges>
     dict<WireId, std::pair<int, int>> wire_loc_overrides;
     void setup_wire_locations();
 
+    void update_slice_flags();
+
     mutable dict<DelayKey, std::pair<bool, DelayQuad>> celldelay_cache;
 
     static const std::string defaultPlacer;

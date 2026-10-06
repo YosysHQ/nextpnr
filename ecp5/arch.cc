@@ -695,11 +695,30 @@ bool Arch::place()
     return true;
 }
 
+void Arch::update_slice_flags()
+{
+    for (auto &cell : cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->type != id_TRELLIS_COMB)
+            continue;
+        NPNR_ASSERT(ci->bel != BelId());
+        int flags = ci->combInfo.flags;
+        lutperm_allowed.at(get_slice_index(ci->bel.location.x, ci->bel.location.y,
+                                           (getBelLocation(ci->bel).z >> lc_idx_shift) / 2)) =
+                (((flags & ArchCellInfo::COMB_LUTRAM) || (flags & ArchCellInfo::COMB_RAMW_BLOCK))
+                         ? LutPermRule::NONE
+                         : ((flags & ArchCellInfo::COMB_CARRY) ? LutPermRule::CARRY : LutPermRule::ALL));
+    }
+}
+
 bool Arch::route()
 {
     std::string router = str_or_default(settings, id_router, defaultRouter);
 
     disable_router_lutperm = getCtx()->setting<bool>("arch.disable_router_lutperm", false);
+
+    // This is needed if we have loaded a pre-placed design
+    update_slice_flags();
 
     setup_wire_locations();
     route_ecp5_globals(getCtx());
