@@ -186,7 +186,8 @@ void GateMateImpl::route_clock()
                         continue;
                 }
                 // Only bridge through CPEs that are completely free
-                if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_ROUTING) && occupied_tiles.at(dh.tile))
+                if (extra_data.type == PipExtra::PIP_EXTRA_MUX && (extra_data.flags & MUX_ROUTING) &&
+                    occupied_tiles.at(dh.tile))
                     continue;
                 if (!ctx->checkPipAvailForNet(dh, clk_net))
                     continue;

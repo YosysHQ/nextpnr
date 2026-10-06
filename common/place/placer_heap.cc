@@ -861,8 +861,7 @@ class HeAPPlacer
         // Finally, update the udata of children
         for (auto &cluster : cluster2cells)
             for (auto child : cluster.second)
-                cell_to_var.at(child->udata) = cell_to_var.at(ctx->getClusterRootCell(cluster.first)->udata)
-            ;
+                cell_to_var.at(child->udata) = cell_to_var.at(ctx->getClusterRootCell(cluster.first)->udata);
         return row;
     }
 
@@ -897,7 +896,9 @@ class HeAPPlacer
     void build_equations(EquationSystem<double> &es, bool yaxis, int iter = -1)
     {
         // Return the x or y position of a cell, depending on ydir
-        auto cell_pos = [&](CellInfo *cell) { return yaxis ? cell_locs.at(cell->udata).y : cell_locs.at(cell->udata).x; };
+        auto cell_pos = [&](CellInfo *cell) {
+            return yaxis ? cell_locs.at(cell->udata).y : cell_locs.at(cell->udata).x;
+        };
         auto legal_pos = [&](CellInfo *cell) {
             return yaxis ? cell_locs.at(cell->udata).legal_y : cell_locs.at(cell->udata).legal_x;
         };
@@ -992,7 +993,9 @@ class HeAPPlacer
     void solve_equations(EquationSystem<double> &es, bool yaxis)
     {
         // Return the x or y position of a cell, depending on ydir
-        auto cell_pos = [&](CellInfo *cell) { return yaxis ? cell_locs.at(cell->udata).y : cell_locs.at(cell->udata).x; };
+        auto cell_pos = [&](CellInfo *cell) {
+            return yaxis ? cell_locs.at(cell->udata).y : cell_locs.at(cell->udata).x;
+        };
         std::vector<double> vals;
         std::transform(solve_cells.begin(), solve_cells.end(), std::back_inserter(vals), cell_pos);
         es.solve(vals, cfg.solverTolerance);
@@ -1092,7 +1095,8 @@ class HeAPPlacer
                 CellInfo *ci = cell.second.get();
                 if (ci->bel != BelId() &&
                     (p->cell_to_var.at(ci->udata) != dont_solve ||
-                     (ci->cluster != ClusterId() && p->cell_to_var.at(ctx->getClusterRootCell(ci->cluster)->udata) != dont_solve))) {
+                     (ci->cluster != ClusterId() &&
+                      p->cell_to_var.at(ctx->getClusterRootCell(ci->cluster)->udata) != dont_solve))) {
                     p->unbind_ctrl_set(ci->bel);
                     ctx->unbindBel(ci->bel);
                 }

@@ -115,7 +115,8 @@ IdString iosel_clock_port(const CellInfo *cell, bool out)
 // OUT4 carries a clock instead of data
 bool iosel_out4_is_clock(const CellInfo *cell)
 {
-    return (iosel_in_ff(cell) && iosel_fabric_clock(cell, false)) || (iosel_out_ff(cell) && iosel_fabric_clock(cell, true));
+    return (iosel_in_ff(cell) && iosel_fabric_clock(cell, false)) ||
+           (iosel_out_ff(cell) && iosel_fabric_clock(cell, true));
 }
 
 ClockEdge iosel_edge(const CellInfo *cell, IdString inv_param)
@@ -507,7 +508,8 @@ TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdStr
 
         if (port.in(id_IN1, id_IN2, id_GPIO_OUT)) {
             IdString to = (port == id_GPIO_OUT) ? id_GPIO_OUT : port;
-            if (clk_idx < 0 || !get_delay_from_tmg_db(ctx->idf("timing_io_sel_CLOCK%d_%s", clk_idx, to.c_str(ctx)), info.clockToQ))
+            if (clk_idx < 0 ||
+                !get_delay_from_tmg_db(ctx->idf("timing_io_sel_CLOCK%d_%s", clk_idx, to.c_str(ctx)), info.clockToQ))
                 get_delay_from_tmg_db(out_side ? id_timing_del_IO_SEL_Q_out : id_timing_del_IO_SEL_Q_in, info.clockToQ);
         } else {
             // use the CPE FF values as an approximation

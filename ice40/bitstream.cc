@@ -686,12 +686,9 @@ void write_asc(const Context *ctx, std::ostream &out)
             set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "SPI_ENABLE_3", true,
                         "IpConfig.");
         } else if (cell.second->type == id_SB_FILTER_50NS) {
-            set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "ENABLE_0", true,
-                        "IpConfig.");
-            set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "ENABLE_1", true,
-                        "IpConfig.");
-            set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "ENABLE_2", true,
-                        "IpConfig.");
+            set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "ENABLE_0", true, "IpConfig.");
+            set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "ENABLE_1", true, "IpConfig.");
+            set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "ENABLE_2", true, "IpConfig.");
         } else if (cell.second->type == id_ICESTORM_SPRAM) {
             const BelInfoPOD &beli = ci.bel_data[bel.index];
             int x = beli.x, y = beli.y, z = beli.z;
