@@ -76,14 +76,13 @@ struct FABulousDesignConstraints
         std::string cell = vm["cell"].as<std::string>();
         std::string pin = vm["pin"].as<std::string>();
 
-        auto buf_it = ctx->cells.find(ctx->id(cell));
-        if (buf_it == ctx->cells.end()) {
+        CellInfo *buf_ci = ctx->getCellForPinConstraint(cell);
+        if (!buf_ci) {
             if (ctx->debug)
                 log_info("Ignoring constraint for '%s': port does not exist (on line %d)\n", cell.c_str(), line_number);
             return;
         }
 
-        CellInfo *buf_ci = buf_it->second.get();
         if (!buf_ci->type.in(ctx->id("$nextpnr_ibuf"), ctx->id("$nextpnr_obuf"), ctx->id("$nextpnr_iobuf")))
             log_error("Can only constrain IO cells (on line %d)\n", line_number);
 
@@ -128,18 +127,18 @@ struct FABulousDesignConstraints
         std::string cell = vm["cell"].as<std::string>();
         std::string bel = vm["bel"].as<std::string>();
 
-        auto fnd_cell = ctx->cells.find(ctx->id(cell));
-        if (fnd_cell == ctx->cells.end()) {
+        CellInfo *fnd_cell = ctx->getCellForPinConstraint(cell);
+        if (!fnd_cell) {
             log_warning("unmatched constraint '%s' (on line %d)\n", cell.c_str(), line_number);
         } else {
             BelId targetBel = ctx->getBelByNameStr(bel);
             if (targetBel == BelId())
                 log_error("package does not have a bel named '%s' (on line %d)\n", bel.c_str(), line_number);
-            if (fnd_cell->second->attrs.count(id_BEL))
+            if (fnd_cell->attrs.count(id_BEL))
                 log_error("duplicate bel constraint on '%s' (on line %d)\n", cell.c_str(), line_number);
-            fnd_cell->second->attrs[id_BEL] = ctx->getBelName(targetBel).str(ctx);
+            fnd_cell->attrs[id_BEL] = ctx->getBelName(targetBel).str(ctx);
             log_info("constrained '%s' to bel '%s'\n", cell.c_str(),
-                     fnd_cell->second->attrs[id_BEL].as_string().c_str());
+                     fnd_cell->attrs[id_BEL].as_string().c_str());
         }
     }
 
