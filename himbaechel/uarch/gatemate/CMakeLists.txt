@@ -19,6 +19,7 @@ set(SOURCES
     pack_mult.cc
     pack_serdes.cc
     pack.h
+    partition.cc
     pll.cc
     route_clock.cc
     route_mult.cc
