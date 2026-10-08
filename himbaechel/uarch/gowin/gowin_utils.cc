@@ -485,6 +485,12 @@ bool GowinUtils::has_5A_HCLK(void) const
     return extra->chip_flags & Extra_chip_data_POD::HAS_5A_HCLK;
 }
 
+bool GowinUtils::has_5A_IDES(void) const
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->chip_flags & Extra_chip_data_POD::HAS_5A_IDES;
+}
+
 IdString GowinUtils::create_aux_name(IdString main_name, int idx, const char *str_suffix)
 {
     return idx ? ctx->idf("%s%s%d", main_name.c_str(ctx), str_suffix, idx)
