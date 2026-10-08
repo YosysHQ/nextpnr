@@ -38,6 +38,7 @@ CHIP_HAS_5A_DSP             = 0x4000
 CHIP_NEED_BSRAM_DP_CE_FIX   = 0x8000
 CHIP_HAS_5A_HCLK            = 0x10000
 CHIP_HAS_EMPTY_QUADRANT     = 0x20000
+CHIP_HAS_5A_STYLE_IDES      = 0x40000
 
 # Tile flags
 TILE_I3C_CAPABLE_IO        = 0x1
@@ -1290,7 +1291,7 @@ def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc:
                     create_reuse_wire(tt, wire, "TILE_CLK")
                 else:
                     create_reuse_wire(tt, wire, "")
-                if port in {'Q', 'Q0', 'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8', 'Q9', 'DF', 'LAG', 'LEAD'}:
+                if port in {'Q', 'Q0', 'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8', 'Q9', 'Q10', 'Q11', 'Q12', 'Q13', 'Q14', 'Q15', 'DF', 'LAG', 'LEAD'}:
                     tt.add_bel_pin(iol, port, wire, PinType.OUTPUT)
                 else:
                     tt.add_bel_pin(iol, port, wire, PinType.INPUT)
@@ -2150,6 +2151,8 @@ def main():
             chip_flags |= CHIP_HAS_5A_HCLK;
         if "HAS_EMPTY_QUADRANT" in db.chip_flags:
             chip_flags |= CHIP_HAS_EMPTY_QUADRANT;
+        if "HAS_5A_IDES" in db.chip_flags:
+            chip_flags |= CHIP_HAS_5A_STYLE_IDES
 
     X = db.cols;
     Y = db.rows;

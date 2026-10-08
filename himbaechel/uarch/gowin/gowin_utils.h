@@ -116,6 +116,7 @@ struct GowinUtils
     bool has_PLL_HCLK(void) const;
     bool has_CLKDIV_HCLK(void) const;
     bool has_5A_HCLK(void) const;
+    bool has_5A_IDES(void) const;
 
     // Power saving
     bool has_BANDGAP(void) const;
