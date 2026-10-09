@@ -277,7 +277,7 @@ void GowinPacker::reconnect_ides_outs(CellInfo *ci)
                              id_Q7,  id_Q6,  id_Q5,  id_Q4,  id_Q3,  id_Q2,  id_Q1, id_Q0};
 
     bool gw5a = gwu.has_5A_IDES();
-    int base = gwu.has_5A_IDES() ? 0 : 6;
+    int base = gw5a ? 0 : 6;
 
     switch (ci->type.hash()) {
     case ID_IDDR: /* fall-through*/
