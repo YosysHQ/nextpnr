@@ -38,6 +38,7 @@
 #include <chrono>
 #include <deque>
 #include <fstream>
+#include <limits>
 #include <mutex>
 #include <numeric>
 #include <queue>
@@ -2189,7 +2190,10 @@ PlacerHeapCfg::PlacerHeapCfg(Context *ctx)
     if (timeout_divisor > 0) {
         // Set a conservative default. This is a rather large number and could probably
         // be shaved down, but for now it will keep the process from running indefinite.
-        cell_placement_timeout = std::max(10000, (int(ctx->cells.size()) * int(ctx->cells.size()) / timeout_divisor));
+        // in 64 bits: the square overflows an int past 46341 cells
+        int64_t cells = int64_t(ctx->cells.size());
+        cell_placement_timeout = int(std::min<int64_t>(std::numeric_limits<int>::max(),
+                                                       std::max<int64_t>(10000, cells * cells / timeout_divisor)));
     } else {
         cell_placement_timeout = 0;
     }
