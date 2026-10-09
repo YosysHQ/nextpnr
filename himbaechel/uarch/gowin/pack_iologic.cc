@@ -273,8 +273,8 @@ CellInfo *GowinPacker::create_aux_iologic_cell(CellInfo &ci, IdString mode, bool
 
 void GowinPacker::reconnect_ides_outs(CellInfo *ci)
 {
-    IdString dest_ports[] = {id_Q15, id_Q14, id_Q13, id_Q12, id_Q11, id_Q10, id_Q9,
-                             id_Q8,  id_Q7,  id_Q6,  id_Q5,  id_Q4,  id_Q3,  id_Q2};
+    IdString dest_ports[] = {id_Q15, id_Q14, id_Q13, id_Q12, id_Q11, id_Q10, id_Q9, id_Q8,
+                             id_Q7,  id_Q6,  id_Q5,  id_Q4,  id_Q3,  id_Q2,  id_Q1, id_Q0};
 
     bool gw5a = gwu.has_5A_IDES();
     int base = gwu.has_5A_IDES() ? 0 : 6;
