@@ -288,6 +288,7 @@ if (BUILD_TESTS)
 endif()
 
 add_custom_target(nextpnr-all-bba)
+add_custom_target(nextpnr-all-chipdb)
 
 function(add_nextpnr_architecture target)
     cmake_parse_arguments(arg "" "MAIN_SOURCE" "CORE_SOURCES;TEST_SOURCES;CURRENT_SOURCE_DIR;CURRENT_BINARY_DIR" ${ARGN})
@@ -384,6 +385,8 @@ function(add_nextpnr_architecture target)
     add_library(nextpnr-${target}-chipdb INTERFACE EXCLUDE_FROM_ALL)
 
     target_link_libraries(nextpnr-${target}-core INTERFACE nextpnr-${target}-chipdb)
+
+    add_dependencies(nextpnr-all-chipdb nextpnr-${target}-chipdb)
 
     # CLI/GUI runner
 
