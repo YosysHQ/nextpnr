@@ -51,6 +51,10 @@ function(add_bba_produce_command)
 
     list(GET arg_COMMAND 0 arg_EXECUTABLE)
 
+    if (NOT EXTERNAL_CHIPDB_BUILD)
+        return()
+    endif()
+
     if (NOT IMPORT_BBA_FILES)
 
         add_custom_command(
@@ -230,6 +234,10 @@ function(add_bba_compile_command)
             ${arg_TARGET} PUBLIC
             ${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}.cc
         )
+
+    elseif (arg_MODE STREQUAL "existing")
+
+        # Nothing to do here
 
     else()
 
