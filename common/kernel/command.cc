@@ -730,7 +730,9 @@ int CommandHandler::exec()
     // See
     // https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/setlocale-wsetlocale?view=msvc-170#utf-8-support
 #ifdef _UCRT
-    setlocale(LC_ALL, ".UTF-8");
+    // Only LC_CTYPE: LC_ALL would also pick up the user's LC_NUMERIC (e.g. decimal comma), which
+    // breaks std::to_string()/lexical_cast round-trips of float settings such as target_freq.
+    setlocale(LC_CTYPE, ".UTF-8");
 #endif
     // Configure the Win32 console to use UTF-8.
     SetConsoleCP(CP_UTF8);
