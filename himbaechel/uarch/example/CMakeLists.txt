@@ -35,6 +35,6 @@ foreach (device ${HIMBAECHEL_EXAMPLE_DEVICES})
         TARGET  nextpnr-himbaechel-example-chipdb
         OUTPUT  himbaechel/example/chipdb-${device}.bin
         INPUT   ${CMAKE_CURRENT_BINARY_DIR}/chipdb-${device}.bba
-        MODE    binary
+        MODE    ${BBASM_MODE}
     )
 endforeach()
