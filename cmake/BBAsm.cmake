@@ -1,6 +1,13 @@
 include(TestBigEndian)
 
-test_big_endian(IS_BIG_ENDIAN)
+if (EXTERNAL_CHIPDB_BE)
+    set(IS_BIG_ENDIAN ON)
+elseif (EXTERNAL_CHIPDB_LE)
+    set(IS_BIG_ENDIAN OFF)
+else()
+    test_big_endian(IS_BIG_ENDIAN)
+endif()
+
 if (IS_BIG_ENDIAN)
     set(BBASM_ENDIAN_FLAG "--be")
 else()
