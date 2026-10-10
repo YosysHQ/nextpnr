@@ -787,6 +787,18 @@ void XC7Packer::pack_bram()
                 ci->disconnectPort(id_DIPBDIP0);
                 ci->disconnectPort(id_DIPBDIP1);
             }
+            // At width 9, the upper half of a RAMB36 takes its parity bits from DIPxDIP1.
+            // DIPxDIP1 gets the same net as DIPxDIP0.
+            if (int_or_default(ci->params, id_WRITE_WIDTH_A, 0) == 9) {
+                ci->disconnectPort(id_DIPADIP1);
+                ci->connectPort(id_DIPADIP1, ci->getPort(id_DIPADIP0));
+                ci->attrs[id_X_ORIG_PORT_DIPADIP1] = std::string("DIPADIP[0]");
+            }
+            if (int_or_default(ci->params, id_WRITE_WIDTH_B, 0) == 9) {
+                ci->disconnectPort(id_DIPBDIP1);
+                ci->connectPort(id_DIPBDIP1, ci->getPort(id_DIPBDIP0));
+                ci->attrs[id_X_ORIG_PORT_DIPBDIP1] = std::string("DIPBDIP[0]");
+            }
             if (int_or_default(ci->params, id_WRITE_WIDTH_B, 0) != 72) {
                 for (std::string s : {"L", "U"}) {
                     for (int i = 4; i < 8; i++) {
