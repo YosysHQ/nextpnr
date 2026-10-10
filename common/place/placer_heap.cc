@@ -61,40 +61,27 @@ namespace {
 template <typename T> struct EquationSystem
 {
 
-    EquationSystem(size_t rows, size_t cols)
-    {
-        A.resize(cols);
-        rhs.resize(rows);
-    }
+    EquationSystem(size_t rows, size_t cols) : ncols(cols) { rhs.resize(rows); }
 
-    // Simple sparse format, easy to convert to CCS for solver
-    std::vector<std::vector<std::pair<int, T>>> A; // col -> (row, x[row, col]) sorted by row
-    std::vector<T> rhs;                            // RHS vector
+    // Coefficients in arrival order; duplicates are merged when the matrix is built. The merge reproduces the
+    // original per-column sorted insertion exactly (stable by row, summed in arrival order), so the matrix handed to
+    // the solver is bit-identical, but without an O(row length) vector insert per coefficient.
+    struct Coeff
+    {
+        int row, col;
+        T val;
+    };
+    std::vector<Coeff> coeffs;
+    std::vector<T> rhs; // RHS vector
+    size_t ncols;
+
     void reset()
     {
-        for (auto &col : A)
-            col.clear();
+        coeffs.clear();
         std::fill(rhs.begin(), rhs.end(), T());
     }
 
-    void add_coeff(int row, int col, T val)
-    {
-        auto &Ac = A.at(col);
-        // Binary search
-        int b = 0, e = int(Ac.size()) - 1;
-        while (b <= e) {
-            int i = (b + e) / 2;
-            if (Ac.at(i).first == row) {
-                Ac.at(i).second += val;
-                return;
-            }
-            if (Ac.at(i).first > row)
-                e = i - 1;
-            else
-                b = i + 1;
-        }
-        Ac.insert(Ac.begin() + b, std::make_pair(row, val));
-    }
+    void add_coeff(int row, int col, T val) { coeffs.push_back(Coeff{row, col, val}); }
 
     void add_rhs(int row, T val) { rhs[row] += val; }
 
@@ -103,21 +90,56 @@ template <typename T> struct EquationSystem
         using namespace Eigen;
         if (x.empty())
             return;
-        NPNR_ASSERT(x.size() == A.size());
+        NPNR_ASSERT(x.size() == ncols);
+        const int n = int(ncols);
+
+        // Two stable counting-sort passes (by row, then by column) order the coefficients by (column, row) while
+        // keeping arrival order among equal keys, which is what the duplicate merge below needs.
+        std::vector<int> pos(n + 1, 0);
+        for (auto &c : coeffs)
+            pos[c.row + 1]++;
+        for (int i = 0; i < n; i++)
+            pos[i + 1] += pos[i];
+        std::vector<Coeff> byrow(coeffs.size());
+        for (auto &c : coeffs)
+            byrow[pos[c.row]++] = c;
+
+        std::vector<int> colptr(n + 1, 0);
+        for (auto &c : coeffs)
+            colptr[c.col + 1]++;
+        for (int i = 0; i < n; i++)
+            colptr[i + 1] += colptr[i];
+        std::copy(colptr.begin(), colptr.end() - 1, pos.begin());
+        std::vector<Coeff> bycol(coeffs.size());
+        for (auto &c : byrow)
+            bycol[pos[c.col]++] = c;
+
+        // Merge duplicates in arrival order
+        std::vector<int> outer(n + 1);
+        std::vector<int> inner;
+        std::vector<T> values;
+        inner.reserve(coeffs.size());
+        values.reserve(coeffs.size());
+        for (int col = 0; col < n; col++) {
+            outer[col] = int(values.size());
+            for (int i = colptr[col]; i < colptr[col + 1]; i++) {
+                const Coeff &c = bycol[i];
+                if (int(values.size()) > outer[col] && inner.back() == c.row) {
+                    values.back() += c.val;
+                } else {
+                    inner.push_back(c.row);
+                    values.push_back(c.val);
+                }
+            }
+        }
+        outer[n] = int(values.size());
+        SparseMatrix<T> mat(n, n);
+        mat.resizeNonZeros(int(values.size()));
+        std::copy(outer.begin(), outer.end(), mat.outerIndexPtr());
+        std::copy(inner.begin(), inner.end(), mat.innerIndexPtr());
+        std::copy(values.begin(), values.end(), mat.valuePtr());
 
         VectorXd vx(x.size()), vb(rhs.size());
-        SparseMatrix<T> mat(A.size(), A.size());
-
-        std::vector<int> colnnz;
-        for (auto &Ac : A)
-            colnnz.push_back(int(Ac.size()));
-        mat.reserve(colnnz);
-        for (int col = 0; col < int(A.size()); col++) {
-            auto &Ac = A.at(col);
-            for (auto &el : Ac)
-                mat.insert(el.first, col) = el.second;
-        }
-
         for (int i = 0; i < int(x.size()); i++)
             vx[i] = x.at(i);
         for (int i = 0; i < int(rhs.size()); i++)
@@ -128,8 +150,6 @@ template <typename T> struct EquationSystem
         VectorXd xr = solver.compute(mat).solveWithGuess(vb, vx);
         for (int i = 0; i < int(x.size()); i++)
             x.at(i) = xr[i];
-        // for (int i = 0; i < int(x.size()); i++)
-        //    log_info("x[%d] = %f\n", i, x.at(i));
     }
 };
 
@@ -188,6 +208,7 @@ class HeAPPlacer
                  int(place_cells.size()), int(hpwl));
         for (int i = 0; i < 4; i++) {
             setup_solve_cells();
+            update_crit_factors();
             auto solve_startt = std::chrono::high_resolution_clock::now();
 #ifdef NPNR_DISABLE_THREADS
             build_solve_direction(false, -1);
@@ -255,6 +276,7 @@ class HeAPPlacer
                 setup_solve_cells(&run);
                 if (solve_cells.empty())
                     continue;
+                update_crit_factors();
                 // Heuristic: don't bother with threading below a certain size
                 auto solve_startt = std::chrono::high_resolution_clock::now();
 
@@ -714,8 +736,8 @@ class HeAPPlacer
     // Build and solve in one direction
     void build_solve_direction(bool yaxis, int iter)
     {
+        EquationSystem<double> esx(solve_cells.size(), solve_cells.size());
         for (int i = 0; i < 5; i++) {
-            EquationSystem<double> esx(solve_cells.size(), solve_cells.size());
             build_equations(esx, yaxis, iter);
             solve_equations(esx, yaxis);
         }
@@ -893,6 +915,37 @@ class HeAPPlacer
     }
 
     // Build the system of equations for either X or Y
+    // Per-arc timing weight factor, (1 + timingWeight * crit^exp). Criticalities only change when the timing analyser
+    // is run, which never happens between the 10 equation builds of one solve, so look them up once per solve instead
+    // of once per arc per build. Laid out by net position in ctx->nets, then by user index.
+    std::vector<double> crit_factor;
+    std::vector<size_t> crit_base;
+
+    void update_crit_factors()
+    {
+        crit_base.clear();
+        crit_base.reserve(ctx->nets.size());
+        size_t total = 0;
+        for (auto &net : ctx->nets) {
+            crit_base.push_back(total);
+            total += net.second->users.capacity();
+        }
+        crit_factor.assign(total, 1.0);
+        size_t ord = 0;
+        for (auto &net : ctx->nets) {
+            NetInfo *ni = net.second.get();
+            size_t base = crit_base[ord++];
+            if (ni->driver.cell == nullptr || ni->users.empty())
+                continue;
+            if (cell_locs.at(ni->driver.cell->udata).global)
+                continue;
+            for (auto usr : ni->users.enumerate())
+                crit_factor[base + usr.index.idx()] =
+                        1.0 + cfg.timingWeight *
+                                      std::pow(tmg.get_criticality(CellPortKey(usr.value)), cfg.criticalityExponent);
+        }
+    }
+
     void build_equations(EquationSystem<double> &es, bool yaxis, int iter = -1)
     {
         // Return the x or y position of a cell, depending on ydir
@@ -905,7 +958,9 @@ class HeAPPlacer
 
         es.reset();
 
+        size_t net_ord = 0;
         for (auto &net : ctx->nets) {
+            const size_t crit_ord = net_ord++;
             NetInfo *ni = net.second.get();
             if (ni->driver.cell == nullptr)
                 continue;
@@ -957,10 +1012,8 @@ class HeAPPlacer
                                            std::max<double>(1, (yaxis ? cfg.hpwl_scale_y : cfg.hpwl_scale_x) *
                                                                        std::abs(o_pos - this_pos)));
 
-                    if (user_idx) {
-                        weight *= (1.0 + cfg.timingWeight * std::pow(tmg.get_criticality(CellPortKey(port)),
-                                                                     cfg.criticalityExponent));
-                    }
+                    if (user_idx)
+                        weight *= crit_factor[crit_base[crit_ord] + user_idx.idx()];
 
                     // If cell 0 is not fixed, it will stamp +w on its equation and -w on the other end's equation,
                     // if the other end isn't fixed

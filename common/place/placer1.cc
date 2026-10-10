@@ -834,23 +834,47 @@ class SAPlacer
         return bb;
     }
 
-    // Get the timing cost for an arc of a net
-    inline double get_timing_cost(NetInfo *net, const PortRef &user)
+    // Per-net "driver port has no timing arcs" flag and per-arc pow(criticality, crit_exp). Criticalities only change
+    // when the timing analyser is run, and a cell's port timing class is fixed for the lifetime of the analysis (the
+    // analyser itself evaluates it once, in setup), so both are computed once per epoch (see setup_costs) instead of
+    // on every candidate move.
+    std::vector<char> net_tmg_ignore;
+    std::vector<std::vector<float>> arc_crit_pow;
+
+    void update_timing_cache()
     {
-        int cc;
-        if (net->driver.cell == nullptr)
-            return 0;
-        if (ctx->getPortTimingClass(net->driver.cell, net->driver.port, cc) == TMG_IGNORE)
+        net_tmg_ignore.assign(ctx->nets.size(), 1);
+        arc_crit_pow.resize(ctx->nets.size());
+        for (auto &net : ctx->nets) {
+            NetInfo *ni = net.second.get();
+            arc_crit_pow.at(ni->udata).resize(ni->users.capacity());
+            if (ni->driver.cell == nullptr)
+                continue;
+            int cc;
+            if (ctx->getPortTimingClass(ni->driver.cell, ni->driver.port, cc) == TMG_IGNORE)
+                continue;
+            net_tmg_ignore.at(ni->udata) = 0;
+            for (auto usr : ni->users.enumerate())
+                arc_crit_pow.at(ni->udata).at(usr.index.idx()) =
+                        std::pow(tmg.get_criticality(CellPortKey(usr.value)), crit_exp);
+        }
+    }
+
+    // Get the timing cost for an arc of a net
+    inline double get_timing_cost(NetInfo *net, const PortRef &user, store_index<PortRef> user_idx)
+    {
+        if (net->driver.cell == nullptr || net_tmg_ignore[net->udata])
             return 0;
 
-        float crit = tmg.get_criticality(CellPortKey(user));
         double delay = ctx->getDelayNS(ctx->predictArcDelay(net, user));
-        return delay * std::pow(crit, crit_exp);
+        return delay * arc_crit_pow[net->udata][user_idx.idx()];
     }
 
     // Set up the cost maps
     void setup_costs()
     {
+        if (cfg.timing_driven)
+            update_timing_cache();
         for (auto &net : ctx->nets) {
             NetInfo *ni = net.second.get();
             if (ignore_net(ni))
@@ -858,7 +882,7 @@ class SAPlacer
             net_bounds[ni->udata] = get_net_bounds(ni);
             if (cfg.timing_driven && int(ni->users.entries()) < cfg.timingFanoutThresh)
                 for (auto usr : ni->users.enumerate())
-                    net_arc_tcost[ni->udata][usr.index.idx()] = get_timing_cost(ni, usr.value);
+                    net_arc_tcost[ni->udata][usr.index.idx()] = get_timing_cost(ni, usr.value, usr.index);
         }
     }
 
@@ -1076,9 +1100,8 @@ class SAPlacer
             if (cfg.timing_driven && int(pn->users.entries()) < cfg.timingFanoutThresh) {
                 // Output ports - all arcs change timing
                 if (port.second.type == PORT_OUT) {
-                    int cc;
-                    TimingPortClass cls = ctx->getPortTimingClass(cell, port.first, cc);
-                    if (cls != TMG_IGNORE)
+                    // The net's driver is this port, so its timing class is the per-net cached flag
+                    if (!net_tmg_ignore[pn->udata])
                         for (auto usr : pn->users.enumerate())
                             if (!mc.already_changed_arcs[pn->udata][usr.index.idx()]) {
                                 mc.changed_arcs.emplace_back(std::make_pair(pn->udata, usr.index));
@@ -1116,8 +1139,8 @@ class SAPlacer
         if (cfg.timing_driven) {
             for (const auto &tc : md.changed_arcs) {
                 double old_cost = net_arc_tcost.at(tc.first).at(tc.second.idx());
-                double new_cost =
-                        get_timing_cost(net_by_udata.at(tc.first), net_by_udata.at(tc.first)->users.at(tc.second));
+                double new_cost = get_timing_cost(net_by_udata.at(tc.first),
+                                                  net_by_udata.at(tc.first)->users.at(tc.second), tc.second);
                 md.new_arc_costs.emplace_back(std::make_pair(tc, new_cost));
                 md.timing_delta += (new_cost - old_cost);
                 md.already_changed_arcs[tc.first][tc.second.idx()] = false;
