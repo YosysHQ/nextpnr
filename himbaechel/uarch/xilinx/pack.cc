@@ -787,6 +787,20 @@ void XC7Packer::pack_bram()
                 ci->disconnectPort(id_DIPBDIP0);
                 ci->disconnectPort(id_DIPBDIP1);
             }
+            // A width-9 port stores its ninth (parity) bit in the lower half at
+            // even addresses and in the upper half at odd ones, and the upper
+            // half takes it from DIPxDIP1. As with DIxDI1 at width 1, the data
+            // has to be presented on both pins.
+            if (int_or_default(ci->params, id_WRITE_WIDTH_A, 0) == 9) {
+                ci->disconnectPort(id_DIPADIP1);
+                ci->connectPort(id_DIPADIP1, ci->getPort(id_DIPADIP0));
+                ci->attrs[id_X_ORIG_PORT_DIPADIP1] = std::string("DIPADIP[0]");
+            }
+            if (int_or_default(ci->params, id_WRITE_WIDTH_B, 0) == 9) {
+                ci->disconnectPort(id_DIPBDIP1);
+                ci->connectPort(id_DIPBDIP1, ci->getPort(id_DIPBDIP0));
+                ci->attrs[id_X_ORIG_PORT_DIPBDIP1] = std::string("DIPBDIP[0]");
+            }
             if (int_or_default(ci->params, id_WRITE_WIDTH_B, 0) != 72) {
                 for (std::string s : {"L", "U"}) {
                     for (int i = 4; i < 8; i++) {
