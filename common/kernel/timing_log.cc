@@ -396,7 +396,8 @@ static void log_histogram(Context *ctx, TimingResult &result)
 
     log_break();
     log_info("Slack histogram:\n");
-    log_info(" legend: * represents %d endpoint(s)\n", max_freq / bar_width);
+    log_info(" legend: times are in ps\n");
+    log_info("         * represents %d endpoint(s)\n", max_freq / bar_width);
     log_info("         + represents [1,%d) endpoint(s)\n", max_freq / bar_width);
     for (unsigned i = 0; i < num_bins; ++i)
         log_info("[%6d, %6d) |%s%c\n", min_slack + bin_size * i, min_slack + bin_size * (i + 1),
