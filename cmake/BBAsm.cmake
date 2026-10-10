@@ -231,6 +231,10 @@ function(add_bba_compile_command)
             ${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}.cc
         )
 
+    else()
+
+        message(AUTHOR_WARNING "Unknown chipdb mode")
+
     endif()
 
 endfunction()
