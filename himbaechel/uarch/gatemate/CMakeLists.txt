@@ -73,6 +73,6 @@ foreach (device ${HIMBAECHEL_GATEMATE_DEVICES})
         TARGET  nextpnr-himbaechel-gatemate-chipdb
         OUTPUT  himbaechel/gatemate/chipdb-${device}.bin
         INPUT   ${CMAKE_CURRENT_BINARY_DIR}/chipdb-${device}.bba
-        MODE    binary
+        MODE    ${BBASM_MODE}
     )
 endforeach()
