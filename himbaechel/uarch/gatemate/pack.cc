@@ -651,6 +651,11 @@ void GateMateImpl::pack()
     packer.copy_clocks();
     packer.remove_constants();
     packer.remove_double_constrained();
+
+    if (auto_part) {
+        partition_design();
+    }
+
     if (forced_die != IdString()) {
         for (auto &cell : ctx->cells) {
             if (cell.second->belStrength != PlaceStrength::STRENGTH_FIXED)
