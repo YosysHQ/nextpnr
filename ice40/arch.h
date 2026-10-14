@@ -797,6 +797,8 @@ struct Arch : BaseArch<ArchRanges>
 
     delay_t estimateDelay(WireId src, WireId dst) const override;
     delay_t predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const override;
+    // As predictDelay, for cells at the given locations rather than placed at bels (e.g. during analytic placement)
+    delay_t predictDelayLoc(Loc driver_loc, IdString src_pin, Loc sink_loc, IdString dst_pin) const;
     delay_t getDelayEpsilon() const override { return 20; }
     delay_t getRipupDelayPenalty() const override { return 200; }
     float getDelayNS(delay_t v) const override { return v * 0.001; }

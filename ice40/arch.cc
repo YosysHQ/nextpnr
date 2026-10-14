@@ -712,21 +712,11 @@ bool Arch::place()
             comb.spacer_rect = StaticRect(0.5f, 0.5f);
         }
 
-        if (args.type == ArchArgs::HX1K || args.type == ArchArgs::HX4K || args.type == ArchArgs::HX8K) {
-            cfg.timing_c = 1000;
-            cfg.timing_mx = 60;
-            cfg.timing_my = 60;
-        } else if (args.type == ArchArgs::LP384 || args.type == ArchArgs::LP1K || args.type == ArchArgs::LP4K ||
-                   args.type == ArchArgs::LP8K) {
-            cfg.timing_c = 1600;
-            cfg.timing_mx = 90;
-            cfg.timing_my = 90;
-        } else if (args.type == ArchArgs::UP3K || args.type == ArchArgs::UP5K || args.type == ArchArgs::U1K ||
-                   args.type == ArchArgs::U2K || args.type == ArchArgs::U4K) {
-            cfg.timing_c = 2400;
-            cfg.timing_mx = 130;
-            cfg.timing_my = 130;
-        }
+        // Estimate delays as the other placers do. Unlike a fixed cost plus a cost per tile, this gives carry chains
+        // and connections to adjacent tiles their much lower delay, which momentum timing weighting relies on.
+        cfg.predict_delay = [](Context *ctx, const PlacerStaticCfg &, Loc src_loc, IdString src_pin, Loc dst_loc,
+                               IdString dst_pin) { return ctx->predictDelayLoc(src_loc, src_pin, dst_loc, dst_pin); };
+        cfg.timing_momentum = true;
 
         cfg.get_cell_area_override = [](Context *ctx, const CellInfo *ci) -> std::optional<StaticRect> {
             if (ci->type != id_ICESTORM_LC)

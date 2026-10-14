@@ -115,9 +115,12 @@ delay_t Arch::estimateDelay(WireId src, WireId dst) const
 
 delay_t Arch::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const
 {
+    return predictDelayLoc(getBelLocation(src_bel), src_pin, getBelLocation(dst_bel), dst_pin);
+}
+
+delay_t Arch::predictDelayLoc(Loc driver_loc, IdString src_pin, Loc sink_loc, IdString dst_pin) const
+{
     NPNR_UNUSED(dst_pin);
-    auto driver_loc = getBelLocation(src_bel);
-    auto sink_loc = getBelLocation(dst_bel);
 
     if (src_pin == id_COUT) {
         if (driver_loc.y == sink_loc.y)
