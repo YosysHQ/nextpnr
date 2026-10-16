@@ -397,6 +397,8 @@ po::options_description CommandHandler::getGeneralOptions()
                           "enable experimental timing-driven ripup in router (deprecated; use --tmg-ripup instead)");
 
     general.add_options()("router2-alt-weights", "use alternate router2 weights");
+    general.add_options()("setting", po::value<std::vector<std::string>>(),
+                          "override an internal setting as key=value, e.g. router2/estimateWeight=1.5 (repeatable)");
 
     general.add_options()("report", po::value<std::string>(),
                           "write timing and utilization report in JSON format to file");
@@ -558,6 +560,16 @@ void CommandHandler::setupContext(Context *ctx)
         ctx->settings[ctx->id("placerHeap/criticalityExponent")] = std::to_string(2);
     if (ctx->settings.find(ctx->id("placerHeap/timingWeight")) == ctx->settings.end())
         ctx->settings[ctx->id("placerHeap/timingWeight")] = std::to_string(10);
+
+    // Free-form overrides, applied last so they win over both the options above and the defaults
+    if (vm.count("setting")) {
+        for (const std::string &kv : vm["setting"].as<std::vector<std::string>>()) {
+            auto eq = kv.find('=');
+            if (eq == std::string::npos || eq == 0)
+                log_error("--setting expects key=value, got '%s'\n", kv.c_str());
+            ctx->settings[ctx->id(kv.substr(0, eq))] = kv.substr(eq + 1);
+        }
+    }
 
     if (vm.count("detailed-timing-report")) {
         ctx->detailed_timing_report = true;
