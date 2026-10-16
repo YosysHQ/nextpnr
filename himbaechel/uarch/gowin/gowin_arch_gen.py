@@ -1950,6 +1950,11 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
                 lut.add_comb_arc("I1", "F", group_to_timingvalue(arc["b_f"]))
                 lut.add_comb_arc("I2", "F", group_to_timingvalue(arc["c_f"]))
                 lut.add_comb_arc("I3", "F", group_to_timingvalue(arc["d_f"]))
+                # Yosys also emits LUT1 to LUT3. Their inputs sit on the same bel pins as LUT4.
+                for n in range(1, 4):
+                    lutn = tmg.add_cell_variant(speed, f"LUT{n}")
+                    for i, g in enumerate(("a_f", "b_f", "c_f")[:n]):
+                        lutn.add_comb_arc(f"I{i}", "F", group_to_timingvalue(arc[g]))
                 mux5 = tmg.add_cell_variant(speed, "MUX2_LUT5")
                 mux5.add_comb_arc("I0", "O", group_to_timingvalue(arc["m0_ofx0"]))
                 mux5.add_comb_arc("I1", "O", group_to_timingvalue(arc["m1_ofx1"]))
