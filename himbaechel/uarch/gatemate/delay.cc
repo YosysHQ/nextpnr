@@ -147,6 +147,9 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
 
     int z = (cell->bel != BelId()) ? (ctx->getBelLocation(cell->bel).z % 2) : 0;
     if (cell->type.in(id_CPE_L2T4, id_CPE_LT_L, id_CPE_LT_U)) {
+        // Internal connection from upper L2T4 into the lower half
+        if (fromPort == id_COMBIN && toPort == id_OUT)
+            return true;
         IdString fp = fromPort, tp = toPort;
         if (z == 0) {
             if (map_upper.count(fp))
@@ -251,14 +254,16 @@ TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString 
     auto disconnected = [cell](IdString p) { return !cell->ports.count(p) || cell->ports.at(p).net == nullptr; };
     clockInfoCount = 0;
     if (cell->type.in(id_CPE_L2T4, id_CPE_LT_L, id_CPE_LT_U)) {
-        if (port.in(id_IN1, id_IN2, id_IN3, id_IN4, id_COMBIN, id_CINY1, id_CINY2, id_CINX, id_PINX, id_D0_00, id_D1_00,
-                    id_D0_01, id_D1_01, id_D0_10, id_D1_10, id_D0_02, id_D1_02, id_D0_03, id_D1_03, id_D0_11, id_D1_11))
+        if (port.in(id_IN1, id_IN2, id_IN3, id_IN4, id_COMBIN, id_CINY1, id_CINY2, id_CINX, id_PINX, id_PINY1, id_PINY2,
+                    id_D0_00, id_D1_00, id_D0_01, id_D1_01, id_D0_10, id_D1_10, id_D0_02, id_D1_02, id_D0_03, id_D1_03,
+                    id_D0_11, id_D1_11))
             return TMG_COMB_INPUT;
         if (port == id_OUT && disconnected(id_IN1) && disconnected(id_IN2) && disconnected(id_IN3) &&
             disconnected(id_IN4) && disconnected(id_D0_00) && disconnected(id_D1_00) && disconnected(id_D0_01) &&
             disconnected(id_D1_01) && disconnected(id_D0_10) && disconnected(id_D1_10) && disconnected(id_D0_02) &&
             disconnected(id_D1_02) && disconnected(id_D0_03) && disconnected(id_D1_03) && disconnected(id_D0_11) &&
-            disconnected(id_D1_11))
+            disconnected(id_D1_11) && disconnected(id_COMBIN) && disconnected(id_CINX) && disconnected(id_PINX) &&
+            disconnected(id_CINY1) && disconnected(id_PINY1) && disconnected(id_CINY2) && disconnected(id_PINY2))
             return TMG_IGNORE; // LUT with no inputs is a constant
         if (port.in(id_OUT))
             return TMG_COMB_OUTPUT;
