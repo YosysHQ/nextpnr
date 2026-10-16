@@ -51,7 +51,7 @@ struct ExampleImpl : HimbaechelAPI
     {
         init_uarch_constids(arch);
         arch->load_chipdb("example/chipdb-example.bin");
-        arch->set_speed_grade("DEFAULT");
+        // arch->set_speed_grade("DEFAULT");
     }
 
     void init(Context *ctx) override
