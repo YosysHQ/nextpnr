@@ -1,0 +1,8 @@
+[package]
+name = "himbaechel_dbgen_example"
+version = "0.1.0"
+authors = ["gatecat <gatecat@ds0.me>"]
+edition = "2021"
+
+[dependencies]
+himbaechel_dbgen = { path = "../../../himbaechel_dbgen_rust" }

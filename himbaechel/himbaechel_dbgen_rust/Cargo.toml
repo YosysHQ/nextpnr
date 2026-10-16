@@ -1,0 +1,8 @@
+[package]
+name = "himbaechel_dbgen"
+version = "0.1.0"
+authors = ["gatecat <gatecat@ds0.me>"]
+edition = "2021"
+
+[dependencies]
+fasthash = "0.4.0"
