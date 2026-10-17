@@ -289,6 +289,27 @@ void GowinImpl::pack()
         }
     }
     gowin_pack(ctx);
+
+    // The DSP's timing variant: a 36x18 multiply-add with its input registers
+    // (AREG, BREG, CREG) and its output register (OUT_REG) in use gets the
+    // registered arcs (setup and hold on the operands, clock-to-out on the
+    // sum: gowin_arch_gen.py); any other configuration keeps the cell type's
+    // own variant, the combinational one. Set before assignArchInfo(), which
+    // fills in only what is still unset.
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->type != id_MULTALU36X18)
+            continue;
+        auto reg = [&](const char *name) {
+            IdString id = ctx->id(name);
+            return ci->params.count(id) && ci->params.at(id).as_int64() == 1;
+        };
+        if (reg("AREG") && reg("BREG") && reg("CREG") && reg("OUT_REG")) {
+            int idx = ctx->get_cell_timing_idx(ctx->id("MULTALU36X18_REGISTERED"));
+            if (idx != -1)
+                ci->timing_index = idx;
+        }
+    }
 }
 
 // One DSP macro, in a rough approximation, consists of 5 large operating
