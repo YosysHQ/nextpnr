@@ -42,7 +42,13 @@ struct XilinxPacker
     // Number of created LUTs, for user reporting purpose
     unsigned muxf_feed_through_luts = 0;
 
-    XilinxPacker(Context *ctx, XilinxImpl *uarch) : ctx(ctx), uarch(uarch) {};
+    // Pre-listed IDs for LUT ports
+    IdString name_lut_i[6];
+    IdString name_lut_a[7];
+    // Pre-listed IDs for carry ports
+    IdString name_c4_s[4], name_c4_di[4], name_c4_o[4], name_c4_co[4];
+
+    XilinxPacker(Context *ctx, XilinxImpl *uarch);
 
     // Generic cell transformation
     // Given cell name map and port map
