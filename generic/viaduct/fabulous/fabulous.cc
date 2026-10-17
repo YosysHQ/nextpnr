@@ -659,7 +659,7 @@ struct FabulousImpl : ViaductAPI
                             z++;
                         BelId const_driver = ctx->addBel(IdStringList::concat(tile, ctx->idf("_CONST%d_DRV", c)),
                                                          ctx->idf("_CONST%d_DRV", c), Loc(x, y, z), true, true);
-                        ctx->addBelInput(const_driver, id_O, const_wire);
+                        ctx->addBelOutput(const_driver, id_O, const_wire);
                     }
                     if (x > 0) {
                         // 'right' pip
