@@ -623,6 +623,17 @@ struct GowinGlobalRouter
         NetInfo *net_before_buf = buf_ci->getPort(id_I);
         NPNR_ASSERT(net_before_buf != nullptr);
 
+        // The net before the buffer loses its driver below. Its other users move to the net after
+        // the buffer, which carries the same signal, or they would stay unrouted.
+        std::vector<PortRef> other_users;
+        for (auto &usr : net_before_buf->users)
+            if (usr.cell != buf_ci)
+                other_users.push_back(usr);
+        for (auto &usr : other_users) {
+            usr.cell->disconnectPort(usr.port);
+            usr.cell->connectPort(usr.port, net);
+        }
+
         RouteResult route_result = route_direct_net(
                 net,
                 [&](PipId pip, WireId src_wire) {
