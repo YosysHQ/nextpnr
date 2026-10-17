@@ -1944,28 +1944,42 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
     # does not decode it, so the arcs below carry the data sheet's figures and,
     # where the data sheet has none, a stand-in that is marked as such.
     #
-    # Gowin DS226, "GW2AR series of FPGA Products Data Sheet", version 1.5,
-    # 2019-01-09, section 4.4.1 "Internal switching characteristics",
-    # table 4-14 "DSP internal timing parameters", page 52 of 60:
-    #   tCOIR_DSP  clock to output from the input register     max 2.40 ns
-    #   tCOPR_DSP  clock to output from the pipeline register  max 1.20 ns
-    #   tCOOR_DSP  clock to output from the output register    max 0.42 ns
-    # The data sheet gives no setup or hold for the DSP's input pins and no
-    # delay for the combinational multiply itself.
-    DSP_CLOCK_TO_OUT_INPUT_REG  = TimingValue(2400)   # tCOIR_DSP
-    DSP_CLOCK_TO_OUT_OUTPUT_REG = TimingValue(420)    # tCOOR_DSP
+    # Gowin DS226, "GW2AR series of FPGA Products Data Sheet", version 2.7E,
+    # 2026-07-31, section 3.4.3 "DSP Switching Characteristics", page 36 of 46,
+    # speed grade C8/I7 (C7/I6 in brackets):
+    #   table 3-15 "DSP Timing Parameters"
+    #     tCOIR_DSP  clock to output from the input register     max 0.25 ns (0.32)
+    #     tCOPR_DSP  clock to output from the pipeline register  max 0.08 ns (0.10)
+    #     tCOOR_DSP  clock to output from the output register    max 0.04 ns (0.05)
+    #   table 3-16 "DSP Max Frequency Specifications"
+    #     9 x 9 multiplier                 275 MHz (220)
+    #     18 x 18 multiplier               275 MHz (220)
+    #     18 x 18 multiply-add/sub         265 MHz (211)
+    # The same table in the 2019 edition (DS226 version 1.5, table 4-14,
+    # page 52) read 2.40, 1.20 and 0.42 ns for the three clock-to-out
+    # figures; the two editions disagree by a decade, so the larger figure
+    # is kept for the output register (0.42 ns) until the vendor's timing
+    # file settles it. The data sheet gives no setup or hold for the DSP's
+    # input pins and no delay for the combinational multiply itself.
+    DSP_CLOCK_TO_OUT_OUTPUT_REG = TimingValue(420)    # tCOOR_DSP, the larger of the two editions
     # For a multiplier used without any of its registers, the delay from an
-    # input pin to the output: the data sheet does not state it; tCOIR_DSP
-    # (the clock of the input register to the output, i.e. one register's
-    # clock-to-q plus the multiply) is the only figure for a path through
-    # the multiplier and stands in for it.
-    DSP_COMBINATIONAL = DSP_CLOCK_TO_OUT_INPUT_REG
+    # input pin to the output: the data sheet states none, but its maximum
+    # clock frequency for the registered multiplier (table 3-16) bounds the
+    # multiply at one period: 1 / 275 MHz = 3.64 ns for the 9x9 and 18x18
+    # multipliers, 1 / 265 MHz = 3.77 ns for the 18x18 multiply-add. The
+    # 36x36 multiplier is not listed; it takes a whole DSP block (UG287,
+    # "Gowin Digital Signal Processing (DSP) User Guide", version 1.4E,
+    # section 4.2.3, page 24: four 18x18 multiplies and their adders), so
+    # two multiply periods stand in for it, 7.27 ns.
+    DSP_COMB_MULT       = TimingValue(3637)   # 1 / 275 MHz
+    DSP_COMB_MULTADD    = TimingValue(3774)   # 1 / 265 MHz
+    DSP_COMB_MULT36X36  = TimingValue(7273)   # 2 / 275 MHz, stand-in
 
-    def add_dsp_comb(cell, inputs, outputs):
+    def add_dsp_comb(cell, inputs, outputs, delay):
         for bus, width in inputs:
             for i in range(width):
                 for o in range(outputs):
-                    cell.add_comb_arc(f"{bus}{i}", f"DOUT{o}", DSP_COMBINATIONAL)
+                    cell.add_comb_arc(f"{bus}{i}", f"DOUT{o}", delay)
 
     def add_dsp_registered(cell, inputs, outputs, setup, hold):
         for bus, width in inputs:
@@ -1977,11 +1991,11 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
     def add_dsp_timing(speed, groups):
         # Port names as the packer leaves them (pack_dsp.cc): the buses
         # without brackets, A0 … , B0 … , C0 … , DOUT0 … .
-        for name, inputs, outputs in [("MULT9X9",      [("A", 9),  ("B", 9)],              18),
-                                      ("MULT18X18",    [("A", 18), ("B", 18)],             36),
-                                      ("MULT36X36",    [("A", 36), ("B", 36)],             72),
-                                      ("MULTALU36X18", [("A", 18), ("B", 36), ("C", 54)],  54)]:
-            add_dsp_comb(tmg.add_cell_variant(speed, name), inputs, outputs)
+        for name, inputs, outputs, delay in [("MULT9X9",      [("A", 9),  ("B", 9)],             18, DSP_COMB_MULT),
+                                             ("MULT18X18",    [("A", 18), ("B", 18)],            36, DSP_COMB_MULT),
+                                             ("MULT36X36",    [("A", 36), ("B", 36)],            72, DSP_COMB_MULT36X36),
+                                             ("MULTALU36X18", [("A", 18), ("B", 36), ("C", 54)], 54, DSP_COMB_MULTADD)]:
+            add_dsp_comb(tmg.add_cell_variant(speed, name), inputs, outputs, delay)
         # The 36x18 multiply-add with its input registers (AREG, BREG, CREG)
         # and output register (OUT_REG) all in use: chosen by those
         # parameters in gowin.cc. STAND-IN: the data sheet has no setup or
