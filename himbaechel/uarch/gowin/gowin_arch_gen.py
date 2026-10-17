@@ -1967,10 +1967,10 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
     # clock frequency for the registered multiplier (table 3-16) bounds the
     # multiply at one period: 1 / 275 MHz = 3.64 ns for the 9x9 and 18x18
     # multipliers, 1 / 265 MHz = 3.77 ns for the 18x18 multiply-add. The
-    # 36x36 multiplier is not listed; it takes a whole DSP block (UG287,
-    # "Gowin Digital Signal Processing (DSP) User Guide", version 1.4E,
-    # section 4.2.3, page 24: four 18x18 multiplies and their adders), so
-    # two multiply periods stand in for it, 7.27 ns.
+    # 36x36 multiplier is not listed; it takes a whole DSP block, two macro
+    # units of two multipliers each (UG287, "Gowin Digital Signal Processing
+    # (DSP) User Guide", version 1.4E, section 4.2, page 13 of 76), so two
+    # multiply periods stand in for it, 7.27 ns.
     DSP_COMB_MULT       = TimingValue(3637)   # 1 / 275 MHz
     DSP_COMB_MULTADD    = TimingValue(3774)   # 1 / 265 MHz
     DSP_COMB_MULT36X36  = TimingValue(7273)   # 2 / 275 MHz, stand-in
