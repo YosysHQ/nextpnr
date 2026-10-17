@@ -188,6 +188,8 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
     } else if (cell->type.in(id_CPE_CPLINES)) {
         return true;
     } else if (cell->type.in(id_CPE_BRIDGE)) {
+        if (toPort == id_MUXOUT)
+            get_delay_from_tmg_db(ctx->idf("timing__MX8_%s_OUT1", fromPort.c_str(ctx)), delay);
         return true;
     } else if (cell->type.in(id_CPE_COMP)) {
         return get_delay_from_tmg_db(fromPort == id_COMB1 ? id_timing_comb1_compout : id_timing_comb2_compout, delay);
