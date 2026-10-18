@@ -2005,9 +2005,12 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
                             port = "RESET" if reset_type == 'R' else "SET"
                             dff.add_setup_hold("CLK", port, ClockEdge.RISING, group_to_timingvalue(arc["lsr_clksetpos_syn"]), group_to_timingvalue(arc["lsr_clkholdpos_syn"]))
                         elif reset_type in ('P', 'C'):
+                            # An asynchronous set or reset is checked for its release against the
+                            # clock (recovery and removal). No arc from it to Q: a path through the
+                            # asynchronous input is no path of the clock domain, and with the arc
+                            # a reset chain counts as logic in front of every flip-flop it resets.
                             port = "CLEAR" if reset_type == 'C' else "PRESET"
                             dff.add_setup_hold("CLK", port, ClockEdge.RISING, group_to_timingvalue(arc["lsr_clksetpos_asyn"]), group_to_timingvalue(arc["lsr_clkholdpos_asyn"]))
-                            dff.add_comb_arc(port, "Q", group_to_timingvalue(arc["lsr_q"]))
 
                         cell_name = "DFFN{}{}".format(reset_type, clock_enable)
                         dff = tmg.add_cell_variant(speed, cell_name)
@@ -2021,7 +2024,6 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
                         elif reset_type in ('P', 'C'):
                             port = "CLEAR" if reset_type == 'C' else "PRESET"
                             dff.add_setup_hold("CLK", port, ClockEdge.FALLING, group_to_timingvalue(arc["lsr_clksetneg_asyn"]), group_to_timingvalue(arc["lsr_clkholdneg_asyn"]))
-                            dff.add_comb_arc(port, "Q", group_to_timingvalue(arc["lsr_q"]))
             elif group == "bram":
                 for sp_type in ("SP", "SPX9"):
                     sp = tmg.add_cell_variant(speed, sp_type)
