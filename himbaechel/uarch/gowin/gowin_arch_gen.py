@@ -2005,10 +2005,11 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
                             port = "RESET" if reset_type == 'R' else "SET"
                             dff.add_setup_hold("CLK", port, ClockEdge.RISING, group_to_timingvalue(arc["lsr_clksetpos_syn"]), group_to_timingvalue(arc["lsr_clkholdpos_syn"]))
                         elif reset_type in ('P', 'C'):
-                            # An asynchronous set or reset is checked for its release against the
-                            # clock (recovery and removal). No arc from it to Q: a path through the
-                            # asynchronous input is no path of the clock domain, and with the arc
-                            # a reset chain counts as logic in front of every flip-flop it resets.
+                            # An asynchronous set or reset is checked against the clock only for its
+                            # release (recovery and removal). There is no arc from it to Q: a path
+                            # through the asynchronous input is not a path in the clock domain, and
+                            # with the arc a reset chain would count as logic in front of every
+                            # flip-flop it resets.
                             port = "CLEAR" if reset_type == 'C' else "PRESET"
                             dff.add_setup_hold("CLK", port, ClockEdge.RISING, group_to_timingvalue(arc["lsr_clksetpos_asyn"]), group_to_timingvalue(arc["lsr_clkholdpos_asyn"]))
 
