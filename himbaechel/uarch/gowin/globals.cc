@@ -44,6 +44,40 @@ struct GowinGlobalRouter
 
     bool segment_wire_filter(PipId pip) const { return !gwu.is_segment_pip(pip); }
 
+    // Is the wire a connected pin of a placed cell?
+    bool is_used_pin(WireId wire) const
+    {
+        for (auto bel_pin : ctx->getWireBelPins(wire)) {
+            const CellInfo *ci = ctx->getBoundBelCell(bel_pin.bel);
+            if (ci == nullptr) {
+                continue;
+            }
+            for (auto &port : ci->ports) {
+                if (port.second.net == nullptr) {
+                    continue;
+                }
+                for (IdString pin : ctx->getBelPinsForCellPin(ci, port.first)) {
+                    if (pin == bel_pin.pin) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    // The first of a segment end's gate wires that isn't a connected cell pin.
+    WireId usable_gate_wire(WireId wire0, WireId wire1) const
+    {
+        if (wire0 != WireId() && !is_used_pin(wire0)) {
+            return wire0;
+        }
+        if (wire1 != WireId() && !is_used_pin(wire1)) {
+            return wire1;
+        }
+        return WireId();
+    }
+
     // To avoid a cycle where we connect the clock wire to the gate in
     // the global clock system and it ends up in the global clock MUX
     // again, we only allow connections from general-purpose wires.
@@ -1032,6 +1066,7 @@ struct GowinGlobalRouter
                 log_info("net:%s, src:(%d, %d)\n", ctx->nameOf(ni), src_loc.y, src_loc.x);
             }
             std::string wires_to_isolate;
+            std::vector<int> kept_segments;
             for (int s_i : selected_nets.at(net).segs) {
                 // distances to net source
                 Loc top_loc, bottom_loc;
@@ -1043,45 +1078,44 @@ struct GowinGlobalRouter
                              bottom_loc.y, bottom_loc.x, top_to_src, bottom_to_src);
                 }
                 // By selecting the top or bottom end we also select a pair of
-                // gate wires to use.
-                WireId tb_wire, gate_wire, top_seg_wire, bottom_seg_wire, wire_to_isolate;
+                // gate wires to use. Gate wires that are connected cell pins
+                // are left out; if a segment has no gate wire left, the net
+                // doesn't use it.
+                WireId tb_wire, top_seg_wire, bottom_seg_wire, wire_to_isolate;
+                WireId gate_wire, top_gate_wire, top_gate_wire1, bottom_gate_wire, bottom_gate_wire1;
                 gwu.get_segment_wires(s_i, top_seg_wire, bottom_seg_wire);
-                tb_wire = top_seg_wire;
+                gwu.get_segment_top_gate_wires(s_i, top_gate_wire, top_gate_wire1);
+                gwu.get_segment_bottom_gate_wires(s_i, bottom_gate_wire, bottom_gate_wire1);
+                // Completely isolated segment. The chip base is damaged.
+                NPNR_ASSERT(top_gate_wire != WireId() || top_gate_wire1 != WireId() || bottom_gate_wire != WireId() ||
+                            bottom_gate_wire1 != WireId());
                 if (top_to_src <= bottom_to_src) {
-                    WireId gate_wire1;
-                    gwu.get_segment_top_gate_wires(s_i, gate_wire, gate_wire1);
+                    tb_wire = top_seg_wire;
+                    gate_wire = usable_gate_wire(top_gate_wire, top_gate_wire1);
                     if (gate_wire == WireId()) {
-                        gate_wire = gate_wire1;
-                    }
-                    if (gate_wire == WireId()) {
-                        // This segment has no top gate wires, so we use one of the bottom ones.
-                        gwu.get_segment_bottom_gate_wires(s_i, gate_wire, gate_wire1);
-                        if (gate_wire == WireId()) {
-                            gate_wire = gate_wire1;
-                        }
+                        // This segment has no usable top gate wires, so we use one of the bottom ones.
+                        gate_wire = usable_gate_wire(bottom_gate_wire, bottom_gate_wire1);
                         tb_wire = bottom_seg_wire;
                         wire_to_isolate = top_seg_wire;
-                        NPNR_ASSERT(gate_wire != WireId()); // Completely isolated segment. The chip base is damaged.
                     }
                 } else {
-                    WireId gate_wire1;
                     tb_wire = bottom_seg_wire;
                     wire_to_isolate = top_seg_wire;
-                    gwu.get_segment_bottom_gate_wires(s_i, gate_wire, gate_wire1);
+                    gate_wire = usable_gate_wire(bottom_gate_wire, bottom_gate_wire1);
                     if (gate_wire == WireId()) {
-                        gate_wire = gate_wire1;
-                    }
-                    if (gate_wire == WireId()) {
-                        // This segment has no top gate wires, so we use one of the bottom ones.
-                        gwu.get_segment_top_gate_wires(s_i, gate_wire, gate_wire1);
-                        if (gate_wire == WireId()) {
-                            gate_wire = gate_wire1;
-                        }
+                        // This segment has no usable bottom gate wires, so we use one of the top ones.
+                        gate_wire = usable_gate_wire(top_gate_wire, top_gate_wire1);
                         tb_wire = top_seg_wire;
                         wire_to_isolate = WireId();
-                        NPNR_ASSERT(gate_wire != WireId()); // Completely isolated segment. The chip base is damaged.
                     }
                 }
+                if (gate_wire == WireId()) {
+                    if (ctx->debug) {
+                        log_info("    no usable gate wire, segment skipped\n");
+                    }
+                    continue;
+                }
+                kept_segments.push_back(s_i);
                 selected_nets.at(net).tb_wires[s_i] = tb_wire;
                 selected_nets.at(net).gate_wires[s_i] = gate_wire;
                 // store used wires for gowin_pack
@@ -1093,6 +1127,7 @@ struct GowinGlobalRouter
                     log_info("    wire:%s, gate wire:%s\n", ctx->nameOfWire(tb_wire), ctx->nameOfWire(gate_wire));
                 }
             }
+            selected_nets.at(net).segs = kept_segments;
             // Laying out a route for the network.
             std::vector<PipId> bound_pips;
             pool<WireId> bound_wires;
