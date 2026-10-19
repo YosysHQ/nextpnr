@@ -1247,6 +1247,9 @@ void GowinImpl::create_passthrough_luts(void)
                 ci->connectPorts(id_D, lut, id_F);
 
                 ctx->bindBel(lut_bel, lut, PlaceStrength::STRENGTH_LOCKED);
+                // assignArchInfo() has run already, without the timing index the LUT is not timed
+                if (ctx->speed_grade)
+                    lut->timing_index = ctx->get_cell_timing_idx(id_LUT4);
                 new_cells.push_back(std::move(lut_cell));
             }
         }
