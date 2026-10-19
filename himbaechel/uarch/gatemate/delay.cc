@@ -186,6 +186,26 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
     } else if (cell->type.in(id_CPE_FF, id_CPE_LATCH, id_CPE_FF_L, id_CPE_FF_U)) {
         return false;
     } else if (cell->type.in(id_CPE_CPLINES)) {
+        // Only report the input->output connection the router actually configured
+        auto bt = pass_backtrace.find(cell->name);
+        if (bt != pass_backtrace.end()) {
+            auto src = bt->second.find(toPort);
+            if (src != bt->second.end() && cell->getPort(src->second) != nullptr && src->second != fromPort)
+                return false;
+        }
+        if (fromPort.in(id_OUT1, id_OUT2)) {
+            get_delay_from_tmg_db(ctx->idf("timing_comb12_%s", toPort.c_str(ctx)), delay);
+            return true;
+        }
+        if (fromPort == id_COMPOUT) {
+            get_delay_from_tmg_db(ctx->idf("timing_comb12_compout_%s", toPort.c_str(ctx)), delay);
+            return true;
+        }
+        if (get_delay_from_tmg_db(ctx->idf("timing__ROUTING_%s_%s", fromPort.c_str(ctx), toPort.c_str(ctx)), delay))
+            return true;
+        // No data for PINY2->POUTX, use the Y1 equivalent
+        if (fromPort == id_PINY2 && toPort == id_POUTX)
+            get_delay_from_tmg_db(ctx->id("timing__ROUTING_PINY1_POUTX"), delay);
         return true;
     } else if (cell->type.in(id_CPE_BRIDGE)) {
         if (toPort == id_MUXOUT)
