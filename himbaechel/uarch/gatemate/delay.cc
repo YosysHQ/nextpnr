@@ -123,6 +123,15 @@ ClockEdge iosel_edge(const CellInfo *cell, IdString inv_param)
 {
     return bool_or_default(cell->params, inv_param) ? FALLING_EDGE : RISING_EDGE;
 }
+
+// postRoute() renames CLK_INT to the physical input used (CLK, or CINY2 when clocked via CP lines)
+IdString ff_clock_port(const CellInfo *cell)
+{
+    for (IdString p : {id_CLK_INT, id_CLK, id_CINY2})
+        if (cell->ports.count(p))
+            return p;
+    return id_CLK_INT;
+}
 } // namespace
 
 bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const
@@ -318,7 +327,7 @@ TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString 
             return TMG_COMB_OUTPUT;
         return TMG_COMB_INPUT;
     } else if (cell->type.in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U, id_CPE_LATCH)) {
-        if (port.in(id_CLK_INT))
+        if (port == ff_clock_port(cell))
             return TMG_CLOCK_INPUT;
         clockInfoCount = 1;
         if (port == id_DOUT)
@@ -491,13 +500,14 @@ TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdStr
     info.clockToQ = DelayQuad(0);
     if (cell->type.in(id_CPE_FF, id_CPE_FF_L, id_CPE_FF_U, id_CPE_LATCH)) {
         bool inverted = int_or_default(cell->params, id_C_CPE_CLK, 0) == 0b01;
+        bool clk_via_cp = int_or_default(cell->params, id_C_CLKSEL, 0) == 1;
         info.edge = inverted ? FALLING_EDGE : RISING_EDGE;
-        info.clock_port = id_CLK_INT;
-        if (port.in(id_DIN, id_EN, id_SR))
+        info.clock_port = ff_clock_port(cell);
+        if (port.in(id_DIN, id_EN, id_EN_INT, id_PINY2, id_SR))
             get_setuphold_from_tmg_db(id_timing_del_Setup_D_L, id_timing_del_Hold_D_L, info.setup, info.hold);
         if (port.in(id_DOUT)) {
-            bool is_upper = (cell->bel != BelId()) && (ctx->getBelLocation(cell->bel).z == CPE_LT_U_Z);
-            get_delay_from_tmg_db(id_timing__SEQ_CLK_FF1_Q, info.clockToQ);
+            bool is_upper = (cell->bel != BelId()) && (ctx->getBelLocation(cell->bel).z == CPE_FF_U_Z);
+            get_delay_from_tmg_db(clk_via_cp ? id_timing__SEQ_CINY2_FF1_Q : id_timing__SEQ_CLK_FF1_Q, info.clockToQ);
             DelayQuad delay = DelayQuad{0};
             get_delay_from_tmg_db(is_upper ? id_timing_Q2_OUT2 : id_timing_Q1_OUT1, delay);
             info.clockToQ += delay;
