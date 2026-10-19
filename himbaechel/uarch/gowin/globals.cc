@@ -626,9 +626,14 @@ struct GowinGlobalRouter
         // The net before the buffer loses its driver below. Its other users move to the net after
         // the buffer, which carries the same signal, or they would stay unrouted.
         std::vector<PortRef> other_users;
-        for (auto &usr : net_before_buf->users)
-            if (usr.cell != buf_ci)
-                other_users.push_back(usr);
+        for (auto &usr : net_before_buf->users) {
+            if (usr.cell == buf_ci)
+                continue;
+            if (usr.cell->type == id_BUFG)
+                log_error("'%s' drives two BUFGs, '%s' and '%s'. Keep one of them.\n", ctx->nameOf(net_before_buf),
+                          ctx->nameOf(buf_ci), ctx->nameOf(usr.cell));
+            other_users.push_back(usr);
+        }
         for (auto &usr : other_users) {
             usr.cell->disconnectPort(usr.port);
             usr.cell->connectPort(usr.port, net);
