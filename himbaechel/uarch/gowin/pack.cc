@@ -308,6 +308,11 @@ void GowinPacker::pack_buffered_nets(void)
             net.first == ctx->id("$PACKER_VCC")) {
             continue;
         }
+        // a BUFG of the design drives the net or buffers it already: no second one in a chain
+        if (gwu.driver_is_buf(ni->driver) ||
+            std::any_of(ni->users.begin(), ni->users.end(), [](const PortRef &u) { return u.cell->type == id_BUFG; })) {
+            continue;
+        }
         if (ni->attrs.count(id_CLOCK) == 0) {
             if (ctx->settings.count(id_NO_GP_CLOCK_ROUTING)) {
                 continue;
