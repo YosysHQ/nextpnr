@@ -13,9 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DEPS_PATH: ${{ github.workspace }}/deps
-      YOSYS_REVISION: 7045cf509e1d95cbc973746674cf2d7c73c02e50
+      YOSYS_REVISION: 730d71aa76472ca83352e621c5da7636e71bb01b
       ICESTORM_REVISION: 68044cc4dac829729ccd0ee88d0780525b515746
-      TRELLIS_REVISION: 36c615d1740473cc3574464c7f0bed44da20e5b6
+      TRELLIS_REVISION: a31ff7042e712c0e2ad217054116ce2c4995f5c7
       PRJOXIDE_REVISION: be5891272a783f6c7d890da7f8dbf663dcaf61f4
       MISTRAL_REVISION: ebfc0dd2cc7d6d2159b641a397c88554840e93c9
       APYCULA_REVISION: 0.8.2a1
@@ -30,14 +30,14 @@ jobs:
     - name: Install
       run: |
         sudo apt-get update
-        sudo apt-get install git make cmake libboost-all-dev python3-dev pypy3 libeigen3-dev tcl-dev lzma-dev libftdi-dev clang bison flex swig qt6-base-dev iverilog libreadline-dev liblzma-dev cargo rustc
+        sudo apt-get install git make cmake libboost-all-dev python3-dev pypy3 libeigen3-dev tcl-dev liblzma-dev libftdi-dev clang bison flex swig qt6-base-dev iverilog libreadline-dev liblzma-dev cargo rustc
 
     - name: Cache yosys installation
       uses: actions/cache@v4
       id: cache-yosys
       with:
         path: .yosys
-        key: cache-yosys-${{ env.YOSYS_REVISION }}-r3
+        key: cache-yosys-${{ env.YOSYS_REVISION }}-r4
 
     - name: Build yosys
       run: |
@@ -50,7 +50,7 @@ jobs:
       id: cache-icestorm
       with:
         path: .icestorm
-        key: cache-icestorm-${{ env.ICESTORM_REVISION }}-r3
+        key: cache-icestorm-${{ env.ICESTORM_REVISION }}-r4
       if: matrix.arch == 'ice40'
 
     - name: Build icestorm
@@ -64,7 +64,7 @@ jobs:
       id: cache-trellis
       with:
         path: .trellis
-        key: cache-trellis-${{ env.TRELLIS_REVISION }}-r3
+        key: cache-trellis-${{ env.TRELLIS_REVISION }}-r4
       if: matrix.arch == 'ecp5' || matrix.arch == 'machxo2'
 
     - name: Build trellis
@@ -78,7 +78,7 @@ jobs:
       id: cache-prjoxide
       with:
         path: .prjoxide
-        key: cache-prjoxide-${{ env.PRJOXIDE_REVISION }}-r3
+        key: cache-prjoxide-${{ env.PRJOXIDE_REVISION }}-r4
       if: matrix.arch == 'nexus'
 
     - name: Build prjoxide
