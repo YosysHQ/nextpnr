@@ -8,8 +8,10 @@ function build_yosys {
     git clone --recursive https://github.com/YosysHQ/yosys ${YOSYS_PATH}
     pushd ${YOSYS_PATH}
     git reset --hard ${YOSYS_REVISION}
-    make -j`nproc` PREFIX=$PREFIX
-    make install PREFIX=$PREFIX
+    mkdir -p build && cd build
+    cmake -DCMAKE_INSTALL_PREFIX=$PREFIX ..
+    make -j`nproc`
+    make install
     popd
 }
 
