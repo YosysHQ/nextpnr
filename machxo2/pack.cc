@@ -716,7 +716,6 @@ class MachXO2Packer
         // Chain packing
         std::vector<std::tuple<CellInfo *, CellInfo *, int>> ff_packing;
         for (auto &chain : all_chains) {
-            int cell_count = 0;
             std::vector<CellInfo *> packed_chain;
             for (auto &cell : chain.cells) {
                 std::unique_ptr<CellInfo> comb0 =
@@ -734,7 +733,6 @@ class MachXO2Packer
                 new_cells.push_back(std::move(comb0));
                 new_cells.push_back(std::move(comb1));
                 packed_cells.insert(cell->name);
-                cell_count++;
             }
             packed_chains.push_back(packed_chain);
         }

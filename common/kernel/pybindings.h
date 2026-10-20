@@ -21,6 +21,12 @@
 #ifndef COMMON_PYBINDINGS_H
 #define COMMON_PYBINDINGS_H
 
+#ifdef _POSIX_C_SOURCE
+#undef _POSIX_C_SOURCE
+#endif
+#ifdef _XOPEN_SOURCE
+#undef _XOPEN_SOURCE
+#endif
 #include <Python.h>
 #include <iostream>
 #include <pybind11/embed.h>
