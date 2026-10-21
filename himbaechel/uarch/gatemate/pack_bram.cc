@@ -178,6 +178,11 @@ void GateMatePacker::pack_ram_cell(CellInfo &ci, CellInfo *cell, bool is_split)
 
     ci.params[id_RAM_cfg_a0_set_outputreg] = Property(a_do_reg, 1);
     ci.params[id_RAM_cfg_b0_set_outputreg] = Property(b_do_reg, 1);
+    if (!is_split) {
+        // 40K: bits [39:20] of each port are driven by the second half
+        ci.params[id_RAM_cfg_a1_set_outputreg] = Property(a_do_reg, 1);
+        ci.params[id_RAM_cfg_b1_set_outputreg] = Property(b_do_reg, 1);
+    }
 
     ci.params[id_RAM_cfg_inversion_a0] = Property(a_inv, 3);
     ci.params[id_RAM_cfg_inversion_b0] = Property(b_inv, 3);
