@@ -178,6 +178,11 @@ void GateMatePacker::pack_ram_cell(CellInfo &ci, CellInfo *cell, bool is_split)
 
     ci.params[id_RAM_cfg_a0_set_outputreg] = Property(a_do_reg, 1);
     ci.params[id_RAM_cfg_b0_set_outputreg] = Property(b_do_reg, 1);
+    if (!is_split) {
+        // 40K: bits [39:20] of each port are driven by the second half
+        ci.params[id_RAM_cfg_a1_set_outputreg] = Property(a_do_reg, 1);
+        ci.params[id_RAM_cfg_b1_set_outputreg] = Property(b_do_reg, 1);
+    }
 
     ci.params[id_RAM_cfg_inversion_a0] = Property(a_inv, 3);
     ci.params[id_RAM_cfg_inversion_b0] = Property(b_inv, 3);
@@ -392,6 +397,12 @@ void GateMatePacker::pack_ram()
                     ci.renamePort(ctx->idf("F_ALMOST_FULL_OFFSET[%d]", i), ctx->idf("WEA[%d]", 20 + i));
                 }
             }
+
+            ci.renamePort(id_F_RST_N, ctx->id("F_RSTN"));
+            for (int i = 0; i < 16; i++) {
+                ci.renamePort(ctx->idf("F_RD_PTR[%d]", i), ctx->idf("FRD_ADDR[%d]", i));
+                ci.renamePort(ctx->idf("F_WR_PTR[%d]", i), ctx->idf("FWR_ADDR[%d]", i));
+            }
         }
 
         for (int i = 0; i < 40; i++) {
@@ -411,9 +422,10 @@ void GateMatePacker::pack_ram()
             move_ram_io(&ci, ctx->idf("DOB[%d]", i), ctx->idf("DIB[%d]", i));
         }
         for (int i = 0; i < 4; i++) {
-            move_ram_o(&ci, ctx->idf("CLKA[%d]", i));
+            // CLKA[0] and ENA[0] share their RAMIO CPEs with FRD_ADDR[0] and FRD_ADDR[2]
+            move_ram_io(&ci, i == 0 ? ctx->id("FRD_ADDR[0]") : IdString(), ctx->idf("CLKA[%d]", i));
             move_ram_o(&ci, ctx->idf("CLKB[%d]", i));
-            move_ram_o(&ci, ctx->idf("ENA[%d]", i));
+            move_ram_io(&ci, i == 0 ? ctx->id("FRD_ADDR[2]") : IdString(), ctx->idf("ENA[%d]", i));
             move_ram_o(&ci, ctx->idf("ENB[%d]", i));
             move_ram_o(&ci, ctx->idf("GLWEA[%d]", i));
             move_ram_o(&ci, ctx->idf("GLWEB[%d]", i));
@@ -445,14 +457,12 @@ void GateMatePacker::pack_ram()
             ci.renamePort(id_F_RD_ERROR, ctx->id("FRD_ERR[0]"));
             move_ram_i(&ci, ctx->id("FRD_ERR[0]"));
 
-            ci.renamePort(id_F_RST_N, ctx->id("F_RSTN"));
-            move_ram_o(&ci, ctx->id("F_RSTN"));
+            // F_RSTN shares its RAMIO CPE with FRD_ADDR[5]
+            move_ram_io(&ci, ctx->id("FRD_ADDR[5]"), ctx->id("F_RSTN"));
 
             for (int i = 0; i < 16; i++) {
-                ci.renamePort(ctx->idf("F_RD_PTR[%d]", i), ctx->idf("FRD_ADDR[%d]", i));
-                move_ram_i(&ci, ctx->idf("FRD_ADDR[%d]", i));
-
-                ci.renamePort(ctx->idf("F_WR_PTR[%d]", i), ctx->idf("FWR_ADDR[%d]", i));
+                if (i != 0 && i != 2 && i != 5)
+                    move_ram_i(&ci, ctx->idf("FRD_ADDR[%d]", i));
                 move_ram_i(&ci, ctx->idf("FWR_ADDR[%d]", i));
             }
         }
