@@ -472,12 +472,15 @@ int GateMateImpl::ram_clock_index(const CellInfo *cell, const RamPinInfo &pin) c
     int mode = int_or_default(cell->params, id_RAM_cfg_sram_mode, 0);
     bool split = mode & 0b01;
     bool sdp = mode & 0b10;
-    bool fifo = int_or_default(cell->params, id_RAM_cfg_fifo_sync_enable, 0) ||
-                int_or_default(cell->params, id_RAM_cfg_fifo_async_enable, 0);
+    bool fifo_sync = int_or_default(cell->params, id_RAM_cfg_fifo_sync_enable, 0);
+    bool fifo_async = int_or_default(cell->params, id_RAM_cfg_fifo_async_enable, 0);
 
     bool domain_b = pin.port_b;
-    if (fifo) {
-        // FIFO: push (write) on port B, pop (read) on port A, in TDP and SDP mode
+    if (fifo_sync) {
+        // Synchronous FIFO: push and pop both use A_CLK
+        domain_b = false;
+    } else if (fifo_async) {
+        // Asynchronous FIFO: push (write) on port B, pop (read) on port A, in TDP and SDP mode
         switch (pin.kind) {
         case RamPinKind::DATA_IN:
         case RamPinKind::BITMASK:
