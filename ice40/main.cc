@@ -58,9 +58,9 @@ po::options_description Ice40CommandHandler::getArchOptions()
         specific.add_options()("lp8k", "set device type to iCE40LP8K");
     if (Arch::is_available(ArchArgs::HX1K))
         specific.add_options()("hx1k", "set device type to iCE40HX1K");
-    if (Arch::is_available(ArchArgs::HX8K))
-        specific.add_options()("hx4k", "set device type to iCE40HX4K");
     if (Arch::is_available(ArchArgs::HX4K))
+        specific.add_options()("hx4k", "set device type to iCE40HX4K");
+    if (Arch::is_available(ArchArgs::HX8K))
         specific.add_options()("hx8k", "set device type to iCE40HX8K");
     if (Arch::is_available(ArchArgs::UP3K))
         specific.add_options()("up3k", "set device type to iCE40UP3K");
