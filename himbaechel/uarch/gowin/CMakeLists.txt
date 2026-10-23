@@ -55,6 +55,6 @@ foreach (device ${HIMBAECHEL_GOWIN_DEVICES})
         TARGET  nextpnr-himbaechel-gowin-chipdb
         OUTPUT  himbaechel/gowin/chipdb-${device}.bin
         INPUT   ${CMAKE_CURRENT_BINARY_DIR}/chipdb-${device}.bba
-        MODE    binary
+        MODE    ${BBASM_MODE}
     )
 endforeach()
