@@ -1935,6 +1935,11 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
         for i in range(width):
             cell.add_clock_out(clock, f"{bus}{i}", ClockEdge.RISING, group_to_timingvalue(arc[group]))
 
+    def check_bram_timing(cell, variant, required):
+        missing = [pin for pin in required if pin not in cell.pin_data]
+        assert not missing, \
+            f"{variant}: no timing model for {', '.join(missing)}"
+
 
     speed_grades = []
     for speed in db.timing.keys():
@@ -2032,6 +2037,7 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
 
                     for sig in ["CE", "WRE", "OCE", "RESET"]:
                         sp.add_setup_hold("CLK", sig, ClockEdge.RISING, group_to_timingvalue(arc[f"clk_{sig.lower()}_set"]), group_to_timingvalue(arc[f"clk_{sig.lower()}_hold"]))
+                    check_bram_timing(sp, sp_type, ("CLK", "AD0", "DI0", "DO0", "BLKSEL0"))
                 for sdp_type in ("SDP", "SDPX9", "SDPB", "SDPX9B"):
                     sdp = tmg.add_cell_variant(speed, sdp_type)
                     add_bram_bus_output(sdp, "CLKB", "DO", 36, "clkb_do_bypass")
@@ -2047,6 +2053,8 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
 
                     for sig in ["CEB", "OCEB", "RESETB"]:
                         sdp.add_setup_hold("CLKB", sig, ClockEdge.RISING, group_to_timingvalue(arc[f"clkb_{sig.lower()}_set"]), group_to_timingvalue(arc[f"clkb_{sig.lower()}_hold"]))
+                    check_bram_timing(sdp, sdp_type,
+                                      ("CLKA", "CLKB", "ADA0", "ADB0", "DI0", "DO0"))
 
                 for dp_type in ("DP", "DPX9", "DPB", "DPX9B"):
                     dp = tmg.add_cell_variant(speed, dp_type)
@@ -2055,7 +2063,7 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
                     add_bram_bus_input(dp, "CLKA", "DIA", 36, "clka_dia")
                     add_bram_bus_input(dp, "CLKB", "DIB", 36, "clkb_dib")
                     add_bram_bus_input(dp, "CLKA", "ADA", 14, "clka_ada")
-                    add_bram_bus_input(sp, "CLKB", "ADB", 14, "clkb_adb")
+                    add_bram_bus_input(dp, "CLKB", "ADB", 14, "clkb_adb")
 
                     add_bram_bus_input(dp, "CLKA", "BLKSELA", 3, "clka_blksel")
                     add_bram_bus_input(dp, "CLKB", "BLKSELB", 3, "clkb_blksel")
@@ -2065,6 +2073,8 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
 
                     for sig in ["CEB", "OCEB", "WREB", "RESETB"]:
                         dp.add_setup_hold("CLKB", sig, ClockEdge.RISING, group_to_timingvalue(arc[f"clkb_{sig.lower()}_set"]), group_to_timingvalue(arc[f"clkb_{sig.lower()}_hold"]))
+                    check_bram_timing(dp, dp_type,
+                                      ("CLKA", "CLKB", "ADA0", "ADB0", "DIA0", "DIB0"))
 
 
             elif group == "fanout":
