@@ -12,6 +12,7 @@ Currently nextpnr supports:
  * NanoXplore NG-Ultra devices supported by [Project Beyond](https://github.com/YosysHQ-GmbH/prjbeyond-db)
  * Cologne Chip GateMate devices supported by [Project Peppercorn](https://github.com/YosysHQ/prjpeppercorn)
  * *(experimental)* Cyclone V devices supported by [Mistral](https://github.com/Ravenslofty/mistral)
+ * *(experimental)* Cyclone II EP2C35 (Terasic DE2) supported by [cyclone2-re](https://github.com/cramt/cyclone2-re)
  * *(experimental)* Lattice MachXO2 devices supported by [Project Trellis](https://github.com/YosysHQ/prjtrellis)
  * *(experimental)* Xilinx 7-series devices supported by [Project X-Ray](https://github.com/F4PGA/prjxray)
  * *(experimental)* a "generic" back-end for user-defined architectures
@@ -203,6 +204,19 @@ cmake .. -DARCH="himbaechel" -DHIMBAECHEL_UARCH="gatemate" -DHIMBAECHEL_PEPPERCO
 make -j$(nproc)
 sudo make install
 ```
+
+#### cyclone2
+
+For Intel (Altera) Cyclone II support, clone [cyclone2-re](https://github.com/cramt/cyclone2-re) and point the build at its device database
+
+```
+mkdir -p build && cd build
+cmake .. -DARCH="himbaechel" -DHIMBAECHEL_UARCH="cyclone2" -DHIMBAECHEL_CYCLONE2_DB=/path/to/cyclone2-re/db
+make -j$(nproc)
+sudo make install
+```
+
+Synthesise with yosys' `synth_cyclone2`; `cram pack` from cyclone2-re writes the bitstream. Only the EP2C35F672C6 (Terasic DE2) is supported so far.
 
 ### GUI
 
