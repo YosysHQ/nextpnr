@@ -578,14 +578,22 @@ TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdStr
             else
                 get_delay_from_tmg_db(id_timing_RAM_NOECC_IOPATH_1, info.clockToQ);
         }
+        auto do_reg = [&](char side) {
+            int half = ram_signal_clk.count(port) ? ram_signal_clk.at(port).half : 0;
+            return int_or_default(cell->params, ctx->idf("RAM_cfg_%c%d_set_outputreg", side, half), 0) != 0;
+        };
         if (boost::starts_with(name, "DOA")) {
-            if (is_ecc_a)
+            if (do_reg('a'))
+                get_delay_from_tmg_db(id_timing_RAM_REG_IOPATH_2, info.clockToQ);
+            else if (is_ecc_a)
                 get_delay_from_tmg_db(id_timing_RAM_ECC_IOPATH_2, info.clockToQ);
             else
                 get_delay_from_tmg_db(id_timing_RAM_NOECC_IOPATH_2, info.clockToQ);
         }
         if (boost::starts_with(name, "DOB")) {
-            if (is_ecc_b)
+            if (do_reg('b'))
+                get_delay_from_tmg_db(id_timing_RAM_REG_IOPATH_3, info.clockToQ);
+            else if (is_ecc_b)
                 get_delay_from_tmg_db(id_timing_RAM_ECC_IOPATH_3, info.clockToQ);
             else
                 get_delay_from_tmg_db(id_timing_RAM_NOECC_IOPATH_3, info.clockToQ);
