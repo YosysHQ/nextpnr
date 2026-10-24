@@ -21,6 +21,8 @@
 #define INDEXED_STORE_H
 
 #include <algorithm>
+#include <cstddef>
+#include <iterator>
 #include <limits>
 #include <type_traits>
 #include <vector>
@@ -170,20 +172,26 @@ template <typename T> class indexed_store
     // Total size of the container
     int32_t capacity() const { return int32_t(slots.size()); }
 
-    // Iterate over items
+    // Iterate over items, with forward iterators so that the standard algorithms work on them
     template <typename It, typename S> class enumerated_iterator;
 
     class iterator
     {
       private:
-        indexed_store *base;
+        indexed_store *base = nullptr;
         int32_t index = 0;
 
       public:
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = T;
+        using difference_type = std::ptrdiff_t;
+        using pointer = T *;
+        using reference = T &;
+        iterator() = default;
         iterator(indexed_store *base, int32_t index) : base(base), index(index) {};
         inline bool operator!=(const iterator &other) const { return other.index != index; }
         inline bool operator==(const iterator &other) const { return other.index == index; }
-        inline iterator operator++()
+        inline iterator &operator++()
         {
             // skip over unused slots
             do {
@@ -194,12 +202,11 @@ template <typename T> class indexed_store
         inline iterator operator++(int)
         {
             iterator prior(*this);
-            do {
-                index++;
-            } while (index < int32_t(base->slots.size()) && !base->slots.at(index).active);
+            ++(*this);
             return prior;
         }
-        T &operator*() { return base->at(store_index<T>(index)); }
+        T &operator*() const { return base->at(store_index<T>(index)); }
+        T *operator->() const { return &**this; }
         template <typename It, typename S> friend class indexed_store::enumerated_iterator;
     };
     iterator begin()
@@ -213,14 +220,20 @@ template <typename T> class indexed_store
     class const_iterator
     {
       private:
-        const indexed_store *base;
+        const indexed_store *base = nullptr;
         int32_t index = 0;
 
       public:
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = T;
+        using difference_type = std::ptrdiff_t;
+        using pointer = const T *;
+        using reference = const T &;
+        const_iterator() = default;
         const_iterator(const indexed_store *base, int32_t index) : base(base), index(index) {};
         inline bool operator!=(const const_iterator &other) const { return other.index != index; }
         inline bool operator==(const const_iterator &other) const { return other.index == index; }
-        inline const_iterator operator++()
+        inline const_iterator &operator++()
         {
             // skip over unused slots
             do {
@@ -230,13 +243,12 @@ template <typename T> class indexed_store
         }
         inline const_iterator operator++(int)
         {
-            iterator prior(*this);
-            do {
-                index++;
-            } while (index < int32_t(base->slots.size()) && !base->slots.at(index).active);
+            const_iterator prior(*this);
+            ++(*this);
             return prior;
         }
-        const T &operator*() { return base->at(store_index<T>(index)); }
+        const T &operator*() const { return base->at(store_index<T>(index)); }
+        const T *operator->() const { return &**this; }
         template <typename It, typename S> friend class indexed_store::enumerated_iterator;
     };
     const_iterator begin() const
@@ -249,32 +261,38 @@ template <typename T> class indexed_store
 
     template <typename S> struct enumerated_item
     {
-        enumerated_item(int32_t index, T &value) : index(index), value(value) {};
+        enumerated_item(int32_t index, S &value) : index(index), value(value) {};
         store_index<std::remove_cv_t<S>> index;
         S &value;
     };
 
+    // Input iterator only: each access yields a new enumerated_item, not a reference
     template <typename It, typename S> class enumerated_iterator
     {
       private:
         It base;
 
       public:
+        using iterator_category = std::input_iterator_tag;
+        using value_type = enumerated_item<S>;
+        using difference_type = std::ptrdiff_t;
+        using pointer = void;
+        using reference = enumerated_item<S>;
         enumerated_iterator(const It &base) : base(base) {};
         inline bool operator!=(const enumerated_iterator<It, S> &other) const { return other.base != base; }
         inline bool operator==(const enumerated_iterator<It, S> &other) const { return other.base == base; }
-        inline enumerated_iterator<It, S> operator++()
+        inline enumerated_iterator<It, S> &operator++()
         {
             ++base;
             return *this;
         }
         inline enumerated_iterator<It, S> operator++(int)
         {
-            iterator prior(*this);
+            enumerated_iterator<It, S> prior(*this);
             ++base;
             return prior;
         }
-        enumerated_item<S> operator*() { return enumerated_item<S>{base.index, *base}; }
+        enumerated_item<S> operator*() const { return enumerated_item<S>{base.index, *base}; }
     };
 
     template <typename It, typename S> struct enumerated_range
@@ -288,7 +306,7 @@ template <typename T> class indexed_store
     enumerated_range<iterator, T> enumerate() { return enumerated_range<iterator, T>{begin(), end()}; }
     enumerated_range<const_iterator, const T> enumerate() const
     {
-        return enumerated_range<iterator, T>{begin(), end()};
+        return enumerated_range<const_iterator, const T>{begin(), end()};
     }
 };
 
