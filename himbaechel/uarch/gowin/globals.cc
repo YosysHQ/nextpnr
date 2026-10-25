@@ -639,9 +639,16 @@ struct GowinGlobalRouter
         CellInfo *true_src_ci = net_before_buf->driver.cell;
         src = ctx->getBelPinWire(true_src_ci->bel, net_before_buf->driver.port);
         ctx->bindWire(src, net, STRENGTH_LOCKED);
-        backwards_bfs_route(net, src, dst, 1000000, false, [&](PipId pip, WireId src_wire) {
-            return clock_gate_wire_filter(pip) && segment_wire_filter(pip) && dcs_input_filter(pip);
-        });
+        // General routing only: through a free gate and a spine the signal would take the clock
+        // network as a shortcut, and the spine from the clock that uses it.
+        if (!backwards_bfs_route(net, src, dst, 1000000, false, [&](PipId pip, WireId src_wire) {
+                WireId pip_dst = ctx->getPipDstWire(pip);
+                return (pip_dst == dst || !ctx->getWireType(pip_dst).in(id_GLOBAL_CLK, id_TILE_CLK)) &&
+                       clock_gate_wire_filter(pip) && segment_wire_filter(pip) && dcs_input_filter(pip);
+            })) {
+            log_error("Can't route '%s' from its driver to the input of '%s'.\n", ctx->nameOf(net_before_buf),
+                      ctx->nameOf(buf_ci));
+        }
         // remove net
         buf_ci->movePortTo(id_O, true_src_ci, net_before_buf->driver.port);
         net_before_buf->driver.cell = nullptr;
