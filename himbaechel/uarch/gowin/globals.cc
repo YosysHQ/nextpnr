@@ -54,13 +54,7 @@ struct GowinGlobalRouter
         return !(gwu.wire_is_clock_gate(dst) && src_type.in(id_GLOBAL_CLK, id_TILE_CLK));
     }
 
-    bool dcs_input_filter(PipId pip) const
-    {
-        return !ctx->getWireName(ctx->getPipSrcWire(pip))[1].in(
-                id_P16A, id_P16B, id_P16C, id_P16D, id_P17A, id_P17B, id_P17C, id_P17D, id_P26A, id_P26B, id_P26C,
-                id_P26D, id_P27A, id_P27B, id_P27C, id_P27D, id_P36A, id_P36B, id_P36C, id_P36D, id_P37A, id_P37B,
-                id_P37C, id_P37D, id_P46A, id_P46B, id_P46C, id_P46D, id_P47A, id_P47B, id_P47C, id_P47D);
-    }
+    bool dcs_input_filter(PipId pip) const { return !gwu.is_dcs_input(ctx->getPipSrcWire(pip)); }
 
     // allow io->global, global->global and global->tile clock
     bool global_pip_filter(PipId pip, WireId src_wire) const
@@ -102,19 +96,12 @@ struct GowinGlobalRouter
         auto is_local = [&](IdString wire_type) {
             return !wire_type.in(id_GLOBAL_CLK, id_IO_O, id_IO_I, id_PLL_O, id_PLL_I, id_TILE_CLK);
         };
-        auto is_dcs_input = [&](IdString wire_name) {
-            return wire_name.in(id_P16A, id_P16B, id_P16C, id_P16D, id_P17A, id_P17B, id_P17C, id_P17D, id_P26A,
-                                id_P26B, id_P26C, id_P26D, id_P27A, id_P27B, id_P27C, id_P27D, id_P36A, id_P36B,
-                                id_P36C, id_P36D, id_P37A, id_P37B, id_P37C, id_P37D, id_P46A, id_P46B, id_P46C,
-                                id_P46D, id_P47A, id_P47B, id_P47C, id_P47D);
-        };
 
         WireId src, dst;
         src = ctx->getPipSrcWire(pip);
         dst = ctx->getPipDstWire(pip);
-        IdString src_name = ctx->getWireName(dst)[1];
         IdString dst_name = ctx->getWireName(dst)[1];
-        bool not_dcs_pip = dst_name != id_CLKOUT && !is_dcs_input(src_name);
+        bool not_dcs_pip = dst_name != id_CLKOUT && !gwu.is_dcs_input(dst);
         IdString src_type = ctx->getWireType(src);
         IdString dst_type = ctx->getWireType(dst);
         bool src_valid = not_dcs_pip && src_type.in(id_GLOBAL_CLK, id_IO_O, id_PLL_O, id_HCLK);
