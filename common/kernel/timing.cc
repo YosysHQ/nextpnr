@@ -248,7 +248,8 @@ void TimingAnalyser::setup_port_domains()
                         domain_id_t dom;
                         // registered outputs are startpoints
                         if (fanin.type == CellArc::CLK_TO_Q)
-                            dom = domain_id(port.cell, fanin.other_port, fanin.edge);
+                            dom = domain_id(port.cell, fanin.other_port, fanin.edge,
+                                            multicycle_group(port.cell, false));
                         else if (fanin.type == CellArc::STARTPOINT)
                             dom = async_clock_id;
                         else
@@ -288,7 +289,8 @@ void TimingAnalyser::setup_port_domains()
                         domain_id_t dom;
                         // registered inputs are endpoints
                         if (fanout.type == CellArc::SETUP)
-                            dom = domain_id(port.cell, fanout.other_port, fanout.edge);
+                            dom = domain_id(port.cell, fanout.other_port, fanout.edge,
+                                            multicycle_group(port.cell, true));
                         else if (fanout.type == CellArc::ENDPOINT)
                             dom = async_clock_id;
                         else
@@ -320,6 +322,7 @@ void TimingAnalyser::setup_port_domains()
         auto &capture_data = domains.at(dp.key.capture);
         if (launch_data.key.clock != capture_data.key.clock)
             continue;
+        int periods = multicycle_periods(dp.key);
         IdString clk = launch_data.key.clock;
         delay_t period = ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq"));
         if (ctx->nets.count(clk)) {
@@ -330,7 +333,7 @@ void TimingAnalyser::setup_port_domains()
         }
         if (launch_data.key.edge != capture_data.key.edge)
             period /= 2;
-        dp.period = DelayPair(period);
+        dp.period = DelayPair(period * periods);
     }
 }
 
@@ -682,12 +685,12 @@ dict<domain_id_t, delay_t> TimingAnalyser::max_delay_by_domain_pairs()
             auto &req = ep_port.required.at(capture_id);
 
             for (auto &[launch_id, arr] : ep_port.arrival) {
-                const auto &launch = domains.at(capture_id);
+                const auto &launch = domains.at(launch_id);
 
                 auto dp = domain_pair_id(launch_id, capture_id);
 
                 auto clocks = std::make_pair(launch.key.clock, capture.key.clock);
-                auto same_clock = capture_id == launch_id;
+                auto same_clock = launch.key.same_clock(capture.key);
                 auto related_clocks = clock_delays.count(clocks) > 0;
                 delay_t clock_to_clock = 0;
                 if (related_clocks) {
@@ -759,7 +762,7 @@ void TimingAnalyser::compute_slack()
             if (!setup_only)
                 pdp.second.hold_slack = arr.value.minDelay() - req.value.maxDelay() + clock_to_clock;
             pdp.second.max_path_length = arr.path_length + req.path_length;
-            if (dp.key.launch == dp.key.capture)
+            if (domains.at(dp.key.launch).key.same_clock(domains.at(dp.key.capture).key))
                 pd.worst_setup_slack = std::min(pd.worst_setup_slack, dp.period.minDelay() + pdp.second.setup_slack);
             dp.worst_setup_slack = std::min(dp.worst_setup_slack, pdp.second.setup_slack);
             if (!setup_only) {
@@ -1108,6 +1111,7 @@ void TimingAnalyser::build_crit_path_reports()
             Fmax = 1000 / ctx->getDelayNS(path_delay);
         else
             Fmax = 500 / ctx->getDelayNS(path_delay);
+        Fmax *= multicycle_periods(dp.key);
 
         if (!clock_fmax.count(launch.clock) || Fmax < clock_fmax.at(launch.clock).achieved) {
             float target = ctx->setting<float>("target_freq") / 1e6;
@@ -1227,7 +1231,7 @@ std::vector<CriticalPath> TimingAnalyser::get_min_delay_violations()
                 auto clocks = std::make_pair(launch_clock, capture_clock);
                 auto related_clocks = clock_delays.count(clocks) > 0;
 
-                if (launch_id == async_clock_id || (launch_id != capture_id && !related_clocks)) {
+                if (launch_id == async_clock_id || (!launch.key.same_clock(capture.key) && !related_clocks)) {
                     continue;
                 }
 
@@ -1270,20 +1274,47 @@ std::vector<CriticalPath> TimingAnalyser::get_min_delay_violations()
     return sorted_violations;
 }
 
-domain_id_t TimingAnalyser::domain_id(IdString cell, IdString clock_port, ClockEdge edge)
+domain_id_t TimingAnalyser::domain_id(IdString cell, IdString clock_port, ClockEdge edge, int multicycle)
 {
-    return domain_id(ctx->cells.at(cell)->ports.at(clock_port).net, edge);
+    return domain_id(ctx->cells.at(cell)->ports.at(clock_port).net, edge, multicycle);
 }
 
-domain_id_t TimingAnalyser::domain_id(const NetInfo *net, ClockEdge edge)
+domain_id_t TimingAnalyser::domain_id(const NetInfo *net, ClockEdge edge, int multicycle)
 {
     NPNR_ASSERT(net != nullptr);
-    ClockDomainKey key{net->name, edge};
+    ClockDomainKey key{net->name, edge, multicycle};
     auto inserted = domain_to_id.emplace(key, domains.size());
     if (inserted.second) {
         domains.emplace_back(key);
     }
     return inserted.first->second;
+}
+
+// set_multicycle_path group <g> (sdc.cc): its endpoints carry NEXTPNR_MCP_TO = g, its startpoints NEXTPNR_MCP_FROM
+// = g; the setting timing/multicycle/<g> holds N, and timing/multicycle/<g>/from is set when -from was given.
+int TimingAnalyser::multicycle_group(IdString cell, bool endpoint) const
+{
+    auto found = ctx->cells.find(cell);
+    if (found == ctx->cells.end())
+        return 0;
+    auto attr = found->second->attrs.find(ctx->id(endpoint ? "NEXTPNR_MCP_TO" : "NEXTPNR_MCP_FROM"));
+    if (attr == found->second->attrs.end())
+        return 0;
+    return int(attr->second.as_int64());
+}
+
+int TimingAnalyser::multicycle_periods(const ClockDomainPairKey &pair) const
+{
+    const auto &launch = domains.at(pair.launch).key;
+    const auto &capture = domains.at(pair.capture).key;
+    int group = capture.multicycle;
+    if (group == 0 || !launch.same_clock(capture))
+        return 1;
+    std::string setting = "timing/multicycle/" + std::to_string(group);
+    bool from_any = !bool_or_default(ctx->settings, ctx->id(setting + "/from"), false);
+    if (!from_any && launch.multicycle != group)
+        return 1;
+    return std::max(1, int_or_default(ctx->settings, ctx->id(setting), 1));
 }
 
 domain_id_t TimingAnalyser::domain_pair_id(domain_id_t launch, domain_id_t capture)

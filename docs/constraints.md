@@ -42,3 +42,19 @@ calling the function `ctx.addClock` with the name of the clock and its frequency
     ctx.addClock("video_clk", 24)
     ctx.addClock("uart_i.sys_clk_i", 12)
 
+
+## Multicycle Paths
+
+The `--sdc` file can relax paths that have more than one clock period, e.g. logic that loads only every other clock
+(a clock enable):
+
+    create_clock -period 16 [get_ports clk]
+    set_multicycle_path 2 -setup -from [get_nets {u_core.*}] -to [get_nets {u_core.*}]
+
+Paths from the `-from` cells to the `-to` cells may then take 2 periods of their clock. Without `-from`, every path into
+the `-to` cells may. Paths into the `-to` cells from other cells keep one period. Cells, cell pins and nets select cells;
+a net stands for the cell that drives it, so a register can be named by its output, which keeps its name through
+synthesis. `get_cells` and `get_nets` take `*` and `?` wildcards and Tcl lists (`{a b}`).
+
+Hold stays checked on the launch edge, as after `set_multicycle_path N-1 -hold` in other tools; `-hold` itself has
+no effect. The reported Fmax counts the N periods. `-through`, `-start` and `-end` are not supported.

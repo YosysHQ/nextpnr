@@ -49,13 +49,21 @@ struct ClockDomainKey
 {
     IdString clock;
     ClockEdge edge;
-    ClockDomainKey(IdString clock_net, ClockEdge edge) : clock(clock_net), edge(edge) {};
+    // set_multicycle_path group of the startpoints (launch) or endpoints (capture) in this domain; 0: none
+    int multicycle = 0;
+    ClockDomainKey(IdString clock_net, ClockEdge edge, int multicycle = 0)
+            : clock(clock_net), edge(edge), multicycle(multicycle) {};
     // probably also need something here to deal with constraints
     inline bool is_async() const { return clock == IdString(); }
+    // the same clock and edge, whatever the multicycle group
+    inline bool same_clock(const ClockDomainKey &other) const { return (clock == other.clock) && (edge == other.edge); }
 
-    unsigned int hash() const { return mkhash(clock.hash(), int(edge)); }
+    unsigned int hash() const { return mkhash(mkhash(clock.hash(), int(edge)), multicycle); }
 
-    inline bool operator==(const ClockDomainKey &other) const { return (clock == other.clock) && (edge == other.edge); }
+    inline bool operator==(const ClockDomainKey &other) const
+    {
+        return (clock == other.clock) && (edge == other.edge) && (multicycle == other.multicycle);
+    }
 };
 
 typedef int domain_id_t;
@@ -226,8 +234,13 @@ struct TimingAnalyser
     CellInfo *cell_info(const CellPortKey &key);
     PortInfo &port_info(const CellPortKey &key);
 
-    domain_id_t domain_id(IdString cell, IdString clock_port, ClockEdge edge);
-    domain_id_t domain_id(const NetInfo *net, ClockEdge edge);
+    domain_id_t domain_id(IdString cell, IdString clock_port, ClockEdge edge, int multicycle = 0);
+    domain_id_t domain_id(const NetInfo *net, ClockEdge edge, int multicycle = 0);
+
+    // set_multicycle_path: a cell's group, as a startpoint (-from) or endpoint (-to); 0 if none
+    int multicycle_group(IdString cell, bool endpoint) const;
+    // the clock periods a domain pair has: N for a multicycle path, else 1
+    int multicycle_periods(const ClockDomainPairKey &pair) const;
     domain_id_t domain_pair_id(domain_id_t launch, domain_id_t capture);
 
     void copy_domains(const CellPortKey &from, const CellPortKey &to, bool backwards);
