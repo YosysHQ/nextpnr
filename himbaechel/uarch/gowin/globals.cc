@@ -27,6 +27,7 @@
 #include "himbaechel_constids.h"
 #include "himbaechel_helpers.h"
 
+#include "clock_plan.h"
 #include "globals.h"
 #include "gowin.h"
 #include "gowin_utils.h"
@@ -37,8 +38,16 @@ struct GowinGlobalRouter
 {
     Context *ctx;
     GowinUtils gwu;
+    GowinClockPlanner planner;
 
-    GowinGlobalRouter(Context *ctx) : ctx(ctx) { gwu.init(ctx); };
+    GowinGlobalRouter(Context *ctx)
+            : ctx(ctx), planner(ctx, gwu, [this](PipId pip, WireId src) {
+                  return global_pip_filter(pip, src) && clock_gate_wire_filter(pip) && segment_wire_filter(pip) &&
+                         dcs_input_filter(pip);
+              })
+    {
+        gwu.init(ctx);
+    };
 
     bool global_pip_available(PipId pip) const { return gwu.is_global_pip(pip) || ctx->checkPipAvail(pip); };
 
@@ -316,7 +325,8 @@ struct GowinGlobalRouter
         RouteResult route_result = route_direct_net(
                 net,
                 [&](PipId pip, WireId src_wire) {
-                    return global_DQCE_pip_filter(pip, src) && segment_wire_filter(pip) && dcs_input_filter(pip);
+                    return global_DQCE_pip_filter(pip, src) && clock_gate_wire_filter(pip) &&
+                           planner.allows(pip, net) && segment_wire_filter(pip) && dcs_input_filter(pip);
                 },
                 src);
         if (route_result == NOT_ROUTED) {
@@ -418,7 +428,10 @@ struct GowinGlobalRouter
 
         RouteResult route_result = route_direct_net(
                 net,
-                [&](PipId pip, WireId src_wire) { return global_DCS_pip_filter(pip, src) && segment_wire_filter(pip); },
+                [&](PipId pip, WireId src_wire) {
+                    return global_DCS_pip_filter(pip, src) && clock_gate_wire_filter(pip) && planner.allows(pip, net) &&
+                           segment_wire_filter(pip);
+                },
                 src);
         if (route_result == NOT_ROUTED) {
             log_error("Can't route the %s network.\n", ctx->nameOf(net));
@@ -531,13 +544,18 @@ struct GowinGlobalRouter
         RouteResult route_result;
         if (gwu.driver_is_mipi(driver)) {
             route_result = route_direct_net(
-                    net, [&](PipId pip, WireId src_wire) { return segment_wire_filter(pip) && dcs_input_filter(pip); },
+                    net,
+                    [&](PipId pip, WireId src_wire) {
+                        return clock_gate_wire_filter(pip) && planner.allows(pip, net) && segment_wire_filter(pip) &&
+                               dcs_input_filter(pip);
+                    },
                     src, &path);
         } else {
             route_result = route_direct_net(
                     net,
                     [&](PipId pip, WireId src_wire) {
-                        return global_pip_filter(pip, src) && segment_wire_filter(pip) && dcs_input_filter(pip);
+                        return global_pip_filter(pip, src) && clock_gate_wire_filter(pip) && planner.allows(pip, net) &&
+                               segment_wire_filter(pip) && dcs_input_filter(pip);
                     },
                     src, &path);
         }
@@ -627,7 +645,8 @@ struct GowinGlobalRouter
         RouteResult route_result = route_direct_net(
                 net,
                 [&](PipId pip, WireId src_wire) {
-                    return global_pip_filter(pip, src_wire) && segment_wire_filter(pip) && dcs_input_filter(pip);
+                    return global_pip_filter(pip, src_wire) && clock_gate_wire_filter(pip) &&
+                           planner.allows(pip, net) && segment_wire_filter(pip) && dcs_input_filter(pip);
                 },
                 src);
         if (route_result == NOT_ROUTED) {
@@ -659,8 +678,8 @@ struct GowinGlobalRouter
     RouteResult route_clk_net(NetInfo *net)
     {
         RouteResult route_result = route_direct_net(net, [&](PipId pip, WireId src_wire) {
-            return clock_gate_wire_filter(pip) && global_pip_filter(pip, src_wire) && segment_wire_filter(pip) &&
-                   dcs_input_filter(pip);
+            return clock_gate_wire_filter(pip) && planner.allows(pip, net) && global_pip_filter(pip, src_wire) &&
+                   segment_wire_filter(pip) && dcs_input_filter(pip);
         });
         if (route_result != NOT_ROUTED) {
             log_info("    '%s' net was routed using global resources %s.\n", ctx->nameOf(net),
@@ -1307,32 +1326,30 @@ struct GowinGlobalRouter
             }
         }
 
-        // nets with DHCEN
-        for (IdString net_name : dhcen_nets) {
-            NetInfo *ni = ctx->nets.at(net_name).get();
-            if (ctx->verbose) {
-                log_info("route dhcen net '%s'\n", ctx->nameOf(ni));
-            }
-            route_dhcen_net(ni);
-        }
+        // the clocks get their BUFG bels, spines and entries before any net is routed from a gate
+        planner.plan(buf_nets, clk_nets);
 
-        // nets with DQCE
-        for (IdString net_name : dqce_nets) {
-            NetInfo *ni = ctx->nets.at(net_name).get();
-            if (ctx->verbose) {
-                log_info("route dqce net '%s'\n", ctx->nameOf(ni));
-            }
-            route_dqce_net(ni);
-        }
-
-        // nets with DCS
-        for (IdString net_name : dcs_nets) {
-            NetInfo *ni = ctx->nets.at(net_name).get();
-            if (ctx->verbose) {
-                log_info("route dcs net '%s'\n", ctx->nameOf(ni));
-            }
-            route_dcs_net(ni);
-        }
+        // The DHCEN, DQCE and DCS nets with a plan route first, then the buffered nets, then the
+        // DHCEN, DQCE and DCS nets without a plan, which take what the planned nets leave.
+        auto route_pseudo = [&](bool planned) {
+            auto each = [&](const std::vector<IdString> &nets, const char *kind,
+                            void (GowinGlobalRouter::*route)(NetInfo *)) {
+                for (IdString net_name : nets) {
+                    NetInfo *ni = ctx->nets.at(net_name).get();
+                    if (planner.is_planned(ni) != planned) {
+                        continue;
+                    }
+                    if (ctx->verbose) {
+                        log_info("route %s net '%s'\n", kind, ctx->nameOf(ni));
+                    }
+                    (this->*route)(ni);
+                }
+            };
+            each(dhcen_nets, "dhcen", &GowinGlobalRouter::route_dhcen_net);
+            each(dqce_nets, "dqce", &GowinGlobalRouter::route_dqce_net);
+            each(dcs_nets, "dcs", &GowinGlobalRouter::route_dcs_net);
+        };
+        route_pseudo(true);
 
         // buffered nets
         for (IdString net_name : buf_nets) {
@@ -1349,6 +1366,8 @@ struct GowinGlobalRouter
             }
             route_buffered_net(ni);
         }
+
+        route_pseudo(false);
 
         // clock nets
         for (IdString net_name : clk_nets) {
