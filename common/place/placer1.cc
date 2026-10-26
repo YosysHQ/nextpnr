@@ -845,7 +845,7 @@ class SAPlacer
 
         float crit = tmg.get_criticality(CellPortKey(user));
         double delay = ctx->getDelayNS(ctx->predictArcDelay(net, user));
-        return delay * std::pow(crit, crit_exp);
+        return delay * pow_int(crit, crit_exp);
     }
 
     // Set up the cost maps
@@ -1212,7 +1212,7 @@ class SAPlacer
 
     Context *ctx;
     float temp = 10;
-    float crit_exp = 8;
+    int crit_exp = 8;
     float lambda = 0.5;
     bool improved = false;
     int n_move, n_accept;

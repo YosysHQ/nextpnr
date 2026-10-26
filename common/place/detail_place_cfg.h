@@ -29,7 +29,7 @@ struct DetailPlaceCfg
     DetailPlaceCfg(Context *ctx);
     bool timing_driven;
     int hpwl_scale_x, hpwl_scale_y;
-    float crit_exp = 8;
+    int crit_exp = 8;
 };
 
 NEXTPNR_NAMESPACE_END
