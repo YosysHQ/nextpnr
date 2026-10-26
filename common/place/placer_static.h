@@ -75,6 +75,8 @@ struct PlacerStaticCfg
 
     // override the default delay estimation formula (we can't use predictDelay because we don't have concrete bels)
     std::function<delay_t(Context *, const PlacerStaticCfg &, Loc, IdString, Loc, IdString)> predict_delay;
+
+    bool parallelRefine;
 };
 
 extern bool placer_static(Context *ctx, PlacerStaticCfg cfg);

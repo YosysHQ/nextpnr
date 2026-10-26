@@ -1706,6 +1706,12 @@ class StaticPlacer
                 ++iter;
             }
         }
+
+#if !defined(NPNR_DISABLE_THREADS)
+        if (cfg.parallelRefine) {
+            parallel_refine(ctx, ParallelRefineCfg(ctx));
+        } else
+#endif
         {
             auto placer1_cfg = Placer1Cfg(ctx);
             placer1_cfg.hpwl_scale_x = cfg.hpwl_scale_x;
@@ -1725,6 +1731,8 @@ bool placer_static(Context *ctx, PlacerStaticCfg cfg)
 PlacerStaticCfg::PlacerStaticCfg(Context *ctx)
 {
     timing_driven = ctx->setting<bool>("timing_driven");
+
+    parallelRefine = ctx->setting<bool>("placerHeap/parallelRefine", false);
 
     hpwl_scale_x = 1;
     hpwl_scale_y = 1;
