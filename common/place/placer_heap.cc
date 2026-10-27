@@ -2087,7 +2087,7 @@ class HeAPPlacer
                     for (int i = cells_start; i < cells_end; i++) {
                         auto &pos = dir ? p->cell_locs.at(cut_cells.at(i)->udata).rawy
                                         : p->cell_locs.at(cut_cells.at(i)->udata).rawx;
-                        pos = area_l + i * ((area_r - area_l) / N);
+                        pos = area_l + (i - cells_start) * ((area_r - area_l) / N);
                     }
                     return;
                 }
