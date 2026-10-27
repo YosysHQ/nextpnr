@@ -2068,15 +2068,15 @@ class HeAPPlacer
             while (pivot > 0 && is_part_overutil(false)) {
                 auto &move_cell = cut_cells.at(pivot);
                 int size = p->chain_size.count(move_cell->name) ? p->chain_size.at(move_cell->name) : 1;
-                left_cells_v.at(cell_index(*cut_cells.at(pivot))) -= size;
-                right_cells_v.at(cell_index(*cut_cells.at(pivot))) += size;
+                left_cells_v.at(cell_index(*move_cell)) -= size;
+                right_cells_v.at(cell_index(*move_cell)) += size;
                 pivot--;
             }
             while (pivot < int(cut_cells.size()) - 1 && is_part_overutil(true)) {
                 auto &move_cell = cut_cells.at(pivot + 1);
                 int size = p->chain_size.count(move_cell->name) ? p->chain_size.at(move_cell->name) : 1;
-                left_cells_v.at(cell_index(*cut_cells.at(pivot))) += size;
-                right_cells_v.at(cell_index(*cut_cells.at(pivot))) -= size;
+                left_cells_v.at(cell_index(*move_cell)) += size;
+                right_cells_v.at(cell_index(*move_cell)) -= size;
                 pivot++;
             }
 
