@@ -50,6 +50,7 @@ bool XilinxImpl::xc7_logic_tile_valid(IdString tile_type, const LogicTileStatus 
     if (lts.cells[(3 << 4) | BEL_5LUT] != nullptr && get_tags(lts.cells[(3 << 4) | BEL_5LUT])->lut.is_memory)
         small_memory = true;
     NetInfo *wclk = nullptr;
+    bool wclk_inv = false;
     // The SLICEM write enable (WEMUX_OUT) is a single per-slice signal shared
     // by all LUTRAM WE and SRL CE pins, exactly like the shared write clock.
     NetInfo *we = nullptr;
@@ -74,9 +75,11 @@ bool XilinxImpl::xc7_logic_tile_valid(IdString tile_type, const LogicTileStatus 
                     return false;
                 }
                 if (lut6->lut.is_memory || lut6->lut.is_srl) {
-                    if (wclk == nullptr)
+                    if (wclk == nullptr) {
                         wclk = lut6->lut.wclk;
-                    else if (lut6->lut.wclk != wclk) {
+                        wclk_inv = lut6->lut.wclk_inv;
+                    }
+                    else if (lut6->lut.wclk != wclk || lut6->lut.wclk_inv != wclk_inv) {
                         DBG();
                         return false;
                     }
@@ -123,9 +126,11 @@ bool XilinxImpl::xc7_logic_tile_valid(IdString tile_type, const LogicTileStatus 
                     return false; // Memory and SRLs only valid in SLICEMs
                 }
                 if (lut5->lut.is_memory || lut5->lut.is_srl) {
-                    if (wclk == nullptr)
+                    if (wclk == nullptr) {
                         wclk = lut5->lut.wclk;
-                    else if (lut5->lut.wclk != wclk) {
+                        wclk_inv = lut5->lut.wclk_inv;
+                    }
+                    else if (lut5->lut.wclk != wclk || lut5->lut.wclk_inv != wclk_inv) {
                         DBG();
                         return false;
                     }
@@ -300,6 +305,7 @@ bool XilinxImpl::xc7_logic_tile_valid(IdString tile_type, const LogicTileStatus 
                             continue;
                         if (lut->lut.wclk != nullptr) {
                             wclk = lut->lut.wclk;
+                            wclk_inv = lut->lut.wclk_inv;
                             break;
                         }
                     }
@@ -347,13 +353,14 @@ bool XilinxImpl::xc7_logic_tile_valid(IdString tile_type, const LogicTileStatus 
                         }
                     } else {
                         clk = ff->ff.clk;
-                        if (i == 0 && wclk != nullptr && clk != wclk) {
+                        clkinv = ff->ff.is_clkinv;
+
+                        if (i == 0 && wclk != nullptr && (clk != wclk || clkinv != wclk_inv)) {
                             DBG();
                             return false;
                         }
                         sr = ff->ff.sr;
                         ce = ff->ff.ce;
-                        clkinv = ff->ff.is_clkinv;
                         srinv = ff->ff.is_srinv;
                         islatch = ff->ff.is_latch;
                         ffsync = ff->ff.ffsync;
