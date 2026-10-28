@@ -40,6 +40,7 @@ struct XilinxCellTags
             int input_count, output_count;
             int memory_group;
             bool only_drives_carry;
+            bool wclk_inv;
             NetInfo *input_sigs[6], *output_sigs[2];
             NetInfo *address_msb[3];
             NetInfo *di1_net, *di2_net, *wclk, *we;

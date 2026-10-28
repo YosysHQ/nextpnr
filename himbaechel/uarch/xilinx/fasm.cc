@@ -487,7 +487,6 @@ struct FasmBackend
     void write_ffs_config(int tile, int half)
     {
         bool found_ff = false;
-        bool negedge_ff = false;
         bool is_latch = false;
         bool is_sync = false;
         bool is_clkinv = false;
@@ -512,9 +511,16 @@ struct FasmBackend
         push(get_half_name(half, boost::contains(tname, "CLBLM")));
 
         for (int i = 0; i < 4; i++) {
+            CellInfo *lut6 = lts->cells[(half << 6) | (i << 4) | BEL_6LUT];
+            CellInfo *lut5 = lts->cells[(half << 6) | (i << 4) | BEL_5LUT];
+
             CellInfo *ff1 = lts->cells[(half << 6) | (i << 4) | BEL_FF];
             CellInfo *ff2 = lts->cells[(half << 6) | (i << 4) | BEL_FF2];
             for (int j = 0; j < 2; j++) {
+                CellInfo *lut = (j == 1) ? lut5 : lut6;
+                if (lut && lut->getPort(id_CLK)) {
+                    SET_CHECK(is_clkinv, (int_or_default(lut->params, id_IS_WCLK_INVERTED) == 1) || (int_or_default(lut->params, id_IS_CLK_INVERTED) == 1));
+                }
                 CellInfo *ff = (j == 1) ? ff2 : ff1;
                 if (ff == nullptr)
                     continue;
@@ -525,42 +531,42 @@ struct FasmBackend
                 std::string type = str_or_default(ff->attrs, id_X_ORIG_TYPE, "");
                 if (type == "FDRE") {
                     zrst = true;
-                    SET_CHECK(negedge_ff, false);
+                    SET_CHECK(is_clkinv, int_or_default(ff->params, id_IS_C_INVERTED) == 1);
                     SET_CHECK(is_latch, false);
                     SET_CHECK(is_sync, true);
                 } else if (type == "FDRE_1") {
                     zrst = true;
-                    SET_CHECK(negedge_ff, true);
+                    SET_CHECK(is_clkinv, true);
                     SET_CHECK(is_latch, false);
                     SET_CHECK(is_sync, true);
                 } else if (type == "FDSE") {
                     zrst = false;
-                    SET_CHECK(negedge_ff, false);
+                    SET_CHECK(is_clkinv, int_or_default(ff->params, id_IS_C_INVERTED) == 1);
                     SET_CHECK(is_latch, false);
                     SET_CHECK(is_sync, true);
                 } else if (type == "FDSE_1") {
                     zrst = false;
-                    SET_CHECK(negedge_ff, true);
+                    SET_CHECK(is_clkinv, true);
                     SET_CHECK(is_latch, false);
                     SET_CHECK(is_sync, true);
                 } else if (type == "FDCE") {
                     zrst = true;
-                    SET_CHECK(negedge_ff, false);
+                    SET_CHECK(is_clkinv, int_or_default(ff->params, id_IS_C_INVERTED) == 1);
                     SET_CHECK(is_latch, false);
                     SET_CHECK(is_sync, false);
                 } else if (type == "FDCE_1") {
                     zrst = true;
-                    SET_CHECK(negedge_ff, true);
+                    SET_CHECK(is_clkinv, true);
                     SET_CHECK(is_latch, false);
                     SET_CHECK(is_sync, false);
                 } else if (type == "FDPE") {
                     zrst = false;
-                    SET_CHECK(negedge_ff, false);
+                    SET_CHECK(is_clkinv, int_or_default(ff->params, id_IS_C_INVERTED) == 1);
                     SET_CHECK(is_latch, false);
                     SET_CHECK(is_sync, false);
                 } else if (type == "FDPE_1") {
                     zrst = false;
-                    SET_CHECK(negedge_ff, true);
+                    SET_CHECK(is_clkinv, true);
                     SET_CHECK(is_latch, false);
                     SET_CHECK(is_sync, false);
                 } else {
@@ -571,10 +577,7 @@ struct FasmBackend
                 write_bit("ZRST", zrst);
 
                 pop();
-                if (negedge_ff)
-                    SET_CHECK(is_clkinv, true);
-                else
-                    SET_CHECK(is_clkinv, int_or_default(ff->params, id_IS_C_INVERTED) == 1);
+
 
                 NetInfo *sr = ff->getPort(id_SR), *ce = ff->getPort(id_CE);
 
