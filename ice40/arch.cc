@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <cmath>
 #include "cells.h"
+#include "chains.h"
 #include "embed.h"
 #include "gfx.h"
 #include "log.h"
@@ -656,6 +657,7 @@ std::vector<GroupId> Arch::getGroupGroups(GroupId group) const
 bool Arch::place()
 {
     std::string placer = str_or_default(settings, id_placer, defaultPlacer);
+    auto run_placer = [&]() -> bool {
     if (placer == "heap") {
         PlacerHeapCfg cfg(getCtx());
         cfg.ioBufTypes.insert(id_SB_IO);
@@ -743,6 +745,48 @@ bool Arch::place()
             return false;
     } else {
         log_error("iCE40 architecture does not support placer '%s'\n", placer.c_str());
+    }
+    return true;
+    };
+    // Near full utilisation the placers can fail to find a legal tile for the last logic cells; then the cells are
+    // packed into tile-sized clusters (pack_tiles, also forced with --pack-tiles) and placed again.
+    bool tiles = bool_or_default(settings, id_pack_tiles, false);
+    TilePacking packing;
+    if (tiles)
+        packing = pack_tiles(getCtx());
+    pool<IdString> user_bels; // cells with a BEL attribute before placement (the SA placer writes one for every cell)
+    for (auto &cell : cells)
+        if (cell.second->attrs.count(id_BEL))
+            user_bels.insert(cell.first);
+    bool placed = false;
+    try {
+        placed = run_placer();
+    } catch (log_execution_error_exception) {
+        if (tiles)
+            throw;
+    }
+    if (!placed && !tiles) {
+        log_info("Placement failed; placing again with the logic cells packed into tiles (--pack-tiles).\n");
+        // the SA placer places cells one by one, ignoring the tile clusters
+        if (placer == "sa")
+            placer = "heap";
+        for (auto &cell : cells) {
+            if (cell.second->bel != BelId())
+                unbindBel(cell.second->bel);
+            if (!user_bels.count(cell.first))
+                cell.second->attrs.erase(id_BEL);
+        }
+        packing = pack_tiles(getCtx());
+        tiles = placed = run_placer();
+    }
+    if (!placed)
+        return false;
+    if (tiles) {
+        // the tile clusters were only a way to a legal placement: refine it cell by cell
+        unpack_tiles(packing);
+        log_info("Refining the placement cell by cell.\n");
+        if (!placer1_refine(getCtx(), Placer1Cfg(getCtx())))
+            return false;
     }
     bool retVal = true;
     if (bool_or_default(settings, id_opt_timing, false)) {

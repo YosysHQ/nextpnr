@@ -19,6 +19,12 @@
 
 #include "chains.h"
 #include <algorithm>
+#include <array>
+#include <map>
+#include <set>
+#include <tuple>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include "cells.h"
 #include "chain_utils.h"
@@ -280,6 +286,326 @@ void constrain_chains(Context *ctx)
 {
     log_info("Constraining chains...\n");
     ChainConstrainer(ctx).constrain_chains();
+}
+
+// Tile packing: group the logic cells into clusters of one tile each, every cluster with one control set (clock,
+// enable, set/reset, clock polarity) and at most 32 local inputs, chosen by shared nets. Free slots of carry chain
+// tiles are filled the same way. The placers then move legal tiles; placing cells one by one, they can fail to find a
+// legal tile for the last cells of a design near full utilisation.
+struct TilePacker
+{
+    Context *ctx;
+    TilePacker(Context *ctx) : ctx(ctx) {};
+
+    struct Bin
+    {
+        std::array<CellInfo *, 8> cells{};
+        CellInfo *chain_root = nullptr; // carry chain tile: its cells stay, free slots are filled
+        int dy = 0;
+        bool has_ff = false, neg = false;
+        const NetInfo *clk = nullptr, *cen = nullptr, *sr = nullptr;
+        int locals = 0, used = 0;
+        std::unordered_map<const NetInfo *, int> nets;
+    };
+    std::vector<Bin> bins;
+    TilePacking packing;
+    std::unordered_map<const CellInfo *, int> bin_of;
+    std::unordered_map<const CellInfo *, std::vector<const NetInfo *>> cell_nets;
+
+    static int ctrl_locals(const CellInfo *ci)
+    {
+        int n = 0;
+        for (auto net : {ci->lcInfo.clk, ci->lcInfo.cen, ci->lcInfo.sr})
+            if (net != nullptr && !net->is_global)
+                n++;
+        return n;
+    }
+
+    const std::vector<const NetInfo *> &nets_of(const CellInfo *ci)
+    {
+        auto found = cell_nets.find(ci);
+        if (found != cell_nets.end())
+            return found->second;
+        auto &nets = cell_nets[ci];
+        for (auto port : {id_I0, id_I1, id_I2, id_I3, id_O}) {
+            const NetInfo *net = ci->getPort(port);
+            // global and high fanout nets say little about which cells belong together
+            if (net != nullptr && !net->is_global && net->users.entries() <= 32)
+                nets.push_back(net);
+        }
+        return nets;
+    }
+
+    bool fits(const Bin &b, const CellInfo *ci) const
+    {
+        if (b.used >= 8)
+            return false;
+        int locals = b.locals + ci->lcInfo.inputCount;
+        if (ci->lcInfo.dffEnable) {
+            if (b.has_ff) {
+                if (ci->lcInfo.clk != b.clk || ci->lcInfo.cen != b.cen || ci->lcInfo.sr != b.sr ||
+                    ci->lcInfo.negClk != b.neg)
+                    return false;
+            } else {
+                locals += ctrl_locals(ci);
+            }
+        }
+        return locals <= 32;
+    }
+
+    void add(int bi, CellInfo *ci, int slot)
+    {
+        Bin &b = bins.at(bi);
+        NPNR_ASSERT(b.cells.at(slot) == nullptr);
+        b.cells.at(slot) = ci;
+        b.used++;
+        b.locals += ci->lcInfo.inputCount;
+        if (ci->lcInfo.dffEnable && !b.has_ff) {
+            b.has_ff = true;
+            b.clk = ci->lcInfo.clk;
+            b.cen = ci->lcInfo.cen;
+            b.sr = ci->lcInfo.sr;
+            b.neg = ci->lcInfo.negClk;
+            b.locals += ctrl_locals(ci);
+        }
+        for (auto net : nets_of(ci))
+            b.nets[net]++;
+        bin_of[ci] = bi;
+    }
+
+    void add(int bi, CellInfo *ci)
+    {
+        Bin &b = bins.at(bi);
+        for (int z = 0; z < 8; z++)
+            if (b.cells.at(z) == nullptr) {
+                add(bi, ci, z);
+                return;
+            }
+        NPNR_ASSERT_FALSE("no free slot");
+    }
+
+    // the unassigned cell of the candidate list that shares the most nets with the bin and fits; nullptr if none
+    // shares a net
+    CellInfo *best_connected(int bi, const std::unordered_set<CellInfo *> &candidates)
+    {
+        const Bin &b = bins.at(bi);
+        CellInfo *best = nullptr;
+        int best_score = 0;
+        for (auto &net_count : b.nets) {
+            const NetInfo *net = net_count.first;
+            auto consider = [&](CellInfo *ci) {
+                if (ci == nullptr || !candidates.count(ci) || !fits(b, ci))
+                    return;
+                int score = 0;
+                for (auto n : nets_of(ci)) {
+                    auto f = b.nets.find(n);
+                    if (f != b.nets.end())
+                        score += f->second;
+                }
+                if (score > best_score || (score == best_score && best != nullptr && ci->name < best->name)) {
+                    best = ci;
+                    best_score = score;
+                }
+            };
+            consider(net->driver.cell);
+            for (auto &usr : net->users)
+                consider(usr.cell);
+        }
+        return best;
+    }
+
+    // fill the bin from the candidates: connected cells first, then (if fill_any) any cell that fits
+    void fill(int bi, std::unordered_set<CellInfo *> &candidates, std::vector<CellInfo *> &order, size_t &next, bool fill_any)
+    {
+        while (bins.at(bi).used < 8) {
+            CellInfo *ci = best_connected(bi, candidates);
+            if (ci == nullptr && fill_any) {
+                for (; next < order.size(); next++)
+                    if (candidates.count(order.at(next)) && fits(bins.at(bi), order.at(next)))
+                        break;
+                if (next < order.size())
+                    ci = order.at(next);
+            }
+            if (ci == nullptr)
+                return;
+            candidates.erase(ci);
+            add(bi, ci);
+        }
+    }
+
+    void run()
+    {
+        int tiles = 0;
+        {
+            std::set<std::pair<int, int>> lc_tiles;
+            for (auto bel : ctx->getBels())
+                if (ctx->getBelType(bel) == id_ICESTORM_LC) {
+                    Loc l = ctx->getBelLocation(bel);
+                    lc_tiles.insert(std::make_pair(l.x, l.y));
+                }
+            tiles = int(lc_tiles.size());
+        }
+        // carry chain tiles
+        int chain_bins = 0;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->type != id_ICESTORM_LC || ci->cluster != ci->name)
+                continue;
+            packing.chains.emplace_back(ci, ci->constr_children.size());
+            std::map<int, int> bin_at;
+            auto place = [&](CellInfo *c, int dy, int z) {
+                if (!bin_at.count(dy)) {
+                    bin_at[dy] = int(bins.size());
+                    bins.emplace_back();
+                    bins.back().chain_root = ci;
+                    bins.back().dy = dy;
+                    chain_bins++;
+                }
+                add(bin_at.at(dy), c, z);
+            };
+            place(ci, 0, ci->constr_z);
+            for (auto child : ci->constr_children)
+                place(child, child->constr_y, child->constr_z);
+        }
+        // the free cells, flip-flops by control set
+        std::vector<CellInfo *> comb;
+        std::vector<std::vector<CellInfo *>> ff_sets;
+        std::map<std::tuple<const NetInfo *, const NetInfo *, const NetInfo *, bool>, int> set_index;
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->type != id_ICESTORM_LC || ci->cluster != ClusterId() || ci->attrs.count(id_BEL))
+                continue;
+            // constant drivers ($PACKER_GND/VCC) are placed on their own by the placers
+            if (!ci->lcInfo.dffEnable && ci->lcInfo.inputCount == 0)
+                continue;
+            if (!ci->lcInfo.dffEnable) {
+                comb.push_back(ci);
+                continue;
+            }
+            auto key = std::make_tuple(ci->lcInfo.clk, ci->lcInfo.cen, ci->lcInfo.sr, bool(ci->lcInfo.negClk));
+            if (!set_index.count(key)) {
+                set_index[key] = int(ff_sets.size());
+                ff_sets.emplace_back();
+            }
+            ff_sets.at(set_index.at(key)).push_back(ci);
+        }
+        int packed = 0;
+        for (auto &set : ff_sets) {
+            std::unordered_set<CellInfo *> candidates(set.begin(), set.end());
+            size_t next = 0;
+            // chain tiles with this control set first, then new tiles
+            for (int bi = 0; bi < chain_bins; bi++) {
+                const Bin &b = bins.at(bi);
+                if (b.has_ff && b.clk == set.front()->lcInfo.clk && b.cen == set.front()->lcInfo.cen &&
+                    b.sr == set.front()->lcInfo.sr && b.neg == bool(set.front()->lcInfo.negClk))
+                    fill(bi, candidates, set, next, true);
+            }
+            while (!candidates.empty()) {
+                for (; next < set.size(); next++)
+                    if (candidates.count(set.at(next)))
+                        break;
+                NPNR_ASSERT(next < set.size());
+                CellInfo *seed = set.at(next);
+                candidates.erase(seed);
+                bins.emplace_back();
+                add(int(bins.size()) - 1, seed);
+                fill(int(bins.size()) - 1, candidates, set, next, true);
+            }
+            packed += int(set.size());
+        }
+        // combinational cells: into free slots of tiles they connect to, the rest into new tiles
+        {
+            std::unordered_set<CellInfo *> candidates(comb.begin(), comb.end());
+            size_t next = 0;
+            int nbins = int(bins.size());
+            for (int bi = 0; bi < nbins; bi++)
+                fill(bi, candidates, comb, next, false);
+            next = 0;
+            // without enough free tiles for the rest (and a few spare, which the placers need to legalise), use the free
+            // slots of the other tiles too
+            int spare = std::max(2, tiles / 50);
+            if (nbins + (int(candidates.size()) + 7) / 8 > tiles - spare)
+                for (int bi = 0; bi < nbins && !candidates.empty(); bi++)
+                    fill(bi, candidates, comb, next, true);
+            next = 0;
+            while (!candidates.empty()) {
+                for (; next < comb.size(); next++)
+                    if (candidates.count(comb.at(next)))
+                        break;
+                NPNR_ASSERT(next < comb.size());
+                CellInfo *seed = comb.at(next);
+                candidates.erase(seed);
+                bins.emplace_back();
+                add(int(bins.size()) - 1, seed);
+                fill(int(bins.size()) - 1, candidates, comb, next, true);
+            }
+            packed += int(comb.size());
+        }
+        // clusters
+        int clusters = 0;
+        for (auto &b : bins) {
+            if (b.chain_root != nullptr) {
+                for (int z = 0; z < 8; z++) {
+                    CellInfo *ci = b.cells.at(z);
+                    if (ci == nullptr || ci->cluster != ClusterId())
+                        continue;
+                    ci->cluster = b.chain_root->name;
+                    ci->constr_x = 0;
+                    ci->constr_y = b.dy;
+                    ci->constr_z = z;
+                    ci->constr_abs_z = true;
+                    b.chain_root->constr_children.push_back(ci);
+                    packing.cells.push_back(ci);
+                }
+                continue;
+            }
+            if (b.used == 0)
+                continue;
+            CellInfo *root = nullptr;
+            for (int z = 0; z < 8; z++) {
+                CellInfo *ci = b.cells.at(z);
+                if (ci == nullptr)
+                    continue;
+                ci->constr_abs_z = true;
+                ci->constr_z = z;
+                packing.cells.push_back(ci);
+                if (root == nullptr) {
+                    root = ci;
+                    ci->cluster = ci->name;
+                } else {
+                    ci->cluster = root->name;
+                    ci->constr_x = 0;
+                    ci->constr_y = 0;
+                    root->constr_children.push_back(ci);
+                }
+            }
+            clusters++;
+        }
+        int used_tiles = int(bins.size());
+        log_info("Tile packing: %d LCs into %d tiles (%d with carry chains) of %d, %d control sets\n", packed,
+                 used_tiles, chain_bins, tiles, int(ff_sets.size()));
+        if (used_tiles > tiles)
+            log_warning("Tile packing needs %d tiles, the device has %d logic tiles\n", used_tiles, tiles);
+    }
+};
+
+TilePacking pack_tiles(Context *ctx)
+{
+    TilePacker packer(ctx);
+    packer.run();
+    return packer.packing;
+}
+
+void unpack_tiles(const TilePacking &packing)
+{
+    for (auto &chain : packing.chains)
+        chain.first->constr_children.resize(chain.second);
+    for (auto ci : packing.cells) {
+        ci->cluster = ClusterId();
+        ci->constr_x = ci->constr_y = ci->constr_z = 0;
+        ci->constr_abs_z = false;
+        ci->constr_children.clear();
+    }
 }
 
 NEXTPNR_NAMESPACE_END

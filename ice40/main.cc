@@ -81,6 +81,8 @@ po::options_description Ice40CommandHandler::getArchOptions()
     specific.add_options()("no-promote-globals", "disable all global promotion");
     specific.add_options()("no-promote-ce", "disable promotion of 'ce' globals");
     specific.add_options()("opt-timing", "run post-placement timing optimisation pass (experimental)");
+    specific.add_options()("pack-tiles", "pack logic cells into tile-sized clusters before placement (for designs near "
+                                         "full utilisation)");
     specific.add_options()("pcf-allow-unconstrained", "don't require PCF to constrain all IO");
 
     return specific;
@@ -267,6 +269,8 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(dict<std::string, Pr
         ctx->settings[id_no_promote_ce] = Property::State::S1;
     if (vm.count("opt-timing"))
         ctx->settings[id_opt_timing] = Property::State::S1;
+    if (vm.count("pack-tiles"))
+        ctx->settings[id_pack_tiles] = Property::State::S1;
     if (vm.count("pcf-allow-unconstrained"))
         ctx->settings[id_pcf_allow_unconstrained] = Property::State::S1;
     return ctx;
