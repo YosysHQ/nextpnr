@@ -604,8 +604,17 @@ static void pack_io(Context *ctx)
     }
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
-        if (is_sb_gb_io(ctx, ci)) {
-            // If something is connecto the GLOBAL OUTPUT, create the fake 'matching' SB_GB
+        if (is_sb_gb_io(ctx, ci) && (!ci->ports.count(id_GLOBAL_BUFFER_OUTPUT) ||
+                                     ci->ports.at(id_GLOBAL_BUFFER_OUTPUT).net == nullptr ||
+                                     ci->ports.at(id_GLOBAL_BUFFER_OUTPUT).net->users.entries() == 0)) {
+            // Global output unused: a plain SB_IO, also on pads without a global buffer (as iCEcube2)
+            if (ci->ports.count(id_GLOBAL_BUFFER_OUTPUT)) {
+                ci->disconnectPort(id_GLOBAL_BUFFER_OUTPUT);
+                ci->ports.erase(id_GLOBAL_BUFFER_OUTPUT);
+            }
+            ci->type = id_SB_IO;
+        } else if (is_sb_gb_io(ctx, ci)) {
+            // If something is connected to the GLOBAL OUTPUT, create the fake 'matching' SB_GB
             std::unique_ptr<CellInfo> gb =
                     create_padin_gbuf(ctx, ci, id_GLOBAL_BUFFER_OUTPUT, "$gbuf_" + ci->name.str(ctx) + "_io");
             new_cells.push_back(std::move(gb));
