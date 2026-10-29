@@ -36,7 +36,8 @@ ierens = list()
 extra_cells = dict()
 extra_cell_config = dict()
 packages = list()
-glbinfo = dict([(i, {}) for i in range(8)])
+glbinfo = dict([(i, {'gb_x': 255, 'gb_y': 255, 'pi_gb_x': 255, 'pi_gb_y': 255, 'pi_gb_pio': 255,
+                     'pi_eb_bank': 255, 'pi_eb_x': 65535, 'pi_eb_y': 65535}) for i in range(8)])
 
 wire_belports = dict()
 
@@ -845,7 +846,8 @@ def add_bel_io(x, y, z):
 
     wire_cen   = wire_names[(x, y, "io_global/cen")]
     wire_iclk  = wire_names[(x, y, "io_global/inclk")]
-    wire_latch = wire_names[(x, y, "io_global/latch")]
+    # not every device has a known IO latch source
+    wire_latch = wire_names.get((x, y, "io_global/latch"))
     wire_oclk  = wire_names[(x, y, "io_global/outclk")]
 
     wire_din_0  = wire_names[(x, y, "io_%d/D_IN_0"  % z)]
@@ -857,7 +859,8 @@ def add_bel_io(x, y, z):
     add_bel_input(bel, wire_cen,    "CLOCK_ENABLE")
     add_bel_input(bel, wire_iclk,   "INPUT_CLK")
     add_bel_input(bel, wire_oclk,   "OUTPUT_CLK")
-    add_bel_input(bel, wire_latch,  "LATCH_INPUT_VALUE")
+    if wire_latch is not None:
+        add_bel_input(bel, wire_latch,  "LATCH_INPUT_VALUE")
 
     add_bel_output(bel, wire_din_0, "D_IN_0")
     add_bel_output(bel, wire_din_1, "D_IN_1")
