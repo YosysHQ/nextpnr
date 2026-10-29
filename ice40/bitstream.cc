@@ -19,6 +19,7 @@
  *
  */
 #include "bitstream.h"
+#include <algorithm>
 #include <cctype>
 #include <vector>
 #include "cells.h"
@@ -158,6 +159,22 @@ static void set_ec_cbit(chipconfig_t &config, const Context *ctx, const BelConfi
     else
         log_warning("failed to config extra cell config bit %s to zero (ignored, maybe update icestorm ?)\n",
                     name.c_str());
+}
+
+// UL1K VPP_2V5_TO_1P8V: an attribute of the top-level module (iCEcube2 ignores it on cells)
+static bool ul1k_vpp_1p8v(const Context *ctx)
+{
+    auto found = ctx->attrs.find(id_VPP_2V5_TO_1P8V);
+    if (found == ctx->attrs.end())
+        return false;
+    if (!found->second.is_string)
+        return found->second.as_bool();
+    std::string v = found->second.as_string();
+    if (v == "1" || v == "true")
+        return true;
+    if (v == "0" || v == "false" || v.empty())
+        return false;
+    log_error("VPP_2V5_TO_1P8V of the top-level module must be 1, 0, \"true\" or \"false\", not \"%s\"\n", v.c_str());
 }
 
 void configure_extra_cell(chipconfig_t &config, const Context *ctx, CellInfo *cell,
@@ -323,6 +340,9 @@ void write_asc(const Context *ctx, std::ostream &out)
     case ArchArgs::U4K:
         out << ".device u4k" << std::endl;
         break;
+    case ArchArgs::UL1K:
+        out << ".device ul1k" << std::endl;
+        break;
     default:
         NPNR_ASSERT_FALSE("unsupported device type\n");
     }
@@ -392,6 +412,7 @@ void write_asc(const Context *ctx, std::ostream &out)
 
     // Scan for PLL and collects the affected SB_IOs
     pool<Loc> sb_io_used_by_pll_out;
+    pool<Loc> sb_io_used_by_pll_out_a;
     pool<Loc> sb_io_used_by_pll_pad;
 
     for (auto &cell : ctx->cells) {
@@ -423,6 +444,8 @@ void write_asc(const Context *ctx, std::ostream &out)
 
             // Mark this SB_IO as being used by a PLL output path
             sb_io_used_by_pll_out.insert(io_bel_loc);
+            if (port == id_PLLOUT_A)
+                sb_io_used_by_pll_out_a.insert(io_bel_loc);
 
             // If this is a PAD PLL, and this is the 'PLLOUT_A' port, then the same SB_IO is also PAD
             if (port == id_PLLOUT_A && is_sb_pll40_pad(ctx, cell.second.get()))
@@ -565,7 +588,10 @@ void write_asc(const Context *ctx, std::ostream &out)
                     set_config(ti, config.at(iey).at(iex), "IoCtrl.REN_" + std::to_string(iez), !pullup);
                 }
 
-                if (ctx->args.type == ArchArgs::UP5K || ctx->args.type == ArchArgs::UP3K) {
+                // UL1K: iCEcube2 encodes the pull-up resistors as on the UP5K (same code), except on the IO of the
+                // PLL's port A (the input pad of the SB_PLL40_*PAD types)
+                if (ctx->args.type == ArchArgs::UP5K || ctx->args.type == ArchArgs::UP3K ||
+                    (ctx->args.type == ArchArgs::UL1K && !used_by_pll_out)) {
                     std::string pullup_resistor = "100K";
                     if (cell.second->attrs.count(id_PULLUP_RESISTOR))
                         pullup_resistor = cell.second->attrs.at(id_PULLUP_RESISTOR).as_string();
@@ -661,7 +687,43 @@ void write_asc(const Context *ctx, std::ostream &out)
                     {"CURRENT_MODE", 1}, {"RGB0_CURRENT", 6}, {"RGB1_CURRENT", 6}, {"RGB2_CURRENT", 6}};
             configure_extra_cell(config, ctx, cell.second.get(), rgba_params, true, std::string("IpConfig."));
             set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "RGBA_DRV_EN", true, "IpConfig.");
-        } else if (cell.second->type.in(id_SB_WARMBOOT, id_ICESTORM_LFOSC, id_SB_LEDDA_IP)) {
+            // UL1K: iCEcube2 also sets this bit whenever the RGB driver is used
+            if (ctx->args.type == ArchArgs::UL1K)
+                set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, cell.second->bel), "LED_DRV_CUR_EN", true,
+                            "IpConfig.");
+        } else if (cell.second->type.in(id_SB_IR400_DRV, id_SB_IR500_DRV, id_SB_BARCODE_DRV)) {
+            // UL1K IR and barcode drivers, encoded as in iCEcube2 builds
+            const auto &ec = get_ec_config(ctx->chip_info, cell.second->bel);
+            if (cell.second->type == id_SB_IR400_DRV) {
+                configure_extra_cell(config, ctx, cell.second.get(), {{"CURRENT_MODE", 1}, {"IR400_CURRENT", 8}}, true,
+                                     std::string("IpConfig."));
+                set_ec_cbit(config, ctx, ec, "IR400_DRV_EN", true, "IpConfig.");
+            } else if (cell.second->type == id_SB_IR500_DRV) {
+                configure_extra_cell(config, ctx, cell.second.get(), {{"CURRENT_MODE", 1}, {"IR500_CURRENT", 12}}, true,
+                                     std::string("IpConfig."));
+                for (auto en : {"IR500_DRV_EN", "IR500_IR_EN", "IR500_BARCODE_EN"})
+                    set_ec_cbit(config, ctx, ec, en, true, "IpConfig.");
+            } else {
+                configure_extra_cell(config, ctx, cell.second.get(), {{"CURRENT_MODE", 1}, {"BARCODE_CURRENT", 4}},
+                                     true, std::string("IpConfig."));
+                set_ec_cbit(config, ctx, ec, "BARCODE_DRV_EN", true, "IpConfig.");
+            }
+        } else if (cell.second->type == id_SB_I2C_FIFO) {
+            // UL1K I2C: the enable bits of the core's pad tile and the SDA delays (iCEcube2 defaults: input delay on,
+            // output delay off)
+            const auto &ec = get_ec_config(ctx->chip_info, cell.second->bel);
+            auto flag = [&](IdString name, bool def) {
+                if (cell.second->attrs.count(name))
+                    return cell.second->attrs.at(name).as_bool();
+                if (cell.second->params.count(name))
+                    return cell.second->params.at(name).as_bool();
+                return def;
+            };
+            set_ec_cbit(config, ctx, ec, "SDA_INPUT_DELAYED", flag(id_SDA_INPUT_DELAYED, true), "IpConfig.");
+            set_ec_cbit(config, ctx, ec, "SDA_OUTPUT_DELAYED", flag(id_SDA_OUTPUT_DELAYED, false), "IpConfig.");
+            set_ec_cbit(config, ctx, ec, "I2C_ENABLE_0", true, "IpConfig.");
+            set_ec_cbit(config, ctx, ec, "I2C_ENABLE_1", true, "IpConfig.");
+        } else if (cell.second->type.in(id_SB_WARMBOOT, id_ICESTORM_LFOSC, id_SB_LEDDA_IP, id_SB_IR_IP)) {
             // No config needed
         } else if (cell.second->type == id_SB_I2C) {
             bool sda_in_dly = !cell.second->attrs.count(id_SDA_INPUT_DELAYED) ||
@@ -735,7 +797,8 @@ void write_asc(const Context *ctx, std::ostream &out)
             configure_extra_cell(config, ctx, cell.second.get(), mac16_params, false, std::string("IpConfig."));
         } else if (cell.second->type == id_ICESTORM_HFOSC) {
             std::vector<std::pair<std::string, int>> hfosc_params = {{"CLKHF_DIV", 2}};
-            if (ctx->args.type != ArchArgs::U4K && ctx->args.type != ArchArgs::U1K && ctx->args.type != ArchArgs::U2K)
+            if (ctx->args.type != ArchArgs::U4K && ctx->args.type != ArchArgs::U1K && ctx->args.type != ArchArgs::U2K &&
+                ctx->args.type != ArchArgs::UL1K)
                 hfosc_params.push_back(std::pair<std::string, int>("TRIM_EN", 1));
             configure_extra_cell(config, ctx, cell.second.get(), hfosc_params, true, std::string("IpConfig."));
 
@@ -759,6 +822,16 @@ void write_asc(const Context *ctx, std::ostream &out)
             configure_extra_cell(config, ctx, cell.second.get(), pll_params, false, std::string("PLL."));
         } else {
             NPNR_ASSERT(false);
+        }
+    }
+    // UL1K: VPP_2V5_TO_1P8V (VPP_2V5 at 1.8 V) of the top-level module sets one bit for each oscillator and one shared
+    // by the LED drivers in the design, as iCEcube2 does
+    if (ctx->args.type == ArchArgs::UL1K && ul1k_vpp_1p8v(ctx)) {
+        for (auto &cell : ctx->cells) {
+            CellInfo *ci = cell.second.get();
+            if (ci->type.in(id_ICESTORM_HFOSC, id_ICESTORM_LFOSC, id_SB_RGBA_DRV, id_SB_IR400_DRV, id_SB_IR500_DRV,
+                            id_SB_BARCODE_DRV))
+                set_ec_cbit(config, ctx, get_ec_config(ctx->chip_info, ci->bel), "VPP_2V5_TO_1P8V", true, "IpConfig.");
         }
     }
     // Set config bits in unused IO and RAM
@@ -822,8 +895,25 @@ void write_asc(const Context *ctx, std::ostream &out)
             } else if (ctx->args.type == ArchArgs::U4K || ctx->args.type == ArchArgs::U1K ||
                        ctx->args.type == ArchArgs::U2K) {
                 setColBufCtrl = (y == 4 || y == 5 || y == 16 || y == 17);
+            } else if (ctx->args.type == ArchArgs::UL1K) {
+                setColBufCtrl = (y == 2 || y == 3 || y == 10 || y == 11);
             } else if (ctx->args.type == ArchArgs::LP384) {
                 setColBufCtrl = false;
+            }
+
+            // UL1K: iCEcube2 sets padeb_test_<z> for every IO z that does not drive
+            // an output (unused and input-only), and clears it for outputs and for the
+            // IO of the PLL's port A.
+            if (ctx->args.type == ArchArgs::UL1K && tile == TILE_IO) {
+                for (int z = 0; z < 2; z++) {
+                    BelId io_bel = ctx->getBelByLocation(Loc(x, y, z));
+                    const CellInfo *io_cell = (io_bel != BelId()) ? ctx->getBoundBelCell(io_bel) : nullptr;
+                    bool drives = false;
+                    if (io_cell != nullptr && io_cell->type == id_SB_IO)
+                        drives = ((get_param_or_def(ctx, io_cell, id_PIN_TYPE) >> 2) & 0xF) != 0;
+                    drives |= sb_io_used_by_pll_out_a.count(Loc(x, y, z)) > 0;
+                    set_config(ti, config.at(y).at(x), "IoCtrl.padeb_test_" + std::to_string(z), !drives);
+                }
             }
             if (setColBufCtrl) {
                 set_config(ti, config.at(y).at(x), "ColBufCtrl.glb_netwk_0", true);
@@ -966,6 +1056,9 @@ void read_config(Context *ctx, std::istream &in, chipconfig_t &config)
                 case ArchArgs::U2K:
                 case ArchArgs::U4K:
                     expected = "u4k";
+                    break;
+                case ArchArgs::UL1K:
+                    expected = "ul1k";
                     break;
                 default:
                     log_error("unsupported device type\n");

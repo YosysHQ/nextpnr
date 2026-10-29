@@ -65,7 +65,7 @@ struct model_params_t
             return model_lp8k;
 
         if (args.type == ArchArgs::UP3K || args.type == ArchArgs::UP5K || args.type == ArchArgs::U1K ||
-            args.type == ArchArgs::U2K || args.type == ArchArgs::U4K)
+            args.type == ArchArgs::U2K || args.type == ArchArgs::U4K || args.type == ArchArgs::UL1K)
             return model_up5k;
 
         NPNR_ASSERT(0);

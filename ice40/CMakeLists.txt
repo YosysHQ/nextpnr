@@ -40,7 +40,7 @@ add_nextpnr_architecture(${family}
     MAIN_SOURCE  main.cc
 )
 
-set(ALL_ICE40_DEVICES 384 1k 5k u4k 8k)
+set(ALL_ICE40_DEVICES 384 1k 5k u4k 8k ul1k)
 set(ICE40_DEVICES ${ALL_ICE40_DEVICES} CACHE STRING
     "Include support for these iCE40 devices (available: ${ALL_ICE40_DEVICES})")
 message(STATUS "Enabled iCE40 devices: ${ICE40_DEVICES}")
@@ -56,6 +56,9 @@ foreach (device ${ICE40_DEVICES})
     elseif (device STREQUAL "u4k")
         set(timing_opts
             --slow ${ICEBOX_DATADIR}/timings_u4k.txt)
+    elseif (device STREQUAL "ul1k")
+        set(timing_opts
+            --slow ${ICEBOX_DATADIR}/timings_ul1k.txt)
     elseif (device STREQUAL "384")
         set(timing_opts
             --slow ${ICEBOX_DATADIR}/timings_lp384.txt)

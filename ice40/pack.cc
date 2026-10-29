@@ -541,7 +541,8 @@ static void pack_io(Context *ctx)
                 NetInfo *net = ci->ports.at(id_I).net;
                 sb = net_only_drives(ctx, net, is_ice_iob, id_PACKAGE_PIN, true, ci);
                 if (net && net->driver.cell &&
-                    (is_sb_rgba_drv(ctx, net->driver.cell) || is_sb_rgb_drv(ctx, net->driver.cell)))
+                    (is_sb_rgba_drv(ctx, net->driver.cell) || is_sb_rgb_drv(ctx, net->driver.cell) ||
+                     is_sb_ir_drv(ctx, net->driver.cell)))
                     rgb = net->driver.cell;
             }
             if (sb != nullptr) {
@@ -714,7 +715,7 @@ static void promote_globals(Context *ctx)
     }
     int prom_globals = 0, prom_resets = 0, prom_cens = 0, prom_logics = 0;
     int gbs_available = 0, resets_available = 4, cens_available = 4;
-    // not every device offers all 8 global buffers
+    // not every device offers all 8 global buffers (ul1k)
     for (auto bel : ctx->getBels())
         if (ctx->getBelType(bel) == id_SB_GB)
             ++gbs_available;
@@ -1220,7 +1221,6 @@ bool get_period(Context *ctx, CellInfo *ci, IdString port, delay_t &period)
     period = from->clkconstr->period.maxDelay();
     return true;
 };
-
 } // namespace
 
 // Pack special functions
@@ -1367,7 +1367,22 @@ static void pack_special(Context *ctx)
             ci->ports.erase(id_RGB0);
             ci->ports.erase(id_RGB1);
             ci->ports.erase(id_RGB2);
-        } else if (is_sb_ledda_ip(ctx, ci)) {
+        } else if (is_sb_ir_drv(ctx, ci)) {
+            // UL1K IR/barcode drivers: like SB_RGBA_DRV, the pads are fixed
+            cell_place_unique(ctx, ci);
+            for (IdString p : {id_IRLED, id_IRLED1, id_IRLED2, id_BARCODE}) {
+                if (!ci->ports.count(p))
+                    continue;
+                NetInfo *net = ci->ports.at(p).net;
+                if (net != nullptr) {
+                    if (net->users.entries() > 0)
+                        log_error("%s '%s': port %s connected to more than just a package pin\n", ci->type.c_str(ctx),
+                                  ctx->nameOf(ci), p.c_str(ctx));
+                    ctx->nets.erase(net->name);
+                }
+                ci->ports.erase(p);
+            }
+        } else if (is_sb_ledda_ip(ctx, ci) || ci->type == id_SB_IR_IP) {
             /* Force placement (no choices anyway) */
             cell_place_unique(ctx, ci);
         } else if (is_sb_i2c(ctx, ci) || is_sb_spi(ctx, ci)) {
@@ -1733,13 +1748,153 @@ void pack_plls(Context *ctx)
     }
 }
 
+// UL1K: SB_IO_OD (the open-drain IO of the LED pads) has the same IO cell
+// configuration as SB_IO, so it becomes an SB_IO marked OPEN_DRAIN; the
+// placer keeps OPEN_DRAIN IOs on the LED pads and other IOs off them.
+static void convert_sb_io_od(Context *ctx)
+{
+    static const std::vector<std::pair<IdString, IdString>> port_map = {
+            {id_PACKAGEPIN, id_PACKAGE_PIN},     {id_LATCHINPUTVALUE, id_LATCH_INPUT_VALUE},
+            {id_CLOCKENABLE, id_CLOCK_ENABLE},   {id_INPUTCLK, id_INPUT_CLK},
+            {id_OUTPUTCLK, id_OUTPUT_CLK},       {id_OUTPUTENABLE, id_OUTPUT_ENABLE},
+            {id_DOUT0, id_D_OUT_0},              {id_DOUT1, id_D_OUT_1},
+            {id_DIN0, id_D_IN_0},                {id_DIN1, id_D_IN_1}};
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->type != id_SB_IO_OD)
+            continue;
+        if (ctx->args.type != ArchArgs::UL1K)
+            log_error("SB_IO_OD '%s' is only supported on the UL1K\n", ctx->nameOf(ci));
+        for (auto &pm : port_map)
+            if (ci->ports.count(pm.first))
+                ci->renamePort(pm.first, pm.second);
+        ci->type = id_SB_IO;
+        ci->attrs[id_OPEN_DRAIN] = Property::State::S1;
+    }
+}
+
+// UL1K: low two bits of a binary parameter given as "0b..." string or as a bit vector (-1: not binary)
+static int ul1k_low2(const Property &p)
+{
+    if (!p.is_string)
+        return (p.str.size() > 0 && p.str[0] == '1') | ((p.str.size() > 1 && p.str[1] == '1') << 1);
+    const std::string &v = p.as_string();
+    if (v.size() < 4 || v.compare(0, 2, "0b") != 0)
+        return -1;
+    return (v[v.size() - 1] == '1') | ((v[v.size() - 2] == '1') << 1);
+}
+
+// UL1K: hard IP rules of iCEcube2 2020.12 (checked against its output, see the iCE40UL project's tests/vendor)
+static void check_ul1k_hard_ip(Context *ctx)
+{
+    // the IR and barcode drivers share pads and current bits (what iCEcube2 accepts and refuses)
+    CellInfo *ir400 = nullptr, *ir500 = nullptr, *barcode = nullptr;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->type == id_SB_IR400_DRV)
+            ir400 = ci;
+        else if (ci->type == id_SB_IR500_DRV)
+            ir500 = ci;
+        else if (ci->type == id_SB_BARCODE_DRV)
+            barcode = ci;
+    }
+    if (ir500 != nullptr && (ir400 != nullptr || barcode != nullptr))
+        log_error("SB_IR500_DRV '%s' uses the IR and barcode drivers and cannot be used with SB_IR400_DRV or "
+                  "SB_BARCODE_DRV\n",
+                  ctx->nameOf(ir500));
+    if (ir400 != nullptr && barcode != nullptr &&
+        str_or_default(ir400->params, id_CURRENT_MODE, "0b0") != str_or_default(barcode->params, id_CURRENT_MODE, "0b0"))
+        log_error("SB_IR400_DRV '%s' and SB_BARCODE_DRV '%s' must have the same CURRENT_MODE\n", ctx->nameOf(ir400),
+                  ctx->nameOf(barcode));
+    // current settings: only the values of iCEcube2's technology library (iCEcube2 refuses the others)
+    auto check_current = [&](CellInfo *ci, IdString param, const std::vector<std::string> &allowed) {
+        std::string v = str_or_default(ci->params, param, allowed.front());
+        if (std::find(allowed.begin(), allowed.end(), v) != allowed.end())
+            return;
+        std::string list;
+        for (auto &a : allowed)
+            list += (list.empty() ? "" : ", ") + a;
+        log_error("%s '%s': invalid %s \"%s\" (allowed: %s)\n", ci->type.c_str(ctx), ctx->nameOf(ci), param.c_str(ctx),
+                  v.c_str(), list.c_str());
+    };
+    auto thermometer = [](int width, int min_ones) {
+        std::vector<std::string> v = {"0b" + std::string(width, '0')};
+        for (int n = min_ones; n <= width; n++)
+            v.push_back("0b" + std::string(width - n, '0') + std::string(n, '1'));
+        return v;
+    };
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->type == id_SB_RGBA_DRV) {
+            for (auto p : {id_RGB0_CURRENT, id_RGB1_CURRENT, id_RGB2_CURRENT})
+                check_current(ci, p, thermometer(6, 1));
+        } else if (ci->type == id_SB_IR400_DRV) {
+            check_current(ci, id_IR400_CURRENT, thermometer(8, 1));
+        } else if (ci->type == id_SB_BARCODE_DRV) {
+            check_current(ci, id_BARCODE_CURRENT, {"0b0000", "0b0001", "0b0011", "0b0111", "0b1001", "0b1010", "0b1111"});
+        } else if (ci->type == id_SB_IR500_DRV) {
+            check_current(ci, id_IR500_CURRENT, thermometer(12, 3));
+            // iCEcube2's SB_IR500_DRV has one enable and one PWM input; they drive both halves of the driver
+            for (auto pp : {std::make_pair(id_IRLEDEN, id_IRLEDEN2), std::make_pair(id_IRPWM, id_IRPWM2)}) {
+                NetInfo *net = ci->getPort(pp.first), *net2 = ci->getPort(pp.second);
+                if (net2 != nullptr && net2 != net)
+                    log_error("SB_IR500_DRV '%s': %s is not a port of iCEcube2's SB_IR500_DRV; %s drives both drivers\n",
+                              ctx->nameOf(ci), pp.second.c_str(ctx), pp.first.c_str(ctx));
+                if (net != nullptr && net2 == nullptr) {
+                    if (!ci->ports.count(pp.second))
+                        ci->addInput(pp.second);
+                    ci->connectPort(pp.second, net);
+                }
+            }
+        } else if (ci->type == id_SB_I2C_FIFO) {
+            // iCEcube2 ignores USE_DEDICATED_PINS (SCL/SDA always run through the fabric); so does nextpnr
+            for (auto *m : {&ci->attrs, &ci->params})
+                if (m->erase(id_USE_DEDICATED_PINS))
+                    log_warning("SB_I2C_FIFO '%s': USE_DEDICATED_PINS ignored (as iCEcube2), SCL/SDA are routed through "
+                                "the fabric\n",
+                                ctx->nameOf(ci));
+            // the core is selected by I2C_SLAVE_ADDR[1:0]: 01 left (the default 0b1111100001), 10 right
+            IdString addr = ctx->id("I2C_SLAVE_ADDR");
+            int low2 = ci->params.count(addr) ? ul1k_low2(ci->params.at(addr)) : 1;
+            if (low2 != 1 && low2 != 2)
+                log_error("SB_I2C_FIFO '%s': I2C_SLAVE_ADDR must end in 01 (left core) or 10 (right core)\n",
+                          ctx->nameOf(ci));
+            std::string bel = ctx->getBelName(ctx->getBelByLocation(Loc(low2 == 1 ? 0 : 13, 0, 1))).str(ctx);
+            if (ci->attrs.count(id_BEL) && ci->attrs.at(id_BEL).as_string() != bel)
+                log_error("SB_I2C_FIFO '%s': BEL constraint does not match the core selected by I2C_SLAVE_ADDR\n",
+                          ctx->nameOf(ci));
+            ci->attrs[id_BEL] = bel;
+        }
+        if (ci->type.in(id_SB_HFOSC, id_SB_LFOSC, id_SB_RGBA_DRV, id_SB_IR400_DRV, id_SB_IR500_DRV, id_SB_BARCODE_DRV) &&
+            (ci->attrs.count(id_VPP_2V5_TO_1P8V) || ci->params.count(id_VPP_2V5_TO_1P8V)))
+            log_warning("%s '%s': VPP_2V5_TO_1P8V on a cell is ignored (as iCEcube2), set it on the top-level module\n",
+                        ci->type.c_str(ctx), ctx->nameOf(ci));
+    }
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->type == id_SB_HFOSC) {
+            // the UL1K oscillator has no trim inputs
+            for (int i = 0; i < 10; i++)
+                if (ci->getPort(ctx->id("TRIM" + std::to_string(i))) != nullptr)
+                    log_error("SB_HFOSC '%s': TRIM inputs are not supported on the UL1K\n", ctx->nameOf(ci));
+        } else if (ci->type.in(id_SB_I2C, id_SB_SPI, id_SB_RGB_DRV, id_SB_LED_DRV_CUR)) {
+            // not on this die (the UL1K I2C is SB_I2C_FIFO)
+            log_error("%s '%s' is not supported on the UL1K\n", ci->type.c_str(ctx), ctx->nameOf(ci));
+        }
+    }
+}
+
 // Main pack function
 bool Arch::pack()
 {
     Context *ctx = getCtx();
     try {
         log_break();
+        convert_sb_io_od(ctx);
         pack_constants(ctx);
+        // after pack_constants, so that inputs tied to the same constant share a net
+        if (ctx->args.type == ArchArgs::UL1K)
+            check_ul1k_hard_ip(ctx);
         pack_io(ctx);
         pack_lut_lutffs(ctx);
         pack_nonlut_ffs(ctx);

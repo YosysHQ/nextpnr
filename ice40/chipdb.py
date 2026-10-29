@@ -85,6 +85,11 @@ constids["RGBA_DRV"] = constids["SB_RGBA_DRV"]
 constids["SPRAM"] = constids["ICESTORM_SPRAM"]
 constids["LED_DRV_CUR"] = constids["SB_LED_DRV_CUR"]
 constids["RGB_DRV"] = constids["SB_RGB_DRV"]
+constids["I2C_FIFO"] = constids["SB_I2C_FIFO"]
+constids["IR400_DRV"] = constids["SB_IR400_DRV"]
+constids["IR500_DRV"] = constids["SB_IR500_DRV"]
+constids["BARCODE_DRV"] = constids["SB_BARCODE_DRV"]
+constids["IR_IP"] = constids["SB_IR_IP"]
 
 with open(args.gfxh) as f:
     state = 0
@@ -496,7 +501,7 @@ def wiredelay(wire_idx, db):
 
 def init_tiletypes(device):
     global num_tile_types, tile_sizes, tile_bits
-    if device in ["5k", "u4k"]:
+    if device in ["5k", "u4k", "ul1k"]:
         num_tile_types = 10
     else:
         num_tile_types = 5

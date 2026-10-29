@@ -99,6 +99,17 @@ bool Arch::isBelLocationValid(BelId bel, bool explain_invalid) const
         if (cell == nullptr)
             return true;
         else if (cell->type == id_SB_IO) {
+            // UL1K: the LED pads (RGB0-2, IRLED, BARCODE) are open drain and need SB_IO_OD
+            if (args.type == ArchArgs::UL1K) {
+                Loc l = getBelLocation(bel);
+                bool led_pad = l.y == 15 && (l.x == 2 || l.x == 10 || (l.x == 3 && l.z == 0));
+                if (led_pad != bool_or_default(cell->attrs, id_OPEN_DRAIN)) {
+                    if (explain_invalid)
+                        log_nonfatal_error("Cell '%s': %s\n", nameOf(cell),
+                                           led_pad ? "LED pads need SB_IO_OD" : "SB_IO_OD is only for the LED pads");
+                    return false;
+                }
+            }
             // Do not allow placement of input SB_IOs on blocks where there a PLL is outputting to.
 
             // Find shared PLL by looking for driving bel siblings from D_IN_0

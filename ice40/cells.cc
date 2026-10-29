@@ -20,6 +20,8 @@
  */
 
 #include "cells.h"
+#include <algorithm>
+#include <sstream>
 #include "design_utils.h"
 #include "log.h"
 #include "util.h"
@@ -305,6 +307,53 @@ std::unique_ptr<CellInfo> create_ice_cell(Context *ctx, IdString type, std::stri
         new_cell->addOutput(id_SCLOE);
         new_cell->addOutput(id_SDAO);
         new_cell->addOutput(id_SDAOE);
+    } else if (type == id_SB_IR400_DRV) {
+        new_cell->params[id_CURRENT_MODE] = std::string("0b0");
+        new_cell->params[id_IR400_CURRENT] = std::string("0b00000000");
+        new_cell->addInput(id_CURREN);
+        new_cell->addInput(id_IRLEDEN);
+        new_cell->addInput(id_IRPWM);
+        new_cell->addOutput(id_IRLED);
+    } else if (type == id_SB_IR500_DRV) {
+        new_cell->params[id_CURRENT_MODE] = std::string("0b0");
+        new_cell->params[id_IR500_CURRENT] = std::string("0b000000000000");
+        new_cell->addInput(id_CURREN);
+        new_cell->addInput(id_IRLEDEN);
+        new_cell->addInput(id_IRLEDEN2);
+        new_cell->addInput(id_IRPWM);
+        new_cell->addInput(id_IRPWM2);
+        new_cell->addOutput(id_IRLED1);
+        new_cell->addOutput(id_IRLED2);
+    } else if (type == id_SB_BARCODE_DRV) {
+        new_cell->params[id_CURRENT_MODE] = std::string("0b0");
+        new_cell->params[id_BARCODE_CURRENT] = std::string("0b0000");
+        new_cell->addInput(id_CURREN);
+        new_cell->addInput(id_BARCODEEN);
+        new_cell->addInput(id_BARCODEPWM);
+        new_cell->addOutput(id_BARCODE);
+    } else if (type == id_SB_I2C_FIFO) {
+        for (const char *p : {"CLKI", "CSI", "WEI", "STBI", "SCLI", "SDAI", "FIFORST"})
+            new_cell->addInput(ctx->id(p));
+        for (int i = 0; i < 4; i++)
+            new_cell->addInput(ctx->id("ADRI" + std::to_string(i)));
+        for (int i = 0; i < 10; i++) {
+            new_cell->addInput(ctx->id("DATI" + std::to_string(i)));
+            new_cell->addOutput(ctx->id("DATO" + std::to_string(i)));
+        }
+        for (const char *p : {"ACKO", "I2CIRQ", "I2CWKUP", "SCLO", "SCLOE", "SDAO", "SDAOE", "SRWO", "TXFIFOAEMPTY",
+                              "TXFIFOEMPTY", "TXFIFOFULL", "RXFIFOAFULL", "RXFIFOFULL", "RXFIFOEMPTY", "MRDCMPL"})
+            new_cell->addOutput(ctx->id(p));
+    } else if (type == id_SB_IR_IP) {
+        for (const char *p : {"CLKI", "CSI", "WEI", "EXE", "LEARN", "IRIN", "DENI"})
+            new_cell->addInput(ctx->id(p));
+        for (int i = 0; i < 4; i++)
+            new_cell->addInput(ctx->id("ADRI" + std::to_string(i)));
+        for (int i = 0; i < 8; i++) {
+            new_cell->addInput(ctx->id("WDATA" + std::to_string(i)));
+            new_cell->addOutput(ctx->id("RDATA" + std::to_string(i)));
+        }
+        for (const char *p : {"IROUT", "BUSY", "DRDY", "ERR"})
+            new_cell->addOutput(ctx->id(p));
     } else if (type == id_SB_SPI) {
         new_cell->params[id_BUS_ADDR74] = std::string("0b0000");
         for (int i = 0; i < 8; i++) {
@@ -523,6 +572,8 @@ bool is_clock_port(const BaseCtx *ctx, const PortRef &port)
         return port.port == id_CLOCK;
     if (is_sb_i2c(ctx, port.cell) || is_sb_spi(ctx, port.cell))
         return port.port == id_SBCLKI;
+    if (port.cell->type.in(id_SB_I2C_FIFO, id_SB_IR_IP))
+        return port.port == id_CLKI;
     if (is_sb_ledda_ip(ctx, port.cell))
         return port.port == id_LEDDCLK;
     if (is_sb_io(ctx, port.cell))

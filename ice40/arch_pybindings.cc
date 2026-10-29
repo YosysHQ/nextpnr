@@ -56,6 +56,7 @@ void arch_wrap_python(py::module &m)
             .value("U1K", ArchArgs::U1K)
             .value("U2K", ArchArgs::U2K)
             .value("U4K", ArchArgs::U4K)
+            .value("UL1K", ArchArgs::UL1K)
             .export_values();
 
     py::class_<BelId>(m, "BelId").def_readwrite("index", &BelId::index);

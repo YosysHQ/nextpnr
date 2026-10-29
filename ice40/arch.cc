@@ -58,6 +58,8 @@ static const ChipInfoPOD *get_chip_info(ArchArgs::ArchArgsTypes chip)
         chipdb = "ice40/chipdb-u4k.bin";
     } else if (chip == ArchArgs::UP3K || chip == ArchArgs::UP5K) {
         chipdb = "ice40/chipdb-5k.bin";
+    } else if (chip == ArchArgs::UL1K) {
+        chipdb = "ice40/chipdb-ul1k.bin";
     } else if (chip == ArchArgs::LP8K || chip == ArchArgs::HX8K || chip == ArchArgs::LP4K || chip == ArchArgs::HX4K) {
         chipdb = "ice40/chipdb-8k.bin";
     } else {
@@ -154,6 +156,8 @@ std::string Arch::getChipName() const
         return "Lattice iCE5LP2K";
     } else if (args.type == ArchArgs::U4K) {
         return "Lattice iCE5LP4K";
+    } else if (args.type == ArchArgs::UL1K) {
+        return "Lattice iCE40UL1K";
     } else if (args.type == ArchArgs::LP4K) {
         return "Lattice iCE40LP4K";
     } else if (args.type == ArchArgs::LP8K) {
@@ -187,6 +191,8 @@ IdString Arch::archArgsToId(ArchArgs args) const
         return id_u2k;
     if (args.type == ArchArgs::U4K)
         return id_u4k;
+    if (args.type == ArchArgs::UL1K)
+        return id_ul1k;
     if (args.type == ArchArgs::LP4K)
         return id_lp4k;
     if (args.type == ArchArgs::LP8K)
@@ -724,7 +730,7 @@ bool Arch::place()
             cfg.timing_mx = 90;
             cfg.timing_my = 90;
         } else if (args.type == ArchArgs::UP3K || args.type == ArchArgs::UP5K || args.type == ArchArgs::U1K ||
-                   args.type == ArchArgs::U2K || args.type == ArchArgs::U4K) {
+                   args.type == ArchArgs::U2K || args.type == ArchArgs::U4K || args.type == ArchArgs::UL1K) {
             cfg.timing_c = 2400;
             cfg.timing_mx = 130;
             cfg.timing_my = 130;
@@ -1164,6 +1170,18 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         if (port.in(id_RGB0, id_RGB1, id_RGB2))
             return TMG_IGNORE;
         return TMG_ENDPOINT;
+    } else if (cell->type.in(id_SB_IR400_DRV, id_SB_IR500_DRV, id_SB_BARCODE_DRV)) {
+        if (port.in(id_IRLED, id_IRLED1, id_IRLED2, id_BARCODE))
+            return TMG_IGNORE;
+        return TMG_ENDPOINT;
+    } else if (cell->type.in(id_SB_I2C_FIFO, id_SB_IR_IP)) {
+        if (port == id_CLKI)
+            return TMG_CLOCK_INPUT;
+        clockInfoCount = 1;
+        if (cell->ports.at(port).type == PORT_OUT)
+            return TMG_REGISTER_OUTPUT;
+        else
+            return TMG_REGISTER_INPUT;
     } else if (cell->type == id_SB_LEDDA_IP) {
         if (port.in(id_CLK, id_CLOCK))
             return TMG_CLOCK_INPUT;
@@ -1207,7 +1225,8 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
                     args.type == ArchArgs::LP384) {
                     info.setup = DelayPair(30 + dlut.maxDelay());
                 } else if (args.type == ArchArgs::UP3K || args.type == ArchArgs::UP5K || args.type == ArchArgs::U4K ||
-                           args.type == ArchArgs::U1K || args.type == ArchArgs::U2K) { // XXX verify u4k
+                           args.type == ArchArgs::U1K || args.type == ArchArgs::U2K ||
+                           args.type == ArchArgs::UL1K) { // XXX verify u4k
                     info.setup = DelayPair(dlut.maxDelay() - 50);
                 } else {
                     info.setup = DelayPair(20 + dlut.maxDelay());
@@ -1238,7 +1257,7 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             io_setup = 115;
             io_clktoq = 210;
         } else if (args.type == ArchArgs::UP3K || args.type == ArchArgs::UP5K || args.type == ArchArgs::U4K ||
-                   args.type == ArchArgs::U1K || args.type == ArchArgs::U2K) {
+                   args.type == ArchArgs::U1K || args.type == ArchArgs::U2K || args.type == ArchArgs::UL1K) {
             io_setup = 205;
             io_clktoq = 1005;
         }
@@ -1279,8 +1298,8 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
             info.setup = DelayPair(100);
             info.hold = DelayPair(0);
         }
-    } else if (cell->type.in(id_SB_I2C, id_SB_SPI)) {
-        info.clock_port = id_SBCLKI;
+    } else if (cell->type.in(id_SB_I2C, id_SB_SPI, id_SB_I2C_FIFO, id_SB_IR_IP)) {
+        info.clock_port = cell->type.in(id_SB_I2C_FIFO, id_SB_IR_IP) ? id_CLKI : id_SBCLKI;
         info.edge = RISING_EDGE;
         if (cell->ports.at(port).type == PORT_OUT) {
             /* Dummy number */

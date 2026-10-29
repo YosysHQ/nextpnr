@@ -72,6 +72,8 @@ po::options_description Ice40CommandHandler::getArchOptions()
         specific.add_options()("u2k", "set device type to iCE5LP2K");
     if (Arch::is_available(ArchArgs::U4K))
         specific.add_options()("u4k", "set device type to iCE5LP4K");
+    if (Arch::is_available(ArchArgs::UL1K))
+        specific.add_options()("ul1k", "set device type to iCE40UL1K (experimental)");
     specific.add_options()("package", po::value<std::string>(), "set device package");
     specific.add_options()("pcf", po::value<std::string>(), "PCF constraints file to ingest");
     specific.add_options()("asc", po::value<std::string>(), "asc bitstream file to write");
@@ -92,7 +94,7 @@ void Ice40CommandHandler::validate()
     conflicting_options(vm, "read", "json");
     if ((vm.count("lp384") + vm.count("lp1k") + vm.count("lp4k") + vm.count("lp8k") + vm.count("hx1k") +
          vm.count("hx4k") + vm.count("hx8k") + vm.count("up3k") + vm.count("up5k") + vm.count("u1k") + vm.count("u2k") +
-         vm.count("u4k")) > 1)
+         vm.count("u4k") + vm.count("ul1k")) > 1)
         log_error("Only one device type can be set\n");
 }
 
@@ -190,6 +192,11 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(dict<std::string, Pr
         chipArgs.package = "sg48";
     }
 
+    if (vm.count("ul1k")) {
+        chipArgs.type = ArchArgs::UL1K;
+        chipArgs.package = "cm36a";
+    }
+
     if (vm.count("package"))
         chipArgs.package = vm["package"].as<std::string>();
     else
@@ -241,6 +248,9 @@ std::unique_ptr<Context> Ice40CommandHandler::createContext(dict<std::string, Pr
         }
         if (arch_type == "u4k") {
             chipArgs.type = ArchArgs::U4K;
+        }
+        if (arch_type == "ul1k") {
+            chipArgs.type = ArchArgs::UL1K;
         }
         if (chipArgs.type == ArchArgs::NONE)
             log_error("Unsupported FPGA type '%s'.\n", arch_type.c_str());

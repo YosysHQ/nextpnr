@@ -73,6 +73,12 @@ inline bool is_sb_rgb_drv(const BaseCtx * /*ctx*/, const CellInfo *cell) { retur
 
 inline bool is_sb_led_drv_cur(const BaseCtx * /*ctx*/, const CellInfo *cell) { return cell->type == id_SB_LED_DRV_CUR; }
 
+// UL1K IR and barcode LED drivers (open-drain pads like SB_RGBA_DRV)
+inline bool is_sb_ir_drv(const BaseCtx * /*ctx*/, const CellInfo *cell)
+{
+    return cell->type.in(id_SB_IR400_DRV, id_SB_IR500_DRV, id_SB_BARCODE_DRV);
+}
+
 inline bool is_sb_ledda_ip(const BaseCtx * /*ctx*/, const CellInfo *cell) { return cell->type == id_SB_LEDDA_IP; }
 
 inline bool is_sb_i2c(const BaseCtx * /*ctx*/, const CellInfo *cell) { return cell->type == id_SB_I2C; }

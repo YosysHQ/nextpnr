@@ -373,7 +373,8 @@ struct ArchArgs
         UP5K,
         U1K,
         U2K,
-        U4K
+        U4K,
+        UL1K
     } type = NONE;
     std::string package;
 };
