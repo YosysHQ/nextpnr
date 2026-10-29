@@ -24,4 +24,14 @@ NEXTPNR_NAMESPACE_BEGIN
 // This finds chains, inserts LCs to legalise them as needed, and sets relative constraints as appropriate
 void constrain_chains(Context *ctx);
 
+// Groups the logic cells into tile-sized clusters, each legal on its own (one control set, local input limit)
+struct TilePacking
+{
+    std::vector<CellInfo *> cells;                     // cells put into tile clusters
+    std::vector<std::pair<CellInfo *, size_t>> chains; // carry chain roots and their number of children before
+};
+TilePacking pack_tiles(Context *ctx);
+// Dissolves the tile clusters (the carry chains stay), so that a placement can be refined cell by cell
+void unpack_tiles(const TilePacking &packing);
+
 NEXTPNR_NAMESPACE_END

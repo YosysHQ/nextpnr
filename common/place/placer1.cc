@@ -420,6 +420,9 @@ class SAPlacer
     // Initial random placement
     void place_initial(CellInfo *cell)
     {
+        // near full utilisation the rip-up chain may never end
+        const int64_t max_attempts = std::max<int64_t>(100000, 100 * int64_t(ctx->cells.size()));
+        int64_t attempts = 0;
         while (cell) {
             CellInfo *ripup_target = nullptr;
             if (cell->bel != BelId()) {
@@ -429,6 +432,10 @@ class SAPlacer
             auto type_cnt = fast_bels.getBelsForCellType(cell->type, &bel_data);
 
             while (true) {
+                if (++attempts > max_attempts)
+                    log_error("Unable to find legal placement for cell '%s' of type '%s' after %lld attempts, check "
+                              "constraints and utilisation.\n",
+                              ctx->nameOf(cell), cell->type.c_str(ctx), (long long)max_attempts);
                 int nx = ctx->rng(max_x + 1), ny = ctx->rng(max_y + 1);
                 if (cfg.minBelsForGridPick >= 0 && type_cnt < cfg.minBelsForGridPick)
                     nx = ny = 0;

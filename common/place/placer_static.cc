@@ -1411,7 +1411,14 @@ class StaticPlacer
                 log_error("Unable to find legal placement for all cells, design is probably at utilisation limit.\n");
             }
 
+            // A cell that fits no location even at the largest radius (e.g. its control set conflicts with every
+            // tile) must not search forever
+            int64_t search_iters = 0;
+            const int64_t max_search_iters = std::max<int64_t>(100000, int64_t(1000) * (bel_width + 2) * (bel_height + 2));
             while (!placed) {
+                if (++search_iters > max_search_iters)
+                    log_error("Unable to find legal placement for cell '%s', design is probably at utilisation limit.\n",
+                              ctx->nameOf(ci));
                 // Determine a search radius around the solver location (which increases over time) that is clamped to
                 // the region constraint for the cell (if applicable)
                 int rx = radius, ry = radius;
