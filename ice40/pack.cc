@@ -704,7 +704,14 @@ static void promote_globals(Context *ctx)
         }
     }
     int prom_globals = 0, prom_resets = 0, prom_cens = 0, prom_logics = 0;
-    int gbs_available = 8, resets_available = 4, cens_available = 4;
+    int gbs_available = 0, resets_available = 4, cens_available = 4;
+    // not every device offers all 8 global buffers
+    for (auto bel : ctx->getBels())
+        if (ctx->getBelType(bel) == id_SB_GB)
+            ++gbs_available;
+    gbs_available = std::min(gbs_available, 8);
+    resets_available = std::min(resets_available, gbs_available);
+    cens_available = std::min(cens_available, gbs_available);
     for (auto &cell : ctx->cells)
         if (is_gbuf(ctx, cell.second.get())) {
             /* One less buffer available */
