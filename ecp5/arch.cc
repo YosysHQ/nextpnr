@@ -701,6 +701,7 @@ void Arch::update_slice_flags()
         CellInfo *ci = cell.second.get();
         if (ci->type != id_TRELLIS_COMB)
             continue;
+
         NPNR_ASSERT(ci->bel != BelId());
         int flags = ci->combInfo.flags;
         lutperm_allowed.at(get_slice_index(ci->bel.location.x, ci->bel.location.y,
@@ -708,6 +709,10 @@ void Arch::update_slice_flags()
                 (((flags & ArchCellInfo::COMB_LUTRAM) || (flags & ArchCellInfo::COMB_RAMW_BLOCK))
                          ? LutPermRule::NONE
                          : ((flags & ArchCellInfo::COMB_CARRY) ? LutPermRule::CARRY : LutPermRule::ALL));
+        // Used for constant conflict checks
+        LogicTileStatus *lts = tile_status.at(tile_index(ci->bel)).lts;
+        int z = loc_info(ci->bel)->bel_data[ci->bel.index].z;
+        lts->cells[z] = ci;
     }
 }
 
@@ -719,6 +724,12 @@ bool Arch::route()
 
     // This is needed if we have loaded a pre-placed design
     update_slice_flags();
+    if (nets.count(id("$PACKER_GND_NET"))) {
+        nets.at(id("$PACKER_GND_NET"))->constant_value = id_GND;
+    }
+    if (nets.count(id("$PACKER_VCC_NET"))) {
+        nets.at(id("$PACKER_VCC_NET"))->constant_value = id_VCC;
+    }
 
     setup_wire_locations();
     route_ecp5_globals(getCtx());
@@ -1106,6 +1117,8 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         if (cell->ports.at(port).name == id_SEL)
             return TMG_ENDPOINT;
         return (cell->ports.at(port).type == PORT_OUT) ? TMG_COMB_OUTPUT : TMG_COMB_INPUT;
+    } else if (cell->type.in(id_GND, id_VCC)) {
+        return TMG_IGNORE;
     } else {
         log_error("cell type '%s' is unsupported (instantiated as '%s')\n", cell->type.c_str(this),
                   cell->name.c_str(this));

@@ -51,6 +51,11 @@ def wire_type(name):
     if name[0].startswith("X") and name[1].startswith("Y"):
         name = name[2:]
 
+    if name[0].endswith("VCC_WIRE"):
+        return "WIRE_TYPE_VCC"
+    if name[0].endswith("GND_WIRE"):
+        return "WIRE_TYPE_GND"
+
     if name[0].endswith("_SLICE"):
         return "WIRE_TYPE_SLICE"
 
@@ -691,7 +696,7 @@ def main():
     # print("Initialising chip...")
     chip = pytrellis.Chip(dev_names[args.device])
     # print("Building routing graph...")
-    ddrg = pytrellis.make_dedup_chipdb(chip, include_lutperm_pips=True, split_slice_mode=True)
+    ddrg = pytrellis.make_dedup_chipdb(chip, include_lutperm_pips=True, split_slice_mode=True, include_const_pips=True)
     max_row = chip.get_max_row()
     max_col = chip.get_max_col()
     process_timing_data()

@@ -58,14 +58,15 @@ NPNR_PACKED_STRUCT(struct PipInfoPOD {
     int16_t timing_class;
     int8_t tile_type;
     int8_t pip_type;
-    int16_t lutperm_flags;
+    uint16_t lutperm_flags;
     int16_t padding;
 });
 
-inline bool is_lutperm_pip(int16_t flags) { return flags & 0x4000; }
-inline uint8_t lutperm_lut(int16_t flags) { return (flags >> 4) & 0x7; }
-inline uint8_t lutperm_out(int16_t flags) { return (flags >> 2) & 0x3; }
-inline uint8_t lutperm_in(int16_t flags) { return flags & 0x3; }
+inline bool is_const_pip(uint16_t flags) { return flags & 0x2000; }
+inline bool is_lutperm_pip(uint16_t flags) { return flags & 0x4000; }
+inline uint8_t lutperm_lut(uint16_t flags) { return (flags >> 4) & 0x7; }
+inline uint8_t lutperm_out(uint16_t flags) { return (flags >> 2) & 0x3; }
+inline uint8_t lutperm_in(uint16_t flags) { return flags & 0x3; }
 
 NPNR_PACKED_STRUCT(struct PipLocatorPOD {
     LocationPOD rel_loc;
@@ -622,7 +623,7 @@ struct Arch : BaseArch<ArchRanges>
     BelId getBelByLocation(Loc loc) const override;
     BelRange getBelsByTile(int x, int y) const override;
 
-    bool getBelGlobalBuf(BelId bel) const override { return getBelType(bel) == id_DCCA; }
+    bool getBelGlobalBuf(BelId bel) const override { return getBelType(bel).in(id_DCCA, id_VCC, id_GND); }
 
     bool checkBelAvail(BelId bel) const override
     {
@@ -699,6 +700,17 @@ struct Arch : BaseArch<ArchRanges>
         IdString id;
         id.index = loc_info(wire)->wire_data[wire.index].type;
         return id;
+    }
+
+    IdString getWireConstantValue(WireId wire) const override
+    {
+        auto t = getWireType(wire);
+        if (t == id_WIRE_TYPE_VCC)
+            return id_VCC;
+        else if (t == id_WIRE_TYPE_GND)
+            return id_GND;
+        else
+            return {};
     }
 
     std::vector<std::pair<IdString, std::string>> getWireAttrs(WireId) const override;
@@ -829,8 +841,19 @@ struct Arch : BaseArch<ArchRanges>
     bool is_pip_blocked(PipId pip) const
     {
         auto &pip_data = loc_info(pip)->pip_data[pip.index];
-        int lp = pip_data.lutperm_flags;
-        if (is_lutperm_pip(lp)) {
+        uint16_t lp = pip_data.lutperm_flags;
+        if (is_const_pip(lp)) {
+            LogicTileStatus *lts = tile_status.at(tile_index(pip)).lts;
+            if (!lts)
+                return false;
+            else if (lts->cells[(7 << lc_idx_shift) | BEL_COMB])
+                return true;
+            else if (lts->cells[(6 << lc_idx_shift) | BEL_COMB] &&
+                lts->cells[(6 << lc_idx_shift) | BEL_COMB]->combInfo.flags & ArchCellInfo::COMB_CARRY)
+                return true;
+            else
+                return false;
+        } else if (is_lutperm_pip(lp)) {
             if (disable_router_lutperm)
                 return true;
             auto rule = lutperm_allowed.at(get_slice_index(pip.location.x, pip.location.y, lutperm_lut(lp) / 2));

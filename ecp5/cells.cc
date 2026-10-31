@@ -165,6 +165,8 @@ std::unique_ptr<CellInfo> create_ecp5_cell(Context *ctx, IdString type, std::str
     } else if (type == id_TRELLIS_ECLKBUF) {
         new_cell->addInput(id_ECLKI);
         new_cell->addOutput(id_ECLKO);
+    } else if (type.in(id_VCC, id_GND)) {
+        new_cell->addOutput(id_F);
     } else {
         log_error("unable to create ECP5 cell of type %s", type.c_str(ctx));
     }
