@@ -94,6 +94,9 @@ struct GowinUtils
     bool driver_is_clksrc(const PortRef &driver);
 
     // clock nets
+    // The clock inputs of the hardware DCS in the central clock MUX
+    bool is_dcs_input(WireId wire) const;
+
     bool wire_is_clock_gate(WireId wire) const
     {
         return chip_wire_info(ctx->chip_info, wire).flags & WireFlags::FLAG_CLOCK_GATE;
