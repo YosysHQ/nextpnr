@@ -918,7 +918,9 @@ struct GowinGlobalRouter
         // of a few LUTs in the cell gives 400 columns and 400 rows.  We use
         // the combination of row number << 16 and column number as a key.
         auto xy_to_key = [&](int x, int y) -> uint32_t { return (y << 16) | x; };
-        std::unordered_multimap<uint32_t, grid_net> grid;
+        // Each cell keeps its nets newest first. Of two nets with the same
+        // number of sinks, the first one in this list gets the segment.
+        dict<uint32_t, std::vector<grid_net>> grid;
         int min_x = ctx->getGridDimX();
         int max_x = -1;
         int min_y = ctx->getGridDimY();
@@ -936,31 +938,30 @@ struct GowinGlobalRouter
                 max_y = std::max(max_y, sink_loc.y);
 
                 if (std::abs(sink_loc.x - src_loc.x) > 4 || std::abs(sink_loc.y - src_loc.y) > 4) {
-                    uint32_t key = xy_to_key(sink_loc.x, sink_loc.y);
+                    auto &cell_nets = grid[xy_to_key(sink_loc.x, sink_loc.y)];
                     bool found = false;
-                    if (grid.count(key)) {
-                        auto net_range = grid.equal_range(key);
-                        for (auto it = net_range.first; it != net_range.second; ++it) {
-                            if (it->second.net == net_name) {
-                                found = true;
-                                ++(it->second.sink_cnt);
-                            }
+                    for (auto &cell_net : cell_nets) {
+                        if (cell_net.net == net_name) {
+                            found = true;
+                            ++cell_net.sink_cnt;
                         }
                     }
                     if (!found) {
                         grid_net new_cell;
                         new_cell.net = net_name;
                         new_cell.sink_cnt = 1;
-                        grid.insert(std::make_pair(key, new_cell));
+                        cell_nets.insert(cell_nets.begin(), new_cell);
                     }
                 }
             }
         }
         if (ctx->debug) {
             log_info("Net grid. (%d, %d) <=> (%d, %d)\n", min_y, min_x, max_y, max_x);
-            for (auto it = grid.begin(); it != grid.end(); ++it) {
-                log_info(" (%d, %d): %s %d\n", it->first >> 16, it->first & 0xffff, it->second.net.c_str(ctx),
-                         it->second.sink_cnt);
+            for (auto &cell : grid) {
+                for (auto &cell_net : cell.second) {
+                    log_info(" (%d, %d): %s %d\n", cell.first >> 16, cell.first & 0xffff, cell_net.net.c_str(ctx),
+                             cell_net.sink_cnt);
+                }
             }
         }
 
@@ -989,22 +990,25 @@ struct GowinGlobalRouter
             int sink_cnt = 0;
             for (int y = s_min_y; y <= s_max_y && (!found_net_with_index); ++y) {
                 for (int x = s_min_x; x <= s_max_x && (!found_net_with_index); ++x) {
-                    auto net_range = grid.equal_range(xy_to_key(x, y));
-                    for (auto it = net_range.first; it != net_range.second; ++it) {
-                        if (net_to_s_idx.count(it->second.net)) {
-                            if (net_to_s_idx.at(it->second.net) == s_idx) {
+                    auto cell = grid.find(xy_to_key(x, y));
+                    if (cell == grid.end()) {
+                        continue;
+                    }
+                    for (auto &cell_net : cell->second) {
+                        if (net_to_s_idx.count(cell_net.net)) {
+                            if (net_to_s_idx.at(cell_net.net) == s_idx) {
                                 // far network already use our segment index - reuse it
                                 found_net_with_index = true;
-                                net = it->second.net;
-                                sink_cnt = selected_nets.at(it->second.net).sink_cnt;
+                                net = cell_net.net;
+                                sink_cnt = selected_nets.at(cell_net.net).sink_cnt;
                                 break;
                             }
                             continue;
                         }
                         // new net, calculate maximum sinks
-                        if (selected_nets.at(it->second.net).sink_cnt > sink_cnt) {
-                            sink_cnt = selected_nets.at(it->second.net).sink_cnt;
-                            net = it->second.net;
+                        if (selected_nets.at(cell_net.net).sink_cnt > sink_cnt) {
+                            sink_cnt = selected_nets.at(cell_net.net).sink_cnt;
+                            net = cell_net.net;
                         }
                     }
                 }
