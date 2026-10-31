@@ -571,10 +571,21 @@ class Ecp5GlobalRouter
                 int glbid;
                 if (drives_fabric) {
                     if (fab_globals.empty())
-                        continue;
+                        log_error("Unable to route global clock net '%s': all fabric-capable global resources are in "
+                                  "use.\n",
+                                  clock->name.c_str(ctx));
                     glbid = *(fab_globals.begin());
                 } else {
-                    glbid = *(all_globals.begin());
+                    // Preserve globals 0-7 for nets which need fabric/data connections. Clock-only nets can use
+                    // any global, so allocate them from 8-15 first and fall back to 0-7 only when necessary.
+                    auto clock_only_global = all_globals.lower_bound(8);
+                    if (clock_only_global != all_globals.end())
+                        glbid = *clock_only_global;
+                    else if (!all_globals.empty())
+                        glbid = *(all_globals.begin());
+                    else
+                        log_error("Unable to route global clock net '%s': all global resources are in use.\n",
+                                  clock->name.c_str(ctx));
                 }
                 all_globals.erase(glbid);
                 fab_globals.erase(glbid);
