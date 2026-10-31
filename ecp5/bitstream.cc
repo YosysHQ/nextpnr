@@ -527,6 +527,16 @@ struct ECP5Bitgen
         cc.tiles[tile].add_arc(sink, source);
     }
 
+    void set_const_pip(PipId pip)
+    {
+        std::string tile = ctx->get_pip_tilename(pip);
+
+        auto &pip_data = ctx->loc_info(pip)->pip_data[pip.index];
+        uint16_t lp = pip_data.lutperm_flags;
+
+        cc.tiles[tile].add_word("SLICED.K1.INIT", std::vector<bool>(16, (lp & 1)));
+    }
+
     unsigned permute_lut(CellInfo *cell, pool<IdString> &used_phys_pins, unsigned orig_init)
     {
         std::array<std::vector<unsigned>, 4> phys_to_log;
@@ -1437,6 +1447,12 @@ struct ECP5Bitgen
                     } else {
                         set_pip(pip);
                     }
+                } else if (ctx->get_pip_class(pip) == 1) {
+                    auto &pip_data = ctx->loc_info(pip)->pip_data[pip.index];
+                    uint16_t lp = pip_data.lutperm_flags;
+                    if (is_const_pip(lp)) {
+                        set_const_pip(pip);
+                    }
                 }
             }
         }
@@ -1555,6 +1571,7 @@ struct ECP5Bitgen
                 cc.tiles[tile].add_enum("DDRDLL.MODE", "DDRDLLA");
                 cc.tiles[tile].add_enum("DDRDLL.GSR", str_or_default(ci->params, id_GSR, "DISABLED"));
                 cc.tiles[tile].add_enum("DDRDLL.FORCE_MAX_DELAY", str_or_default(ci->params, id_FORCE_MAX_DELAY, "NO"));
+            } else if (ci->type.in(id_GND, id_VCC)) {
             } else {
                 NPNR_ASSERT_FALSE("unsupported cell type");
             }

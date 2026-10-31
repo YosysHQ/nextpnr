@@ -1023,19 +1023,30 @@ class Ecp5Packer
             }
         }
 
-        std::unique_ptr<CellInfo> gnd_cell = create_ecp5_cell(ctx, id_LUT4, "$PACKER_GND");
-        gnd_cell->params[id_INIT] = Property(0, 16);
+        std::unique_ptr<CellInfo> gnd_cell = create_ecp5_cell(ctx, id_GND, "$PACKER_GND");
         auto gnd_net = std::make_unique<NetInfo>(ctx->id("$PACKER_GND_NET"));
         gnd_net->driver.cell = gnd_cell.get();
-        gnd_net->driver.port = id_Z;
-        gnd_cell->ports.at(id_Z).net = gnd_net.get();
+        gnd_net->driver.port = id_F;
+        gnd_net->constant_value = id_GND;
+        gnd_cell->ports.at(id_F).net = gnd_net.get();
 
-        std::unique_ptr<CellInfo> vcc_cell = create_ecp5_cell(ctx, id_LUT4, "$PACKER_VCC");
-        vcc_cell->params[id_INIT] = Property(65535, 16);
+        std::unique_ptr<CellInfo> vcc_cell = create_ecp5_cell(ctx, id_VCC, "$PACKER_VCC");
         auto vcc_net = std::make_unique<NetInfo>(ctx->id("$PACKER_VCC_NET"));
         vcc_net->driver.cell = vcc_cell.get();
-        vcc_net->driver.port = id_Z;
-        vcc_cell->ports.at(id_Z).net = vcc_net.get();
+        vcc_net->driver.port = id_F;
+        vcc_net->constant_value = id_VCC;
+
+        vcc_cell->ports.at(id_F).net = vcc_net.get();
+
+        // preplace the constants so the placer doesn't waste time on them
+        for (auto bel : ctx->getBels()) {
+            IdString bt = ctx->getBelType(bel);
+            if (bt == id_VCC) {
+                vcc_cell->attrs[id_BEL] = ctx->getBelName(bel).str(ctx);
+            } else if (bt == id_GND) {
+                gnd_cell->attrs[id_BEL] = ctx->getBelName(bel).str(ctx);
+            }
+        }
 
         std::vector<IdString> dead_nets;
 
