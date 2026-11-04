@@ -786,7 +786,9 @@ std::pair<CellInfo *, CellInfo *> GateMatePacker::move_ram_io(CellInfo *cell, Id
         ram_io_type = id_CPE_RAMO;
 
     if (o_net) {
-        if (o_net != net_PACKER_GND && o_net != net_PACKER_VCC &&
+        if (o_net != net_PACKER_GND && o_net != net_PACKER_VCC && o_net->driver.cell == nullptr)
+            log_warning("Net '%s' has no driver.\n", ctx->nameOf(o_net));
+        if (o_net != net_PACKER_GND && o_net != net_PACKER_VCC && o_net->driver.cell &&
             o_net->driver.cell->getPort(o_net->driver.port)->users.entries() == 1 &&
             o_net->driver.cell->type.in(id_CC_LUT1, id_CC_LUT2, id_CC_L2T4, id_CC_MX2 /*, id_CC_DFF, id_CC_DLT*/)) {
             CellInfo &ci = *o_net->driver.cell;
