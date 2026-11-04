@@ -739,7 +739,15 @@ bool Arch::route()
     if (router == "router1") {
         result = router1(getCtx(), Router1Cfg(getCtx()));
     } else if (router == "router2") {
-        router2(getCtx(), Router2Cfg(getCtx()));
+        Router2Cfg cfg(getCtx());
+        cfg.get_base_cost = [](Context *ctx, WireId wire, PipId pip, float crit_weight)
+        {
+            // adding higher epsilon fixes issues resolving congestion with the zero-delay pips the ecp5 model has
+            return ctx->getDelayNS(ctx->getPipDelay(pip).maxDelay() + ctx->getWireDelay(wire).maxDelay() +
+                                   20 * crit_weight * ctx->getDelayEpsilon());
+        };
+
+        router2(getCtx(), cfg);
         result = true;
     } else {
         log_error("ECP5 architecture does not support router '%s'\n", router.c_str());
