@@ -4,6 +4,8 @@ endif()
 
 set(SOURCES
     constids.inc
+    clock_plan.cc
+    clock_plan.h
     cst.cc
     cst.h
     globals.cc
