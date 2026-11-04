@@ -39,7 +39,7 @@ if (HIMBAECHEL_SPLIT)
 
         target_sources(nextpnr-himbaechel-${microtarget}-core INTERFACE ${arg_CORE_SOURCES})
 
-        if (BUILD_TESTS)
+        if (BUILD_TESTS AND NOT EXTERNAL_CHIPDB_ONLY)
             target_sources(nextpnr-himbaechel-${microtarget}-test PRIVATE ${arg_TEST_SOURCES})
         endif()
     endfunction()

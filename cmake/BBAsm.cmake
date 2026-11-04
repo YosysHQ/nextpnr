@@ -1,6 +1,13 @@
 include(TestBigEndian)
 
-test_big_endian(IS_BIG_ENDIAN)
+if (EXTERNAL_CHIPDB_BE)
+    set(IS_BIG_ENDIAN ON)
+elseif (EXTERNAL_CHIPDB_LE)
+    set(IS_BIG_ENDIAN OFF)
+else()
+    test_big_endian(IS_BIG_ENDIAN)
+endif()
+
 if (IS_BIG_ENDIAN)
     set(BBASM_ENDIAN_FLAG "--be")
 else()
@@ -43,6 +50,10 @@ function(add_bba_produce_command)
     file(MAKE_DIRECTORY ${arg_OUTPUT_DIR})
 
     list(GET arg_COMMAND 0 arg_EXECUTABLE)
+
+    if (NOT EXTERNAL_CHIPDB_BUILD)
+        return()
+    endif()
 
     if (NOT IMPORT_BBA_FILES)
 
@@ -223,6 +234,14 @@ function(add_bba_compile_command)
             ${arg_TARGET} PUBLIC
             ${CMAKE_CURRENT_BINARY_DIR}/${arg_OUTPUT_NAME}.cc
         )
+
+    elseif (arg_MODE STREQUAL "existing")
+
+        # Nothing to do here
+
+    else()
+
+        message(AUTHOR_WARNING "Unknown chipdb mode")
 
     endif()
 
