@@ -1653,6 +1653,9 @@ class StaticPlacer
     void place()
     {
         log_info("Running Static placer...\n");
+
+        auto startt = std::chrono::high_resolution_clock::now();
+
         init_grid();
         init_bels();
         prepare_cells();
@@ -1708,6 +1711,9 @@ class StaticPlacer
                 ++iter;
             }
         }
+        auto endtt = std::chrono::high_resolution_clock::now();
+
+        log_info("Static Placer Time: %.02fs\n", std::chrono::duration<double>(endtt - startt).count());
 
 #if !defined(NPNR_DISABLE_THREADS)
         if (cfg.parallelRefine) {
