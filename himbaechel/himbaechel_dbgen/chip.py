@@ -517,9 +517,10 @@ class PackageInfo(BBAStruct):
 class TimingValue(BBAStruct):
     def __init__(self, fast_min=0, fast_max=None, slow_min=None, slow_max=None):
         self.fast_min = fast_min
-        self.fast_max = fast_max or fast_min
-        self.slow_min = slow_min or self.fast_min
-        self.slow_max = slow_max or self.fast_max
+        # `is None`, not `or`: a delay of 0 is a value, not a missing one.
+        self.fast_max = fast_max if fast_max is not None else fast_min
+        self.slow_min = slow_min if slow_min is not None else self.fast_min
+        self.slow_max = slow_max if slow_max is not None else self.fast_max
 
     def serialise_lists(self, context: str, bba: BBAWriter):
         pass
