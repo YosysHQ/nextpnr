@@ -2058,7 +2058,7 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
                     add_bram_bus_input(dp, "CLKA", "DIA", 36, "clka_dia")
                     add_bram_bus_input(dp, "CLKB", "DIB", 36, "clkb_dib")
                     add_bram_bus_input(dp, "CLKA", "ADA", 14, "clka_ada")
-                    add_bram_bus_input(sp, "CLKB", "ADB", 14, "clkb_adb")
+                    add_bram_bus_input(dp, "CLKB", "ADB", 14, "clkb_adb")
 
                     add_bram_bus_input(dp, "CLKA", "BLKSELA", 3, "clka_blksel")
                     add_bram_bus_input(dp, "CLKB", "BLKSELB", 3, "clkb_blksel")
