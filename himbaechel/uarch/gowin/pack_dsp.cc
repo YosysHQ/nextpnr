@@ -616,7 +616,11 @@ void GowinPacker::pack_dsp(void)
             ci->constr_z = 0;
             ci->constr_children.clear();
 
-            for (int i = 0; i < 2; ++i) {
+            // Both 18x18 multipliers of the macro are in use, so every 9x9 and
+            // padd9 of the macro is taken (as for ALU54D), not just the first
+            // half's: with only two blocked a MULT18X18 could be placed on the
+            // macro's second half and share this cell's operand wires.
+            for (int i = 0; i < 4; ++i) {
                 IdString padd_name = gwu.create_aux_name(ci->name, i * 2);
                 std::unique_ptr<CellInfo> padd_cell = gwu.create_cell(padd_name, id_DUMMY_CELL);
                 new_cells.push_back(std::move(padd_cell));
@@ -626,7 +630,7 @@ void GowinPacker::pack_dsp(void)
                 padd_ci->constr_abs_z = false;
                 padd_ci->constr_x = 0;
                 padd_ci->constr_y = 0;
-                padd_ci->constr_z = BelZ::PADD9_0_0_Z - BelZ::MULTALU36X18_0_Z + i;
+                padd_ci->constr_z = BelZ::PADD9_0_0_Z - BelZ::MULTALU36X18_0_Z + 4 * (i / 2) + (i % 2);
 
                 IdString mult_name = gwu.create_aux_name(ci->name, i * 2 + 1);
                 std::unique_ptr<CellInfo> mult_cell = gwu.create_cell(mult_name, id_DUMMY_CELL);
@@ -637,7 +641,7 @@ void GowinPacker::pack_dsp(void)
                 mult_ci->constr_abs_z = false;
                 mult_ci->constr_x = 0;
                 mult_ci->constr_y = 0;
-                mult_ci->constr_z = BelZ::MULT9X9_0_0_Z - BelZ::MULTALU36X18_0_Z + i;
+                mult_ci->constr_z = BelZ::MULT9X9_0_0_Z - BelZ::MULTALU36X18_0_Z + 4 * (i / 2) + (i % 2);
             }
 
             // DSP head?
@@ -744,7 +748,11 @@ void GowinPacker::pack_dsp(void)
             ci->constr_z = 0;
             ci->constr_children.clear();
 
-            for (int i = 0; i < 2; ++i) {
+            // Both 18x18 multipliers of the macro are in use, so every 9x9 and
+            // padd9 of the macro is taken (as for ALU54D), not just the first
+            // half's: with only two blocked a MULT18X18 could be placed on the
+            // macro's second half and share this cell's operand wires.
+            for (int i = 0; i < 4; ++i) {
                 IdString padd_name = gwu.create_aux_name(ci->name, i * 2);
                 std::unique_ptr<CellInfo> padd_cell = gwu.create_cell(padd_name, id_DUMMY_CELL);
                 new_cells.push_back(std::move(padd_cell));
@@ -754,7 +762,7 @@ void GowinPacker::pack_dsp(void)
                 padd_ci->constr_abs_z = false;
                 padd_ci->constr_x = 0;
                 padd_ci->constr_y = 0;
-                padd_ci->constr_z = BelZ::PADD9_0_0_Z - BelZ::MULTADDALU18X18_0_Z + i;
+                padd_ci->constr_z = BelZ::PADD9_0_0_Z - BelZ::MULTADDALU18X18_0_Z + 4 * (i / 2) + (i % 2);
 
                 IdString mult_name = gwu.create_aux_name(ci->name, i * 2 + 1);
                 std::unique_ptr<CellInfo> mult_cell = gwu.create_cell(mult_name, id_DUMMY_CELL);
@@ -765,7 +773,7 @@ void GowinPacker::pack_dsp(void)
                 mult_ci->constr_abs_z = false;
                 mult_ci->constr_x = 0;
                 mult_ci->constr_y = 0;
-                mult_ci->constr_z = BelZ::MULT9X9_0_0_Z - BelZ::MULTADDALU18X18_0_Z + i;
+                mult_ci->constr_z = BelZ::MULT9X9_0_0_Z - BelZ::MULTADDALU18X18_0_Z + 4 * (i / 2) + (i % 2);
             }
 
             // DSP head? This primitive has the ability to form chains using both SO[AB] -> SI[AB] and
