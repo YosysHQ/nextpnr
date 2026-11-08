@@ -1717,7 +1717,10 @@ class StaticPlacer
 
 #if !defined(NPNR_DISABLE_THREADS)
         if (cfg.parallelRefine) {
-            parallel_refine(ctx, ParallelRefineCfg(ctx));
+            auto refine_config = ParallelRefineCfg(ctx);
+            refine_config.hpwl_scale_x = cfg.hpwl_scale_x;
+            refine_config.hpwl_scale_y = cfg.hpwl_scale_y;
+            parallel_refine(ctx, refine_config);
         } else
 #endif
         {

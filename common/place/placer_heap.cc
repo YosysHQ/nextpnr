@@ -400,7 +400,12 @@ class HeAPPlacer
 
 #if !defined(NPNR_DISABLE_THREADS)
         if (cfg.parallelRefine) {
-            if (!parallel_refine(ctx, ParallelRefineCfg(ctx))) {
+
+            auto refine_config = ParallelRefineCfg(ctx);
+            refine_config.hpwl_scale_x = cfg.hpwl_scale_x;
+            refine_config.hpwl_scale_y = cfg.hpwl_scale_y;
+
+            if (!parallel_refine(ctx, refine_config)) {
                 return false;
             }
         } else
