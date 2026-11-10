@@ -551,8 +551,8 @@ class NodeTiming(BBAStruct):
     def serialise_lists(self, context: str, bba: BBAWriter):
         pass
     def serialise(self, context: str, bba: BBAWriter):
-        self.res.serialise(context, bba)
         self.cap.serialise(context, bba)
+        self.res.serialise(context, bba)
         self.delay.serialise(context, bba)
 
 @dataclass
