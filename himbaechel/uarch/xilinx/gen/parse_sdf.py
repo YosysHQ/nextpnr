@@ -23,6 +23,16 @@ class IOPath:
         self.falling = falling
 
 
+class PortDelay:
+    """The delay into an input port (SDF `PORT`) or out of an output port
+    (`DEVICE`)."""
+    def __init__(self, kind, pin, rising, falling):
+        self.kind = kind
+        self.pin = pin
+        self.rising = rising
+        self.falling = falling
+
+
 class SetupHoldCheck:
     def __init__(self, pin, clock, setup, hold):
         self.pin = pin
@@ -121,6 +131,9 @@ def parse_sdf_file(filename):
                     if delay[0] == "IOPATH":
                         cell.entries.append(
                             IOPath(delay[1], delay[2], parse_delay(delay[3][0]), parse_delay(delay[4][0])))
+                    elif delay[0] in ("PORT", "DEVICE"):
+                        cell.entries.append(
+                            PortDelay(delay[0], delay[1], parse_delay(delay[2][0]), parse_delay(delay[3][0])))
                     elif delay[0] == "INTERCONNECT":
                         cell.interconnect[(delay[1], delay[2])] = Interconnect(delay[1], delay[2],
                                                                                parse_delay(delay[3][0]),

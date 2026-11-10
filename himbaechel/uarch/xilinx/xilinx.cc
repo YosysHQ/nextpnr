@@ -88,7 +88,20 @@ void XilinxImpl::init_database(Arch *arch)
     arch->load_chipdb(stringf("xilinx/chipdb-%s.bin", die.c_str()));
     std::string package = match[2].str();
     arch->set_package(package);
-    arch->set_speed_grade("DEFAULT");
+    // A chipdb timed per speed grade names them as the part does (`1`, `2L`);
+    // one with X-Ray's delays alone has just DEFAULT, for every grade.
+    std::string speed = match[3].str(), grades;
+    bool graded = false;
+    for (const auto &grade : arch->chip_info->speed_grades) {
+        // As text: interning the grade would shift every later IdString.
+        graded |= IdString(grade.name).str(arch) == speed;
+        grades += (grades.empty() ? "" : ", ") + IdString(grade.name).str(arch);
+    }
+    if (grades == "DEFAULT")
+        speed = grades;
+    else if (!graded)
+        log_error("Speed grade %s is not in the chipdb, which has %s.\n", speed.c_str(), grades.c_str());
+    arch->set_speed_grade(speed);
 }
 
 void XilinxImpl::init(Context *ctx)

@@ -7,6 +7,10 @@ import struct
 import parse_sdf
 sys.path.append(path.join(path.dirname(__file__), "../../.."))
 from himbaechel_dbgen.chip import *
+from xilinx_timing import TimingDir
+
+# The timing directory's delays, where one is given (`--timing`).
+timing_file = None
 
 def lookup_port_type(t):
     if t == "INPUT": return PinType.INPUT
@@ -113,6 +117,9 @@ def import_tiletype(ch: Chip, tile: xilinx_device.Tile):
     for wire in tile.wires():
         nw = tt.create_wire(wire.name(), wire.intent())
         nw.flags = -1 # not a site wire
+        if timing_file:
+            # A wire that is a node alone is timed as one
+            nw.timing_idx = ch.timing.node_class_idx(timing_file.node_class([(tile.tile_type(), wire.name())]))
         if wire.is_gnd():
             nw.const_value = ch.strs.id("GND")
         if wire.is_vcc():
@@ -148,7 +155,7 @@ def import_tiletype(ch: Chip, tile: xilinx_device.Tile):
             nw.flags = sw.site.primary.index
         return canon_name
 
-    def add_site_io_pip(pin):
+    def add_site_io_pip(pin, site_timing):
         pn = pin.name()
         s = pin.site
         site_key = (s.index << 8)
@@ -164,7 +171,7 @@ def import_tiletype(ch: Chip, tile: xilinx_device.Tile):
             #     #    pip_type=NextpnrPipType.CONST_DRIVER)
             #     pass
             add_pip(lookup_site_wire(pin.site_wire()), pin.tile_wire().name(),
-                pip_class=PipClass.SITE_EXIT, timing="SITE_NULL")
+                pip_class=PipClass.SITE_EXIT, timing=site_timing.exit(pin.site_wire().name()) if site_timing else "SITE_NULL")
         else:
             if s.site_type() in ("SLICEL", "SLICEM"):
                 # Add permuation pseudo-pips for LUT inputs
@@ -181,7 +188,7 @@ def import_tiletype(ch: Chip, tile: xilinx_device.Tile):
                             pip_class=PipClass.LUT_PERMUTATION,
                             pip_config=pip_config,
                             site_key=(s.index << 8),
-                            timing="SITE_NULL"
+                            timing=site_timing.entrance(f"{swn[0]}{j}") if site_timing else "SITE_NULL"
                         )
                     # Add LUT route-through pseudo-pip
                     rt_config = ("ABCDEFGH".index(swn[0]) << 8)
@@ -192,13 +199,13 @@ def import_tiletype(ch: Chip, tile: xilinx_device.Tile):
                             pip_class=PipClass.LUT_ROUTETHRU,
                             pip_config=rt_config,
                             site_key=(s.index << 8),
-                            timing="SITE_NULL"
+                            timing=site_timing.route_through(swn[0], i) if site_timing else "SITE_NULL"
                         )
 
                     return
 
             add_pip(pin.tile_wire().name(), lookup_site_wire(pin.site_wire()),
-                pip_class=PipClass.SITE_ENTRANCE, timing="SITE_NULL")
+                pip_class=PipClass.SITE_ENTRANCE, timing=site_timing.entrance(pin.site_wire().name()) if site_timing else "SITE_NULL")
 
     # TODO: ground/vcc
     tile_wire_count = len(tt.wires)
@@ -208,6 +215,7 @@ def import_tiletype(ch: Chip, tile: xilinx_device.Tile):
             if variant in ("FIFO36E1", ): #unsupported atm
                 continue
             sv = site.variant(variant)
+            site_timing = timing_file.site(sv) if timing_file else None
             variant_key = (site.index << 8) | (variant_idx & 0xFF)
             # Import site bels
             for bel in sv.bels():
@@ -229,7 +237,7 @@ def import_tiletype(ch: Chip, tile: xilinx_device.Tile):
             for pin in sv.pins():
                 pin_key = (pin.name(), pin.site_wire().name())
                 if pin_key not in seen_pins:
-                    add_site_io_pip(pin)
+                    add_site_io_pip(pin, site_timing)
                     seen_pins.add(pin_key)
             # Import site pips
             for site_pip in sv.pips():
@@ -251,25 +259,32 @@ def import_tiletype(ch: Chip, tile: xilinx_device.Tile):
                     site_key=variant_key,
                     bel_name=bel_name,
                     pip_config=ch.strs.id(bel_pin).index,
-                    timing="SITE_NULL"
+                    timing=site_timing.internal(site_pip.src_wire().name(), site_pip.dst_wire().name()) if site_timing else "SITE_NULL"
                 )
     # Import tile pips
     for pip in tile.pips():
         if not filters.include_pip(tile.tile_type(), pip):
             continue
-        tcls = timing_pip_classs(pip)
-        if tcls not in seen_pip_timings:
-            ch.timing.set_pip_class(f"DEFAULT", tcls,
-                delay=TimingValue(int(pip.min_delay()*1000), int(pip.max_delay()*1000)), # ps
-                in_cap=TimingValue(int(pip.capacitance()*1000)), # fF
-                out_res=TimingValue(int(pip.resistance())), # mohm
-                is_buffered=pip.is_buffered())
-            seen_pip_timings.add(tcls)
-        add_pip(pip.src_wire().name(), pip.dst_wire().name(), pip_class=PipClass.TILE_ROUTING, timing=tcls,
+        src, dst = pip.src_wire().name(), pip.dst_wire().name()
+        if timing_file:
+            # A pip the file has no class for keeps X-Ray's own delay
+            xray = lambda: timing_file.pip_class({g: [int(pip.min_delay()*1000), int(pip.max_delay()*1000)] * 2 for g in timing_file.grades})
+            forward = timing_file.tile_pip(tile.tile_type(), src, dst) or xray()
+            backward = timing_file.tile_pip(tile.tile_type(), dst, src) or xray()
+        else:
+            forward = backward = timing_pip_classs(pip)
+            if forward not in seen_pip_timings:
+                ch.timing.set_pip_class(f"DEFAULT", forward,
+                    delay=TimingValue(int(pip.min_delay()*1000), int(pip.max_delay()*1000)), # ps
+                    in_cap=TimingValue(int(pip.capacitance()*1000)), # fF
+                    out_res=TimingValue(int(pip.resistance())), # mohm
+                    is_buffered=pip.is_buffered())
+                seen_pip_timings.add(forward)
+        add_pip(src, dst, pip_class=PipClass.TILE_ROUTING, timing=forward,
             pip_config=1 if pip.is_route_thru() else 0)
         # TODO: extra data, route-through flag
         if pip.is_bidi():
-            add_pip(pip.dst_wire().name(), pip.src_wire().name(), pip_class=PipClass.TILE_ROUTING, timing=tcls,
+            add_pip(dst, src, pip_class=PipClass.TILE_ROUTING, timing=backward,
                 pip_config=1 if pip.is_route_thru() else 0)
 
 def import_sdf_timings(variant, sdfcell):
@@ -365,6 +380,7 @@ def main():
     parser.add_argument("--device", help="name of device to export", type=str, required=True)
     parser.add_argument("--constids", help="name of nextpnr constids file to read", type=str, default=path.join(xlbase, "constids.inc"))
     parser.add_argument("--bba", help="bba file to write", type=str, required=True)
+    parser.add_argument("--timing", help="timing directory: delays for every speed grade (see xilinx_timing.py)", type=str)
     args = parser.parse_args()
 
     # Init database paths
@@ -384,7 +400,11 @@ def main():
     # Init constant ids
     ch = Chip("xilinx", args.device, d.width, d.height)
     ch.strs.read_constids(path.join(path.dirname(__file__), args.constids))
-    ch.set_speed_grades(["DEFAULT", ]) # TODO: figure out how speed grades are supposed to work in prjxray
+    global timing_file
+    if args.timing:
+        timing_file = TimingDir(args.timing, ch.timing)
+    else:
+        ch.set_speed_grades(["DEFAULT", ])
     # Import tile types
     for tile in d.tiles:
         tile_type = tile.tile_type()
@@ -436,7 +456,10 @@ def main():
                             if w.index not in tt_used_wires[w.tile.tile_type()]:
                                 continue
                             node_wires.append(NodeWire(w.tile.x, w.tile.y, w.index))
-                    if len(node_wires) > 1:
+                    if node_wires and timing_file:
+                        # A node of one wire left is still timed as all of its wires
+                        ch.add_node(node_wires, timing_class=timing_file.node_class([(w.tile.tile_type(), w.name()) for w in n.wires]))
+                    elif len(node_wires) > 1:
                         timing_class = f"node_c{node_cap}_c{node_res}"
                         ch.add_node(node_wires, timing_class=timing_class)
                         if timing_class not in seen_node_timings:
@@ -444,34 +467,48 @@ def main():
                             seen_node_timings.add(timing_class)
                     del node_wires
                 seen_nodes.add(uid)
-    # Stub timing class
-    ch.timing.set_pip_class("DEFAULT", "SITE_NULL", delay=TimingValue(20))
-    # Stub bel timings
-    lut = ch.timing.add_cell_variant("DEFAULT", "SLICE_LUTX")
-    for i in range(1, 6+1):
-        lut.add_comb_arc(f"A{i}", "O6", TimingValue(100, 125))
-        if i <= 5: lut.add_comb_arc(f"A{i}", "O5", TimingValue(120, 150))
-    for i in range(1, 8+1):
-        lut.add_setup_hold("CLK", f"WA{i}", ClockEdge.RISING, TimingValue(100, 500), TimingValue(100, 200))
-    lut.add_setup_hold("CLK", "WE", ClockEdge.RISING, TimingValue(100, 600), TimingValue(100, 100))
-    lut.add_setup_hold("CLK", "DI1", ClockEdge.RISING, TimingValue(100, 100), TimingValue(100, 100))
-    ff = ch.timing.add_cell_variant("DEFAULT", "SLICE_FFX")
-    ff.add_setup_hold("CK", "CE", ClockEdge.RISING, TimingValue(100, 100), TimingValue(0, 0))
-    ff.add_setup_hold("CK", "SR", ClockEdge.RISING, TimingValue(100, 100), TimingValue(0, 0))
-    ff.add_setup_hold("CK", "D", ClockEdge.RISING, TimingValue(100, 100), TimingValue(200, 200))
-    ff.add_clock_out("CK", "Q", ClockEdge.RISING, TimingValue(300, 350))
-
-    # Load SDF for carry and mux
     timings_root = xraydb_root
     if "kintex7" in xraydb_root: # TODO: missing
         timings_root = xraydb_root.replace("kintex7", "artix7")
-    slicem_sdf = parse_sdf.parse_sdf_file(path.join(timings_root, "timings", "slicem.sdf"))
-    mux = ch.timing.add_cell_variant("DEFAULT", "SELMUX2_1")
-    import_sdf_timings(mux, slicem_sdf.cells[("SELMUX2_1", "SLICEM/F7BMUX")])
-    carry = ch.timing.add_cell_variant("DEFAULT", "CARRY4")
-    import_sdf_timings(carry, slicem_sdf.cells[("CARRY4", "SLICEM")])
+    if timing_file:
+        # An arc or check the directory lacks is X-Ray's: the carry chain's
+        # (CARRY4 in the SLICEM's SDF, and CARRY4_AX, which has DI, in the CLB
+        # tile's), and the LUT-RAM's and shift register's (DI2 and O5 among them).
+        slicem_sdf = parse_sdf.parse_sdf_file(path.join(timings_root, "timings", "slicem.sdf"))
+        clb_sdf = parse_sdf.parse_sdf_file(path.join(timings_root, "timings", "CLBLL_L.sdf"))
+        def xray(sdf, cell_type, *insts):
+            return [e for inst in insts if (cell_type, inst) in sdf.cells for e in sdf.cells[(cell_type, inst)].entries]
+        ram = xray(slicem_sdf, "LUT_OR_MEM6LRAM", "SLICEM/A6LUT", "SLICEM") + xray(slicem_sdf, "LUT_OR_MEM5LRAM", "SLICEM/A5LUT", "SLICEM")
+        srl = xray(slicem_sdf, "LUT_OR_MEM6SHFREG", "SLICEM/A6LUT", "SLICEM") + xray(slicem_sdf, "LUT_OR_MEM5SHFREG", "SLICEM/A5LUT", "SLICEM")
+        timing_file.cell_variants(fallback={
+            "CARRY4": xray(slicem_sdf, "CARRY4", "SLICEM") + xray(clb_sdf, "CARRY4_AX", "SLICEL"),
+            "SLICE_LUTX": ram + srl})
+    else:
+        # Stub timing class
+        ch.timing.set_pip_class("DEFAULT", "SITE_NULL", delay=TimingValue(20))
+        # Stub bel timings
+        lut = ch.timing.add_cell_variant("DEFAULT", "SLICE_LUTX")
+        for i in range(1, 6+1):
+            lut.add_comb_arc(f"A{i}", "O6", TimingValue(100, 125))
+            if i <= 5: lut.add_comb_arc(f"A{i}", "O5", TimingValue(120, 150))
+        for i in range(1, 8+1):
+            lut.add_setup_hold("CLK", f"WA{i}", ClockEdge.RISING, TimingValue(100, 500), TimingValue(100, 200))
+        lut.add_setup_hold("CLK", "WE", ClockEdge.RISING, TimingValue(100, 600), TimingValue(100, 100))
+        lut.add_setup_hold("CLK", "DI1", ClockEdge.RISING, TimingValue(100, 100), TimingValue(100, 100))
+        ff = ch.timing.add_cell_variant("DEFAULT", "SLICE_FFX")
+        ff.add_setup_hold("CK", "CE", ClockEdge.RISING, TimingValue(100, 100), TimingValue(0, 0))
+        ff.add_setup_hold("CK", "SR", ClockEdge.RISING, TimingValue(100, 100), TimingValue(0, 0))
+        ff.add_setup_hold("CK", "D", ClockEdge.RISING, TimingValue(100, 100), TimingValue(200, 200))
+        ff.add_clock_out("CK", "Q", ClockEdge.RISING, TimingValue(300, 350))
 
-    import_bram_timings(ch.timing, parse_sdf.parse_sdf_file(path.join(timings_root, "timings", "BRAM_L.sdf")))
+        # Load SDF for carry and mux
+        slicem_sdf = parse_sdf.parse_sdf_file(path.join(timings_root, "timings", "slicem.sdf"))
+        mux = ch.timing.add_cell_variant("DEFAULT", "SELMUX2_1")
+        import_sdf_timings(mux, slicem_sdf.cells[("SELMUX2_1", "SLICEM/F7BMUX")])
+        carry = ch.timing.add_cell_variant("DEFAULT", "CARRY4")
+        import_sdf_timings(carry, slicem_sdf.cells[("CARRY4", "SLICEM")])
+
+        import_bram_timings(ch.timing, parse_sdf.parse_sdf_file(path.join(timings_root, "timings", "BRAM_L.sdf")))
 
     # Import package pins
     for package_name, package in sorted(d.packages.items(), key=lambda x:x[0]):
