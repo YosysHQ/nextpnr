@@ -1958,22 +1958,17 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
                     lutn = tmg.add_cell_variant(speed, f"LUT{n}")
                     for i, g in enumerate(("a_f", "b_f", "c_f")[:n]):
                         lutn.add_comb_arc(f"I{i}", "F", group_to_timingvalue(arc[g]))
-                mux5 = tmg.add_cell_variant(speed, "MUX2_LUT5")
-                mux5.add_comb_arc("I0", "O", group_to_timingvalue(arc["m0_ofx0"]))
-                mux5.add_comb_arc("I1", "O", group_to_timingvalue(arc["m1_ofx1"]))
-                mux5.add_comb_arc("S0", "O", group_to_timingvalue(arc["fx_ofx1"]))
-                mux6 = tmg.add_cell_variant(speed, "MUX2_LUT6")
-                mux6.add_comb_arc("I0", "O", group_to_timingvalue(arc["m0_ofx0"]))
-                mux6.add_comb_arc("I1", "O", group_to_timingvalue(arc["m1_ofx1"]))
-                mux6.add_comb_arc("S0", "O", group_to_timingvalue(arc["fx_ofx1"]))
-                mux7 = tmg.add_cell_variant(speed, "MUX2_LUT7")
-                mux7.add_comb_arc("I0", "O", group_to_timingvalue(arc["m0_ofx0"]))
-                mux7.add_comb_arc("I1", "O", group_to_timingvalue(arc["m1_ofx1"]))
-                mux7.add_comb_arc("S0", "O", group_to_timingvalue(arc["fx_ofx1"]))
-                mux8 = tmg.add_cell_variant(speed, "MUX2_LUT8")
-                mux8.add_comb_arc("I0", "O", group_to_timingvalue(arc["m0_ofx0"]))
-                mux8.add_comb_arc("I1", "O", group_to_timingvalue(arc["m1_ofx1"]))
-                mux8.add_comb_arc("S0", "O", group_to_timingvalue(arc["fx_ofx1"]))
+                # MUX2_LUT5 is selected through M0 and the wider muxes through M1.
+                # Data enters MUX2_LUT5 from the LUT, which adds A_OFX - A_F past F,
+                # and the wider muxes from the previous mux level through FX_OFX1.
+                lut_ofx = group_to_timingvalue([o - f for o, f in zip(arc["a_ofx"], arc["a_f"])])
+                mux_fx = group_to_timingvalue(arc["fx_ofx1"])
+                for name, data, sel in (("MUX2_LUT5", lut_ofx, "m0_ofx0"), ("MUX2_LUT6", mux_fx, "m1_ofx1"),
+                                        ("MUX2_LUT7", mux_fx, "m1_ofx1"), ("MUX2_LUT8", mux_fx, "m1_ofx1")):
+                    mux = tmg.add_cell_variant(speed, name)
+                    mux.add_comb_arc("I0", "O", data)
+                    mux.add_comb_arc("I1", "O", data)
+                    mux.add_comb_arc("S0", "O", group_to_timingvalue(arc[sel]))
             elif group == "alu":
                 alu = tmg.add_cell_variant(speed, "ALU")
                 alu.add_comb_arc("I0", "SUM", group_to_timingvalue(arc["a_f"]))
