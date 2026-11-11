@@ -1829,6 +1829,10 @@ struct Router2
         log_info("Checksum: 0x%08x\n", ctx->checksum());
         log_info("Router2 time %.02fs\n", std::chrono::duration<float>(rend - rstart).count());
 
+#ifdef ARCH_HIMBAECHEL
+        // The final report must include the drive_res * load_cap term of pip delays
+        ctx->set_fast_pip_delays(false);
+#endif
         timing_analysis(ctx, true /* slack_histogram */, true /* print_fmax */, true /* print_path */,
                         true /* warn_on_failure */, true /* update_results */);
 
