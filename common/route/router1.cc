@@ -1288,6 +1288,10 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
 #endif
 
         log_info("Checksum: 0x%08x\n", ctx->checksum());
+#ifdef ARCH_HIMBAECHEL
+        // The final report must include the drive_res * load_cap term of pip delays
+        ctx->set_fast_pip_delays(false);
+#endif
         timing_analysis(ctx, true /* slack_histogram */, true /* print_fmax */, true /* print_path */,
                         true /* warn_on_failure */, true /* update_results */);
 
