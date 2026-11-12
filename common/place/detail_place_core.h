@@ -49,6 +49,7 @@ aborts the entire move transaction.
 #include "detail_place_cfg.h"
 #include "fast_bels.h"
 #include "timing.h"
+#include "util.h"
 
 #include <queue>
 
@@ -122,7 +123,7 @@ struct DetailPlacerState
         BelId src_bel = cell2bel ? cell2bel->at(net->driver.cell->name) : net->driver.cell->bel;
         BelId dst_bel = cell2bel ? cell2bel->at(sink.cell->name) : sink.cell->bel;
         double delay = ctx->getDelayNS(ctx->predictDelay(src_bel, driver_pin, dst_bel, sink_pin));
-        return delay * std::pow(crit, base_cfg.crit_exp);
+        return delay * pow_int(crit, base_cfg.crit_exp);
     }
 
     inline bool skip_net(const NetInfo *net) const
