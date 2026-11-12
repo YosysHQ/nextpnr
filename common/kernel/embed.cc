@@ -29,7 +29,7 @@ const void *get_chipdb(const std::string &filename)
 
 const void *get_chipdb(const std::string &filename)
 {
-    HRSRC rc = ::FindResource(nullptr, filename.c_str(), RT_RCDATA);
+    HRSRC rc = ::FindResourceA(nullptr, filename.c_str(), MAKEINTRESOURCEA(10) /* RT_RCDATA */);
     HGLOBAL rcData = ::LoadResource(nullptr, rc);
     return ::LockResource(rcData);
 }
