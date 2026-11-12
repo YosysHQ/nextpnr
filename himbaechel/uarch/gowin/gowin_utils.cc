@@ -265,6 +265,14 @@ BelId GowinUtils::get_pll_bel(BelId io_bel, IdString type)
     return BelId();
 }
 
+bool GowinUtils::is_dcs_input(WireId wire) const
+{
+    return ctx->getWireName(wire)[1].in(id_P16A, id_P16B, id_P16C, id_P16D, id_P17A, id_P17B, id_P17C, id_P17D, id_P26A,
+                                        id_P26B, id_P26C, id_P26D, id_P27A, id_P27B, id_P27C, id_P27D, id_P36A, id_P36B,
+                                        id_P36C, id_P36D, id_P37A, id_P37B, id_P37C, id_P37D, id_P46A, id_P46B, id_P46C,
+                                        id_P46D, id_P47A, id_P47B, id_P47C, id_P47D);
+}
+
 BelId GowinUtils::get_dqce_bel(IdString spine_name)
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
