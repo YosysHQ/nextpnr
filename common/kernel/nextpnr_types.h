@@ -179,6 +179,7 @@ struct NetInfo : ArchNetInfo
     std::vector<IdString> aliases; // entries in net_aliases that point to this net
 
     std::unique_ptr<ClockConstraint> clkconstr;
+    bool ignore_timing = false;
 
     Region *region = nullptr;
 };
