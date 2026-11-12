@@ -37,6 +37,9 @@ if (HIMBAECHEL_XILINX_DEVICES STREQUAL "all")
 endif()
 message(STATUS "Enabled Himbaechel-Xilinx devices: ${HIMBAECHEL_XILINX_DEVICES}")
 
+set(HIMBAECHEL_XILINX_TIMING "" CACHE STRING
+    "Directory of timing directories, <device>/ each, timing those devices in every speed grade (gen/xilinx_timing.py)")
+
 if (NOT XilinxChipdb_Python3_EXECUTABLE)
     find_program(XilinxChipdb_Python3_EXECUTABLE NAMES pypy3 python3)
 endif()
@@ -54,6 +57,15 @@ foreach (device ${HIMBAECHEL_XILINX_DEVICES})
         message(FATAL_ERROR "Unsupported Xilinx device family for device: ${device}. "
                             "Expected prefix xc7a, xc7k, xc7s or xc7z.")
     endif()
+    set(TIMING_ARGS "")
+    set(TIMING_FILES "")
+    if (HIMBAECHEL_XILINX_TIMING AND EXISTS ${HIMBAECHEL_XILINX_TIMING}/${device})
+        message(STATUS "Himbaechel-Xilinx: ${device} timed from ${HIMBAECHEL_XILINX_TIMING}/${device}")
+        set(TIMING_ARGS --timing ${HIMBAECHEL_XILINX_TIMING}/${device})
+        file(GLOB_RECURSE TIMING_FILES ${HIMBAECHEL_XILINX_TIMING}/${device}/*)
+    elseif (HIMBAECHEL_XILINX_TIMING)
+        message(STATUS "Himbaechel-Xilinx: ${device} has no ${HIMBAECHEL_XILINX_TIMING}/${device}, so X-Ray's delays")
+    endif()
     add_bba_produce_command(
         TARGET  nextpnr-himbaechel-xilinx-bba
         COMMAND ${XilinxChipdb_Python3_EXECUTABLE}
@@ -61,11 +73,14 @@ foreach (device ${HIMBAECHEL_XILINX_DEVICES})
             --xray ${HIMBAECHEL_PRJXRAY_DB}/${XRAY_SUBDIR}
             --device ${device}
             --bba ${CMAKE_CURRENT_BINARY_DIR}/chipdb-${device}.bba.new
+            ${TIMING_ARGS}
         OUTPUT
             ${CMAKE_CURRENT_BINARY_DIR}/chipdb-${device}.bba
         INPUTS
             ${CMAKE_CURRENT_SOURCE_DIR}/gen/xilinx_gen.py
+            ${CMAKE_CURRENT_SOURCE_DIR}/gen/xilinx_timing.py
             ${CMAKE_CURRENT_SOURCE_DIR}/constids.inc
+            ${TIMING_FILES}
     )
 
     add_bba_compile_command(
