@@ -1630,14 +1630,22 @@ void GowinImpl::notifyBelChange(BelId bel, CellInfo *cell)
         }
 
         const auto &dsp_cell_data = fast_cell_info.at(dsp_bel2cell.at(bel)->flat_index);
+        // A net no placed cell uses any more leaves the list: the lists give each net its
+        // control line by position (adjust_dsp_pin_mapping) and are sized against the
+        // four lines a macro or block has, so a stale entry would shift or exhaust them.
+        auto forget = [](dict<IdString, int> &nets, IdString net) {
+            if (--nets.at(net) == 0) {
+                nets.erase(net);
+            }
+        };
         if (dsp_cell_data.dsp_reset != nullptr) {
-            dsp_info.at(dsp).reset.at(dsp_cell_data.dsp_reset->name)--;
+            forget(dsp_info.at(dsp).reset, dsp_cell_data.dsp_reset->name);
         }
         if (dsp_cell_data.dsp_ce != nullptr) {
-            dsp_info.at(dsp_macro).ce.at(dsp_cell_data.dsp_ce->name)--;
+            forget(dsp_info.at(dsp_macro).ce, dsp_cell_data.dsp_ce->name);
         }
         if (dsp_cell_data.dsp_clk != nullptr) {
-            dsp_info.at(dsp_macro).clk.at(dsp_cell_data.dsp_clk->name)--;
+            forget(dsp_info.at(dsp_macro).clk, dsp_cell_data.dsp_clk->name);
         }
         dsp_bel2cell.erase(bel);
     }
