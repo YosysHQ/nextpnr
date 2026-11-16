@@ -46,7 +46,7 @@ delay_t GateMateImpl::predictDelay(BelId src_bel, IdString src_pin, BelId dst_be
         d2d += 2000;
 
     Loc src_loc = ctx->getBelLocation(src_bel), dst_loc = ctx->getBelLocation(dst_bel);
-    return 100 + 100 * (std::abs(dst_loc.x - src_loc.x) + std::abs(dst_loc.y - src_loc.y)) + d2d;
+    return 1435 + 141 * std::abs(dst_loc.x - src_loc.x) + 102 * std::abs(dst_loc.y - src_loc.y) + d2d;
 }
 
 bool GateMateImpl::get_delay_from_tmg_db(IdString id, DelayQuad &delay) const
