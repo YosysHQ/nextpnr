@@ -782,6 +782,27 @@ def create_nodes_with_empty_area(chip: Chip, db: chipdb):
         chip.add_node(node)
     create_global_nodes(chip, db)
 
+# Wire classes whose delay depends on fanout
+FANOUT_CLASSES = {"X0": "X0Fan", "FX1": "X1Fan", "X2": "X2Fan", "X8": "X8Fan",
+                  "LUT_OUT": "FFan", "FF_OUT": "QFan", "OF": "OFFan"}
+
+def fanout_node_class(db: chipdb, wires):
+    for wire in wires:
+        name = wire.wire if isinstance(wire, NodeWire) else wire
+        cls = db.wire_delay.get(name, "")
+        if cls in FANOUT_CLASSES:
+            return cls
+    return ""
+
+def set_wire_timing_classes(chip: Chip, db: chipdb):
+    # node timing for wires that are not part of a node
+    names = {idx: name for name, idx in chip.strs.strs.items()}
+    for tt in chip.tile_types:
+        for wire in tt.wires:
+            cls = fanout_node_class(db, [names[wire.name.index]])
+            if cls:
+                wire.timing_idx = chip.timing.node_class_idx(cls)
+
 def create_nodes(chip: Chip, db: chipdb):
     # : (x, y)
     dirs = { 'N': (0, -1), 'S': (0, 1), 'W': (-1, 0), 'E': (1, 0) }
@@ -833,7 +854,7 @@ def create_nodes(chip: Chip, db: chipdb):
                                   NodeWire(x - 1, y, f'COUT5')])
 
     for node in nodes:
-        chip.add_node(node)
+        chip.add_node(node, fanout_node_class(db, node))
     create_global_nodes(chip, db)
 
 def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
@@ -2079,18 +2100,19 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
                 for name in ['GI_DO', 'SDTAP_DO', 'SETN_DO', 'VALUE_DO', 'SDTAP_DF', 'SETN_DF', 'VALUE_DF']:
                     tmg.set_pip_class(speed, name, group_to_timingvalue(arc[name]))
             elif group == "wire":
-                # wires with delay and fanout delay
-                for name in ["X0", "X2", "X8"]:
-                    tmg.set_pip_class(speed, name, group_to_timingvalue(arc[name]), group_to_timingvalue(groups["fanout"][f"{name}Fan"]), TimingValue(round(1e6 / groups["fanout"][f"{name}FanNum"])))
+                fanout = groups["fanout"]
+                # wire delay (if any) + fanout delay; cell outputs are fanout-only
+                for name, fan in FANOUT_CLASSES.items():
+                    delay = group_to_timingvalue(arc[name]) if name in arc else TimingValue()
+                    tmg.set_pip_class(speed, name, delay, group_to_timingvalue(fanout[fan]), TimingValue())
+                    # getPipDelay adds res / 2 of the source node
+                    tmg.set_node_class(speed, name, TimingValue(), TimingValue(round(2e6 / fanout[f"{fan}Num"])))
                 # wires with delay but no fanout delay
-                for name in ["X0CTL", "X0CLK", "FX1"]:
+                for name in ["X0CTL", "X0CLK"]:
                     tmg.set_pip_class(speed, name, group_to_timingvalue(arc[name]))
                 # wires with presently-unknown delay
                 for name in ["LUT_IN", "DI", "SEL", "CIN", "COUT", "VCC", "VSS", "LW_TAP", "LW_TAP_0", "LW_BRANCH", "LW_SPAN", "ISB"]:
                     tmg.set_pip_class(speed, name, TimingValue())
-                # wires with fanout-only delay; used on cell output pips
-                for name, mapping in [("LUT_OUT", "FFan"), ("FF_OUT", "QFan"), ("OF", "OFFan")]:
-                    tmg.set_pip_class(speed, name, TimingValue(), group_to_timingvalue(groups["fanout"][mapping]), TimingValue(round(1e6 / groups["fanout"][f"{mapping}Num"])))
 
 # If Apicula does not specify a special location for the global GND and VCC
 # sources, place them at X0Y0.
@@ -2204,6 +2226,7 @@ def main():
             else:
                 create_tiletype(create_null_tiletype, ch, db, x, y, ttyp)
 
+    set_wire_timing_classes(ch, db)
     # Create nodes between tiles
     if "HAS_EMPTY_QUADRANT" in db.chip_flags:
         create_nodes_with_empty_area(ch, db)
