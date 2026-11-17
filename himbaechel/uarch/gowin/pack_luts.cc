@@ -585,6 +585,9 @@ void GowinPacker::pack_ssram(void)
             int luts_num = 4;
             if (ci->type == id_RAM16SDP1) {
                 luts_num = 1;
+                // RAM16SDP1 has scalar DI and DO ports
+                ci->renamePort(id_DI, ctx->id("DI[0]"));
+                ci->renamePort(id_DO, ctx->id("DO[0]"));
             } else {
                 if (ci->type == id_RAM16SDP2) {
                     luts_num = 2;
