@@ -536,7 +536,7 @@ std::unique_ptr<CellInfo> GowinPacker::ssram_make_lut(Context *ctx, CellInfo *ci
     if (ci->params.count(init_name)) {
         lut_ci->setParam(id_INIT, ci->params.at(init_name));
     } else {
-        lut_ci->setParam(id_INIT, std::string("1111111111111111"));
+        lut_ci->setParam(id_INIT, std::string("0000000000000000"));
     }
     return lut_ci;
 }
