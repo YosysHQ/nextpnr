@@ -431,6 +431,11 @@ void GowinPacker::pack_SDPB(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>>
     NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
     NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
 
+    bit_width = ci->params.at(id_BIT_WIDTH_1).as_int64();
+    if (bit_width < 16 && gwu.need_BSRAM_OUTREG_fix()) {
+        bsram_fix_outreg(ci, bit_width, id_CEB, id_OCE, id_CLKB, id_RESET, id_DO, id_READ_MODE, new_cells);
+    }
+
     ci->copyPortTo(id_OCE, ci, id_OCEB);
 
     // If misconnected RESET
@@ -444,7 +449,6 @@ void GowinPacker::pack_SDPB(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>>
 
     // Port B
     ci->addInput(id_WREB);
-    bit_width = ci->params.at(id_BIT_WIDTH_1).as_int64();
 
     if (bit_width == 32 || bit_width == 36) {
         ci->connectPort(id_WREB, vcc_net);
