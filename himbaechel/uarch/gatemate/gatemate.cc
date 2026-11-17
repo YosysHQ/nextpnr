@@ -1072,12 +1072,12 @@ void GateMateImpl::configurePlacerStatic(PlacerStaticCfg &cfg)
         auto &ram = cfg.cell_groups.back();
         ram.name = ctx->id("RAM");
 
-        ram.bel_area[id_RAM] = StaticRect(1.0f, 2.0f);
-        ram.bel_area[id_RAM_HALF_L] = StaticRect(1.0f, 2.0f);
+        ram.bel_area[id_RAM] = StaticRect(1.0f, 8.0f);
+        ram.bel_area[id_RAM_HALF_L] = StaticRect(1.0f, 8.0f);
 
-        ram.cell_area[id_RAM] = StaticRect(1.0f, 2.0f);
-        ram.cell_area[id_RAM_HALF] = StaticRect(1.0f, 2.0f);
-        ram.cell_area[id_RAM_HALF_DUMMY] = StaticRect(1.0f, 2.0f);
+        ram.cell_area[id_RAM] = StaticRect(1.0f, 8.0f);
+        ram.cell_area[id_RAM_HALF] = StaticRect(1.0f, 8.0f);
+        ram.cell_area[id_RAM_HALF_DUMMY] = StaticRect(1.0f, 8.0f);
 
         ram.spacer_rect = StaticRect(1.0f, 2.0f);
     }
