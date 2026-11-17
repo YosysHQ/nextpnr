@@ -555,8 +555,8 @@ void GowinPacker::pack_dsp(void)
             }
         } break;
         case ID_MULTALU36X18: {
-            if (ci->params.count(id_MULTALU18X18_MODE) == 0) {
-                ci->setParam(id_MULTALU18X18_MODE, 0);
+            if (ci->params.count(id_MULTALU36X18_MODE) == 0) {
+                ci->setParam(id_MULTALU36X18_MODE, 0);
             }
             int multalu36x18_mode = ci->params.at(id_MULTALU36X18_MODE).as_int64();
             if (multalu36x18_mode < 0 || multalu36x18_mode > 2) {

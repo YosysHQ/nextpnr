@@ -470,6 +470,15 @@ void GowinPacker::pack_DPB(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> 
     if (!ci->params.count(id_BIT_WIDTH_0)) {
         ci->setParam(id_BIT_WIDTH_0, Property(default_bw, 32));
     }
+    if (!ci->params.count(id_READ_MODE0)) {
+        ci->setParam(id_READ_MODE0, Property(0, 1));
+    }
+    if (!ci->params.count(id_READ_MODE1)) {
+        ci->setParam(id_READ_MODE1, Property(0, 1));
+    }
+    if (!ci->params.count(id_RESET_MODE)) {
+        ci->setParam(id_RESET_MODE, Property("SYNC"));
+    }
     int bit_width = ci->params.at(id_BIT_WIDTH_0).as_int64();
     bsram_rename_ports(ci, bit_width, "DIA[%d]", "DIA%d");
 
@@ -571,6 +580,18 @@ void GowinPacker::pack_SP(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &
     }
     if (!ci->params.count(id_BIT_WIDTH)) {
         ci->setParam(id_BIT_WIDTH, Property(default_bw, 32));
+    }
+    if (!ci->params.count(id_BLK_SEL)) {
+        ci->setParam(id_BLK_SEL, Property(0, 3));
+    }
+    if (!ci->params.count(id_READ_MODE)) {
+        ci->setParam(id_READ_MODE, Property(0, 1));
+    }
+    if (!ci->params.count(id_WRITE_MODE)) {
+        ci->setParam(id_WRITE_MODE, Property(0, 2));
+    }
+    if (!ci->params.count(id_RESET_MODE)) {
+        ci->setParam(id_RESET_MODE, Property("SYNC"));
     }
 
     int bit_width = ci->params.at(id_BIT_WIDTH).as_int64();
