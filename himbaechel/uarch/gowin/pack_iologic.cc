@@ -670,6 +670,17 @@ void GowinPacker::pack_iologic(void)
 // ===================================
 // IDES16 / OSER16
 // ===================================
+// GSREN and LSREN apply to the two IOLOGICs at the IDES16/OSER16 pin, not to
+// the helper IOLOGIC in the neighbouring tile.
+static void copy_io16_sr_params(const CellInfo &ci, CellInfo *aux)
+{
+    for (IdString param : {id_GSREN, id_LSREN}) {
+        if (ci.params.count(param)) {
+            aux->setParam(param, ci.params.at(param));
+        }
+    }
+}
+
 void GowinPacker::check_io16_placement(CellInfo &ci, Loc main_loc, Loc aux_off, int diff /* 1 - diff */)
 {
     if (main_loc.z != BelZ::IOBA_Z) {
@@ -727,6 +738,7 @@ void GowinPacker::pack_oser16(CellInfo &ci, std::vector<IdString> &nets_to_remov
     aux->setParam(ctx->id("OUTMODE"), Property("ODDRX8"));
     aux->setParam(ctx->id("UPDATE"), Property("SAME"));
     aux->setAttr(ctx->id("IOLOGIC_TYPE"), Property("DUMMY"));
+    copy_io16_sr_params(ci, aux);
     ci.copyPortTo(id_PCLK, aux, id_PCLK);
     ci.copyPortTo(id_RESET, aux, id_RESET);
     ctx->bindBel(ctx->getBelByLocation(Loc(iob_loc.x, iob_loc.y, BelZ::IOLOGICA_Z)), aux,
@@ -736,6 +748,7 @@ void GowinPacker::pack_oser16(CellInfo &ci, std::vector<IdString> &nets_to_remov
     aux = create_aux_iologic_cell(*aux, ctx->id("OUTMODE"), true, 2);
     aux->setAttr(ctx->id("MAIN_CELL"), Property(main_name.str(ctx)));
     aux->setParam(ctx->id("UPDATE"), Property("SAME"));
+    copy_io16_sr_params(ci, aux);
 
     // make cell in the next location
     ctx->createCell(main_name, id_IOLOGIC);
@@ -800,6 +813,7 @@ void GowinPacker::pack_ides16(CellInfo &ci, std::vector<IdString> &nets_to_remov
     aux->setAttr(ctx->id("MAIN_CELL"), Property(main_name.str(ctx)));
     aux->setParam(ctx->id("INMODE"), Property("IDDRX8"));
     aux->setAttr(ctx->id("IOLOGIC_TYPE"), Property("DUMMY"));
+    copy_io16_sr_params(ci, aux);
     ci.copyPortTo(id_PCLK, aux, id_PCLK);
     ci.copyPortTo(id_RESET, aux, id_RESET);
     ctx->bindBel(ctx->getBelByLocation(Loc(iob_loc.x, iob_loc.y, BelZ::IOLOGICA_Z)), aux,
@@ -808,6 +822,7 @@ void GowinPacker::pack_ides16(CellInfo &ci, std::vector<IdString> &nets_to_remov
     // make aux cell in the first cell
     aux = create_aux_iologic_cell(*aux, ctx->id("INMODE"), true, 2);
     aux->setAttr(ctx->id("MAIN_CELL"), Property(main_name.str(ctx)));
+    copy_io16_sr_params(ci, aux);
     ci.copyPortTo(id_CALIB, aux, id_CALIB);
 
     // make cell in the next location
