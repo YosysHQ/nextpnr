@@ -392,6 +392,9 @@ void GowinPacker::pack_alus(void)
                         ci->constr_y = 0;
                         ci->constr_z = alu_chain_len % 6;
                     }
+                    if (ci->params.count(id_ALU_MODE) == 0) {
+                        ci->setParam(id_ALU_MODE, 0);
+                    }
                     // optimize only MODE=2 for now
                     if (ci->attrs.count(id_RAW_ALU_LUT) == 0 && ci->params.at(id_ALU_MODE).as_int64() == 2) {
                         optimize_alu_lut(ci, 2);
