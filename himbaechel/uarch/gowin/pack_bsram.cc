@@ -594,7 +594,7 @@ void GowinPacker::pack_SP(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &
         }
 
         // Some chips have faulty output registers
-        if (bit_width < 32 && gwu.need_BSRAM_OUTREG_fix()) {
+        if (bit_width < 16 && gwu.need_BSRAM_OUTREG_fix()) {
             bsram_fix_outreg(ci, bit_width, id_CE, id_OCE, id_CLK, id_RESET, id_DO, id_READ_MODE, new_cells);
         }
     }
