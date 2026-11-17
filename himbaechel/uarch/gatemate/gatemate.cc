@@ -1007,6 +1007,10 @@ void GateMateImpl::configurePlacerHeap(PlacerHeapCfg &cfg)
 
 void GateMateImpl::configurePlacerStatic(PlacerStaticCfg &cfg)
 {
+    cfg.timing_c = 1435;
+    cfg.timing_mx = 141;
+    cfg.timing_my = 102;
+
     cfg.glbBufTypes.insert(id_CLKIN);
     cfg.glbBufTypes.insert(id_GLBOUT);
     cfg.glbBufTypes.insert(id_PLL);
