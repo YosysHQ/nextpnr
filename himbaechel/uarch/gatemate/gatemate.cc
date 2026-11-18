@@ -49,6 +49,7 @@ po::options_description GateMateImpl::getUArchOptions()
     specific.add_options()("clk-cp", "use CP lines for CLK and EN");
     specific.add_options()("no-cpe-cp", "do not use CP lines pass through CPE");
     specific.add_options()("no-bridges", "do not use CPE in bridge mode");
+    specific.add_options()("ff-init-zero", "initialize FFs without defined INIT value to zero");
     return specific;
 }
 
@@ -121,6 +122,7 @@ void GateMateImpl::init_database(Arch *arch)
     use_cp_for_clk = args.options.count("clk-cp") == 1;
     use_cp_for_cpe = args.options.count("no-cpe-cp") == 0;
     use_bridges = args.options.count("no-bridges") == 0;
+    ff_init_zero = args.options.count("ff-init-zero") == 1;
 }
 
 void GateMateImpl::init(Context *ctx)

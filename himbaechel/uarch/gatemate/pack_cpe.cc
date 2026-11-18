@@ -152,6 +152,8 @@ void GateMatePacker::dff_to_cpe(CellInfo *dff)
             dff->params[id_FF_INIT] = Property(0b10, 2);
         dff->unsetParam(id_INIT);
     } else {
+        if (uarch->ff_init_zero)
+            dff->params[id_FF_INIT] = Property(0b10, 2);
         dff->unsetParam(id_INIT);
     }
 }
