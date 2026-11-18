@@ -707,7 +707,7 @@ void GateMatePacker::pack_addf()
                     cy->renamePort(id_CO, id_COUTY1);
                 } else {
                     for (auto &usr : co_net->users) {
-                        if (usr.cell->type == id_CC_ADDF || usr.port == id_CI) {
+                        if (usr.cell == grp.at(i + 1) && usr.port == id_CI) {
                             usr.cell->disconnectPort(id_CI);
                             NetInfo *co_conn = ctx->createNet(ctx->idf("%s$co_net", cy->name.c_str(ctx)));
                             cy->addOutput(id_COUTY1);
