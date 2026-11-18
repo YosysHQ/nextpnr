@@ -1,6 +1,7 @@
 #include "design_utils.h"
 #include "log.h"
 #include "nextpnr.h"
+#include "util.h"
 
 #define HIMBAECHEL_CONSTIDS "uarch/gowin/constids.inc"
 #include "himbaechel_constids.h"
@@ -612,6 +613,15 @@ void GowinPacker::pack_iodelay(void)
         ci.movePortTo(id_SETN, iologic, id_SETN);
         ci.movePortTo(id_VALUE, iologic, id_VALUE);
         ci.movePortTo(id_DF, iologic, id_DF);
+
+        // GW5A: DLYSTEP is only used by the dynamic and adaptive delay modes,
+        // in static mode it is not routed.
+        if (boolstr_or_default(ci.params, id_DYN_DLY_EN) || boolstr_or_default(ci.params, id_ADAPT_EN)) {
+            log_error("IODELAY %s: dynamic and adaptive delay are not supported.\n", ctx->nameOf(&ci));
+        }
+        for (int i = 0; i < 8; ++i) {
+            ci.disconnectPort(ctx->idf("DLYSTEP[%d]", i));
+        }
 
         if (ci.params.count(id_C_STATIC_DLY)) {
             iologic->setParam(id_C_STATIC_DLY, ci.params.at(id_C_STATIC_DLY));
