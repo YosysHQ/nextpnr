@@ -487,11 +487,10 @@ void GateMatePacker::pack_io_sel()
         return true;
     };
 
-    // Invert CPE out for output enable (OUT3)
-    bool is_inverted[4] = {false, false, true, false};
-
     for (auto &cell : cells) {
         CellInfo &ci = *cell;
+        // Invert CPE out for output enable (OUT3), reset for each IO
+        bool is_inverted[4] = {false, false, true, false};
         bool ff_obf = bool_or_default(ci.params, id_FF_OBF, 0);
         bool ff_ibf = bool_or_default(ci.params, id_FF_IBF, 0);
         ci.unsetParam(id_FF_OBF);
