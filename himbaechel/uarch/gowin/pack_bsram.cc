@@ -414,6 +414,12 @@ void GowinPacker::pack_SDPB(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>>
     if (!ci->params.count(id_BIT_WIDTH_1)) {
         ci->setParam(id_BIT_WIDTH_1, Property(default_bw, 32));
     }
+    if (!ci->params.count(id_READ_MODE)) {
+        ci->setParam(id_READ_MODE, Property(0, 1));
+    }
+    if (!ci->params.count(id_RESET_MODE)) {
+        ci->setParam(id_RESET_MODE, Property("SYNC"));
+    }
 
     int bit_width = ci->params.at(id_BIT_WIDTH_0).as_int64();
 
