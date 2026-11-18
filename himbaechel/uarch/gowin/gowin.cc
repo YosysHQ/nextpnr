@@ -946,7 +946,12 @@ void GowinImpl::postRoute()
                         }
                         user.cell->setAttr(id_IOLOGIC_FCLK, Property("UNKNOWN"));
                         visited_hclk_users.insert(user.cell->name);
-                        PipId up_pip = h_net->wires.at(ctx->getNetinfoSinkWire(h_net, user, 0)).pip;
+                        WireId sink_wire = ctx->getNetinfoSinkWire(h_net, user, 0);
+                        if (!h_net->wires.count(sink_wire)) {
+                            // not routed, the router has reported it already
+                            continue;
+                        }
+                        PipId up_pip = h_net->wires.at(sink_wire).pip;
                         IdString up_wire_name = ctx->getWireName(ctx->getPipSrcWire(up_pip))[1];
                         if (!gwu.has_5A_HCLK()) {
                             if (up_wire_name.in(id_HCLK_OUT0, id_HCLK_OUT1, id_HCLK_OUT2, id_HCLK_OUT3)) {

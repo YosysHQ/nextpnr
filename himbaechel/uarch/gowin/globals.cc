@@ -654,7 +654,7 @@ struct GowinGlobalRouter
         CellInfo *true_src_ci = net_before_buf->driver.cell;
         src = ctx->getBelPinWire(true_src_ci->bel, net_before_buf->driver.port);
         ctx->bindWire(src, net, STRENGTH_LOCKED);
-        backwards_bfs_route(net, src, dst, 1000000, false, [&](PipId pip, WireId src_wire) {
+        backwards_bfs_route(net, src, dst, 1000000, true, [&](PipId pip, WireId src_wire) {
             return clock_gate_wire_filter(pip) && segment_wire_filter(pip) && dcs_input_filter(pip);
         });
         // remove net
