@@ -81,6 +81,12 @@ class Ecp5GlobalRouter
             return true;
         if ((user.cell->type.in(id_IOLOGIC, id_SIOLOGIC)) && (user.port == id_CLK))
             return true;
+        if (user.cell->type == id_DP16KD && user.port.in(id_CLKA, id_CLKB))
+            return true;
+        if (user.cell->type.in(id_MULT18X18D, id_ALU54B) && user.port.in(id_CLK0, id_CLK1, id_CLK2, id_CLK3))
+            return true;
+        if (user.cell->type == id_DQSBUFM && user.port == id_SCLK)
+            return true;
         return false;
     }
 
@@ -563,7 +569,7 @@ class Ecp5GlobalRouter
                 NPNR_ASSERT(clock != nullptr);
                 bool drives_fabric = false;
                 for (auto &usr : clock->users) {
-                    if (!is_clock_port(usr)) {
+                    if (!is_clock_port(usr) && !(usr.cell->type == id_EHXPLLL && usr.port == id_CLKI)) {
                         drives_fabric = true;
                         break;
                     }
