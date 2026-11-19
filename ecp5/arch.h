@@ -682,6 +682,8 @@ struct Arch : BaseArch<ArchRanges>
 
     std::vector<IdString> getBelPins(BelId bel) const override;
 
+    bool getBelHidden(BelId bel) const override;
+
     // -------------------------------------------------
 
     WireId getWireByName(IdStringList name) const override;

@@ -368,6 +368,21 @@ IdStringList Arch::getPipName(PipId pip) const
 
 // -----------------------------------------------------------------------
 
+bool Arch::getBelHidden(BelId bel) const
+{
+    IdString bel_type = getBelType(bel);
+    if (bel_type == id_DCUA) {
+        return (args.type == ArchArgs::LFE5U_12F || args.type == ArchArgs::LFE5U_25F ||
+            args.type == ArchArgs::LFE5U_45F  || args.type == ArchArgs::LFE5U_85F);
+    } else if (bel_type == id_TRELLIS_IO) {
+        return get_bel_package_pin(bel).empty();
+    } else {
+        return false;
+    }
+}
+
+// -----------------------------------------------------------------------
+
 BelId Arch::get_package_pin_bel(const std::string &pin) const
 {
     for (auto &ppin : package_info->pin_data) {
