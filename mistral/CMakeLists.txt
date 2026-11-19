@@ -31,14 +31,14 @@ add_subdirectory(${MISTRAL_ROOT}/libmistral ${CMAKE_CURRENT_BINARY_DIR}/libmistr
 
 find_package(LibLZMA REQUIRED)
 
-target_include_directories(nextpnr-${family}-core INTERFACE
+target_include_directories(nextpnr-${family}-defs INTERFACE
     ${MISTRAL_ROOT}/libmistral
     ${CMAKE_CURRENT_BINARY_DIR}/tools
     ${CMAKE_CURRENT_BINARY_DIR}/libmistral
     ${LIBLZMA_INCLUDE_DIRS}
 )
 
-target_link_libraries(nextpnr-${family}-core INTERFACE
+target_link_libraries(nextpnr-${family}-defs INTERFACE
     mistral
     ${LIBLZMA_LIBRARIES}
 )
