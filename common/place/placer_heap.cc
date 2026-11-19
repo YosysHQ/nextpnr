@@ -1919,7 +1919,7 @@ class HeAPPlacer
             for (auto &cell : cut_cells) {
                 total_cells += p->chain_size.count(cell->name) ? p->chain_size.at(cell->name) : 1;
             }
-            std::sort(cut_cells.begin(), cut_cells.end(), [&](const CellInfo *a, const CellInfo *b) {
+            std::stable_sort(cut_cells.begin(), cut_cells.end(), [&](const CellInfo *a, const CellInfo *b) {
                 return dir ? (p->cell_locs.at(a->udata).rawy < p->cell_locs.at(b->udata).rawy)
                            : (p->cell_locs.at(a->udata).rawx < p->cell_locs.at(b->udata).rawx);
             });

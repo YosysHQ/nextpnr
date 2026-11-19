@@ -50,7 +50,7 @@ PlacePartition::PlacePartition(Context *ctx)
 
 void PlacePartition::split(Context *ctx, bool yaxis, float pivot, PlacePartition &l, PlacePartition &r)
 {
-    std::sort(cells.begin(), cells.end(), [&](CellInfo *a, CellInfo *b) {
+    std::stable_sort(cells.begin(), cells.end(), [&](CellInfo *a, CellInfo *b) {
         Loc l0 = ctx->getBelLocation(a->bel), l1 = ctx->getBelLocation(b->bel);
         return yaxis ? (l0.y < l1.y) : (l0.x < l1.x);
     });
