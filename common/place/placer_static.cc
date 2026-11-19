@@ -638,14 +638,25 @@ class StaticPlacer
     {
         log_info("⌁ inserting dark nodes...\n");
         for (int group = cfg.logic_groups; group < int(groups.size()); group++) {
-            const auto &cg = cfg.cell_groups.at(group);
+            array2d<float> bin_area;
+            bin_area.reset(m, m);
+            // convert loc_area to bins
             auto &g = groups.at(group);
-            int dark_count = 0;
+            const auto &cg = cfg.cell_groups.at(group);
+
             for (auto tile : g.loc_area) {
-                if (tile.value > 0.5f)
+                StaticRect tile_area(std::sqrt(tile.value), std::sqrt(tile.value));
+                iter_slithers(RealPair(tile.x + 0.5f, tile.y + 0.5f), tile_area, [&](int x, int y, float area) { bin_area.at(x, y) += area; });
+            }
+
+            int dark_count = 0;
+            for (auto bin : bin_area) {
+                if (bin.value >= 0.25f)
                     continue;
-                StaticRect dark_area(1.0f, 1.0f - tile.value);
-                int cell_idx = add_cell(dark_area, group, RealPair(tile.x + 0.5f, tile.y + 0.5f), nullptr /*spacer*/);
+
+                StaticRect dark_area(std::sqrt(1.0f - bin.value) * bin_w, std::sqrt(1.0f - bin.value) * bin_h);
+
+                int cell_idx = add_cell(dark_area, group, RealPair((bin.x + 0.5f) * bin_w, (bin.y + 0.5f) * bin_h), nullptr /*spacer*/);
                 mcells.at(cell_idx).is_dark = true;
                 ++dark_count;
             }
@@ -1664,10 +1675,10 @@ class StaticPlacer
         prepare_cells();
         init_cells();
         init_nets();
+        prepare_density_bins();
         insert_dark();
         insert_spacer();
 
-        prepare_density_bins();
         if (ccells.empty()) {
             log_info("No cells available for static to place\n");
         } else {
