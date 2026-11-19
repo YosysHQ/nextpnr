@@ -221,6 +221,8 @@ bool GateMateImpl::isBelLocationValid(BelId bel, bool explain_invalid) const
                 if (adj_data.used) {
                     if (adj_data.config != half_data.config)
                         return false;
+                    if (!ff_init_compatible(cell, adj_half))
+                        return false;
                     if (adj_data.ff_en != half_data.ff_en)
                         return false;
                     if (adj_data.ff_clk != half_data.ff_clk)
@@ -338,7 +340,8 @@ void GateMateImpl::postPlace()
         // even if output is actually not connected
         bool marked_used = cell.second.get()->type == id_CPE_MULT;
         // Can not use FF for OUT2 if CPE is used in bridge mode
-        if (cell.second.get()->type == id_CPE_FF && ctx->getBelLocation(cell.second.get()->bel).z == CPE_FF_U_Z)
+        if (cell.second.get()->type.in(id_CPE_FF, id_CPE_LATCH) &&
+            ctx->getBelLocation(cell.second.get()->bel).z == CPE_FF_U_Z)
             marked_used = true;
         if (marked_used)
             used_cpes[cell.second.get()->bel.tile] = true;
@@ -1099,9 +1102,14 @@ int GateMateImpl::get_dff_config(CellInfo *dff) const
     val |= int_or_default(dff->params, id_C_EN_SR, 0);
     val <<= 1;
     val |= int_or_default(dff->params, id_C_L_D, 0);
-    val <<= 1;
-    val |= int_or_default(dff->params, id_FF_INIT, 0);
     return val;
+}
+
+bool GateMateImpl::ff_init_compatible(const CellInfo *a, const CellInfo *b) const
+{
+    if (!a->params.count(id_FF_INIT) || !b->params.count(id_FF_INIT))
+        return true;
+    return a->params.at(id_FF_INIT) == b->params.at(id_FF_INIT);
 }
 
 int GateMateImpl::get_ram_config(CellInfo *ram) const

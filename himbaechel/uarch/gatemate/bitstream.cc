@@ -377,12 +377,11 @@ struct BitstreamBackend
 
                 if (cell.second->type.in(id_CPE_FF, id_CPE_LATCH)) {
                     update_cpe_inv(cell.second.get(), id_CLK, id_C_CPE_CLK, params);
-                    update_cpe_inv(cell.second.get(), id_EN, id_C_CPE_EN, params);
+                    // For latch SR is EN, polarity is in C_CPE_SET
+                    bool latch = cell.second->type == id_CPE_LATCH;
+                    update_cpe_inv(cell.second.get(), id_EN, latch ? id_C_CPE_SET : id_C_CPE_EN, params);
                     bool set = int_or_default(params, id_C_EN_SR, 0) == 1;
-                    if (set)
-                        update_cpe_inv(cell.second.get(), id_SR, id_C_CPE_SET, params);
-                    else
-                        update_cpe_inv(cell.second.get(), id_SR, id_C_CPE_RES, params);
+                    update_cpe_inv(cell.second.get(), id_SR, set ? id_C_CPE_SET : id_C_CPE_RES, params);
                 }
 
                 if (uarch->multiplier_a_passthru_lowers.count(cell.first) ||

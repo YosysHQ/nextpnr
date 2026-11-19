@@ -92,6 +92,7 @@ struct GateMateImpl : HimbaechelAPI
 
     int get_dff_config(CellInfo *dff) const;
     int get_ram_config(CellInfo *ram) const;
+    bool ff_init_compatible(const CellInfo *a, const CellInfo *b) const;
 
     std::set<IdString> available_pads;
     std::map<BelId, const PadInfoPOD *> bel_to_pad;

@@ -41,6 +41,8 @@ bool GateMatePacker::are_ffs_compatible(CellInfo *dff, CellInfo *other)
         return false;
     if (uarch->get_dff_config(dff) != uarch->get_dff_config(other))
         return false;
+    if (!uarch->ff_init_compatible(dff, other))
+        return false;
     return true;
 }
 
