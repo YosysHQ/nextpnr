@@ -645,7 +645,7 @@ class StaticPlacer
                 if (tile.value > 0.5f)
                     continue;
                 StaticRect dark_area(1.0f, 1.0f - tile.value);
-                int cell_idx = add_cell(dark_area, group, RealPair(tile.x, tile.y), nullptr /*spacer*/);
+                int cell_idx = add_cell(dark_area, group, RealPair(tile.x + 0.5f, tile.y + 0.5f), nullptr /*spacer*/);
                 mcells.at(cell_idx).is_dark = true;
                 ++dark_count;
             }
