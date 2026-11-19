@@ -88,6 +88,7 @@ class BelPin(BBAStruct):
 
 BEL_FLAG_GLOBAL = 0x01
 BEL_FLAG_HIDDEN = 0x02
+BEL_FLAG_PKGPIN = 0x04
 
 @dataclass
 class BelData(BBAStruct):
@@ -920,7 +921,7 @@ class Chip:
 
         bba.label("chip_info")
         bba.u32(0x00ca7ca7) # magic
-        bba.u32(6) # version
+        bba.u32(7) # version
         bba.u32(self.width)
         bba.u32(self.height)
 

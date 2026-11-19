@@ -222,6 +222,8 @@ def import_tiletype(ch: Chip, tile: xilinx_device.Tile):
                 if bel.bel_class() == "RBEL": nb.flags |= 2
                 if filters.is_global_bel(bel):
                     nb.flags |= BEL_FLAG_GLOBAL
+                if bel.bel_type() == "PAD":
+                    nb.flags |= BEL_FLAG_PKGPIN
                 # TODO: extra data (site etc)
                 for pin in bel.pins():
                     tt.add_bel_pin(nb, pin.name, lookup_site_wire(pin.site_wire()), lookup_port_type(pin.dir()))

@@ -1287,6 +1287,7 @@ def create_io_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc:
         create_reuse_wire(tt, portmap['OE'], "IO_OE")
         # bels
         io = tt.create_bel(name, "IOB", z = IOBA_Z + i)
+        io.flags |= BEL_FLAG_PKGPIN
         if simple_io and chip.name in {'GW1N-1'}:
             io.flags |= BEL_FLAG_SIMPLE_IO
         tt.add_bel_pin(io, "I", portmap['I'], PinType.INPUT)

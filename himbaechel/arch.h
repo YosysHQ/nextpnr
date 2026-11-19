@@ -534,7 +534,7 @@ struct Arch : BaseArch<ArchRanges>
     PortType getBelPinType(BelId bel, IdString pin) const override;
     std::vector<IdString> getBelPins(BelId bel) const override;
 
-    bool getBelHidden(BelId bel) const final { return chip_bel_info(chip_info, bel).flags & BelDataPOD::FLAG_HIDDEN; }
+    bool getBelHidden(BelId bel) const final;
 
     // -------------------------------------------------
 

@@ -45,6 +45,7 @@ NPNR_PACKED_STRUCT(struct BelDataPOD {
     uint32_t flags;
     static constexpr uint32_t FLAG_GLOBAL = 0x01;
     static constexpr uint32_t FLAG_HIDDEN = 0x02;
+    static constexpr uint32_t FLAG_PKGPIN = 0x04;
 
     // These are really 64-bits of general data, with some names intended to be vaguely helpful...
     int32_t site;

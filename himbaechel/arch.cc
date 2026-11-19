@@ -36,7 +36,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-static constexpr int database_version = 6;
+static constexpr int database_version = 7;
 
 static const ChipInfoPOD *get_chip_info(const RelPtr<ChipInfoPOD> *ptr) { return ptr->get(); }
 
@@ -588,6 +588,18 @@ IdString Arch::get_tile_type(int tile) const
 {
     auto &tile_data = chip_tile_info(chip_info, tile);
     return IdString(tile_data.type_name);
+}
+
+bool Arch::getBelHidden(BelId bel) const
+{
+    auto flags = chip_bel_info(chip_info, bel).flags;
+    if (flags & BelDataPOD::FLAG_HIDDEN) {
+        return true;
+    } else if (flags & BelDataPOD::FLAG_PKGPIN) {
+        return get_bel_package_pin(bel) == nullptr;
+    } else {
+        return false;
+    }
 }
 
 std::vector<GraphicElement> Arch::getDecalGraphics(DecalId decal) const
