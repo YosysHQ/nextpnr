@@ -207,7 +207,7 @@ static void log_fmax(Context *ctx, TimingResult &result, bool warn_on_failure)
 
     bool allow_fail = bool_or_default(ctx->settings, ctx->id("timing/allowFail"), false);
 
-    if (result.clock_paths.empty() && result.clock_paths.empty()) {
+    if (result.clock_paths.empty() && result.xclock_paths.empty()) {
         log_info("No Fmax available; no interior timing paths found in design.\n");
         return;
     }
