@@ -614,6 +614,12 @@ void GateMatePacker::pack_io_sel()
 
 bool GateMatePacker::is_gpio_valid_dff(CellInfo *dff)
 {
+    int ff_init = int_or_default(dff->params, id_FF_INIT, 0);
+    if (ff_init & 0b10) {
+        log_warning("Unable to merge FF '%s' due to INIT.\n", dff->name.c_str(ctx));
+        return false;
+    }
+
     NetInfo *en_net = dff->getPort(id_EN);
     bool invert = bool_or_default(dff->params, id_EN_INV, 0);
     if (en_net) {
