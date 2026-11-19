@@ -41,7 +41,7 @@ enum GfxTileWireId
 #define X(t) , GFX_WIRE_##t
 #include HIMBAECHEL_GFXIDS
 #undef X
-    ,
+            ,
 };
 #endif
 }; // namespace HIMBAECHEL_UARCH

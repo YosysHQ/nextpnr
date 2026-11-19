@@ -373,7 +373,7 @@ bool Arch::getBelHidden(BelId bel) const
     IdString bel_type = getBelType(bel);
     if (bel_type == id_DCUA) {
         return (args.type == ArchArgs::LFE5U_12F || args.type == ArchArgs::LFE5U_25F ||
-            args.type == ArchArgs::LFE5U_45F  || args.type == ArchArgs::LFE5U_85F);
+                args.type == ArchArgs::LFE5U_45F || args.type == ArchArgs::LFE5U_85F);
     } else if (bel_type == id_TRELLIS_IO) {
         return get_bel_package_pin(bel).empty();
     } else {
@@ -755,8 +755,7 @@ bool Arch::route()
         result = router1(getCtx(), Router1Cfg(getCtx()));
     } else if (router == "router2") {
         Router2Cfg cfg(getCtx());
-        cfg.get_base_cost = [](Context *ctx, WireId wire, PipId pip, float crit_weight)
-        {
+        cfg.get_base_cost = [](Context *ctx, WireId wire, PipId pip, float crit_weight) {
             // adding higher epsilon fixes issues resolving congestion with the zero-delay pips the ecp5 model has
             return ctx->getDelayNS(ctx->getPipDelay(pip).maxDelay() + ctx->getWireDelay(wire).maxDelay() +
                                    20 * crit_weight * ctx->getDelayEpsilon());

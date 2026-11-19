@@ -152,11 +152,10 @@ const dict<IdString, pool<IdString>> fabric_lowskew_sinks = {
         {id_DSP, {id_CK}},
 };
 
-const dict<IdString, pool<IdString>> ring_clock_sinks = {
-        // CKG
-        {id_PLL, {id_CLK_CAL, id_FBK, id_REF}},
-        {id_WFB, {id_ZI}},
-        {id_WFG, {id_ZI}}};
+const dict<IdString, pool<IdString>> ring_clock_sinks = {// CKG
+                                                         {id_PLL, {id_CLK_CAL, id_FBK, id_REF}},
+                                                         {id_WFB, {id_ZI}},
+                                                         {id_WFG, {id_ZI}}};
 
 const dict<IdString, pool<IdString>> ring_over_tile_clock_sinks = {
         // IOB

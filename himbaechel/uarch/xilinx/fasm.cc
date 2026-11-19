@@ -519,7 +519,8 @@ struct FasmBackend
             for (int j = 0; j < 2; j++) {
                 CellInfo *lut = (j == 1) ? lut5 : lut6;
                 if (lut && lut->getPort(id_CLK)) {
-                    SET_CHECK(is_clkinv, (int_or_default(lut->params, id_IS_WCLK_INVERTED) == 1) || (int_or_default(lut->params, id_IS_CLK_INVERTED) == 1));
+                    SET_CHECK(is_clkinv, (int_or_default(lut->params, id_IS_WCLK_INVERTED) == 1) ||
+                                                 (int_or_default(lut->params, id_IS_CLK_INVERTED) == 1));
                 }
                 CellInfo *ff = (j == 1) ? ff2 : ff1;
                 if (ff == nullptr)
@@ -577,7 +578,6 @@ struct FasmBackend
                 write_bit("ZRST", zrst);
 
                 pop();
-
 
                 NetInfo *sr = ff->getPort(id_SR), *ce = ff->getPort(id_CE);
 

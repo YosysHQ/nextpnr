@@ -1058,12 +1058,15 @@ class StaticPlacer
 
             float dens_penalty_mult = (cell.group >= cfg.logic_groups) ? 10.f : 1.f;
 
-            float precond = std::max(1.0f, float(cell.pin_count) + dens_penalty_mult * dens_penalty[cell.group] * cell.rect.area());
+            float precond = std::max(1.0f, float(cell.pin_count) +
+                                                   dens_penalty_mult * dens_penalty[cell.group] * cell.rect.area());
             if (ref) {
                 cell.ref_total_grad =
-                        ((cell.ref_wl_grad * -1) - cell.ref_dens_grad * dens_penalty[cell.group] * dens_penalty_mult) / precond;
+                        ((cell.ref_wl_grad * -1) - cell.ref_dens_grad * dens_penalty[cell.group] * dens_penalty_mult) /
+                        precond;
             } else {
-                cell.total_grad = ((cell.wl_grad * -1) - cell.dens_grad * dens_penalty[cell.group] * dens_penalty_mult) / precond;
+                cell.total_grad =
+                        ((cell.wl_grad * -1) - cell.dens_grad * dens_penalty[cell.group] * dens_penalty_mult) / precond;
             }
         }
     }

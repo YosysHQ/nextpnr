@@ -137,8 +137,7 @@ struct FABulousDesignConstraints
             if (fnd_cell->attrs.count(id_BEL))
                 log_error("duplicate bel constraint on '%s' (on line %d)\n", cell.c_str(), line_number);
             fnd_cell->attrs[id_BEL] = ctx->getBelName(targetBel).str(ctx);
-            log_info("constrained '%s' to bel '%s'\n", cell.c_str(),
-                     fnd_cell->attrs[id_BEL].as_string().c_str());
+            log_info("constrained '%s' to bel '%s'\n", cell.c_str(), fnd_cell->attrs[id_BEL].as_string().c_str());
         }
     }
 

@@ -574,7 +574,8 @@ void XilinxImpl::assign_cell_tags()
             ct.lut.di1_net = ci->getPort(id_DI1);
             ct.lut.di2_net = ci->getPort(id_DI2);
             ct.lut.wclk = ci->getPort(id_CLK);
-            ct.lut.wclk_inv = bool_or_default(ci->params, id_IS_WCLK_INVERTED) || bool_or_default(ci->params, id_IS_CLK_INVERTED);
+            ct.lut.wclk_inv =
+                    bool_or_default(ci->params, id_IS_WCLK_INVERTED) || bool_or_default(ci->params, id_IS_CLK_INVERTED);
             ct.lut.we = ci->getPort(id_WE);
             ct.lut.memory_group = 0; // fixme
             ct.lut.is_srl = ci->attrs.count(id_X_LUT_AS_SRL);

@@ -45,7 +45,7 @@ struct GateMateCCFReader
     dict<IdString, Property> defaults;
     std::vector<int> count;
 
-    GateMateCCFReader(Context *ctx, GateMateImpl *uarch, std::istream &in) : ctx(ctx), uarch(uarch), in(in){};
+    GateMateCCFReader(Context *ctx, GateMateImpl *uarch, std::istream &in) : ctx(ctx), uarch(uarch), in(in) {};
 
     std::string strip_quotes(const std::string &str)
     {

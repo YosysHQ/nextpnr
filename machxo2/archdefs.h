@@ -41,7 +41,7 @@ enum ConstIds
 #define X(t) , ID_##t
 #include "constids.inc"
 #undef X
-    ,
+            ,
     DB_CONST_ID_COUNT
 };
 

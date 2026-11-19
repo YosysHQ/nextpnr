@@ -281,7 +281,6 @@ enum CellPinStyle
     PINSTYLE_PU = 0x022,   // signals that float high and default high
 
     PINSTYLE_CARRY = 0x001, // carry chains can be floating or 0?
-
 };
 
 struct Arch : BaseArch<ArchRanges>

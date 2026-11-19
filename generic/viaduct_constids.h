@@ -46,7 +46,7 @@ enum ConstIds
 #define X(t) , ID_##t
 #include VIADUCT_CONSTIDS
 #undef X
-    ,
+            ,
 };
 
 #define X(t) static constexpr auto id_##t = IdString(ID_##t);

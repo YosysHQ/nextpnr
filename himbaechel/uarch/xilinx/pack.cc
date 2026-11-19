@@ -235,10 +235,12 @@ bool XilinxPacker::can_add_ff_to_cluster(const CellInfo *lut, const CellInfo *ff
     auto process_cell = [&](const CellInfo *cell) {
         if (cell->constr_x != lut->constr_x || cell->constr_y != lut->constr_y)
             return;
-        if (cell->type == id_SLICE_LUTX && (bool_or_default(cell->attrs, id_X_LUT_AS_SRL) || bool_or_default(cell->attrs, id_X_LUT_AS_DRAM))) {
+        if (cell->type == id_SLICE_LUTX &&
+            (bool_or_default(cell->attrs, id_X_LUT_AS_SRL) || bool_or_default(cell->attrs, id_X_LUT_AS_DRAM))) {
             found_wclk = true;
             clk = cell->getPort(id_CLK);
-            is_clkinv = bool_or_default(cell->params, id_IS_WCLK_INVERTED, false) || bool_or_default(cell->params, id_IS_CLK_INVERTED, false);
+            is_clkinv = bool_or_default(cell->params, id_IS_WCLK_INVERTED, false) ||
+                        bool_or_default(cell->params, id_IS_CLK_INVERTED, false);
         }
         if (cell->type == id_SLICE_FFX) {
             found_ff = true;
@@ -315,10 +317,10 @@ void XilinxPacker::pack_lutffs()
                 // don't pair an FF with an SRL/LUTRAM unless it shares the
                 // slice clock (same net and polarity)
                 NetInfo *lut_clk = lut->getPort(id_CLK);
-                if (lut_clk != nullptr &&
-                    (ci->getPort(id_CK) != lut_clk || bool_or_default(ci->params, id_IS_C_INVERTED, false) !=
-                                                              (bool_or_default(lut->params, id_IS_CLK_INVERTED, false) ||
-                                                               bool_or_default(lut->params, id_IS_WCLK_INVERTED, false))))
+                if (lut_clk != nullptr && (ci->getPort(id_CK) != lut_clk ||
+                                           bool_or_default(ci->params, id_IS_C_INVERTED, false) !=
+                                                   (bool_or_default(lut->params, id_IS_CLK_INVERTED, false) ||
+                                                    bool_or_default(lut->params, id_IS_WCLK_INVERTED, false))))
                     continue;
                 lut->constr_children.push_back(ci);
                 lut->cluster = lut->name;
@@ -842,7 +844,8 @@ void XilinxPacker::pack_inverters()
             if (!net || !net->driver.cell || net->driver.cell->type != id_INV)
                 continue;
             CellInfo *inv = net->driver.cell;
-            bool already_inverted = bool_or_default(ci->params, ctx->idf("IS_%s_INVERTED", port.first.c_str(ctx)), false);
+            bool already_inverted =
+                    bool_or_default(ci->params, ctx->idf("IS_%s_INVERTED", port.first.c_str(ctx)), false);
             ci->disconnectPort(port.first);
             ci->connectPort(port.first, inv->getPort(id_I));
             ci->params[ctx->idf("IS_%s_INVERTED", port.first.c_str(ctx))] = Property(already_inverted ? 0 : 1);

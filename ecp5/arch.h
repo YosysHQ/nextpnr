@@ -851,7 +851,7 @@ struct Arch : BaseArch<ArchRanges>
             else if (lts->cells[(7 << lc_idx_shift) | BEL_COMB])
                 return true;
             else if (lts->cells[(6 << lc_idx_shift) | BEL_COMB] &&
-                lts->cells[(6 << lc_idx_shift) | BEL_COMB]->combInfo.flags & ArchCellInfo::COMB_CARRY)
+                     lts->cells[(6 << lc_idx_shift) | BEL_COMB]->combInfo.flags & ArchCellInfo::COMB_CARRY)
                 return true;
             else
                 return false;

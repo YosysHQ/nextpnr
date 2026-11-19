@@ -78,8 +78,7 @@ bool XilinxImpl::xc7_logic_tile_valid(IdString tile_type, const LogicTileStatus 
                     if (wclk == nullptr) {
                         wclk = lut6->lut.wclk;
                         wclk_inv = lut6->lut.wclk_inv;
-                    }
-                    else if (lut6->lut.wclk != wclk || lut6->lut.wclk_inv != wclk_inv) {
+                    } else if (lut6->lut.wclk != wclk || lut6->lut.wclk_inv != wclk_inv) {
                         DBG();
                         return false;
                     }
@@ -129,8 +128,7 @@ bool XilinxImpl::xc7_logic_tile_valid(IdString tile_type, const LogicTileStatus 
                     if (wclk == nullptr) {
                         wclk = lut5->lut.wclk;
                         wclk_inv = lut5->lut.wclk_inv;
-                    }
-                    else if (lut5->lut.wclk != wclk || lut5->lut.wclk_inv != wclk_inv) {
+                    } else if (lut5->lut.wclk != wclk || lut5->lut.wclk_inv != wclk_inv) {
                         DBG();
                         return false;
                     }

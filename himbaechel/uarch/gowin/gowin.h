@@ -370,7 +370,7 @@ enum
     MULTADDALU12X12_Z = 642,
     MULTALU27X18_Z = 643,
 };
-}
+} // namespace BelZ
 
 NEXTPNR_NAMESPACE_END
 #endif
