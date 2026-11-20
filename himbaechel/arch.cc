@@ -300,7 +300,9 @@ bool Arch::route()
     if (router == "router1") {
         result = router1(getCtx(), Router1Cfg(getCtx()));
     } else if (router == "router2") {
-        router2(getCtx(), Router2Cfg(getCtx()));
+        Router2Cfg cfg(getCtx());
+        uarch->configureRouter2(cfg);
+        router2(getCtx(), cfg);
         result = true;
     } else {
         log_error("Himbächel architecture does not support router '%s'\n", router.c_str());
