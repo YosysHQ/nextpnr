@@ -163,8 +163,12 @@ def import_tiletype(ch: Chip, tile: xilinx_device.Tile):
             #     # self.add_pseudo_pip(self.row_gnd_wire_index, self.sitewire_to_tilewire(pin.site_wire()),
             #     #    pip_type=NextpnrPipType.CONST_DRIVER)
             #     pass
+            # Dedicated carry cascade: SLICE COUT is not an ordinary site exit.
+            exit_timing = ("SITE_CARRY_CASCADE" if
+                s.primary.site_type() in ("SLICEL", "SLICEM") and pn == "COUT"
+                else "SITE_NULL")
             add_pip(lookup_site_wire(pin.site_wire()), pin.tile_wire().name(),
-                pip_class=PipClass.SITE_EXIT, timing="SITE_NULL")
+                pip_class=PipClass.SITE_EXIT, timing=exit_timing)
         else:
             if s.site_type() in ("SLICEL", "SLICEM"):
                 # Add permuation pseudo-pips for LUT inputs
@@ -197,8 +201,12 @@ def import_tiletype(ch: Chip, tile: xilinx_device.Tile):
 
                     return
 
+            # Dedicated carry cascade: SLICE CIN is not an ordinary site entrance.
+            entrance_timing = ("SITE_CARRY_CASCADE" if
+                s.site_type() in ("SLICEL", "SLICEM") and pn == "CIN"
+                else "SITE_NULL")
             add_pip(pin.tile_wire().name(), lookup_site_wire(pin.site_wire()),
-                pip_class=PipClass.SITE_ENTRANCE, timing="SITE_NULL")
+                pip_class=PipClass.SITE_ENTRANCE, timing=entrance_timing)
 
     # TODO: ground/vcc
     tile_wire_count = len(tt.wires)
@@ -247,13 +255,19 @@ def import_tiletype(ch: Chip, tile: xilinx_device.Tile):
                     (bel_name == "IDELMUXE3"):
 
                     continue
+                # Only the CO3 -> COUT internal arc, when represented as a site pip.
+                internal_timing = ("SITE_CARRY_CASCADE" if
+                    bel_name == "COUTUSED" and
+                    site_pip.src_wire().name() == "CARRY4_CO3" and
+                    site_pip.dst_wire().name() == "COUT"
+                    else "SITE_NULL")
                 add_pip(lookup_site_wire(site_pip.src_wire()),
                     lookup_site_wire(site_pip.dst_wire()),
                     pip_class=PipClass.SITE_INTERNAL,
                     site_key=variant_key,
                     bel_name=bel_name,
                     pip_config=ch.strs.id(bel_pin).index,
-                    timing="SITE_NULL"
+                    timing=internal_timing
                 )
     # Import tile pips
     for pip in tile.pips():
@@ -448,6 +462,8 @@ def main():
                 seen_nodes.add(uid)
     # Stub timing class
     ch.timing.set_pip_class("DEFAULT", "SITE_NULL", delay=TimingValue(20))
+    # Experimental calibration value; verify actual delays against Vivado.
+    ch.timing.set_pip_class("DEFAULT", "SITE_CARRY_CASCADE", delay=TimingValue(0))
     # Stub bel timings
     lut = ch.timing.add_cell_variant("DEFAULT", "SLICE_LUTX")
     for i in range(1, 6+1):
