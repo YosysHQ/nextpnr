@@ -1682,10 +1682,10 @@ struct FasmBackend
         pop();
 
         auto clkfbout_mult = (int)float_or_default(ci, "CLKFBOUT_MULT_F", 5.000);
-        if (63 < clkfbout_mult)
-            log_error("MMCME2_ADV: CLKFBOUT_MULT_F must not be greater than 63");
+        if (64 < clkfbout_mult)
+            log_error("MMCME2_ADV: CLKFBOUT_MULT_F must not be greater than 64\n");
         if (0 == clkfbout_mult)
-            log_error("MMCME2_ADV: CLKFBOUT_MULT_F must not be 0");
+            log_error("MMCME2_ADV: CLKFBOUT_MULT_F must not be 0\n");
         write_int_vector("LKTABLE[39:0]", Xc7MMCM::lk_table[clkfbout_mult - 1], 40);
 
         std::string bandwidth = str_or_default(ci->params, id_BANDWIDTH, "OPTIMIZED");
