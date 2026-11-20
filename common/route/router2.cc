@@ -876,7 +876,7 @@ struct Router2
                     if (fnd == t.wire_by_loc.end())
                         continue;
                     for (WireId wire : fnd->second) {
-                        ROUTE_LOG_DBG("   seeding with %s\n", ctx->nameOfWire(wire));
+                        ROUTE_LOG_DBG("   seeding with %s (cost=%.2f)\n", ctx->nameOfWire(wire), t.in_wire_by_loc.at(wire));
                         seed_queue_fwd(wire, t.in_wire_by_loc.at(wire));
                     }
                 }
@@ -921,14 +921,10 @@ struct Router2
                     auto &curr_data = flat_wires.at(curr.wire);
                     if (was_visited_bwd(curr.wire, std::numeric_limits<float>::max())) {
                         auto curr_cost = curr_data.cost_fwd + curr_data.cost_bwd;
-                        if (curr_cong_weight < 5) {
-                            // Meet in the middle; done
-                            midpoint_wire = curr.wire;
-                            break;
-                        } else if (midpoint_wire == -1 || curr_cost < best_midpoint_cost) {
+                        if (midpoint_wire == -1 || curr_cost < best_midpoint_cost) {
                             midpoint_wire = curr.wire;
                             best_midpoint_cost = curr_cost;
-                            toexplore = iter + std::min(1000, int(20 * best_midpoint_cost));
+                            toexplore = std::min(toexplore, iter * 2);
                         }
                         continue;
                     }
@@ -996,14 +992,10 @@ struct Router2
                     } else {
                         if (was_visited_fwd(curr.wire, std::numeric_limits<float>::max())) {
                             auto curr_cost = curr_data.cost_fwd + curr_data.cost_bwd;
-                            if (curr_cong_weight < 5) {
-                                // Meet in the middle; done
-                                midpoint_wire = curr.wire;
-                                break;
-                            } else if (midpoint_wire == -1 || curr_cost < best_midpoint_cost) {
+                            if (midpoint_wire == -1 || curr_cost < best_midpoint_cost) {
                                 midpoint_wire = curr.wire;
                                 best_midpoint_cost = curr_cost;
-                                toexplore = iter + std::min(1000, int(20 * best_midpoint_cost));
+                                toexplore = std::min(iter * 2, toexplore);
                             }
                             continue;
                         }
