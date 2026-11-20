@@ -925,44 +925,46 @@ struct Router2
                         }
                         continue;
                     }
-                    for (PipId dh : ctx->getPipsDownhill(curr_data.w)) {
-                        // Skip pips outside of box in bounding-box mode
-                        if (is_bb && !hit_test_pip(nd.bb, ctx->getPipLocation(dh)))
-                            continue;
-                        if (!ctx->checkPipAvailForNet(dh, net))
-                            continue;
-                        WireId next = ctx->getPipDstWire(dh);
-                        int next_idx = wire_to_idx.at(next);
-                        WireScore next_score;
-                        next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, dh, crit_weight);
-                        next_score.togo_cost =
-                                cfg.estimate_weight * get_togo_cost(net, i, next_idx, dst_wire, false, crit_weight);
-                        if (was_visited_fwd(next_idx, next_score.cost)) {
-                            // Don't expand the same node twice.
-                            continue;
-                        }
-                        auto &nwd = flat_wires.at(next_idx);
-                        if (nwd.reserved_net == PerWireData::RESERVED_UNAVAILABLE)
-                            continue;
-                        // Reserved for another net
-                        if (nwd.reserved_net != -1 && nwd.reserved_net != net->udata)
-                            continue;
-                        // Don't allow the same wire to be bound to the same net with a different driving pip
-                        auto fnd_wire = nd.wires.find(next);
-                        if (fnd_wire != nd.wires.end() && fnd_wire->second.first != dh)
-                            continue;
-                        // Don't allow the same resource to be bound to the same net with a different value
-                        auto resource_key = ctx->getResourceKeyForPip(dh);
-                        if (resource_key != GroupId()) {
-                            auto fnd_resource = nd.resources.find(resource_key);
-                            if (fnd_resource != nd.resources.end() &&
-                                fnd_resource->second.value != ctx->getResourceValueForPip(dh))
+                    if (curr.score.cost <= curr_data.cost_fwd) { // only expand if this is the cheapest visit of this wire
+                        for (PipId dh : ctx->getPipsDownhill(curr_data.w)) {
+                            // Skip pips outside of box in bounding-box mode
+                            if (is_bb && !hit_test_pip(nd.bb, ctx->getPipLocation(dh)))
                                 continue;
+                            if (!ctx->checkPipAvailForNet(dh, net))
+                                continue;
+                            WireId next = ctx->getPipDstWire(dh);
+                            int next_idx = wire_to_idx.at(next);
+                            WireScore next_score;
+                            next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, dh, crit_weight);
+                            next_score.togo_cost =
+                                    cfg.estimate_weight * get_togo_cost(net, i, next_idx, dst_wire, false, crit_weight);
+                            if (was_visited_fwd(next_idx, next_score.cost)) {
+                                // Don't expand the same node twice.
+                                continue;
+                            }
+                            auto &nwd = flat_wires.at(next_idx);
+                            if (nwd.reserved_net == PerWireData::RESERVED_UNAVAILABLE)
+                                continue;
+                            // Reserved for another net
+                            if (nwd.reserved_net != -1 && nwd.reserved_net != net->udata)
+                                continue;
+                            // Don't allow the same wire to be bound to the same net with a different driving pip
+                            auto fnd_wire = nd.wires.find(next);
+                            if (fnd_wire != nd.wires.end() && fnd_wire->second.first != dh)
+                                continue;
+                            // Don't allow the same resource to be bound to the same net with a different value
+                            auto resource_key = ctx->getResourceKeyForPip(dh);
+                            if (resource_key != GroupId()) {
+                                auto fnd_resource = nd.resources.find(resource_key);
+                                if (fnd_resource != nd.resources.end() &&
+                                    fnd_resource->second.value != ctx->getResourceValueForPip(dh))
+                                    continue;
+                            }
+                            if (!thread_test_wire(t, nwd))
+                                continue; // thread safety issue
+                            set_visited_fwd(t, next_idx, dh, next_score.cost);
+                            t.fwd_queue.push(QueuedWire(next_idx, next_score, t.rng.rng()));
                         }
-                        if (!thread_test_wire(t, nwd))
-                            continue; // thread safety issue
-                        set_visited_fwd(t, next_idx, dh, next_score.cost);
-                        t.fwd_queue.push(QueuedWire(next_idx, next_score, t.rng.rng()));
                     }
                 }
                 if (!t.bwd_queue.empty()) {
@@ -997,48 +999,50 @@ struct Router2
                         }
                     }
                     // Don't allow the same wire to be bound to the same net with a different driving pip
-                    PipId bound_pip;
-                    auto fnd_wire = nd.wires.find(curr_data.w);
-                    if (fnd_wire != nd.wires.end())
-                        bound_pip = fnd_wire->second.first;
+                    if (curr.score.cost <= curr_data.cost_bwd) {
+                        PipId bound_pip;
+                        auto fnd_wire = nd.wires.find(curr_data.w);
+                        if (fnd_wire != nd.wires.end())
+                            bound_pip = fnd_wire->second.first;
 
-                    for (PipId uh : ctx->getPipsUphill(curr_data.w)) {
-                        if (bound_pip != PipId() && bound_pip != uh)
-                            continue;
-                        if (is_bb && !hit_test_pip(nd.bb, ctx->getPipLocation(uh)))
-                            continue;
-                        if (!ctx->checkPipAvailForNet(uh, net))
-                            continue;
-                        WireId next = ctx->getPipSrcWire(uh);
-                        int next_idx = wire_to_idx.at(next);
-                        WireScore next_score;
-                        next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, uh, crit_weight);
-                        next_score.togo_cost = const_mode
-                                                       ? 0
-                                                       : cfg.estimate_weight * get_togo_cost(net, i, next_idx, src_wire,
-                                                                                             true, crit_weight);
-                        if (was_visited_bwd(next_idx, next_score.cost)) {
-                            // Don't expand the same node twice.
-                            continue;
-                        }
-                        auto &nwd = flat_wires.at(next_idx);
-                        if (nwd.reserved_net == PerWireData::RESERVED_UNAVAILABLE)
-                            continue;
-                        // Reserved for another net
-                        if (nwd.reserved_net != -1 && nwd.reserved_net != net->udata)
-                            continue;
-                        // Don't allow the same resource to be bound to the same net with a different value
-                        auto resource_key = ctx->getResourceKeyForPip(uh);
-                        if (resource_key != GroupId()) {
-                            auto fnd_resource = nd.resources.find(resource_key);
-                            if (fnd_resource != nd.resources.end() &&
-                                fnd_resource->second.value != ctx->getResourceValueForPip(uh))
+                        for (PipId uh : ctx->getPipsUphill(curr_data.w)) {
+                            if (bound_pip != PipId() && bound_pip != uh)
                                 continue;
+                            if (is_bb && !hit_test_pip(nd.bb, ctx->getPipLocation(uh)))
+                                continue;
+                            if (!ctx->checkPipAvailForNet(uh, net))
+                                continue;
+                            WireId next = ctx->getPipSrcWire(uh);
+                            int next_idx = wire_to_idx.at(next);
+                            WireScore next_score;
+                            next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, uh, crit_weight);
+                            next_score.togo_cost = const_mode
+                                                           ? 0
+                                                           : cfg.estimate_weight * get_togo_cost(net, i, next_idx, src_wire,
+                                                                                                 true, crit_weight);
+                            if (was_visited_bwd(next_idx, next_score.cost)) {
+                                // Don't expand the same node twice.
+                                continue;
+                            }
+                            auto &nwd = flat_wires.at(next_idx);
+                            if (nwd.reserved_net == PerWireData::RESERVED_UNAVAILABLE)
+                                continue;
+                            // Reserved for another net
+                            if (nwd.reserved_net != -1 && nwd.reserved_net != net->udata)
+                                continue;
+                            // Don't allow the same resource to be bound to the same net with a different value
+                            auto resource_key = ctx->getResourceKeyForPip(uh);
+                            if (resource_key != GroupId()) {
+                                auto fnd_resource = nd.resources.find(resource_key);
+                                if (fnd_resource != nd.resources.end() &&
+                                    fnd_resource->second.value != ctx->getResourceValueForPip(uh))
+                                    continue;
+                            }
+                            if (!thread_test_wire(t, nwd))
+                                continue; // thread safety issue
+                            set_visited_bwd(t, next_idx, uh, next_score.cost);
+                            t.bwd_queue.push(QueuedWire(next_idx, next_score, t.rng.rng()));
                         }
-                        if (!thread_test_wire(t, nwd))
-                            continue; // thread safety issue
-                        set_visited_bwd(t, next_idx, uh, next_score.cost);
-                        t.bwd_queue.push(QueuedWire(next_idx, next_score, t.rng.rng()));
                     }
                 }
             }
