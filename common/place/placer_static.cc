@@ -1416,6 +1416,12 @@ class StaticPlacer
                 log_error("Unable to find legal placement for all cells, design is probably at utilisation limit.\n");
             }
 
+            auto found_init_radius = cfg.radius_override.find(ci->type);
+            if (found_init_radius != cfg.radius_override.end()) {
+                radius = found_init_radius->second;
+                ripup_radius = radius + 10; // disable ripup when overriding radius to avoid cycles
+            }
+
             while (!placed) {
                 // Determine a search radius around the solver location (which increases over time) that is clamped to
                 // the region constraint for the cell (if applicable)

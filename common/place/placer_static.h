@@ -76,6 +76,9 @@ struct PlacerStaticCfg
     // override the default delay estimation formula (we can't use predictDelay because we don't have concrete bels)
     std::function<delay_t(Context *, const PlacerStaticCfg &, Loc, IdString, Loc, IdString)> predict_delay;
 
+    // override the starting radius for legalisation (e.g. for rare cells like large RAMs)
+    dict<IdString, int> radius_override;
+
     bool parallelRefine;
 };
 

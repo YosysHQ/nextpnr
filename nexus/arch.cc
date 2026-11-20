@@ -25,6 +25,7 @@
 #include "nextpnr.h"
 #include "placer1.h"
 #include "placer_heap.h"
+#include "placer_static.h"
 #include "router1.h"
 #include "router2.h"
 #include "timing.h"
@@ -745,6 +746,96 @@ BoundingBox Arch::getRouteBoundingBox(WireId src, WireId dst) const
 
 // -----------------------------------------------------------------------
 
+
+namespace {
+void configure_static(Arch *arch, PlacerStaticCfg &cfg)
+{
+    {
+        cfg.cell_groups.emplace_back();
+        auto &comb = cfg.cell_groups.back();
+        comb.name = arch->id("COMB");
+        comb.bel_area[id_OXIDE_COMB] = StaticRect(1.0f, 0.125f);
+        comb.bel_area[id_RAMW] = StaticRect(0.0f, 0.0f);
+        comb.cell_area[id_OXIDE_COMB] = StaticRect(1.0f, 0.125f);
+        comb.cell_area[id_RAMW] = StaticRect(1.0f, 0.125f);
+        comb.zero_area_cells.insert(id_RAMW);
+        comb.spacer_rect = StaticRect(1.0f, 0.125f);
+    }
+
+    {
+        cfg.cell_groups.emplace_back();
+        auto &ff = cfg.cell_groups.back();
+        ff.name = arch->id("FF");
+        ff.cell_area[id_OXIDE_FF] = StaticRect(1.0f, 0.125f);
+        ff.bel_area[id_OXIDE_FF] = StaticRect(1.0f, 0.125f);
+        ff.spacer_rect = StaticRect(1.0f, 0.125f);
+    }
+
+    {
+        cfg.cell_groups.emplace_back();
+        auto &ram = cfg.cell_groups.back();
+        ram.name = arch->id("RAM");
+        ram.cell_area[id_OXIDE_EBR] = StaticRect(2.0f, 1.0f);
+        ram.bel_area[id_OXIDE_EBR] = StaticRect(2.0f, 1.0f);
+        ram.spacer_rect = StaticRect(2.0f, 1.0f);
+    }
+    {
+        cfg.cell_groups.emplace_back();
+        auto &lram = cfg.cell_groups.back();
+        lram.name = arch->id("LRAM");
+        lram.cell_area[id_LRAM_CORE] = StaticRect(1.0f, 8.0f);
+        lram.bel_area[id_LRAM_CORE] = StaticRect(1.0f, 8.0f);
+        lram.spacer_rect = StaticRect(1.0f, 8.0f);
+    }
+    {
+        cfg.cell_groups.emplace_back();
+        auto &dsp = cfg.cell_groups.back();
+        dsp.name = arch->id("MUL");
+
+        dsp.cell_area[id_MULT9_CORE] = StaticRect(1.0f, 1.0f);
+        dsp.bel_area[id_MULT9_CORE] = StaticRect(1.0f, 1.0f);
+        dsp.cell_area[id_PREADD9_CORE] = StaticRect(1.0f, 1.0f);
+        dsp.bel_area[id_PREADD9_CORE] = StaticRect(0.0f, 0.0f);
+
+        dsp.cell_area[id_MULT18_CORE] = StaticRect(2.0f, 1.0f);
+        dsp.bel_area[id_MULT18_CORE] = StaticRect(0.0f, 0.0f);
+        dsp.cell_area[id_REG18_CORE] = StaticRect(2.0f, 1.0f);
+        dsp.bel_area[id_REG18_CORE] = StaticRect(0.0f, 0.0f);
+
+        dsp.cell_area[id_MULT18X36_CORE] = StaticRect(2.0f, 1.0f);
+        dsp.bel_area[id_MULT18X36_CORE] = StaticRect(0.0f, 0.0f);
+        dsp.cell_area[id_ACC54_CORE] = StaticRect(2.0f, 1.0f);
+        dsp.bel_area[id_ACC54_CORE] = StaticRect(0.0f, 0.0f);
+        dsp.cell_area[id_MULT36_CORE] = StaticRect(2.0f, 1.0f);
+        dsp.bel_area[id_MULT36_CORE] = StaticRect(0.0f, 0.0f);
+
+        dsp.zero_area_cells.insert(id_PREADD9_CORE);
+        dsp.zero_area_cells.insert(id_MULT18_CORE);
+        dsp.zero_area_cells.insert(id_REG18_CORE);
+        dsp.zero_area_cells.insert(id_MULT18X36_CORE);
+        dsp.zero_area_cells.insert(id_ACC54_CORE);
+        dsp.zero_area_cells.insert(id_MULT36_CORE);
+
+        dsp.spacer_rect = StaticRect(1.0f, 1.0f);
+    }
+    cfg.timing_c = 250;
+    cfg.timing_mx = 100;
+    cfg.timing_my = 100;
+
+    cfg.radius_override[id_LRAM_CORE] = std::max(arch->chip_info->width, arch->chip_info->height);
+
+    cfg.predict_delay = [](Context *ctx, const PlacerStaticCfg &cfg, Loc src_loc, IdString src_pin, Loc dst_loc,
+                           IdString dst_pin) -> delay_t {
+        NPNR_UNUSED(src_pin);
+        if (dst_pin == id_FCI)
+            return 0;
+        int dist_x = std::abs(src_loc.x - dst_loc.x);
+        int dist_y = std::abs(src_loc.y - dst_loc.y);
+        return cfg.timing_mx * dist_x + cfg.timing_my * dist_y + cfg.timing_c;
+    };
+}
+} // namespace
+
 bool Arch::place()
 {
     estimate_delay_mult = 75;
@@ -765,6 +856,11 @@ bool Arch::place()
         cfg.beta = 0.5;
         cfg.criticalityExponent = 7;
         if (!placer_heap(getCtx(), cfg))
+            return false;
+    } else if (placer == "static") {
+        PlacerStaticCfg cfg(getCtx());
+        configure_static(this, cfg);
+        if (!placer_static(getCtx(), cfg))
             return false;
     } else if (placer == "sa") {
         if (!placer1(getCtx(), Placer1Cfg(getCtx())))
@@ -1157,7 +1253,7 @@ bool Arch::getClusterPlacement(ClusterId cluster, BelId root_bel,
 
 const std::string Arch::defaultPlacer = "heap";
 
-const std::vector<std::string> Arch::availablePlacers = {"sa", "heap"};
+const std::vector<std::string> Arch::availablePlacers = {"sa", "heap", "static"};
 
 const std::string Arch::defaultRouter = "router2";
 const std::vector<std::string> Arch::availableRouters = {"router1", "router2"};
