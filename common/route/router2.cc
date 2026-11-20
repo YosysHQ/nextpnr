@@ -82,7 +82,6 @@ struct Router2
 
     struct WireScore
     {
-        float delay;
         float cost;
         float togo_cost;
         float total() const { return cost + togo_cost; }
@@ -861,7 +860,6 @@ struct Router2
             // Add 'forward' direction startpoints to queue
             auto seed_queue_fwd = [&](WireId wire, float cost = 0) {
                 WireScore base_score;
-                base_score.delay = 0;
                 base_score.cost = cost;
                 int wire_idx = wire_to_idx.at(wire);
                 base_score.togo_cost = get_togo_cost(net, i, wire_idx, dst_wire, false, crit_weight);
@@ -893,7 +891,6 @@ struct Router2
             }
             auto seed_queue_bwd = [&](WireId wire) {
                 WireScore base_score;
-                base_score.delay = 0;
                 base_score.cost = 0;
                 int wire_idx = wire_to_idx.at(wire);
                 base_score.togo_cost = get_togo_cost(net, i, wire_idx, src_wire, true, crit_weight);
@@ -937,7 +934,6 @@ struct Router2
                         WireId next = ctx->getPipDstWire(dh);
                         int next_idx = wire_to_idx.at(next);
                         WireScore next_score;
-                        next_score.delay = curr.score.delay + cfg.get_base_cost(ctx, next, dh, crit_weight);
                         next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, dh, crit_weight);
                         next_score.togo_cost =
                                 cfg.estimate_weight * get_togo_cost(net, i, next_idx, dst_wire, false, crit_weight);
@@ -1016,7 +1012,6 @@ struct Router2
                         WireId next = ctx->getPipSrcWire(uh);
                         int next_idx = wire_to_idx.at(next);
                         WireScore next_score;
-                        next_score.delay = curr.score.delay + cfg.get_base_cost(ctx, next, uh, crit_weight);
                         next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, uh, crit_weight);
                         next_score.togo_cost = const_mode
                                                        ? 0
