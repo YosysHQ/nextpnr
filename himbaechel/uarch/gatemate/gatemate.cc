@@ -24,6 +24,7 @@
 #include "nextpnr_assertions.h"
 #include "placer_heap.h"
 #include "placer_static.h"
+#include "router2.h"
 
 #define GEN_INIT_CONSTIDS
 #define HIMBAECHEL_CONSTIDS "uarch/gatemate/constids.inc"
@@ -1086,6 +1087,20 @@ void GateMateImpl::configurePlacerStatic(PlacerStaticCfg &cfg)
 
         ram.spacer_rect = StaticRect(1.0f, 2.0f);
     }
+}
+
+void GateMateImpl::configureRouter2(Router2Cfg &cfg)
+{
+    cfg.get_base_cost = [this](Context *ctx, WireId wire, PipId pip, float crit_weight) {
+        const auto &extra_data = *pip_extra_data(pip);
+        delay_t epsilon_mult = 20;
+        if (extra_data.type == PipExtra::PIP_EXTRA_MUX && extra_data.value == 0) {
+            epsilon_mult = 1;
+        }
+        // adding higher epsilon fixes issues resolving congestion with the zero-delay pips the gatemate model has
+        return ctx->getDelayNS(std::max(ctx->getPipDelay(pip).maxDelay() + ctx->getWireDelay(wire).maxDelay(),
+                               epsilon_mult * ctx->getDelayEpsilon()));
+    };
 }
 
 int GateMateImpl::get_dff_config(CellInfo *dff) const
