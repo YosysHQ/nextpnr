@@ -549,10 +549,20 @@ void GateMatePacker::pack_mult()
             a_width += 1;
         }
 
+        for(int i=0;i<a_width;i++) {
+            if (!mult->getPort(ctx->idf("A[%d]", i)))
+                mult->connectPort(ctx->idf("A[%d]", i), net_PACKER_GND);
+        }
+
         // Sign-extend odd B_WIDTH to even, because we're working with 2x2 multiplier cells.
         while (b_width < b_size) {
             mult->copyPortTo(ctx->idf("B[%d]", b_width - 1), mult, ctx->idf("B[%d]", b_width));
             b_width += 1;
+        }
+
+        for(int i=0;i<b_width;i++) {
+            if (!mult->getPort(ctx->idf("B[%d]", i)))
+                mult->connectPort(ctx->idf("B[%d]", i), net_PACKER_GND);
         }
 
         log_info("    Configuring '%s' as a %d-bit * %d-bit = %d-bit multiplier.\n", mult->name.c_str(ctx), a_width,
