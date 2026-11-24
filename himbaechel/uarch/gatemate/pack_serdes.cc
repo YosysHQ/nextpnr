@@ -194,7 +194,7 @@ static const DefaultParam serdes_defaults[] = {
         {id_TX_BRANCH_EN_MAIN_RXDET, 6, 0x3F},
         {id_TX_BRANCH_EN_POST_RXDET, 5, 0},
         {id_TX_TAIL_CASCODE_RXDET, 3, 4},
-        {id_TX_DC_ENABLE_RXDET, 7, 0},
+        {id_TX_DC_ENABLE_RXDET, 7, 63},
         {id_TX_DC_OFFSET_RXDET, 5, 0},
         {id_TX_CM_RAISE_RXDET, 5, 0},
         {id_TX_CM_THRESHOLD_0_RXDET, 5, 14},
