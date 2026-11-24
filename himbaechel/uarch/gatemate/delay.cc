@@ -350,7 +350,7 @@ TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString 
     } else if (cell->type.in(id_CPE_RAMI, id_CPE_RAMO, id_CPE_RAMIO, id_CPE_RAMIO_U, id_CPE_RAMIO_L)) {
         if (port.in(id_I, id_RAM_I))
             return TMG_COMB_INPUT;
-        if (port.in(id_O, id_RAM_O))
+        if (port.in(id_OUT, id_RAM_O))
             return TMG_COMB_OUTPUT;
         return TMG_IGNORE;
     } else if (cell->type.in(id_CPE_COMP)) {
