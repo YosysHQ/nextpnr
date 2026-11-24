@@ -29,6 +29,19 @@ NEXTPNR_NAMESPACE_BEGIN
 
 delay_t GateMateImpl::estimateDelay(WireId src, WireId dst) const
 {
+    static const int estimate[9][2] = {
+            {340, 17}, // best_lpr
+            {280, 14}, // best_eco
+            {240, 13}, // best_spd
+            {510, 25}, // typ_lpr
+            {390, 20}, // typ_eco
+            {320, 16}, // typ_spd
+            {890, 43}, // worst_lpr
+            {470, 30}, // worst_eco
+            {490, 23}, // worst_spd
+    };
+    const int *est = estimate[(timing_mode - 1) * 3 + fpga_mode - 1];
+
     int sx, sy, dx, dy;
     int d2d = 0;
     if (tile_extra_data(src.tile)->die != tile_extra_data(dst.tile)->die)
@@ -36,7 +49,7 @@ delay_t GateMateImpl::estimateDelay(WireId src, WireId dst) const
     tile_xy(ctx->chip_info, src.tile, sx, sy);
     tile_xy(ctx->chip_info, dst.tile, dx, dy);
 
-    return 100 + 100 * (std::abs(dx - sx) + std::abs(dy - sy)) + d2d;
+    return est[0] + est[1] * (std::abs(dx - sx) + std::abs(dy - sy)) + d2d;
 }
 
 delay_t GateMateImpl::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const
