@@ -543,8 +543,9 @@ TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdStr
             DelayQuad delay = DelayQuad{0};
             get_delay_from_tmg_db(is_upper ? id_timing_Q2_OUT2 : id_timing_Q1_OUT1, delay);
             info.clockToQ += delay;
-            get_delay_from_tmg_db(id_timing_del_CPE_CP_Q, delay);
-            info.clockToQ += delay;
+            // Vendor data already includes del_CPE_CP_Q
+            // get_delay_from_tmg_db(id_timing_del_CPE_CP_Q, delay);
+            // info.clockToQ += delay;
         }
     } else if (cell->type.in(id_IOSEL)) {
         bool out_side = port.in(id_OUT1, id_OUT2, id_GPIO_OUT);
