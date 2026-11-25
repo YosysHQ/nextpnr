@@ -514,6 +514,59 @@ class StaticPlacer
                         std::max<float>(std::min<float>(val.y, b.y1), b.y0));
     }
 
+    void place_misc(CellInfo *ci)
+    {
+        for (auto bel : ctx->getBels()) {
+            if (ctx->isValidBelForCellType(ci->type, bel) && ctx->checkBelAvail(bel)) {
+                ctx->bindBel(bel, ci, STRENGTH_STRONG);
+                if (!ctx->isBelLocationValid(bel)) {
+                    ctx->unbindBel(bel);
+                } else {
+                    log_info("    placed potpourri cell '%s' at bel '%s'\n", ctx->nameOf(ci),
+                             ctx->nameOfBel(bel));
+                    break;
+                }
+            }
+        }
+    }
+
+    void place_clustered_misc(CellInfo *ci)
+    {
+        for (auto bel : ctx->getBels()) {
+            if (ctx->isValidBelForCellType(ci->type, bel) && ctx->checkBelAvail(bel)) {
+                std::vector<std::pair<CellInfo *, BelId>> cluster_placement;
+                if (!ctx->getClusterPlacement(ci->cluster, bel, cluster_placement))
+                    continue;
+                bool invalid = false;
+                for (auto &entry : cluster_placement) {
+                    if (!ctx->checkBelAvail(entry.second)) {
+                        invalid = true;
+                    }
+                }
+                if (invalid)
+                    continue;
+                for (auto &entry : cluster_placement) {
+                    ctx->bindBel(entry.second, entry.first, STRENGTH_STRONG);
+                }
+                for (auto &entry : cluster_placement) {
+                    if (!ctx->isBelLocationValid(entry.second)) {
+                        invalid = true;
+                        break;
+                    }
+                }
+                if (invalid) {
+                    for (auto &entry : cluster_placement) {
+                        ctx->unbindBel(entry.second);
+                    }
+                } else {
+                    log_info("    placed potpourri cell cluster '%s' at bel '%s'\n", ctx->nameOf(ci),
+                             ctx->nameOfBel(bel));
+                    break;
+                }
+            }
+        }
+    }
+
     void init_cells()
     {
         log_info("⌁ initialising cells...\n");
@@ -525,17 +578,11 @@ class StaticPlacer
             // Mismatched group case
             if (!lookup_group(ci, cell_group, rect)) {
                 if (ci->bel == BelId()) {
-                    for (auto bel : ctx->getBels()) {
-                        if (ctx->isValidBelForCellType(ci->type, bel) && ctx->checkBelAvail(bel)) {
-                            ctx->bindBel(bel, ci, STRENGTH_STRONG);
-                            if (!ctx->isBelLocationValid(bel)) {
-                                ctx->unbindBel(bel);
-                            } else {
-                                log_info("    placed potpourri cell '%s' at bel '%s'\n", ctx->nameOf(ci),
-                                         ctx->nameOfBel(bel));
-                                break;
-                            }
-                        }
+                    if (ci->cluster != ClusterId()) {
+                        if (ctx->getClusterRootCell(ci->cluster) == ci)
+                            place_clustered_misc(ci);
+                    } else{
+                        place_misc(ci);
                     }
                 }
                 continue;
