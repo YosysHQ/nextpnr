@@ -925,7 +925,7 @@ struct Router2
                         if (midpoint_wire == -1 || curr_cost < best_midpoint_cost) {
                             midpoint_wire = curr.wire;
                             best_midpoint_cost = curr_cost;
-                            toexplore = std::min(toexplore, iter * 2);
+                            toexplore = std::min(toexplore, int(iter * (1.5 + crit)));
                         }
                         continue;
                     }
@@ -997,7 +997,7 @@ struct Router2
                             if (midpoint_wire == -1 || curr_cost < best_midpoint_cost) {
                                 midpoint_wire = curr.wire;
                                 best_midpoint_cost = curr_cost;
-                                toexplore = std::min(iter * 2, toexplore);
+                                toexplore = std::min(toexplore, int(iter * (1.5 + crit)));
                             }
                             continue;
                         }
