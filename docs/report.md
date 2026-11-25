@@ -20,3 +20,5 @@ nextpnr can write a JSON report using `--report` post-place-and-route for integr
     }
 }
 ```
+
+With `--report-setup-paths N`, the additional `setup_paths` array contains up to N same-clock setup paths across the design in ascending slack order. Each entry has the launch and capture clock events (`from` and `to`), the native path `delay` and `slack` in ns, and the segment list `path` in the same format as `critical_paths`. The limit counts distinct endpoint and clock-event pairs. Equal-slack endpoints can appear together. Each endpoint contributes its worst traced path for that event pair.

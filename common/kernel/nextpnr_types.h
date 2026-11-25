@@ -483,6 +483,8 @@ struct TimingResult
     dict<IdString, CriticalPath> clock_paths;
     // Cross-domain critical paths
     std::vector<CriticalPath> xclock_paths;
+    // Same-clock setup paths selected by slack, worst first (trace, native path delay).
+    std::vector<std::pair<CriticalPath, delay_t>> ranked_setup_paths;
     // Domains with no interior paths
     pool<IdString> empty_paths;
 

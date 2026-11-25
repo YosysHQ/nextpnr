@@ -70,46 +70,47 @@ static std::vector<std::string> net_sources(const NetInfo *net, const Context *c
     return source_entries;
 }
 
-static Json::array json_report_critical_paths(const Context *ctx)
+static Json::array report_path_segments(const Context *ctx, const CriticalPath &report)
 {
+    Json::array pathJson;
 
-    auto report_critical_path = [ctx](const CriticalPath &report) {
-        Json::array pathJson;
+    for (const auto &segment : report.segments) {
 
-        for (const auto &segment : report.segments) {
+        const auto &driver = ctx->cells.at(segment.from.first);
+        const auto &sink = ctx->cells.at(segment.to.first);
 
-            const auto &driver = ctx->cells.at(segment.from.first);
-            const auto &sink = ctx->cells.at(segment.to.first);
+        auto fromLoc = ctx->getBelLocation(driver->bel);
+        auto toLoc = ctx->getBelLocation(sink->bel);
 
-            auto fromLoc = ctx->getBelLocation(driver->bel);
-            auto toLoc = ctx->getBelLocation(sink->bel);
+        auto fromJson = Json::object({{"cell", segment.from.first.c_str(ctx)},
+                                      {"port", segment.from.second.c_str(ctx)},
+                                      {"loc", Json::array({fromLoc.x, fromLoc.y})}});
 
-            auto fromJson = Json::object({{"cell", segment.from.first.c_str(ctx)},
-                                          {"port", segment.from.second.c_str(ctx)},
-                                          {"loc", Json::array({fromLoc.x, fromLoc.y})}});
+        auto toJson = Json::object({{"cell", segment.to.first.c_str(ctx)},
+                                    {"port", segment.to.second.c_str(ctx)},
+                                    {"loc", Json::array({toLoc.x, toLoc.y})}});
 
-            auto toJson = Json::object({{"cell", segment.to.first.c_str(ctx)},
-                                        {"port", segment.to.second.c_str(ctx)},
-                                        {"loc", Json::array({toLoc.x, toLoc.y})}});
+        auto segmentJson = Json::object({
+                {"delay", ctx->getDelayNS(segment.delay)},
+                {"from", fromJson},
+                {"to", toJson},
+        });
 
-            auto segmentJson = Json::object({
-                    {"delay", ctx->getDelayNS(segment.delay)},
-                    {"from", fromJson},
-                    {"to", toJson},
-            });
-
-            segmentJson["type"] = CriticalPath::Segment::type_to_str(segment.type);
-            if (segment.type == CriticalPath::Segment::Type::ROUTING) {
-                segmentJson["net"] = segment.net.c_str(ctx);
-                const NetInfo *net = ctx->nets.at(segment.net).get();
-                segmentJson["sources"] = net_sources(net, ctx);
-            }
-
-            pathJson.push_back(segmentJson);
+        segmentJson["type"] = CriticalPath::Segment::type_to_str(segment.type);
+        if (segment.type == CriticalPath::Segment::Type::ROUTING) {
+            segmentJson["net"] = segment.net.c_str(ctx);
+            const NetInfo *net = ctx->nets.at(segment.net).get();
+            segmentJson["sources"] = net_sources(net, ctx);
         }
 
-        return pathJson;
-    };
+        pathJson.push_back(segmentJson);
+    }
+
+    return pathJson;
+}
+
+static Json::array json_report_critical_paths(const Context *ctx)
+{
 
     auto critPathsJson = Json::array();
 
@@ -118,14 +119,14 @@ static Json::array json_report_critical_paths(const Context *ctx)
 
         critPathsJson.push_back(Json::object({{"from", clock_event_name(ctx, report.second.clock_pair.start)},
                                               {"to", clock_event_name(ctx, report.second.clock_pair.end)},
-                                              {"path", report_critical_path(report.second)}}));
+                                              {"path", report_path_segments(ctx, report.second)}}));
     }
 
     // Cross-domain paths
     for (auto &report : ctx->timing_result.xclock_paths) {
         critPathsJson.push_back(Json::object({{"from", clock_event_name(ctx, report.clock_pair.start)},
                                               {"to", clock_event_name(ctx, report.clock_pair.end)},
-                                              {"path", report_critical_path(report)}}));
+                                              {"path", report_path_segments(ctx, report)}}));
     }
 
     return critPathsJson;
@@ -262,6 +263,16 @@ void Context::writeJsonReport(std::ostream &out) const
     Json::object jsonRoot{
             {"utilization", util_json}, {"fmax", fmax_json}, {"critical_paths", json_report_critical_paths(this)}};
 
+    if (report_setup_paths > 0) {
+        Json::array paths;
+        for (const auto &[path, delay] : timing_result.ranked_setup_paths)
+            paths.push_back(Json::object{{"from", clock_event_name(this, path.clock_pair.start)},
+                                         {"to", clock_event_name(this, path.clock_pair.end)},
+                                         {"delay", getDelayNS(delay)},
+                                         {"slack", getDelayNS(path.max_delay - delay)},
+                                         {"path", report_path_segments(this, path)}});
+        jsonRoot["setup_paths"] = paths;
+    }
     if (detailed_timing_report) {
         jsonRoot["detailed_net_timings"] = json_report_detailed_net_timings(this);
     }

@@ -24,6 +24,8 @@
 #include <boost/range/adaptor/reversed.hpp>
 #include <deque>
 #include <map>
+#include <set>
+#include <tuple>
 #include <utility>
 #include "util.h"
 
@@ -888,6 +890,60 @@ std::vector<PortRef> TimingAnalyser::walk_crit_path(domain_id_t domain_pair, Cel
     return crit_path_rev;
 }
 
+delay_t TimingAnalyser::path_delay_budget(const ClockDomainKey &launch, const ClockDomainKey &capture) const
+{
+    delay_t budget = ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq"));
+    if (launch.edge != capture.edge) {
+        budget = budget / 2;
+    }
+
+    if (!launch.is_async() && ctx->nets.at(launch.clock)->clkconstr) {
+        if (launch.edge == capture.edge) {
+            budget = ctx->nets.at(launch.clock)->clkconstr->period.minDelay();
+        } else if (capture.edge == RISING_EDGE) {
+            budget = ctx->nets.at(launch.clock)->clkconstr->low.minDelay();
+        } else if (capture.edge == FALLING_EDGE) {
+            budget = ctx->nets.at(launch.clock)->clkconstr->high.minDelay();
+        }
+    }
+
+    return budget;
+}
+
+void TimingAnalyser::build_ranked_setup_paths(int count)
+{
+    // Distinct cell ports can have equal slack. Keep the port and clock-event
+    // pair in the key, and trace only the bounded set that reaches the report.
+    std::set<std::tuple<delay_t, CellPortKey, domain_id_t>> worst;
+    for (domain_id_t i = 0; i < domain_id_t(domain_pairs.size()); ++i) {
+        const auto &pair = domain_pairs.at(i).key;
+        const auto &launch = domains.at(pair.launch).key;
+        const auto &capture = domains.at(pair.capture);
+        if (launch.is_async() || launch.clock != capture.key.clock)
+            continue;
+        delay_t budget = path_delay_budget(launch, capture.key);
+        for (const auto &endpoint : capture.endpoints) {
+            const auto &pairs = ports.at(endpoint.first).domain_pairs;
+            auto it = pairs.find(i);
+            if (it == pairs.end() || it->second.setup_slack == std::numeric_limits<delay_t>::max())
+                continue;
+            auto key = std::make_tuple(budget + it->second.setup_slack, endpoint.first, i);
+            if (int(worst.size()) == count && key >= *worst.rbegin())
+                continue;
+            worst.insert(key);
+            if (int(worst.size()) > count)
+                worst.erase(std::prev(worst.end()));
+        }
+    }
+    result.ranked_setup_paths.clear();
+    for (const auto &entry : worst) {
+        const auto &endpoint = std::get<1>(entry);
+        const auto domain = std::get<2>(entry);
+        delay_t delay = -ports.at(endpoint).domain_pairs.at(domain).setup_slack;
+        result.ranked_setup_paths.emplace_back(build_critical_path_report(domain, endpoint, true), delay);
+    }
+}
+
 CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair, CellPortKey endpoint,
                                                         bool longest_path)
 {
@@ -902,20 +958,7 @@ CriticalPath TimingAnalyser::build_critical_path_report(domain_id_t domain_pair,
     report.clock_pair.end.clock = capture.clock;
     report.clock_pair.end.edge = capture.edge;
 
-    report.max_delay = ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq"));
-    if (launch.edge != capture.edge) {
-        report.max_delay = report.max_delay / 2;
-    }
-
-    if (!launch.is_async() && ctx->nets.at(launch.clock)->clkconstr) {
-        if (launch.edge == capture.edge) {
-            report.max_delay = ctx->nets.at(launch.clock)->clkconstr->period.minDelay();
-        } else if (capture.edge == RISING_EDGE) {
-            report.max_delay = ctx->nets.at(launch.clock)->clkconstr->low.minDelay();
-        } else if (capture.edge == FALLING_EDGE) {
-            report.max_delay = ctx->nets.at(launch.clock)->clkconstr->high.minDelay();
-        }
-    }
+    report.max_delay = path_delay_budget(launch, capture);
 
     auto crit_path_rev = walk_crit_path(domain_pair, endpoint, longest_path);
     auto crit_path = boost::adaptors::reverse(crit_path_rev);
@@ -1339,8 +1382,11 @@ void timing_analysis(Context *ctx, bool print_slack_histogram, bool print_fmax, 
     auto &result = tmg.get_timing_result();
     ctx->log_timing_results(result, print_slack_histogram, print_fmax, print_path, warn_on_failure);
 
-    if (update_results)
+    if (update_results) {
+        if (ctx->report_setup_paths > 0)
+            tmg.build_ranked_setup_paths(ctx->report_setup_paths);
         ctx->timing_result = result;
+    }
 }
 
 NEXTPNR_NAMESPACE_END

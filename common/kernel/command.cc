@@ -400,6 +400,8 @@ po::options_description CommandHandler::getGeneralOptions()
 
     general.add_options()("report", po::value<std::string>(),
                           "write timing and utilization report in JSON format to file");
+    general.add_options()("report-setup-paths", po::value<int>(),
+                          "include up to N worst same-clock setup paths in the JSON report");
     general.add_options()("detailed-timing-report", "Append detailed net timing data to the JSON report");
 
     general.add_options()("placed-svg", po::value<std::string>(), "write render of placement to SVG file");
@@ -559,6 +561,11 @@ void CommandHandler::setupContext(Context *ctx)
     if (ctx->settings.find(ctx->id("placerHeap/timingWeight")) == ctx->settings.end())
         ctx->settings[ctx->id("placerHeap/timingWeight")] = std::to_string(10);
 
+    if (vm.count("report-setup-paths")) {
+        ctx->report_setup_paths = vm["report-setup-paths"].as<int>();
+        if (ctx->report_setup_paths < 1 || !vm.count("report"))
+            log_error("--report-setup-paths requires a positive count and --report.\n");
+    }
     if (vm.count("detailed-timing-report")) {
         ctx->detailed_timing_report = true;
     }

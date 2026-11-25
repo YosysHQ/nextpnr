@@ -96,6 +96,8 @@ struct TimingAnalyser
 
     dict<std::pair<IdString, IdString>, delay_t> get_clock_delays() const { return clock_delays; }
 
+    // After a timing run, retain the least-slack same-clock setup endpoints and their native path traces.
+    void build_ranked_setup_paths(int count);
     TimingResult &get_timing_result() { return result; }
 
     // Enable analysis of clock skew between FFs.
@@ -129,6 +131,7 @@ struct TimingAnalyser
     // longest_path indicate whether to follow the longest or shortest path from endpoint to startpoint
     // longest paths are interesting for setup violations and shortest paths are interesting for hold violations
     CriticalPath build_critical_path_report(domain_id_t domain_pair, CellPortKey endpoint, bool longest_path);
+    delay_t path_delay_budget(const ClockDomainKey &launch, const ClockDomainKey &capture) const;
     void build_crit_path_reports();
     void build_slack_histogram_report();
 
