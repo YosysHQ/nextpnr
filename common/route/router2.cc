@@ -827,7 +827,7 @@ struct Router2
         //     0. starting within a small range of existing routing
         //     1. expanding from all routing
         int mode = 0;
-        if (net->users.entries() < 4 || nd.wires.empty() || (crit > 0.95))
+        if (net->users.entries() < 4 || nd.wires.empty() || (crit > 0.95) || curr_cong_weight >= 100)
             mode = 1;
 
         // This records the point where forwards and backwards routing met

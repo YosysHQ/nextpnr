@@ -29,6 +29,19 @@ NEXTPNR_NAMESPACE_BEGIN
 
 delay_t GateMateImpl::estimateDelay(WireId src, WireId dst) const
 {
+    static const int estimate[9][2] = {
+            {340, 17}, // best_lpr
+            {280, 14}, // best_eco
+            {240, 13}, // best_spd
+            {510, 25}, // typ_lpr
+            {390, 20}, // typ_eco
+            {320, 16}, // typ_spd
+            {890, 43}, // worst_lpr
+            {470, 30}, // worst_eco
+            {490, 23}, // worst_spd
+    };
+    const int *est = estimate[(timing_mode - 1) * 3 + fpga_mode - 1];
+
     int sx, sy, dx, dy;
     int d2d = 0;
     if (tile_extra_data(src.tile)->die != tile_extra_data(dst.tile)->die)
@@ -36,7 +49,7 @@ delay_t GateMateImpl::estimateDelay(WireId src, WireId dst) const
     tile_xy(ctx->chip_info, src.tile, sx, sy);
     tile_xy(ctx->chip_info, dst.tile, dx, dy);
 
-    return 100 + 100 * (std::abs(dx - sx) + std::abs(dy - sy)) + d2d;
+    return est[0] + est[1] * (std::abs(dx - sx) + std::abs(dy - sy)) + d2d;
 }
 
 delay_t GateMateImpl::predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const
@@ -226,7 +239,7 @@ bool GateMateImpl::getCellDelay(const CellInfo *cell, IdString fromPort, IdStrin
         if (fromPort == id_I && toPort == id_RAM_O)
             return get_delay_from_tmg_db(z ? id_timing_comb12_RAM_O1 : id_timing_comb12_RAM_O2, delay);
         if (fromPort == id_RAM_I && toPort == id_OUT)
-            return true;
+            return get_delay_from_tmg_db(z ? id_timing__ARBLUT_RAM_I1_OUT1 : id_timing__ARBLUT_RAM_I2_OUT2, delay);
         return false;
     } else if (cell->type.in(id_CPE_IBUF, id_CPE_OBUF, id_CPE_TOBUF, id_CPE_IOBUF)) {
         if (fromPort == id_A && toPort.in(id_O, id_IO))
@@ -337,7 +350,7 @@ TimingPortClass GateMateImpl::getPortTimingClass(const CellInfo *cell, IdString 
     } else if (cell->type.in(id_CPE_RAMI, id_CPE_RAMO, id_CPE_RAMIO, id_CPE_RAMIO_U, id_CPE_RAMIO_L)) {
         if (port.in(id_I, id_RAM_I))
             return TMG_COMB_INPUT;
-        if (port.in(id_O, id_RAM_O))
+        if (port.in(id_OUT, id_RAM_O))
             return TMG_COMB_OUTPUT;
         return TMG_IGNORE;
     } else if (cell->type.in(id_CPE_COMP)) {
@@ -530,8 +543,9 @@ TimingClockingInfo GateMateImpl::getPortClockingInfo(const CellInfo *cell, IdStr
             DelayQuad delay = DelayQuad{0};
             get_delay_from_tmg_db(is_upper ? id_timing_Q2_OUT2 : id_timing_Q1_OUT1, delay);
             info.clockToQ += delay;
-            get_delay_from_tmg_db(id_timing_del_CPE_CP_Q, delay);
-            info.clockToQ += delay;
+            // Vendor data already includes del_CPE_CP_Q
+            // get_delay_from_tmg_db(id_timing_del_CPE_CP_Q, delay);
+            // info.clockToQ += delay;
         }
     } else if (cell->type.in(id_IOSEL)) {
         bool out_side = port.in(id_OUT1, id_OUT2, id_GPIO_OUT);
