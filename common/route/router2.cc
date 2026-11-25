@@ -497,15 +497,10 @@ struct Router2
 
     float get_togo_cost(NetInfo *net, store_index<PortRef> user, int wire, WireId src_sink, bool bwd, float crit_weight)
     {
-        auto &nd = nets.at(net->udata);
         auto &wd = flat_wires[wire];
-        int source_uses = 0;
-        if (nd.wires.count(wd.w)) {
-            source_uses = nd.wires.at(wd.w).second;
-        }
         // FIXME: timing/wirelength balance?
         delay_t est_delay = ctx->estimateDelay(bwd ? src_sink : wd.w, bwd ? wd.w : src_sink);
-        return (ctx->getDelayNS(est_delay) / (1 + source_uses * crit_weight)) + cfg.ipin_cost_adder;
+        return ctx->getDelayNS(est_delay) + cfg.ipin_cost_adder;
     }
 
     bool check_arc_routing(NetInfo *net, store_index<PortRef> usr, size_t phys_pin)
