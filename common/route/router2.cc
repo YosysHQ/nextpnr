@@ -1050,7 +1050,7 @@ struct Router2
         }
         ArcRouteResult result = ARC_SUCCESS;
         if (midpoint_wire != -1) {
-            ROUTE_LOG_DBG("   Routed (explored %d wires): ", explored);
+            ROUTE_LOG_DBG("   Routed (explored %d wires, final cost=%.2f): ", explored, best_midpoint_cost);
             if (const_mode) {
                 bind_pip_internal(nd, i, midpoint_wire, PipId());
             } else {
@@ -1062,8 +1062,8 @@ struct Router2
                     bind_pip_internal(nd, i, cursor_bwd, pip);
                     if (ctx->debug && !is_mt) {
                         auto &wd = flat_wires.at(cursor_bwd);
-                        ROUTE_LOG_DBG("      fwd wire: %s (curr %d hist %f share %d)\n", ctx->nameOfWire(wd.w),
-                                      wd.curr_cong - 1, wd.hist_cong_cost, nd.wires.at(wd.w).second);
+                        ROUTE_LOG_DBG("      fwd wire: %s (cost %.2f curr %d hist %f share %d)\n", ctx->nameOfWire(wd.w),
+                                      wd.cost_fwd, wd.curr_cong - 1, wd.hist_cong_cost, nd.wires.at(wd.w).second);
                     }
                     if (pip == PipId()) {
                         break;
@@ -1121,8 +1121,8 @@ struct Router2
                 bind_pip_internal(nd, i, cursor_fwd, pip);
                 if (ctx->debug && !is_mt) {
                     auto &wd = flat_wires.at(cursor_fwd);
-                    ROUTE_LOG_DBG("      bwd wire: %s (curr %d hist %f share %d)\n", ctx->nameOfWire(wd.w),
-                                  wd.curr_cong - 1, wd.hist_cong_cost, nd.wires.at(wd.w).second);
+                    ROUTE_LOG_DBG("      bwd wire: %s (cost %.2f curr %d hist %f share %d)\n", ctx->nameOfWire(wd.w),
+                                  wd.cost_bwd, wd.curr_cong - 1, wd.hist_cong_cost, nd.wires.at(wd.w).second);
                 }
             }
             NPNR_ASSERT(cursor_fwd == dst_wire_idx);
