@@ -53,6 +53,8 @@ There is a dictionary `ctx.cells` that provides access to all of the cells in a 
  - `attrs`: a read-only dictionary of attributes on the cell
  - `bel`: the Bel the cell is placed on
 
+After placement, `ctx.getBelPinsForCellPin(cell, port)` returns the list of physical BEL pin names mapped to a packed cell port. A port can have zero, one or several physical pins. For each pin, `ctx.getBelPinWire(cell.bel, pin)` gives its routing wire.
+
 Cells also have the following member functions:
  - `addInput(name)`: add a new input port with a given name
  - `addOutput(name)`: add a new output port with a given name
