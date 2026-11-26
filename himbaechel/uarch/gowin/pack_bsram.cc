@@ -101,13 +101,12 @@ void GowinPacker::bsram_fix_blksel(CellInfo *ci, std::vector<std::unique_ptr<Cel
 // 36 bits.
 // We work around this by adding an external DFF and using BSRAM
 // as READ_MODE=1'b0 (bypass).
+// in bypass mode, narrow output does not hold its data while CE is low
+// unless OCE follows CE, so we connect them.
 void GowinPacker::bsram_fix_outreg(CellInfo *ci, int bit_width, IdString ce_pin, IdString oce_pin, IdString clk_pin,
                                    IdString reset_pin, IdString do_pin, IdString read_mode_param,
                                    std::vector<std::unique_ptr<CellInfo>> &new_cells)
 {
-    if (ci->params.at(read_mode_param).as_int64() == 0) {
-        return;
-    }
     NetInfo *ce_net = ci->getPort(ce_pin);
     NetInfo *oce_net = ci->getPort(oce_pin);
     if (ce_net == nullptr || oce_net == nullptr) {
@@ -116,13 +115,16 @@ void GowinPacker::bsram_fix_outreg(CellInfo *ci, int bit_width, IdString ce_pin,
     if (ce_net->name == ctx->id("$PACKER_GND") || oce_net->name == ctx->id("$PACKER_GND")) {
         return;
     }
+    ci->disconnectPort(oce_pin);
+    ci->connectPort(oce_pin, ce_net);
+    if (ci->params.at(read_mode_param).as_int64() == 0) {
+        return;
+    }
 
     if (ctx->verbose) {
         log_info("  apply the BSRAM OUTREG fix\n");
     }
     ci->setParam(read_mode_param, 0);
-    ci->disconnectPort(oce_pin);
-    ci->connectPort(oce_pin, ce_net);
 
     NetInfo *reset_net = ci->getPort(reset_pin);
     bool sync_reset = ci->params.at(id_RESET_MODE).as_string() == std::string("SYNC");
@@ -263,7 +265,7 @@ void GowinPacker::bsram_fix_sp(CellInfo *ci, std::vector<std::unique_ptr<CellInf
     new_cells.push_back(std::move(ce_pre_dff_cell));
 }
 
-void GowinPacker::pack_ROM(CellInfo *ci)
+void GowinPacker::pack_ROM(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &new_cells)
 {
     int default_bw = 32;
     // XXX use block 111
@@ -294,6 +296,12 @@ void GowinPacker::pack_ROM(CellInfo *ci)
     if (!ci->params.count(id_BIT_WIDTH)) {
         ci->setParam(id_BIT_WIDTH, Property(default_bw, 32));
     }
+    if (!ci->params.count(id_READ_MODE)) {
+        ci->setParam(id_READ_MODE, Property(0, 1));
+    }
+    if (!ci->params.count(id_RESET_MODE)) {
+        ci->setParam(id_RESET_MODE, Property("SYNC"));
+    }
 
     int bit_width = ci->params.at(id_BIT_WIDTH).as_int64();
     if (bit_width == 32 || bit_width == 36) {
@@ -318,6 +326,9 @@ void GowinPacker::pack_ROM(CellInfo *ci)
         ci->connectPort(id_CEA, vss_net);
         for (int i = 0; i < 14; ++i) {
             ci->renamePort(ctx->idf("AD[%d]", i), ctx->idf("ADB%d", i));
+        }
+        if (bit_width < 16 && gwu.need_BSRAM_OUTREG_fix()) {
+            bsram_fix_outreg(ci, bit_width, id_CEB, id_OCEB, id_CLKB, id_RESETB, id_DO, id_READ_MODE, new_cells);
         }
         bsram_rename_ports(ci, bit_width, "DO[%d]", "DO%d", 18);
     }
@@ -692,7 +703,7 @@ void GowinPacker::pack_bsram(void)
         switch (ci->type.hash()) {
         case ID_pROMX9: /* fallthrough */
         case ID_pROM:
-            pack_ROM(ci);
+            pack_ROM(ci, new_cells);
             ci->type = id_ROM;
             break;
         case ID_SDPX9B: /* fallthrough */
