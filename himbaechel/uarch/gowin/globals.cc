@@ -309,6 +309,24 @@ struct GowinGlobalRouter
         return routed;
     }
 
+    // Make sure that the bound pips lead from each sink back to the source.
+    // A sink that ends up on other wires of the net would get its clock
+    // from there.
+    void check_sinks_routed_from(NetInfo *net, WireId src)
+    {
+        for (auto &usr : net->users) {
+            WireId cursor = ctx->getNetinfoSinkWire(net, usr, 0);
+            while (cursor != src) {
+                auto it = net->wires.find(cursor);
+                if (it == net->wires.end() || it->second.pip == PipId()) {
+                    log_error("Sink %s.%s of the %s net is not routed from %s but from %s.\n", ctx->nameOf(usr.cell),
+                              ctx->nameOf(usr.port), ctx->nameOf(net), ctx->nameOfWire(src), ctx->nameOfWire(cursor));
+                }
+                cursor = ctx->getPipSrcWire(it->second.pip);
+            }
+        }
+    }
+
     void route_dqce_net(NetInfo *net)
     {
         // route net after dqce using source of CLKIN net
@@ -321,17 +339,35 @@ struct GowinGlobalRouter
         NPNR_ASSERT_MSG(gwu.driver_is_buf(driver) || gwu.driver_is_clksrc(driver),
                         stringf("The input source for %s is not a clock.", ctx->nameOf(dqce_ci)).c_str());
         WireId src;
+        // wires of the route to the BUF input, they carry the ungated clock
+        pool<WireId> buf_input_wires;
         // use BUF input if there is one
         if (gwu.driver_is_buf(driver)) {
             src = ctx->getBelPinWire(driver.cell->bel, id_I);
+            // If the BUF feeds only this DQCE, it is left without users
+            // when the DQCE is removed and is never routed as a buffered
+            // net, so route its input here, before the spines.
+            CellInfo *buf_ci = driver.cell;
+            NetInfo *net_before_buf = buf_ci->getPort(id_I);
+            if (net_before_dqce->users.entries() == 1 && net_before_buf != nullptr &&
+                net_before_buf->users.entries() == 1) {
+                std::vector<PipId> buf_input_path;
+                route_buf_input(net, buf_ci, &buf_input_path);
+                for (PipId pip : buf_input_path) {
+                    buf_input_wires.insert(ctx->getPipSrcWire(pip));
+                }
+            }
         } else {
             src = ctx->getBelPinWire(driver.cell->bel, driver.port);
         }
 
+        // The route to the BUF input is bound to this net too, so keep the
+        // sinks off it, otherwise they would get the ungated clock.
         RouteResult route_result = route_direct_net(
                 net,
                 [&](PipId pip, WireId src_wire) {
-                    return global_DQCE_pip_filter(pip, src) && segment_wire_filter(pip) && dcs_input_filter(pip);
+                    return !buf_input_wires.count(ctx->getPipSrcWire(pip)) && global_DQCE_pip_filter(pip, src) &&
+                           segment_wire_filter(pip) && dcs_input_filter(pip);
                 },
                 src);
         if (route_result == NOT_ROUTED) {
@@ -342,6 +378,7 @@ struct GowinGlobalRouter
                       "allowed for DQCE managed networks.\n",
                       ctx->nameOf(net));
         }
+        check_sinks_routed_from(net, src);
 
         // In networks controlled by DQCE, the source can only connect to the
         // "spine" wires. Here we not only check this fact, but also find out
@@ -650,18 +687,29 @@ struct GowinGlobalRouter
         }
 
         // b) route net before buf from whatever to the buf input
-        WireId dst = src;
+        route_buf_input(net, buf_ci);
+
+        log_info("    '%s' net was routed.\n", ctx->nameOf(net));
+    }
+
+    // Route the net before the buffer from its source to the buffer input
+    // as part of net, then remove it. The bound pips go to path if given.
+    void route_buf_input(NetInfo *net, CellInfo *buf_ci, std::vector<PipId> *path = nullptr)
+    {
+        NetInfo *net_before_buf = buf_ci->getPort(id_I);
+        WireId dst = ctx->getBelPinWire(buf_ci->bel, id_I);
         CellInfo *true_src_ci = net_before_buf->driver.cell;
-        src = ctx->getBelPinWire(true_src_ci->bel, net_before_buf->driver.port);
+        WireId src = ctx->getBelPinWire(true_src_ci->bel, net_before_buf->driver.port);
         ctx->bindWire(src, net, STRENGTH_LOCKED);
-        backwards_bfs_route(net, src, dst, 1000000, true, [&](PipId pip, WireId src_wire) {
-            return clock_gate_wire_filter(pip) && segment_wire_filter(pip) && dcs_input_filter(pip);
-        });
+        backwards_bfs_route(
+                net, src, dst, 1000000, true,
+                [&](PipId pip, WireId src_wire) {
+                    return clock_gate_wire_filter(pip) && segment_wire_filter(pip) && dcs_input_filter(pip);
+                },
+                path);
         // remove net
         buf_ci->movePortTo(id_O, true_src_ci, net_before_buf->driver.port);
         net_before_buf->driver.cell = nullptr;
-
-        log_info("    '%s' net was routed.\n", ctx->nameOf(net));
     }
 
     RouteResult route_clk_net(NetInfo *net)
