@@ -439,7 +439,9 @@ void GowinPacker::pack_SDPB(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>>
 
     bit_width = ci->params.at(id_BIT_WIDTH_1).as_int64();
     if (bit_width < 16 && gwu.need_BSRAM_OUTREG_fix()) {
-        bsram_fix_outreg(ci, bit_width, id_CEB, id_OCE, id_CLKB, id_RESET, id_DO, id_READ_MODE, new_cells);
+	// on GW5A SDPB has a single reset pin
+	IdString reset_pin = ci->ports.count(id_RESETB) ? id_RESETB : id_RESET;
+        bsram_fix_outreg(ci, bit_width, id_CEB, id_OCE, id_CLKB, reset_pin, id_DO, id_READ_MODE, new_cells);
     }
 
     ci->copyPortTo(id_OCE, ci, id_OCEB);
