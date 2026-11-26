@@ -128,7 +128,7 @@ void GowinPacker::bsram_fix_outreg(CellInfo *ci, int bit_width, IdString ce_pin,
     bool sync_reset = ci->params.at(id_RESET_MODE).as_string() == std::string("SYNC");
     IdString dff_type = sync_reset ? id_DFFRE : id_DFFCE;
     IdString reset_port = sync_reset ? id_RESET : id_CLEAR;
-    IdString dff_suffix = ctx->idf("_%s_cache_dff$", do_pin.c_str(ctx));
+    std::string dff_suffix = stringf("_%s_cache_dff$", do_pin.c_str(ctx));
 
     for (int i = 0; i < bit_width; ++i) {
         IdString do_name = ctx->idf("%s[%d]", do_pin.c_str(ctx), i);
@@ -140,7 +140,7 @@ void GowinPacker::bsram_fix_outreg(CellInfo *ci, int bit_width, IdString ce_pin,
             }
 
             // create DFF
-            auto cache_dff_cell = gwu.create_cell(gwu.create_aux_name(ci->name, i, dff_suffix.c_str(ctx)), dff_type);
+            auto cache_dff_cell = gwu.create_cell(gwu.create_aux_name(ci->name, i, dff_suffix.c_str()), dff_type);
             CellInfo *cache_dff = cache_dff_cell.get();
             cache_dff->addInput(id_CE);
             cache_dff->connectPort(id_CE, oce_net);
