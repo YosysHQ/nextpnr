@@ -348,7 +348,7 @@ struct GowinGlobalRouter
         // how many and what kind of "spine" wires were used for network
         // roaming.
         for (PipId pip : ctx->getPipsDownhill(src)) {
-            if (ctx->getBoundPipNet(pip) == nullptr) {
+            if (ctx->getBoundPipNet(pip) != net) {
                 continue;
             }
             WireId dst = ctx->getPipDstWire(pip);
@@ -356,7 +356,7 @@ struct GowinGlobalRouter
             if (dst_name.str(ctx).rfind("PCLK", 0) == 0 || dst_name.str(ctx).rfind("LWSPINE", 0) == 0) {
                 // step over dummy pip
                 for (PipId next_pip : ctx->getPipsDownhill(dst)) {
-                    if (ctx->getBoundPipNet(next_pip) != nullptr) {
+                    if (ctx->getBoundPipNet(next_pip) == net) {
                         ctx->unbindPip(pip);
                         src = dst;
                         break;
@@ -368,7 +368,7 @@ struct GowinGlobalRouter
             }
         }
         for (PipId pip : ctx->getPipsDownhill(src)) {
-            if (ctx->getBoundPipNet(pip) == nullptr) {
+            if (ctx->getBoundPipNet(pip) != net) {
                 continue;
             }
             WireId dst = ctx->getPipDstWire(pip);
@@ -449,7 +449,7 @@ struct GowinGlobalRouter
         // how many and what kind of "spine" wires were used for network
         // roaming.
         for (PipId pip : ctx->getPipsDownhill(src)) {
-            if (ctx->getBoundPipNet(pip) == nullptr) {
+            if (ctx->getBoundPipNet(pip) != net) {
                 continue;
             }
             WireId dst = ctx->getPipDstWire(pip);
@@ -458,7 +458,7 @@ struct GowinGlobalRouter
                 dst_name.str(ctx).rfind("PLL") == 0) {
                 // step over dummy pip
                 for (PipId next_pip : ctx->getPipsDownhill(dst)) {
-                    if (ctx->getBoundPipNet(next_pip) != nullptr) {
+                    if (ctx->getBoundPipNet(next_pip) == net) {
                         src = dst;
                         break;
                     }
@@ -469,7 +469,7 @@ struct GowinGlobalRouter
             }
         }
         for (PipId pip : ctx->getPipsDownhill(src)) {
-            if (ctx->getBoundPipNet(pip) == nullptr) {
+            if (ctx->getBoundPipNet(pip) != net) {
                 continue;
             }
             WireId dst = ctx->getPipDstWire(pip);
