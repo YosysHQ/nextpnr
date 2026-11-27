@@ -300,8 +300,14 @@ static void log_fmax(Context *ctx, TimingResult &result, bool warn_on_failure)
                 target = clock_fmax.at(clock_a).constraint;
             } else if (!clock_fmax.count(clock_a) && clock_fmax.count(clock_b)) {
                 target = clock_fmax.at(clock_b).constraint;
+            } else if (clock_fmax.count(clock_a) && clock_fmax.count(clock_b)) {
+                target = std::min(clock_fmax.at(clock_a).constraint, clock_fmax.at(clock_b).constraint);              
             } else {
-                target = std::min(clock_fmax.at(clock_a).constraint, clock_fmax.at(clock_b).constraint);
+                // Neither clock has an Fmax entry; just skip or fall back
+                log_warning("No Fmax for related clocks '%s' and '%s', skipping.\n",
+                            ctx->nameOf(clock_a),
+                            ctx->nameOf(clock_b));
+                continue; 
             }
 
             bool passed = target < fmax;
