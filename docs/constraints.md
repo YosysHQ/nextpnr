@@ -42,3 +42,8 @@ calling the function `ctx.addClock` with the name of the clock and its frequency
     ctx.addClock("video_clk", 24)
     ctx.addClock("uart_i.sys_clk_i", 12)
 
+## Timing Constraints
+
+A net can be removed from the timing analysis using the Python API function `ctx.ignoreTiming`, as described above.
+
+    ctx.ignoreTiming("module_inst.slow_net")
