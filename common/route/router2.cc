@@ -86,7 +86,6 @@ struct Router2
 
     struct WireScore
     {
-        float delay;
         float cost;
         float togo_cost;
         float total() const { return cost + togo_cost; }
@@ -332,7 +331,7 @@ struct Router2
         DeterministicRNG rng;
 
         // Used to add existing routing to the heap
-        pool<WireId> in_wire_by_loc;
+        dict<WireId, float> in_wire_by_loc; // wire->cost
         dict<std::pair<int, int>, pool<WireId>> wire_by_loc;
     };
 
@@ -498,15 +497,10 @@ struct Router2
 
     float get_togo_cost(NetInfo *net, store_index<PortRef> user, int wire, WireId src_sink, bool bwd, float crit_weight)
     {
-        auto &nd = nets.at(net->udata);
         auto &wd = flat_wires[wire];
-        int source_uses = 0;
-        if (nd.wires.count(wd.w)) {
-            source_uses = nd.wires.at(wd.w).second;
-        }
         // FIXME: timing/wirelength balance?
         delay_t est_delay = ctx->estimateDelay(bwd ? src_sink : wd.w, bwd ? wd.w : src_sink);
-        return (ctx->getDelayNS(est_delay) / (1 + source_uses * crit_weight)) + cfg.ipin_cost_adder;
+        return ctx->getDelayNS(est_delay) + cfg.ipin_cost_adder;
     }
 
     bool check_arc_routing(NetInfo *net, store_index<PortRef> usr, size_t phys_pin)
@@ -747,15 +741,23 @@ struct Router2
         WireId cursor = ad.sink_wire;
         if (!nd.wires.count(cursor))
             return;
+        std::vector<std::pair<WireId, PipId>> routed_path;
         while (cursor != nd.src_wire) {
-            if (!t.in_wire_by_loc.count(cursor)) {
-                t.in_wire_by_loc.insert(cursor);
-                for (auto dh : ctx->getPipsDownhill(cursor)) {
+            auto &entry = nd.wires.at(cursor);
+            routed_path.emplace_back(cursor, entry.first);
+            cursor = ctx->getPipSrcWire(entry.first);
+        }
+        std::reverse(routed_path.begin(), routed_path.end());
+        float cost = 0;
+        for (auto route_entry : routed_path) {
+            cost += score_wire_for_arc(net, i, phys_pin, route_entry.first, route_entry.second, 0.5f);
+            if (!t.in_wire_by_loc.count(route_entry.first)) {
+                t.in_wire_by_loc[route_entry.first] = cost;
+                for (auto dh : ctx->getPipsDownhill(route_entry.first)) {
                     Loc dh_loc = ctx->getPipLocation(dh);
-                    t.wire_by_loc[std::make_pair(dh_loc.x, dh_loc.y)].insert(cursor);
+                    t.wire_by_loc[std::make_pair(dh_loc.x, dh_loc.y)].insert(route_entry.first);
                 }
             }
-            cursor = ctx->getPipSrcWire(nd.wires.at(cursor).first);
         }
     }
 
@@ -793,9 +795,12 @@ struct Router2
         return tmg.get_criticality(CellPortKey(net->users.at(i)));
     }
 
+    bool is_tmg_ripup_iter = false, is_tmg_fix_mode = false;
+    int tmg_iters = 0;
+
     bool arc_failed_slack(NetInfo *net, store_index<PortRef> usr_idx)
     {
-        return timing_driven_ripup &&
+        return is_tmg_ripup_iter &&
                (tmg.get_setup_slack(CellPortKey(net->users.at(usr_idx))) < (2 * ctx->getDelayEpsilon()));
     }
 
@@ -822,6 +827,8 @@ struct Router2
         // Calculate a timing weight based on criticality
         float crit = get_arc_crit(net, i);
         float crit_weight = std::max<float>(0.05f, (1.0f - std::pow(crit, 2)));
+        // normalise in later iterations to avoid all arcs having very low weights
+        crit_weight = std::min(crit_weight / max_crit_weight, 1.f);
         ROUTE_LOG_DBG("     crit=%.3f crit_weight=%.3f\n", crit, crit_weight);
         // Check if arc was already done _in this iteration_
         if (t.processed_sinks.count(dst_wire))
@@ -831,7 +838,7 @@ struct Router2
         //     0. starting within a small range of existing routing
         //     1. expanding from all routing
         int mode = 0;
-        if (net->users.entries() < 4 || nd.wires.empty() || (crit > 0.95) || curr_cong_weight >= 100)
+        if (is_tmg_fix_mode || net->users.entries() < 4 || nd.wires.empty() || (crit > 0.95) || curr_cong_weight >= 100)
             mode = 1;
 
         // This records the point where forwards and backwards routing met
@@ -855,27 +862,28 @@ struct Router2
             ROUTE_LOG_DBG("src_wire = %s -> dst_wire = %s\n", ctx->nameOfWire(src_wire), ctx->nameOfWire(dst_wire));
 
             // Add 'forward' direction startpoints to queue
-            auto seed_queue_fwd = [&](WireId wire) {
+            auto seed_queue_fwd = [&](WireId wire, float cost = 0) {
                 WireScore base_score;
-                base_score.delay = 0;
-                base_score.cost = 0;
+                base_score.cost = cost;
                 int wire_idx = wire_to_idx.at(wire);
                 base_score.togo_cost = get_togo_cost(net, i, wire_idx, dst_wire, false, crit_weight);
                 t.fwd_queue.push(QueuedWire(wire_idx, base_score));
-                set_visited_fwd(t, wire_idx, PipId(), 0.0);
+                set_visited_fwd(t, wire_idx, PipId(), cost);
             };
             auto &dst_data = flat_wires.at(dst_wire_idx);
             // Look for nearby existing routing
-            for (int dy = -cfg.bb_margin_y; dy <= cfg.bb_margin_y; dy++)
-                for (int dx = -cfg.bb_margin_x; dx <= cfg.bb_margin_x; dx++) {
-                    auto fnd = t.wire_by_loc.find(std::make_pair(dst_data.x + dx, dst_data.y + dy));
-                    if (fnd == t.wire_by_loc.end())
-                        continue;
-                    for (WireId wire : fnd->second) {
-                        ROUTE_LOG_DBG("   seeding with %s\n", ctx->nameOfWire(wire));
-                        seed_queue_fwd(wire);
+            if (!is_tmg_fix_mode) {
+                for (int dy = -cfg.bb_margin_y; dy <= cfg.bb_margin_y; dy++)
+                    for (int dx = -cfg.bb_margin_x; dx <= cfg.bb_margin_x; dx++) {
+                        auto fnd = t.wire_by_loc.find(std::make_pair(dst_data.x + dx, dst_data.y + dy));
+                        if (fnd == t.wire_by_loc.end())
+                            continue;
+                        for (WireId wire : fnd->second) {
+                            ROUTE_LOG_DBG("   seeding with %s (cost=%.2f)\n", ctx->nameOfWire(wire), t.in_wire_by_loc.at(wire));
+                            seed_queue_fwd(wire, t.in_wire_by_loc.at(wire));
+                        }
                     }
-                }
+            }
 
             if (mode == 0 && t.fwd_queue.size() < 4)
                 continue;
@@ -889,7 +897,6 @@ struct Router2
             }
             auto seed_queue_bwd = [&](WireId wire) {
                 WireScore base_score;
-                base_score.delay = 0;
                 base_score.cost = 0;
                 int wire_idx = wire_to_idx.at(wire);
                 base_score.togo_cost = get_togo_cost(net, i, wire_idx, src_wire, true, crit_weight);
@@ -913,51 +920,57 @@ struct Router2
                     auto curr = t.fwd_queue.top();
                     t.fwd_queue.pop();
                     ++explored;
-                    if (was_visited_bwd(curr.wire, std::numeric_limits<float>::max())) {
-                        // Meet in the middle; done
-                        midpoint_wire = curr.wire;
-                        break;
-                    }
+
                     auto &curr_data = flat_wires.at(curr.wire);
-                    for (PipId dh : ctx->getPipsDownhill(curr_data.w)) {
-                        // Skip pips outside of box in bounding-box mode
-                        if (is_bb && !hit_test_pip(nd.bb, ctx->getPipLocation(dh)))
-                            continue;
-                        if (!ctx->checkPipAvailForNet(dh, net))
-                            continue;
-                        WireId next = ctx->getPipDstWire(dh);
-                        int next_idx = wire_to_idx.at(next);
-                        WireScore next_score;
-                        next_score.delay = curr.score.delay + cfg.get_base_cost(ctx, next, dh, crit_weight);
-                        next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, dh, crit_weight);
-                        next_score.togo_cost =
-                                cfg.estimate_weight * get_togo_cost(net, i, next_idx, dst_wire, false, crit_weight);
-                        if (was_visited_fwd(next_idx, next_score.delay)) {
-                            // Don't expand the same node twice.
-                            continue;
+                    if (was_visited_bwd(curr.wire, std::numeric_limits<float>::max())) {
+                        auto curr_cost = curr_data.cost_fwd + curr_data.cost_bwd;
+                        if (midpoint_wire == -1 || curr_cost < best_midpoint_cost) {
+                            midpoint_wire = curr.wire;
+                            best_midpoint_cost = curr_cost;
+                            toexplore = std::min(toexplore, int(iter * (1.5 + crit)));
                         }
-                        auto &nwd = flat_wires.at(next_idx);
-                        if (nwd.reserved_net == PerWireData::RESERVED_UNAVAILABLE)
-                            continue;
-                        // Reserved for another net
-                        if (nwd.reserved_net != -1 && nwd.reserved_net != net->udata)
-                            continue;
-                        // Don't allow the same wire to be bound to the same net with a different driving pip
-                        auto fnd_wire = nd.wires.find(next);
-                        if (fnd_wire != nd.wires.end() && fnd_wire->second.first != dh)
-                            continue;
-                        // Don't allow the same resource to be bound to the same net with a different value
-                        auto resource_key = ctx->getResourceKeyForPip(dh);
-                        if (resource_key != GroupId()) {
-                            auto fnd_resource = nd.resources.find(resource_key);
-                            if (fnd_resource != nd.resources.end() &&
-                                fnd_resource->second.value != ctx->getResourceValueForPip(dh))
+                        continue;
+                    }
+                    if (curr.score.cost <= curr_data.cost_fwd) { // only expand if this is the cheapest visit of this wire
+                        for (PipId dh : ctx->getPipsDownhill(curr_data.w)) {
+                            // Skip pips outside of box in bounding-box mode
+                            if (is_bb && !hit_test_pip(nd.bb, ctx->getPipLocation(dh)))
                                 continue;
+                            if (!ctx->checkPipAvailForNet(dh, net))
+                                continue;
+                            WireId next = ctx->getPipDstWire(dh);
+                            int next_idx = wire_to_idx.at(next);
+                            WireScore next_score;
+                            next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, dh, crit_weight);
+                            next_score.togo_cost =
+                                    cfg.estimate_weight * get_togo_cost(net, i, next_idx, dst_wire, false, crit_weight);
+                            if (was_visited_fwd(next_idx, next_score.cost)) {
+                                // Don't expand the same node twice.
+                                continue;
+                            }
+                            auto &nwd = flat_wires.at(next_idx);
+                            if (nwd.reserved_net == PerWireData::RESERVED_UNAVAILABLE)
+                                continue;
+                            // Reserved for another net
+                            if (nwd.reserved_net != -1 && nwd.reserved_net != net->udata)
+                                continue;
+                            // Don't allow the same wire to be bound to the same net with a different driving pip
+                            auto fnd_wire = nd.wires.find(next);
+                            if (fnd_wire != nd.wires.end() && fnd_wire->second.first != dh)
+                                continue;
+                            // Don't allow the same resource to be bound to the same net with a different value
+                            auto resource_key = ctx->getResourceKeyForPip(dh);
+                            if (resource_key != GroupId()) {
+                                auto fnd_resource = nd.resources.find(resource_key);
+                                if (fnd_resource != nd.resources.end() &&
+                                    fnd_resource->second.value != ctx->getResourceValueForPip(dh))
+                                    continue;
+                            }
+                            if (!thread_test_wire(t, nwd))
+                                continue; // thread safety issue
+                            set_visited_fwd(t, next_idx, dh, next_score.cost);
+                            t.fwd_queue.push(QueuedWire(next_idx, next_score, t.rng.rng()));
                         }
-                        if (!thread_test_wire(t, nwd))
-                            continue; // thread safety issue
-                        set_visited_fwd(t, next_idx, dh, next_score.delay);
-                        t.fwd_queue.push(QueuedWire(next_idx, next_score, t.rng.rng()));
                     }
                 }
                 if (!t.bwd_queue.empty()) {
@@ -982,55 +995,60 @@ struct Router2
                         }
                     } else {
                         if (was_visited_fwd(curr.wire, std::numeric_limits<float>::max())) {
-                            // Meet in the middle; done
-                            midpoint_wire = curr.wire;
-                            break;
+                            auto curr_cost = curr_data.cost_fwd + curr_data.cost_bwd;
+                            if (midpoint_wire == -1 || curr_cost < best_midpoint_cost) {
+                                midpoint_wire = curr.wire;
+                                best_midpoint_cost = curr_cost;
+                                toexplore = std::min(toexplore, int(iter * (1.5 + crit)));
+                            }
+                            continue;
                         }
                     }
                     // Don't allow the same wire to be bound to the same net with a different driving pip
-                    PipId bound_pip;
-                    auto fnd_wire = nd.wires.find(curr_data.w);
-                    if (fnd_wire != nd.wires.end())
-                        bound_pip = fnd_wire->second.first;
+                    if (curr.score.cost <= curr_data.cost_bwd) {
+                        PipId bound_pip;
+                        auto fnd_wire = nd.wires.find(curr_data.w);
+                        if (fnd_wire != nd.wires.end())
+                            bound_pip = fnd_wire->second.first;
 
-                    for (PipId uh : ctx->getPipsUphill(curr_data.w)) {
-                        if (bound_pip != PipId() && bound_pip != uh)
-                            continue;
-                        if (is_bb && !hit_test_pip(nd.bb, ctx->getPipLocation(uh)))
-                            continue;
-                        if (!ctx->checkPipAvailForNet(uh, net))
-                            continue;
-                        WireId next = ctx->getPipSrcWire(uh);
-                        int next_idx = wire_to_idx.at(next);
-                        WireScore next_score;
-                        next_score.delay = curr.score.delay + cfg.get_base_cost(ctx, next, uh, crit_weight);
-                        next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, uh, crit_weight);
-                        next_score.togo_cost = const_mode
-                                                       ? 0
-                                                       : cfg.estimate_weight * get_togo_cost(net, i, next_idx, src_wire,
-                                                                                             true, crit_weight);
-                        if (was_visited_bwd(next_idx, next_score.delay)) {
-                            // Don't expand the same node twice.
-                            continue;
-                        }
-                        auto &nwd = flat_wires.at(next_idx);
-                        if (nwd.reserved_net == PerWireData::RESERVED_UNAVAILABLE)
-                            continue;
-                        // Reserved for another net
-                        if (nwd.reserved_net != -1 && nwd.reserved_net != net->udata)
-                            continue;
-                        // Don't allow the same resource to be bound to the same net with a different value
-                        auto resource_key = ctx->getResourceKeyForPip(uh);
-                        if (resource_key != GroupId()) {
-                            auto fnd_resource = nd.resources.find(resource_key);
-                            if (fnd_resource != nd.resources.end() &&
-                                fnd_resource->second.value != ctx->getResourceValueForPip(uh))
+                        for (PipId uh : ctx->getPipsUphill(curr_data.w)) {
+                            if (bound_pip != PipId() && bound_pip != uh)
                                 continue;
+                            if (is_bb && !hit_test_pip(nd.bb, ctx->getPipLocation(uh)))
+                                continue;
+                            if (!ctx->checkPipAvailForNet(uh, net))
+                                continue;
+                            WireId next = ctx->getPipSrcWire(uh);
+                            int next_idx = wire_to_idx.at(next);
+                            WireScore next_score;
+                            next_score.cost = curr.score.cost + score_wire_for_arc(net, i, phys_pin, next, uh, crit_weight);
+                            next_score.togo_cost = const_mode
+                                                           ? 0
+                                                           : cfg.estimate_weight * get_togo_cost(net, i, next_idx, src_wire,
+                                                                                                 true, crit_weight);
+                            if (was_visited_bwd(next_idx, next_score.cost)) {
+                                // Don't expand the same node twice.
+                                continue;
+                            }
+                            auto &nwd = flat_wires.at(next_idx);
+                            if (nwd.reserved_net == PerWireData::RESERVED_UNAVAILABLE)
+                                continue;
+                            // Reserved for another net
+                            if (nwd.reserved_net != -1 && nwd.reserved_net != net->udata)
+                                continue;
+                            // Don't allow the same resource to be bound to the same net with a different value
+                            auto resource_key = ctx->getResourceKeyForPip(uh);
+                            if (resource_key != GroupId()) {
+                                auto fnd_resource = nd.resources.find(resource_key);
+                                if (fnd_resource != nd.resources.end() &&
+                                    fnd_resource->second.value != ctx->getResourceValueForPip(uh))
+                                    continue;
+                            }
+                            if (!thread_test_wire(t, nwd))
+                                continue; // thread safety issue
+                            set_visited_bwd(t, next_idx, uh, next_score.cost);
+                            t.bwd_queue.push(QueuedWire(next_idx, next_score, t.rng.rng()));
                         }
-                        if (!thread_test_wire(t, nwd))
-                            continue; // thread safety issue
-                        set_visited_bwd(t, next_idx, uh, next_score.delay);
-                        t.bwd_queue.push(QueuedWire(next_idx, next_score, t.rng.rng()));
                     }
                 }
             }
@@ -1039,7 +1057,7 @@ struct Router2
         }
         ArcRouteResult result = ARC_SUCCESS;
         if (midpoint_wire != -1) {
-            ROUTE_LOG_DBG("   Routed (explored %d wires): ", explored);
+            ROUTE_LOG_DBG("   Routed (explored %d wires, final cost=%.2f): ", explored, best_midpoint_cost);
             if (const_mode) {
                 bind_pip_internal(nd, i, midpoint_wire, PipId());
             } else {
@@ -1051,8 +1069,8 @@ struct Router2
                     bind_pip_internal(nd, i, cursor_bwd, pip);
                     if (ctx->debug && !is_mt) {
                         auto &wd = flat_wires.at(cursor_bwd);
-                        ROUTE_LOG_DBG("      fwd wire: %s (curr %d hist %f share %d)\n", ctx->nameOfWire(wd.w),
-                                      wd.curr_cong - 1, wd.hist_cong_cost, nd.wires.at(wd.w).second);
+                        ROUTE_LOG_DBG("      fwd wire: %s (cost %.2f curr %d hist %f share %d)\n", ctx->nameOfWire(wd.w),
+                                      wd.cost_fwd, wd.curr_cong - 1, wd.hist_cong_cost, nd.wires.at(wd.w).second);
                     }
                     if (pip == PipId()) {
                         break;
@@ -1110,8 +1128,8 @@ struct Router2
                 bind_pip_internal(nd, i, cursor_fwd, pip);
                 if (ctx->debug && !is_mt) {
                     auto &wd = flat_wires.at(cursor_fwd);
-                    ROUTE_LOG_DBG("      bwd wire: %s (curr %d hist %f share %d)\n", ctx->nameOfWire(wd.w),
-                                  wd.curr_cong - 1, wd.hist_cong_cost, nd.wires.at(wd.w).second);
+                    ROUTE_LOG_DBG("      bwd wire: %s (cost %.2f curr %d hist %f share %d)\n", ctx->nameOfWire(wd.w),
+                                  wd.cost_bwd, wd.curr_cong - 1, wd.hist_cong_cost, nd.wires.at(wd.w).second);
                 }
             }
             NPNR_ASSERT(cursor_fwd == dst_wire_idx);
@@ -1155,11 +1173,9 @@ struct Router2
         t.wire_by_loc.clear();
         t.in_wire_by_loc.clear();
         auto &nd = nets.at(net->udata);
-        bool failed_slack = false;
-        for (auto usr : net->users.enumerate())
-            failed_slack |= arc_failed_slack(net, usr.index);
         for (auto usr : net->users.enumerate()) {
             auto &ad = nd.arcs.at(usr.index.idx());
+            bool failed_slack = arc_failed_slack(net, usr.index);
             for (size_t j = 0; j < ad.size(); j++) {
                 // Ripup failed arcs to start with
                 // Check if arc is already legally routed
@@ -1544,13 +1560,35 @@ struct Router2
         }
     }
 
+    float max_crit_weight = 1;
+
     void do_route()
     {
         // Don't multithread if fewer than 200 nets (heuristic)
+        max_crit_weight = 1;
         if (route_queue.size() < 200) {
             ThreadContext st;
             st.rng.rngseed(ctx->rng64());
             st.bb = BoundingBox(0, 0, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
+            if (!is_tmg_ripup_iter) {
+                max_crit_weight = 0.05f;
+                for (size_t j = 0; j < route_queue.size(); j++) {
+                    auto &nd = nets[route_queue[j]];
+                    NetInfo *net = nets_by_udata[route_queue[j]];
+                    for (auto usr : net->users.enumerate()) {
+                        auto &ad = nd.arcs.at(usr.index.idx());
+                        for (size_t k = 0; k < ad.size(); k++) {
+                            // check every arc that we are actually routing
+                            // TODO: reduce wasted work here
+                            if (!check_arc_routing(net, usr.index, k) || arc_failed_slack(net, usr.index)) {
+                                auto crit_weight = std::max<float>(0.05f, (1.0f - std::pow(get_arc_crit(net, usr.index), 2)));
+                                max_crit_weight = std::max(max_crit_weight, crit_weight);
+                            }
+                        }
+                    }
+                }
+            }
+
             for (size_t j = 0; j < route_queue.size(); j++) {
                 route_net(st, nets_by_udata[route_queue[j]], false);
             }
@@ -1774,18 +1812,25 @@ struct Router2
                 }
             }
             int tmgfail = 0;
+            float tns = 0.f;
             if (timing_driven)
                 tmg.run(false);
-            if (timing_driven_ripup && iter < 1500) {
+            is_tmg_ripup_iter = false;
+            if (timing_driven_ripup && tmg_iters < 10 && overused_wires == 0 && overused_resources == 0) {
                 for (size_t i = 0; i < nets_by_udata.size(); i++) {
                     NetInfo *ni = nets_by_udata.at(i);
                     for (auto usr : ni->users.enumerate()) {
-                        if (arc_failed_slack(ni, usr.index)) {
+                        auto slack = tmg.get_setup_slack(CellPortKey(ni->users.at(usr.index)));
+                        if (slack < 2 * ctx->getDelayEpsilon()) {
                             failed_nets.insert(i);
+                            tns += std::min(ctx->getDelayNS(slack), 0.f);
                             ++tmgfail;
                         }
                     }
                 }
+                ++tmg_iters;
+                is_tmg_ripup_iter = true;
+                is_tmg_fix_mode = true;
             }
             if (overused_wires == 0 && overused_resources == 0 && tmgfail == 0) {
                 // Try and actually bind nextpnr Arch API wires
@@ -1797,17 +1842,15 @@ struct Router2
                                                ? ""
                                                : stringf("resources=%d overused=%d overuse=%d ", total_resource_use,
                                                          overused_resources, total_resource_overuse);
-            if (timing_driven_ripup)
-                log_info("    iter=%d wires=%d overused=%d overuse=%d %stmgfail=%d "
-                         "archfail=%s\n",
-                         iter, total_wire_use, overused_wires, total_wire_overuse, resource_str.c_str(), tmgfail,
-                         (overused_wires > 0 || tmgfail > 0) ? "NA" : std::to_string(arch_fail).c_str());
-            else
-                log_info("    iter=%d wires=%d overused=%d overuse=%d %sarchfail=%s\n", iter, total_wire_use,
+            log_info("    iter=%d wires=%d overused=%d overuse=%d %sarchfail=%s\n", iter, total_wire_use,
                          overused_wires, total_wire_overuse, resource_str.c_str(),
                          (overused_wires > 0 || tmgfail > 0) ? "NA" : std::to_string(arch_fail).c_str());
+            if (is_tmg_ripup_iter)
+                log_info("        timing-driven ripup ripped up %d arcs, TNS=%.02fns\n", tmgfail, tns);
             ++iter;
-            if (curr_cong_weight < 1e9)
+            if (is_tmg_ripup_iter)
+                curr_cong_weight = cfg.init_curr_cong_weight;
+            else if (curr_cong_weight < 1e9)
                 curr_cong_weight += cfg.curr_cong_mult;
         } while (!failed_nets.empty());
         if (cfg.perf_profile) {
