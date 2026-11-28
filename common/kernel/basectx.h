@@ -25,7 +25,7 @@
 #include <unordered_map>
 #include <vector>
 #ifndef NPNR_DISABLE_THREADS
-#include <boost/thread.hpp>
+#include <thread>
 #endif
 
 #include "hashlib.h"
@@ -44,7 +44,7 @@ struct BaseCtx
 #ifndef NPNR_DISABLE_THREADS
     // Lock to perform mutating actions on the Context.
     std::mutex mutex;
-    boost::thread::id mutex_owner;
+    std::thread::id mutex_owner;
 
     // Lock to be taken by UI when wanting to access context - the yield()
     // method will lock/unlock it when its' released the main mutex to make
@@ -113,14 +113,14 @@ struct BaseCtx
     {
 #ifndef NPNR_DISABLE_THREADS
         mutex.lock();
-        mutex_owner = boost::this_thread::get_id();
+        mutex_owner = std::this_thread::get_id();
 #endif
     }
 
     void unlock(void)
     {
 #ifndef NPNR_DISABLE_THREADS
-        NPNR_ASSERT(boost::this_thread::get_id() == mutex_owner);
+        NPNR_ASSERT(std::this_thread::get_id() == mutex_owner);
         mutex.unlock();
 #endif
     }

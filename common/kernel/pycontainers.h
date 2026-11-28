@@ -26,6 +26,7 @@
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
+#include <functional>
 #include "nextpnr.h"
 #include "pywrappers.h"
 
@@ -167,7 +168,7 @@ struct vector_wrapper
 
     static return_t getitem(wrapped_vector &range, int i)
     {
-        return value_conv()(range.ctx, boost::ref(range.base.at(i)));
+        return value_conv()(range.ctx, std::ref(range.base.at(i)));
     }
 
     static void wrap(py::module &m, const char *range_name, const char *iter_name)
@@ -223,7 +224,7 @@ struct indexed_store_wrapper
         store_index<std::remove_reference_t<value_t>> idx(i);
         if (!range.base.count(idx))
             throw py::none();
-        return py::cast(value_conv()(range.ctx, boost::ref(range.base.at(idx))));
+        return py::cast(value_conv()(range.ctx, std::ref(range.base.at(idx))));
     }
 
     static void wrap(py::module &m, const char *range_name, const char *iter_name)
@@ -292,7 +293,7 @@ template <typename T1, typename T2> struct pair_wrapper
 
     static int len(T & /*x*/) { return 2; }
 
-    static iter_pair<T &, int> iter(T &x) { return iter_pair<T &, int>(boost::ref(x), 0); };
+    static iter_pair<T &, int> iter(T &x) { return iter_pair<T &, int>(std::ref(x), 0); };
 
     static void wrap(py::module &m, const char *pair_name, const char *iter_name)
     {
@@ -352,7 +353,7 @@ template <typename T1, typename T2, typename value_conv> struct map_pair_wrapper
 
     static iter_pair<wrapped_pair &, int> iter(wrapped_pair &x)
     {
-        return iter_pair<wrapped_pair &, int>(boost::ref(x), 0);
+        return iter_pair<wrapped_pair &, int>(std::ref(x), 0);
     };
 
     static std::string first_getter(wrapped_pair &t)
@@ -480,7 +481,7 @@ template <typename T1, typename T2> struct map_pair_wrapper_uptr
 
     static iter_pair<wrapped_pair &, int> iter(wrapped_pair &x)
     {
-        return iter_pair<wrapped_pair &, int>(boost::ref(x), 0);
+        return iter_pair<wrapped_pair &, int>(std::ref(x), 0);
     };
 
     static std::string first_getter(wrapped_pair &t)

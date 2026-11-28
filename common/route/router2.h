@@ -18,6 +18,7 @@
  */
 
 #include "nextpnr.h"
+#include <functional>
 
 NEXTPNR_NAMESPACE_BEGIN
 
