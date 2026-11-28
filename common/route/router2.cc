@@ -824,6 +824,8 @@ struct Router2
         // Calculate a timing weight based on criticality
         float crit = get_arc_crit(net, i);
         float crit_weight = std::max<float>(0.05f, (1.0f - std::pow(crit, 2)));
+        // normalise in later iterations to avoid all arcs having very low weights
+        crit_weight = std::min(crit_weight / max_crit_weight, 1.f);
         ROUTE_LOG_DBG("     crit=%.3f crit_weight=%.3f\n", crit, crit_weight);
         // Check if arc was already done _in this iteration_
         if (t.processed_sinks.count(dst_wire))
@@ -1555,13 +1557,34 @@ struct Router2
         }
     }
 
+    float max_crit_weight = 1;
+
     void do_route()
     {
         // Don't multithread if fewer than 200 nets (heuristic)
+        max_crit_weight = 1;
         if (route_queue.size() < 200) {
             ThreadContext st;
             st.rng.rngseed(ctx->rng64());
             st.bb = BoundingBox(0, 0, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
+
+            max_crit_weight = 0.05f;
+            for (size_t j = 0; j < route_queue.size(); j++) {
+                auto &nd = nets[route_queue[j]];
+                NetInfo *net = nets_by_udata[route_queue[j]];
+                for (auto usr : net->users.enumerate()) {
+                    auto &ad = nd.arcs.at(usr.index.idx());
+                    for (size_t k = 0; k < ad.size(); k++) {
+                        // check every arc that we are actually routing
+                        // TODO: reduce wasted work here
+                        if (!check_arc_routing(net, usr.index, k)) {
+                            auto crit_weight = std::max<float>(0.05f, (1.0f - std::pow(get_arc_crit(net, usr.index), 2)));
+                            max_crit_weight = std::max(max_crit_weight, crit_weight);
+                        }
+                    }
+                }
+            }
+
             for (size_t j = 0; j < route_queue.size(); j++) {
                 route_net(st, nets_by_udata[route_queue[j]], false);
             }
