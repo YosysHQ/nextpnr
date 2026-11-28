@@ -52,6 +52,11 @@
 #include "timing.h"
 #include "util.h"
 
+#ifndef NPNR_DISABLE_THREADS
+#include <thread>
+#endif
+
+
 NEXTPNR_NAMESPACE_BEGIN
 
 namespace {
@@ -193,7 +198,7 @@ class HeAPPlacer
             build_solve_direction(false, -1);
             build_solve_direction(true, -1);
 #else
-            boost::thread xaxis([&]() { build_solve_direction(false, -1); });
+            std::thread xaxis([&]() { build_solve_direction(false, -1); });
             build_solve_direction(true, -1);
             xaxis.join();
 #endif
@@ -261,7 +266,7 @@ class HeAPPlacer
                 // Build the connectivity matrix and run the solver; multithreaded between x and y axes if applicable
 #ifndef NPNR_DISABLE_THREADS
                 if (solve_cells.size() >= 500) {
-                    boost::thread xaxis([&]() { build_solve_direction(false, (iter == 0) ? -1 : iter); });
+                    std::thread xaxis([&]() { build_solve_direction(false, (iter == 0) ? -1 : iter); });
                     build_solve_direction(true, (iter == 0) ? -1 : iter);
                     xaxis.join();
                 } else

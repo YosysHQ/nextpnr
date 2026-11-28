@@ -38,6 +38,10 @@
 #include <queue>
 #include <set>
 
+#ifndef NPNR_DISABLE_THREADS
+#include <thread>
+#endif
+
 #include "log.h"
 #include "nextpnr.h"
 #include "nextpnr_assertions.h"
@@ -1619,7 +1623,7 @@ struct Router2
         }
 #else
         // Multithreaded part of routing - quadrants
-        std::vector<boost::thread> threads;
+        std::vector<std::thread> threads;
         for (int i = 0; i < Nq; i++) {
             threads.emplace_back([this, &tcs, i]() { router_thread(tcs.at(i), /*is_mt=*/true); });
         }

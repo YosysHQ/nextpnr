@@ -211,9 +211,6 @@ else()
 endif()
 
 set(boost_libs program_options iostreams)
-if (Threads_FOUND)
-    list(APPEND boost_libs thread)
-endif()
 find_package(Boost REQUIRED COMPONENTS ${boost_libs})
 
 if (BUILD_PYTHON)
