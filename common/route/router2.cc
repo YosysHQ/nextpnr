@@ -795,9 +795,12 @@ struct Router2
         return tmg.get_criticality(CellPortKey(net->users.at(i)));
     }
 
+    bool is_tmg_ripup_iter = false, is_tmg_fix_mode = false;
+    int tmg_iters = 0;
+
     bool arc_failed_slack(NetInfo *net, store_index<PortRef> usr_idx)
     {
-        return timing_driven_ripup &&
+        return is_tmg_ripup_iter &&
                (tmg.get_setup_slack(CellPortKey(net->users.at(usr_idx))) < (2 * ctx->getDelayEpsilon()));
     }
 
@@ -835,7 +838,7 @@ struct Router2
         //     0. starting within a small range of existing routing
         //     1. expanding from all routing
         int mode = 0;
-        if (net->users.entries() < 4 || nd.wires.empty() || (crit > 0.95) || curr_cong_weight >= 100)
+        if (is_tmg_fix_mode || net->users.entries() < 4 || nd.wires.empty() || (crit > 0.95) || curr_cong_weight >= 100)
             mode = 1;
 
         // This records the point where forwards and backwards routing met
@@ -869,16 +872,18 @@ struct Router2
             };
             auto &dst_data = flat_wires.at(dst_wire_idx);
             // Look for nearby existing routing
-            for (int dy = -cfg.bb_margin_y; dy <= cfg.bb_margin_y; dy++)
-                for (int dx = -cfg.bb_margin_x; dx <= cfg.bb_margin_x; dx++) {
-                    auto fnd = t.wire_by_loc.find(std::make_pair(dst_data.x + dx, dst_data.y + dy));
-                    if (fnd == t.wire_by_loc.end())
-                        continue;
-                    for (WireId wire : fnd->second) {
-                        ROUTE_LOG_DBG("   seeding with %s (cost=%.2f)\n", ctx->nameOfWire(wire), t.in_wire_by_loc.at(wire));
-                        seed_queue_fwd(wire, t.in_wire_by_loc.at(wire));
+            if (!is_tmg_fix_mode) {
+                for (int dy = -cfg.bb_margin_y; dy <= cfg.bb_margin_y; dy++)
+                    for (int dx = -cfg.bb_margin_x; dx <= cfg.bb_margin_x; dx++) {
+                        auto fnd = t.wire_by_loc.find(std::make_pair(dst_data.x + dx, dst_data.y + dy));
+                        if (fnd == t.wire_by_loc.end())
+                            continue;
+                        for (WireId wire : fnd->second) {
+                            ROUTE_LOG_DBG("   seeding with %s (cost=%.2f)\n", ctx->nameOfWire(wire), t.in_wire_by_loc.at(wire));
+                            seed_queue_fwd(wire, t.in_wire_by_loc.at(wire));
+                        }
                     }
-                }
+            }
 
             if (mode == 0 && t.fwd_queue.size() < 4)
                 continue;
@@ -1168,11 +1173,9 @@ struct Router2
         t.wire_by_loc.clear();
         t.in_wire_by_loc.clear();
         auto &nd = nets.at(net->udata);
-        bool failed_slack = false;
-        for (auto usr : net->users.enumerate())
-            failed_slack |= arc_failed_slack(net, usr.index);
         for (auto usr : net->users.enumerate()) {
             auto &ad = nd.arcs.at(usr.index.idx());
+            bool failed_slack = arc_failed_slack(net, usr.index);
             for (size_t j = 0; j < ad.size(); j++) {
                 // Ripup failed arcs to start with
                 // Check if arc is already legally routed
@@ -1567,19 +1570,20 @@ struct Router2
             ThreadContext st;
             st.rng.rngseed(ctx->rng64());
             st.bb = BoundingBox(0, 0, std::numeric_limits<int>::max(), std::numeric_limits<int>::max());
-
-            max_crit_weight = 0.05f;
-            for (size_t j = 0; j < route_queue.size(); j++) {
-                auto &nd = nets[route_queue[j]];
-                NetInfo *net = nets_by_udata[route_queue[j]];
-                for (auto usr : net->users.enumerate()) {
-                    auto &ad = nd.arcs.at(usr.index.idx());
-                    for (size_t k = 0; k < ad.size(); k++) {
-                        // check every arc that we are actually routing
-                        // TODO: reduce wasted work here
-                        if (!check_arc_routing(net, usr.index, k)) {
-                            auto crit_weight = std::max<float>(0.05f, (1.0f - std::pow(get_arc_crit(net, usr.index), 2)));
-                            max_crit_weight = std::max(max_crit_weight, crit_weight);
+            if (!is_tmg_ripup_iter) {
+                max_crit_weight = 0.05f;
+                for (size_t j = 0; j < route_queue.size(); j++) {
+                    auto &nd = nets[route_queue[j]];
+                    NetInfo *net = nets_by_udata[route_queue[j]];
+                    for (auto usr : net->users.enumerate()) {
+                        auto &ad = nd.arcs.at(usr.index.idx());
+                        for (size_t k = 0; k < ad.size(); k++) {
+                            // check every arc that we are actually routing
+                            // TODO: reduce wasted work here
+                            if (!check_arc_routing(net, usr.index, k) || arc_failed_slack(net, usr.index)) {
+                                auto crit_weight = std::max<float>(0.05f, (1.0f - std::pow(get_arc_crit(net, usr.index), 2)));
+                                max_crit_weight = std::max(max_crit_weight, crit_weight);
+                            }
                         }
                     }
                 }
@@ -1808,18 +1812,25 @@ struct Router2
                 }
             }
             int tmgfail = 0;
+            float tns = 0.f;
             if (timing_driven)
                 tmg.run(false);
-            if (timing_driven_ripup && iter < 1500) {
+            is_tmg_ripup_iter = false;
+            if (timing_driven_ripup && tmg_iters < 10 && overused_wires == 0 && overused_resources == 0) {
                 for (size_t i = 0; i < nets_by_udata.size(); i++) {
                     NetInfo *ni = nets_by_udata.at(i);
                     for (auto usr : ni->users.enumerate()) {
-                        if (arc_failed_slack(ni, usr.index)) {
+                        auto slack = tmg.get_setup_slack(CellPortKey(ni->users.at(usr.index)));
+                        if (slack < 2 * ctx->getDelayEpsilon()) {
                             failed_nets.insert(i);
+                            tns += std::min(ctx->getDelayNS(slack), 0.f);
                             ++tmgfail;
                         }
                     }
                 }
+                ++tmg_iters;
+                is_tmg_ripup_iter = true;
+                is_tmg_fix_mode = true;
             }
             if (overused_wires == 0 && overused_resources == 0 && tmgfail == 0) {
                 // Try and actually bind nextpnr Arch API wires
@@ -1831,17 +1842,15 @@ struct Router2
                                                ? ""
                                                : stringf("resources=%d overused=%d overuse=%d ", total_resource_use,
                                                          overused_resources, total_resource_overuse);
-            if (timing_driven_ripup)
-                log_info("    iter=%d wires=%d overused=%d overuse=%d %stmgfail=%d "
-                         "archfail=%s\n",
-                         iter, total_wire_use, overused_wires, total_wire_overuse, resource_str.c_str(), tmgfail,
-                         (overused_wires > 0 || tmgfail > 0) ? "NA" : std::to_string(arch_fail).c_str());
-            else
-                log_info("    iter=%d wires=%d overused=%d overuse=%d %sarchfail=%s\n", iter, total_wire_use,
+            log_info("    iter=%d wires=%d overused=%d overuse=%d %sarchfail=%s\n", iter, total_wire_use,
                          overused_wires, total_wire_overuse, resource_str.c_str(),
                          (overused_wires > 0 || tmgfail > 0) ? "NA" : std::to_string(arch_fail).c_str());
+            if (is_tmg_ripup_iter)
+                log_info("        timing-driven ripup ripped up %d arcs, TNS=%.02fns\n", tmgfail, tns);
             ++iter;
-            if (curr_cong_weight < 1e9)
+            if (is_tmg_ripup_iter)
+                curr_cong_weight = cfg.init_curr_cong_weight;
+            else if (curr_cong_weight < 1e9)
                 curr_cong_weight += cfg.curr_cong_mult;
         } while (!failed_nets.empty());
         if (cfg.perf_profile) {
